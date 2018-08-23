@@ -1,0 +1,290 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AtAndSinceCannotBeBothSpecified" xml:space="preserve">
+    <value>{0} and {1} cannot be both specified.</value>
+  </data>
+  <data name="CapabilityStatementSingleRestItem" xml:space="preserve">
+    <value>CapabilityStatement must only have a single item in the 'Rest' collection.</value>
+  </data>
+  <data name="ChainedParameterMustBeReferenceSearchParamType" xml:space="preserve">
+    <value>The chained parameter must be a reference search parameter type.</value>
+  </data>
+  <data name="ChainedParameterNotSupported" xml:space="preserve">
+    <value>The chained parameter is not supported.</value>
+  </data>
+  <data name="ComparatorNotSupported" xml:space="preserve">
+    <value>The comparator '{0}' is not supported for search parameter '{1}'.</value>
+  </data>
+  <data name="DeleteVersionNotAllowed" xml:space="preserve">
+    <value>Deleting a specific record version is not supported.</value>
+  </data>
+  <data name="IdRequirements" xml:space="preserve">
+    <value>(Id) Must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z', numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID or any other identifier pattern that meets these constraints.)</value>
+  </data>
+  <data name="IfMatchHeaderRequiredForResource" xml:space="preserve">
+    <value>A valid if-match header is required for resource type '{0}'.</value>
+  </data>
+  <data name="IllegalHtmlAttribute" xml:space="preserve">
+    <value>Illegal attribute name '{0}' on element '{1}'</value>
+  </data>
+  <data name="IllegalHtmlDiagnostics" xml:space="preserve">
+    <value>{0}: {1}</value>
+    <comment>{0}: Observation.text.div, {1}: Has illegal element 'Script'</comment>
+  </data>
+  <data name="IllegalHtmlElement" xml:space="preserve">
+    <value>Illegal element name '{0}'</value>
+  </data>
+  <data name="IllegalHtmlEmpty" xml:space="preserve">
+    <value>The div element must have some non-whitespace content (text or an image)</value>
+  </data>
+  <data name="IllegalHtmlOuterDiv" xml:space="preserve">
+    <value>XHTML content should be contained within a single &lt;div&gt; element</value>
+  </data>
+  <data name="IllegalHtmlParsingError" xml:space="preserve">
+    <value>Error while parsing XHTML: {0} Line: {1} Col: {2}</value>
+  </data>
+  <data name="InvalidBooleanConfigSetting" xml:space="preserve">
+    <value>Field '{0}' with value '{1}' is not supported.</value>
+  </data>
+  <data name="InvalidContinuationToken" xml:space="preserve">
+    <value>The continuation token is invalid.</value>
+  </data>
+  <data name="InvalidEnumConfigSetting" xml:space="preserve">
+    <value>Field '{0}' with value '{1}' is not supported. Please select from the following list of supported capabilities: [{2}]."</value>
+  </data>
+  <data name="InvalidListConfigSetting" xml:space="preserve">
+    <value>Unsupported values for field '{0}' were selected. Please check your configured options.</value>
+  </data>
+  <data name="InvalidSearchCountSpecified" xml:space="preserve">
+    <value>The count must be greater than zero.</value>
+  </data>
+  <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
+    <value>The value should be a boolean string if :missing modifier is specified.</value>
+  </data>
+  <data name="MethodReturnedNull" xml:space="preserve">
+    <value>The {0} returned null.</value>
+  </data>
+  <data name="ModifierNotSupported" xml:space="preserve">
+    <value>The modifier '{0}' is not supported for search parameter '{1}'.</value>
+  </data>
+  <data name="MoreThanOneTokenSeparatorSpecified" xml:space="preserve">
+    <value>More than one token separator character specified.</value>
+  </data>
+  <data name="MoreThanTwoTokenSeparatorSpecified" xml:space="preserve">
+    <value>More than two token separator characters specified.</value>
+  </data>
+  <data name="MultipleQueryParametersNotAllowed" xml:space="preserve">
+    <value>Multiple '{0}' query parameters cannot be specified.</value>
+  </data>
+  <data name="NumberOfCompositeComponentsExceeded" xml:space="preserve">
+    <value>The number of composite components specified for search parameter '{0}' exceeded the number of components defined.</value>
+  </data>
+  <data name="OnlyEqualComparatorIsSupported" xml:space="preserve">
+    <value>Only equal comparator is supported for this search type.</value>
+  </data>
+  <data name="OnlyOneModifierSeparatorSupported" xml:space="preserve">
+    <value>Only one modifier separator can be specified. Value: '{0}'.</value>
+  </data>
+  <data name="OpenIdConfiguration" xml:space="preserve">
+    <value>There was a problem with retrieving the OpenId configuration from the authentication provider.</value>
+  </data>
+  <data name="ReadHistoryDisabled" xml:space="preserve">
+    <value>ReadHistory is disabled for resources of type '{0}'.</value>
+  </data>
+  <data name="RequestedActionNotAllowed" xml:space="preserve">
+    <value>The requested action was not allowed</value>
+  </data>
+  <data name="ResourceCreationNotAllowed" xml:space="preserve">
+    <value>Resource creation is not allowed.</value>
+  </data>
+  <data name="ResourceNotFoundById" xml:space="preserve">
+    <value>Resource type '{0}' with id '{1}' couldn't be found.</value>
+  </data>
+  <data name="ResourceNotFoundByIdAndVersion" xml:space="preserve">
+    <value>Resource type '{0}' with id '{1}' and version '{2}' couldn't be found.</value>
+  </data>
+  <data name="ResourceNotSupported" xml:space="preserve">
+    <value>The resource type '{0}' is not supported.</value>
+  </data>
+  <data name="ResourceVersionConflict" xml:space="preserve">
+    <value>The supplied version '{0}' did not match.</value>
+    <comment>{0}: ETag</comment>
+  </data>
+  <data name="SearchComparatorNotSupported" xml:space="preserve">
+    <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>
+  </data>
+  <data name="SearchParameterByDefinitionUriNotSupported" xml:space="preserve">
+    <value>The search parameter with definition URL '{0}' is not supported.</value>
+  </data>
+  <data name="SearchParameterDefinitionBaseNotDefined" xml:space="preserve">
+    <value>bundle.entry[{0}].resource.base is not defined.</value>
+  </data>
+  <data name="SearchParameterDefinitionComponentReferenceCannotBeComposite" xml:space="preserve">
+    <value>bundle.entry[{0}].component[{1}] cannot be pointing to a composite SearchParameter.</value>
+  </data>
+  <data name="SearchParameterDefinitionContainsInvalidEntry" xml:space="preserve">
+    <value>The search parameter definition contains one or mroe invalid entries.</value>
+  </data>
+  <data name="SearchParameterDefinitionDuplicatedEntry" xml:space="preserve">
+    <value>A search parameter with the same definition URL '{0}' already exists.</value>
+  </data>
+  <data name="SearchParameterDefinitionInvalidComponent" xml:space="preserve">
+    <value>bundle.entry[{0}].component is null or empty.</value>
+  </data>
+  <data name="SearchParameterDefinitionInvalidComponentExpression" xml:space="preserve">
+    <value>bundle.entry[{0}].component[{1}].expression is null or empty.</value>
+  </data>
+  <data name="SearchParameterDefinitionInvalidComponentReference" xml:space="preserve">
+    <value>bundle.entry[{0}].component[{1}].definition.reference is null or empty, or is not pointing to a valid SearchParameter resource.</value>
+  </data>
+  <data name="SearchParameterDefinitionInvalidDefinitionUri" xml:space="preserve">
+    <value>bundle.entry[{0}].url is invalid.</value>
+  </data>
+  <data name="SearchParameterDefinitionInvalidExpression" xml:space="preserve">
+    <value>bundle.entry[{0}].resource.expression is null or empty.</value>
+  </data>
+  <data name="SearchParameterDefinitionInvalidResource" xml:space="preserve">
+    <value>bundle.entry[{0}].resource is not a SearchParameter resource.</value>
+  </data>
+  <data name="SearchParameterNotSupported" xml:space="preserve">
+    <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
+  </data>
+  <data name="ServerName" xml:space="preserve">
+    <value>Microsoft FHIR Server</value>
+  </data>
+  <data name="ServiceUnavailable" xml:space="preserve">
+    <value>The operation could not be completed because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support.</value>
+  </data>
+  <data name="SpecifiedResourceTypeIsNotReferenceType" xml:space="preserve">
+    <value>The specified resource type '{0}' is not a reference type.</value>
+  </data>
+  <data name="UnsupportedConfigurationMessage" xml:space="preserve">
+    <value>Unsupported Configuration was selected</value>
+  </data>
+  <data name="UpdateRequestsRequireId" xml:space="preserve">
+    <value>Update requests must contain an Id</value>
+  </data>
+  <data name="VersionIdFormatNotETag" xml:space="preserve">
+    <value>VersionId should not be in the weak ETag format</value>
+  </data>
+  <data name="WeakETagFormatRequired" xml:space="preserve">
+    <value>WeakETag must be in the weak ETag format</value>
+  </data>
+</root>

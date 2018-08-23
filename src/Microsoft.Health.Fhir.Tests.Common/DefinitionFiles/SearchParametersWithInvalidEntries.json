@@ -1,0 +1,189 @@
+{
+  "resourceType": "Bundle",
+  "id": "searchParams",
+  "meta": {
+    "lastUpdated": "2017-04-19T07:44:43.294+10:00"
+  },
+  "type": "collection",
+    "entry": [
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/DomainResource-text",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "DomainResource-text",
+                "url": "http://hl7.org/fhir/SearchParameter/DomainResource-text",
+                "name": "_text",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_text",
+                "base": [
+                    "DomainResource"
+                ],
+                "type": "string",
+                "description": "Search on the narrative of the resource",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://abc.com/Observation/123",
+            "resource": {
+                "resourceType": "Observation",
+                "id": "eye-color",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: eye-color</p><p><b>status</b>: final</p><p><b>code</b>: eye color <span>(Details )</span></p><p><b>subject</b>: <a>Patient/example</a></p><p><b>effective</b>: 18/05/2016</p><p><b>value</b>: blue</p></div>"
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "162806009",
+                            "display": "On examination - general eye examination (finding)"
+                        }
+                    ],
+                    "text": "eye color"
+                },
+                "subject": {
+                    "reference": "Patient/example"
+                },
+                "effectiveDateTime": "2016-05-18",
+                "valueString": "blue"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Resource-content",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Resource-content",
+                "url": "http://hl7.org/fhir/SearchParameter/Resource-content",
+                "name": "_content",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_content",
+                "base": [
+                    "Resource"
+                ],
+                "type": "string",
+                "description": "Search on the entire content of the resource",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "test",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Resource-content",
+                "url": "test",
+                "name": "_content",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_content",
+                "base": [
+                    "Resource"
+                ],
+                "type": "string",
+                "description": "Search on the entire content of the resource",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Resource-content",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Resource-content",
+                "url": "http://hl7.org/fhir/SearchParameter/Resource-content",
+                "name": "_content",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_content",
+                "base": [
+                    "Resource"
+                ],
+                "type": "string",
+                "description": "Search on the entire content of the resource",
+                "xpathUsage": "normal"
+            }
+        }
+    ]
+}

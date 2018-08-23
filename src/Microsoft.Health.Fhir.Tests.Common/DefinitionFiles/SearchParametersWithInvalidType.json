@@ -1,0 +1,48 @@
+{
+  "resourceType": "Bundle",
+  "id": "searchParams",
+  "meta": {
+    "lastUpdated": "2017-04-19T07:44:43.294+10:00"
+  },
+  "type": "collection",
+    "entry": [
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/DomainResource-text",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "DomainResource-text",
+                "url": "http://hl7.org/fhir/SearchParameter/DomainResource-text",
+                "name": "_text",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_text",
+                "base": [
+                    "DomainResource"
+                ],
+                "type": "",
+                "description": "Search on the narrative of the resource",
+                "xpathUsage": "normal"
+            }
+        },
+    ]
+}

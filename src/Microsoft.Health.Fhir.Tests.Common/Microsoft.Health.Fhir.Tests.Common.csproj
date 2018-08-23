@@ -1,0 +1,86 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    
+    <IsPackable>true</IsPackable>
+    <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <LangVersion>latest</LangVersion>
+    <HighEntropyVA>true</HighEntropyVA>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="DefinitionFiles\SearchParameters.json" />
+    <None Remove="DefinitionFiles\SearchParametersWithInvalidBase.json" />
+    <None Remove="DefinitionFiles\SearchParametersWithInvalidDefinitions.json" />
+    <None Remove="DefinitionFiles\SearchParametersWithInvalidEntries.json" />
+    <None Remove="DefinitionFiles\SearchParametersWithInvalidType.json" />
+    <None Remove="DefinitionFiles\SearchParametersWithNullEntry.json" />
+    <None Remove="TestFiles\BasicExampleNarrative.json" />
+    <None Remove="TestFiles\BasicExampleNarrative.xml" />
+    <None Remove="TestFiles\BloodGlucose.json" />
+    <None Remove="TestFiles\BloodPressure.json" />
+    <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
+    <None Remove="TestFiles\ObservationWithEyeColor.json" />
+    <None Remove="TestFiles\ObservationWithInvalidStatus.json" />
+    <None Remove="TestFiles\ObservationWithInvalidStatus.xml" />
+    <None Remove="TestFiles\ObservationWithNoCode.json" />
+    <None Remove="TestFiles\ObservationWithNoCode.xml" />
+    <None Remove="TestFiles\ObservationWithTemperature.json" />
+    <None Remove="TestFiles\ObservationWithTPMTDiplotype.json" />
+    <None Remove="TestFiles\ObservationWithTPMTHaplotypeOne.json" />
+    <None Remove="TestFiles\Organization.json" />
+    <None Remove="TestFiles\Patient.json" />
+    <None Remove="TestFiles\Patient.xml" />
+    <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
+    <None Remove="TestFiles\Weight.json" />
+    <None Remove="TestFiles\WeightInGrams.json" />
+    <None Remove="TestFiles\WeightInPounds.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\stylecop.json" Link="stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithInvalidType.json" />
+    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithInvalidDefinitions.json" />
+    <EmbeddedResource Include="DefinitionFiles\SearchParameters.json" />
+    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithInvalidBase.json" />
+    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithNullEntry.json" />
+    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\BasicExampleNarrative.json" />
+    <EmbeddedResource Include="TestFiles\BasicExampleNarrative.xml" />
+    <EmbeddedResource Include="TestFiles\BloodGlucose.json" />
+    <EmbeddedResource Include="TestFiles\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWith20MinuteApgarScore.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWithEyeColor.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWithTemperature.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWithTPMTDiplotype.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWithTPMTHaplotypeOne.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWithInvalidStatus.xml" />
+    <EmbeddedResource Include="TestFiles\ObservationWithInvalidStatus.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWithNoCode.xml" />
+    <EmbeddedResource Include="TestFiles\ObservationWithNoCode.json" />
+    <EmbeddedResource Include="TestFiles\Organization.json" />
+    <EmbeddedResource Include="TestFiles\Patient.json" />
+    <EmbeddedResource Include="TestFiles\Patient.xml" />
+    <EmbeddedResource Include="TestFiles\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\Weight.json" />
+    <EmbeddedResource Include="TestFiles\WeightInGrams.json" />
+    <EmbeddedResource Include="TestFiles\WeightInPounds.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hl7.Fhir.STU3" Version="0.96.0" />
+    <PackageReference Include="NSubstitute" Version="3.1.0" />
+    <PackageReference Include="xunit" Version="2.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
+
+</Project>

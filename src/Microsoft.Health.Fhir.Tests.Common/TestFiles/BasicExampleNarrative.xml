@@ -1,0 +1,237 @@
+﻿<?xml version="1.0" encoding="UTF-8"?><Basic xmlns="http://hl7.org/fhir">
+  <id value="basic-example-narrative"/>
+  <text>
+    <status value="additional"/>
+    <div xmlns="http://www.w3.org/1999/xhtml">
+      <h1>Example Narrative</h1> 
+      <h2>Plain HTML, No Styles</h2> 
+      <h3>Heading 3</h3>
+      <h4>Heading 4</h4>
+      <h5>Heading 5</h5>
+      <h6>Heading 6</h6>
+      <p>
+        Paragraph. <span>span</span>. <a href="#link">Link</a>. <b>Bold</b>, br:<br/> <em>em</em>, <i>Italics</i>,
+        <strong>strong</strong>, <small>small</small>, <big>big</big> <tt>Teletype Text</tt>, <small>small</small>, 
+        <dfn>Definition term</dfn>, <q>q</q>, <var>var</var>.
+        All provided by 
+        <abbr title="Health Level 7">HL7</abbr>, for <acronym title="Fast Healthcare Interoperability Resources">FHIR</acronym> (<cite>cite</cite>).
+      </p>
+      <blockquote>
+        <p>Paragraph in a blockquote, with an hr after it:</p>
+      </blockquote>
+      <hr/>
+      <div>
+      <p>Paragraph in a div (<a name="link">Link Target</a>)</p>
+      </div>   
+      <ul>
+        <li>Unordered List Item</li>      
+      </ul>   
+      <ol>
+        <li>Ordered List Item</li>
+      </ol>
+      <dl>
+        <dt>DT Item</dt><dd>DD Item</dd>
+      </dl>
+      <pre>
+        Some Pre Text
+          with a line break
+      </pre>
+      <p>Table:</p>
+      <table>
+        <caption>Table Caption</caption>
+        <colgroup>
+          <col span="2" style="background-color:red"/>
+          <col style="background-color:yellow"/>
+        </colgroup>      
+        <thead>
+          <tr>
+            <th>Head Cell 1</th>
+            <th>Head Cell 2</th>
+            <th>Head Cell 3</th>
+          </tr>
+        </thead>
+        <tfoot>
+          <tr>
+            <td>Foot Cell 1</td>
+            <td>Foot Cell 2</td>
+            <td>Foot Cell 3</td>
+          </tr>
+        </tfoot>
+        <tbody>
+          <tr>
+            <td>Body Cell 1</td>
+            <td>Body Cell 2</td>
+            <td>Body Cell 3</td>
+          </tr>
+        </tbody>
+      </table>
+      <code>Code Block</code>
+      <samp>Sample Block</samp>
+      <h2>External Styles</h2> 
+      <h3>Text:</h3> 
+      <p>Example Text: <span class="bold">bold</span>, <span class="italics">italics</span>, <span class="underline">underline</span> 
+        and <span class="strikethrough">strikethrough</span></p>
+      <p class="left">This paragraph is left aligned. The content should be laid out aligned at the left of the screen. The content should be laid out aligned at the left of the screen. The content should be laid out aligned at the left of the screen. The content should be laid out aligned at the left of the screen. The content should be laid out aligned at the left of the screen. </p>  
+      <p class="right">This paragraph is right aligned. The content should be laid out aligned at the right of the screen. The content should be laid out aligned at the right of the screen. The content should be laid out aligned at the right of the screen. The content should be laid out aligned at the right of the screen. The content should be laid out aligned at the right of the screen. </p>  
+      <p class="center">This paragraph is center aligned. The content should be laid out aligned at the center of the screen. The content should be laid out aligned at the center of the screen. The content should be laid out aligned at the center of the screen. The content should be laid out aligned at the center of the screen. The content should be laid out aligned at the center of the screen. </p>  
+      <p class="justify">This paragraph is justified. The content should be laid out aligned at both the left and right of the screen. The content should be laid out aligned at both the left and right of the screen. The content should be laid out aligned at both the left and right of the screen. The content should be laid out aligned at both the left and right of the screen. The content should be laid out aligned at both the left and right of the screen.  </p>  
+      <h3>Table:</h3> 
+      <table>
+        <tr>
+          <td class="border-left">Border Left</td>
+          <td class="border-right">Border Right</td>
+          <td class="border-top">Border Top</td>
+          <td class="border-bottom">Border Bottom</td>
+        </tr>
+      </table>
+      <h3>List:</h3> 
+      <ol class="arabic">
+        <li>arabic (Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol class="little-roman">
+        <li>little-roman (Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol class="big-roman">
+        <li>big-roman (Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol class="little-alpha">
+        <li>little-alpha (Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol class="big-alpha">
+        <li>big-alpha (Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ul class="unlist">
+        <li>unlist (Item 1)</li>
+        <li>Item Two</li>
+      </ul>
+      <ul class="disc">
+        <li>disc (Item 1)</li>
+        <li>Item Two</li>
+      </ul>
+      <ul class="circle">
+        <li>circle (Item 1)</li>
+        <li>Item Two</li>
+      </ul>
+      <ul class="square">
+        <li>square (Item 1)</li>
+        <li>Item Two</li>
+      </ul>
+      <h2>Internal Styles</h2>
+      <p>Example Text: <span style="font-weight: bold">bold</span>, <span style="font-style: italics">italics</span>, <span style="text-decoration: underline">underline</span> 
+        and <span style="text-decoration: line-through">strikethrough</span>. 
+        Font-Family <span style="font-family: serif">Serif</span> and <span style="font-family: sans-serif">Sans Serif</span>, 
+        Font-size <span style="font-size: 50%">50%</span> <span style="font-size: 80%">80%</span> <span style="font-size: 150%">150%</span>, 
+        Font-Color  <span style="color: navy">Navy</span> <span style="color: maroon">Maroon</span> <span style="color: brown">Brown</span>,
+        Background-color <span style="background-color: aqua">Aqua</span> <span style="color: silver">Silver</span> <span style="color: pink">Pink</span>.
+       </p>
+       <p>
+         Whitespace Control:
+       </p>
+       <p style="white-space: normal">Normal    Whitespace
+          Test, long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long sentence</p>
+       <p style="white-space: nowrap">No-Wrap    Whitespace
+          Test, long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long sentence</p>
+       <p style="white-space: pre">Pre    Whitespace
+          Test, long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long sentence</p>
+       <p style="white-space: pre-line">Pre-Line    Whitespace
+          Test, long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long sentence</p>
+       <p style="white-space: pre-wrap">Pre-Wrap    Whitespace
+          Test, long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long sentence</p>
+        
+      <p style="text-align: left">This paragraph is left aligned. The content should be laid out aligned at the left of the screen. The content should be laid out aligned at the left of the screen. The content should be laid out aligned at the left of the screen. The content should be laid out aligned at the left of the screen. The content should be laid out aligned at the left of the screen. </p>  
+      <p style="text-align: right">This paragraph is right aligned. The content should be laid out aligned at the right of the screen. The content should be laid out aligned at the right of the screen. The content should be laid out aligned at the right of the screen. The content should be laid out aligned at the right of the screen. The content should be laid out aligned at the right of the screen. </p>  
+      <p style="text-align: center">This paragraph is center aligned. The content should be laid out aligned at the center of the screen. The content should be laid out aligned at the center of the screen. The content should be laid out aligned at the center of the screen. The content should be laid out aligned at the center of the screen. The content should be laid out aligned at the center of the screen. </p>  
+      <p style="text-align: justify">This paragraph is justified. The content should be laid out aligned at both the left and right of the screen. The content should be laid out aligned at both the left and right of the screen. The content should be laid out aligned at both the left and right of the screen. The content should be laid out aligned at both the left and right of the screen. The content should be laid out aligned at both the left and right of the screen.  </p>  
+      
+      <ol style="list-style-type: armenian">
+        <li>armenian (Item 1)</li>
+        <li>Item Two</li>
+      </ol>      	
+      <ol style="list-style-type: cjk-ideographic">
+        <li>cjk-ideographic	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: decimal">
+        <li>decimal	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: decimal-leading-zero">
+        <li>decimal-leading-zero	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: georgian">
+        <li>georgian	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: hebrew">
+        <li>hebrew	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: hiragana">
+        <li>hiragana	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: hiragana-iroha">
+        <li>hiragana-iroha	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: inherit">
+        <li>inherit	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: katakana">
+        <li>katakana	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: katakana-iroha">
+        <li>katakana-iroha	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: lower-alpha">
+        <li>lower-alpha	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: lower-greek">
+        <li>lower-greek	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: lower-latin">
+        <li>lower-latin	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: lower-roman">
+        <li>lower-roman	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: none">
+        <li>none	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: upper-alpha">
+        <li>upper-alpha	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: upper-latin">
+        <li>upper-latin	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: upper-roman">
+        <li>upper-roman	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      <ol style="list-style-type: upper-roman">
+        <li>upper-roman	(Item 1)</li>
+        <li>Item Two</li>
+      </ol>
+      
+    </div>
+  </text>
+  <code>
+    <text value="Example Narrative Tester"/>
+  </code>
+</Basic>
