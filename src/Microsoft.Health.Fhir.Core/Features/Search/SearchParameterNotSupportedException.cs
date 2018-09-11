@@ -1,0 +1,65 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Diagnostics;
+using EnsureThat;
+using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Exceptions;
+
+namespace Microsoft.Health.Fhir.Core.Features.Search
+{
+    /// <summary>
+    /// The exception that is thrown when the search parameter is not supported.
+    /// </summary>
+    public class SearchParameterNotSupportedException : FhirException
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchParameterNotSupportedException"/> class.
+        /// </summary>
+        /// <param name="resourceType">The resource type.</param>
+        /// <param name="paramName">The parameter name.</param>
+        public SearchParameterNotSupportedException(Type resourceType, string paramName)
+        {
+            Debug.Assert(resourceType != null, $"{nameof(resourceType)} should not be null.");
+            Debug.Assert(!string.IsNullOrWhiteSpace(paramName), $"{nameof(paramName)} should not be null or whitespace.");
+
+            AddIssue(string.Format(Core.Resources.SearchParameterNotSupported, paramName, resourceType.Name));
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchParameterNotSupportedException"/> class.
+        /// </summary>
+        /// <param name="resourceType">The resource type.</param>
+        /// <param name="paramName">The parameter name.</param>
+        public SearchParameterNotSupportedException(ResourceType resourceType, string paramName)
+        {
+            Debug.Assert(!string.IsNullOrWhiteSpace(paramName), $"{nameof(paramName)} should not be null or whitespace.");
+
+            AddIssue(string.Format(Core.Resources.SearchParameterNotSupported, paramName, resourceType));
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchParameterNotSupportedException"/> class.
+        /// </summary>
+        /// <param name="definitionUri">The search parameter definition URL.</param>
+        public SearchParameterNotSupportedException(Uri definitionUri)
+        {
+            EnsureArg.IsNotNull(definitionUri, nameof(definitionUri));
+
+            AddIssue(string.Format(Core.Resources.SearchParameterByDefinitionUriNotSupported, definitionUri.ToString()));
+        }
+
+        private void AddIssue(string diagnostics)
+        {
+            Issues.Add(new OperationOutcome.IssueComponent
+            {
+                Severity = OperationOutcome.IssueSeverity.Error,
+                Code = OperationOutcome.IssueType.Forbidden,
+                Diagnostics = diagnostics,
+            });
+        }
+    }
+}

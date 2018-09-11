@@ -1,0 +1,66 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Xunit;
+
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
+{
+    public class UriSearchValueTests
+    {
+        private const string ParamNameUri = "uri";
+        private const string ParamNameS = "s";
+
+        [Fact]
+        public void GivenANullUri_WhenInitializing_ThenExceptionShouldBeThrown()
+        {
+            Assert.Throws<ArgumentNullException>(ParamNameUri, () => new UriSearchValue(null));
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("    ")]
+        public void GivenAnInvalidUri_WhenInitializing_ThenExceptionShouldBeThrown(string s)
+        {
+            Assert.Throws<ArgumentException>(ParamNameUri, () => new UriSearchValue(s));
+        }
+
+        [Fact]
+        public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
+        {
+            Assert.Throws<ArgumentNullException>(ParamNameS, () => UriSearchValue.Parse(null));
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("    ")]
+        public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
+        {
+            Assert.Throws<ArgumentException>(ParamNameS, () => UriSearchValue.Parse(s));
+        }
+
+        [Fact]
+        public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned()
+        {
+            string expected = "http://uri2";
+
+            UriSearchValue value = UriSearchValue.Parse(expected);
+
+            Assert.NotNull(value);
+            Assert.Equal(expected, value.Uri);
+        }
+
+        [Fact]
+        public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
+        {
+            string expected = "http://uri3";
+
+            UriSearchValue value = new UriSearchValue(expected);
+
+            Assert.Equal(expected, value.ToString());
+        }
+    }
+}

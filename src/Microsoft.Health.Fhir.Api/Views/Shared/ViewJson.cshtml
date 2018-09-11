@@ -1,0 +1,19 @@
+﻿@model Microsoft.Health.Fhir.Api.Models.CodePreviewModel
+@{
+    ViewData["Title"] = "Response";
+}
+<div class="container">
+    @if (!string.IsNullOrEmpty(Model.Div))
+    {
+        <div class="row">
+            <div class="col-xs-12 col-sm-10">
+                @Html.Raw(Model.Div)
+            </div>
+        </div>
+    }
+    <div class="row">
+        <div class="col-xs-12 col-sm-10">
+            <pre><code lang="application/json">@Model.Code</code></pre>
+        </div>
+    </div>
+</div>

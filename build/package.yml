@@ -1,0 +1,86 @@
+parameters:
+  # Default values
+  publishNugets: true
+
+steps:
+
+  # Package web
+  
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish web'
+    inputs:
+      command: publish
+      configuration: '$(buildConfiguration)'
+      projects: '**/Microsoft.Health.Fhir.Web.csproj'
+      arguments: '--output $(build.artifactStagingDirectory)/web'
+      publishWebProjects: false
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish Integration Tests'
+    inputs:
+      command: publish
+      configuration: '$(buildConfiguration)'
+      projects: 'test/**/*.csproj'
+      arguments: '--version-suffix $(build.buildnumber) -o "$(build.binariesdirectory)/IntegrationTests"'
+      publishWebProjects: false
+      zipAfterPublish: false
+
+  # Package nugets
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet pack nugets'
+    inputs:
+      command: pack
+      configuration: '$(buildConfiguration)'
+      projects: |
+       **/*.csproj
+       !**/*UnitTest*.csproj
+       !**/*Integration.csproj
+      packDirectory: '$(build.artifactStagingDirectory)/nupkgs'
+      versioningScheme: 'byEnvVar'
+      versionEnvVar: 'nuget_version'
+      nobuild: true
+      zipAfterPublish: true
+    env:
+      nuget_version: 1.0.0-$(build.buildNumber)
+
+  # Publish artifacts
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish web artifacts'
+    inputs:
+      pathToPublish: '$(build.artifactStagingDirectory)/web'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish web arm template'
+    inputs:
+      pathToPublish: './BaseARMTemplate.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish nuget artifacts'
+    inputs:
+      pathtoPublish: '$(build.artifactStagingDirectory)/nupkgs'
+      artifactName: 'nuget'
+      publishLocation: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish Integration Tests'
+    inputs:
+      pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
+      artifactName: 'IntegrationTests'
+      artifactType: 'container'
+
+  # Push nugets
+
+  - ${{ if eq(parameters.publishNugets, 'true') }}:
+    - task: NuGetCommand@2
+      displayName: 'push to internal feed'
+      inputs:
+        command: 'push'
+        nuGetFeedType: 'internal'
+        packagesToPush: '$(build.artifactStagingDirectory)/nupkgs/*.nupkg'
+        publishVstsFeed: 'InternalBuilds'

@@ -1,0 +1,21 @@
+<!-- List of Include Files and folders and exception lists for this repo for GeoPolitical scanning. Contact Joerow for detail. -->
+<!-- This file is consumed by PowerShell scripts in the 'health-localization' repo under the LocBuild\GeoPolitical folder(S) -->
+<!DOCTYPE varsdefined [
+<!ENTITY GitReposFolder "C:\GITs\Repos">
+<!ENTITY GitRepoName "fhir-server">
+]>
+
+<GeoPol_Folders>
+<!-- List of Folders to include for GeoPolitical scanning -->
+<SourceGitFolder>&GitReposFolder;\VSTS\&GitRepoName;</SourceGitFolder>
+<GitRepoName>&GitRepoName;</GitRepoName>
+  <Component Include="List here folders to Include in a GeoPol Scan">    
+  <!-- . means the entire repo -->
+    <IncludeFolder>.</IncludeFolder>
+  </Component>
+    <Component Exclude="List exceptions here to not be scanned, that have been included above">    
+    <ExcludeFolder>.gitignore</ExcludeFolder>
+    <ExcludeFolder>GeoPol.xml</ExcludeFolder>
+    <ExcludeFolder>THIRDPARTYNOTICES.md</ExcludeFolder>
+  </Component>
+</GeoPol_Folders>

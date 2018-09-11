@@ -1,0 +1,27 @@
+﻿{
+  "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
+  "settings": {
+    "documentationRules": {
+      "companyName": "Microsoft Corporation",
+      "copyrightText": "-------------------------------------------------------------------------------------------------\nCopyright (c) {companyName}. All rights reserved.\nLicensed under the {licenseName} License ({licenseName}). See {licenseFile} in the repo root for license information.\n-------------------------------------------------------------------------------------------------",
+      "variables": {
+        "licenseName": "MIT",
+        "licenseFile": "LICENSE"
+      },
+      "xmlHeader": false,
+      "headerDecoration": "-------------------------------------------------------------------------------------------------"
+    },
+    "orderingRules": {
+      "systemUsingDirectivesFirst": true,
+      "usingDirectivesPlacement": "outsideNamespace",
+      "elementOrder": [
+        "kind"
+      ]
+    },
+    "indentation": {
+      "useTabs": false,
+      "indentationSize": 4,
+      "tabSize": 4
+    }
+  }
+}

@@ -1,0 +1,107 @@
+﻿@using Microsoft.Health.Fhir.Api
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>@ViewBag.Title</title>
+
+    <link rel="stylesheet" href="//ajax.aspnetcdn.com/ajax/bootstrap/3.3.6/css/bootstrap.min.css" />
+    <script src="//ajax.aspnetcdn.com/ajax/jQuery/jquery-3.2.1.min.js"></script>
+
+    <style>
+        .navbar-inverse {
+            background-color: #0078D7;
+            border: none;
+            border-radius: 0;
+        }
+        .navbar-inverse .navbar-nav > li > a, .navbar-inverse .navbar-brand {
+            color: #fff;
+        }
+        .navbar-inverse .navbar-toggle {
+            border-color: #fff;
+        }
+        .row {
+            margin-bottom: 2rem;
+        }
+        pre {
+            border-radius: 0;
+        }
+        table { width: 100%; }
+
+        /* FHIR Runtime CSS*/
+        .bold { font-weight: bold }
+        .italics { font-style: italic }
+        .underline { text-decoration: underline }
+        .strikethrough { text-decoration: line-through }
+        .left { text-align : left }
+        .right { text-align : right }
+        .center { text-align : center }
+        .justify { text-align : justify }
+        .border-left { border-left: 1px solid grey}
+        .border-right { border-right: 1px solid grey }
+        .border-top { border-top: 1px solid grey }
+        .border-bottom { border-bottom: 1px solid grey }
+        .arabic { list-style-type: decimal }
+        .little-roman { list-style-type: lower-roman }
+        .big-roman { list-style-type: upper-roman }
+        .little-alpha { list-style-type: lower-alpha }
+        .big-alpha { list-style-type: upper-alpha }
+        .disc { list-style-type: disc }
+        .circle { list-style-type : circle }
+        .square { list-style-type: square }
+        .nolist { list-style-type: none }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <div class="row">
+        <a href="https://www.microsoft.com" class="navbar-brand">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANgAAAAuCAMAAAB9NSfbAAAAKlBMVEX/uQOAuwPzUCJ0dHR2dnZ0dHR0dHR0dHR0dHQDpfBnZ110dHRzc3O5uQReCoL9AAAADnRSTlP6/Pvf/cmvjWX9ADcWOkAIBzkAAANISURBVHja7ZjbdtwwCEXbIi415P9/t7EwRmbsPiRW1krr8zSGiWALjDT58etUy/LzVG/Ld9ED9oA9YA/YA/YPgikTAsoXgimLzefi1oU3gRl2UcncyM0REaeTUXPRTWDaXHIMI26FlbF/4slc0jbhzWB4jIMJprGRs5QBUVRkDSkod4E1LdasGHhFp0qHHGSFvA+MRysPYIsigHNNBqMIfisYWBoNwrg92/JNwUqzSUuw1HQwvh2MyvjA1QYBZqvSqcLMoja6VETda90dT4NNRpvJ+C0z30ru6wWYmX0aTDqZHm07GDXIc0wwiinbDsBiGPuiDOFm2+sP5TVW2me7eIku9Hkw2ePmidx2sHwDLbA2kg6vEI+S3jzTnaK8Q2mzqWCeocXo6KYK5p4URcUwOEuCYAWDE3TknwrmfZ2jA6xWLOsFxEwQYG6ChlEvZGbYa6qOpCrUaABd1whcAYS+Cnbl5xvAxnGLPVoF23NiLx4nGIiZinlC6t4YtJI7prKDkg2NrddT8bNzVrYUdbfoCZjB4U20HUz3QucEomjPNGbWeDgveSpYjg/yyK9gEjmlcMiHjtgd0xYuF83xfhZLXoP9PtW741RvZ2AGUZcwFLAMWMF0SFmPLtnqiDKGAzvgg00Ey+U4AQsYReYpdFe2lX/O9PZBCtJdkgXMt0xngsX4MPAIr2DmFFdg6iUvYONlVBJsF80Gixjmo+MUDD4EtigGmryCza9YjI9tdJy1In6kFVcJNZfVAeSbNREsg8Tj1TsmfwfTUovj7VC+fnjEghHociriBVgd905Qzi8uP8ejMyeDaV7pTsDCn6kn2MsBnZjavZk5DyULzLlgeT3Vc7Dws3lzUYBlltnHFPkziGXFYnewx1D0HihgsvfnXWDSPNAVWJxJxIStJVj5lx0xtZ2Ru2GzaDY8EmNzYwXTbRlst4BlZ5yDZUhXBYucUzzYrn+2yNipLgjfHWCZmY1g9bDCI1g5u+SQcYWlE37Q5RVM7wAzfFeAKSJyOOBd2BMBRApcwWi4NSVCd4WMwd3IkTGFxYMUmw2RQZb9yd2fAbuWrTqxq4qI2tVfrW4d3ZbfLza9Dq6rPjAVv4cesAfsAXvAHrD/A+wPe9UlrcdA7u4AAAAASUVORK5CYII=" alt="Microsoft" height="23" />
+        </a>
+    </div>
+</div>
+<nav class="navbar navbar-inverse">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">@Resources.ToggleNavigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+
+            <a href="~/" class="navbar-brand">
+                @Resources.PageTitle
+            </a>
+
+        </div>
+        <div class="collapse navbar-collapse" id="navbar">
+            <ul class="nav navbar-nav">
+                <li>
+                    <a href="~/" role="button">@Resources.MenuAPI</a>
+                </li>
+                <li>
+                    <a href="~/metadata/" role="button">@Resources.MenuCapabilityStatement</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    </nav>
+
+    @RenderBody()
+
+    <a href="#top" class="back-to-top">
+        <i class="glyph glyph-up"></i>
+        <span class="sr-only">@Resources.BackToTop</span>
+    </a>
+
+    <script src="//ajax.aspnetcdn.com/ajax/bootstrap/3.3.7/bootstrap.min.js"></script>
+
+</body>
+</html>

@@ -1,5 +1,10 @@
+# FHIR Server
 
-# Contributing
+A .NET Core implementation of health storage based on the FHIR standard.
+
+[![CI Status](https://microsofthealthoss.vsrm.visualstudio.com/_apis/public/Release/badge/7621b231-1a7d-4364-935b-2f72b911c43d/1/1)](https://microsofthealthoss.visualstudio.com/FhirServer/_releases2)
+
+## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us

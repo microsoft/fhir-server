@@ -1,0 +1,35 @@
+﻿{
+  "id": "#metadata",
+  "url":  "/metadata",
+  "version": "1.0.0.0",
+  "name": "Microsoft FHIR Server Capability Statement",
+  "status": [ "draft", "active", "retired" ],
+  "experimental": true,
+  "publisher": "Microsoft Corporation",
+  "telecom": [
+    {
+      "system": "url",
+      "value": "http://www.microsoft.com"
+    }
+  ],
+  "kind": [ "capability" ],
+  "fhirVersion": "3.0.1",
+  "acceptUnknown": [ "both" ],
+  "format": [
+      "json"
+  ],
+  "rest": [
+    {
+      "mode": [ "server" ],
+      "documentation": "Microsoft implementation of the FHIR Specification",
+      "security": {
+        "cors": false,
+        "service": []
+      },
+      "resource": [],
+      "interaction": [],
+      "searchParam": [],
+      "operation": []
+    }
+  ]
+}

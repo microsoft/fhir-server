@@ -1,0 +1,53 @@
+{
+  "resourceType": "Observation",
+  "id": "example-TPMT-diplotype",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: example-TPMT-diplotype</p><p><b>status</b>: final</p><p><b>code</b>: Diplotype Call <span>(Details : {SNOMED CT code '363779003' = '363779003', given as 'Genotype determination'})</span></p><p><b>subject</b>: <a>E***********</a></p><p><b>issued</b>: 03/04/2013 3:30:10 PM</p><p><b>value</b>: *1/*4</p><blockquote><p><b>related</b></p><p><b>type</b>: derived-from</p><p><b>target</b>: <a>Observation/example-TPMT-haplotype-one</a></p></blockquote><blockquote><p><b>related</b></p><p><b>type</b>: derived-from</p><p><b>target</b>: <a>Observation/example-TPMT-haplotype-two</a></p></blockquote></div>"
+  },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/observation-geneticsGene",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://www.genenames.org",
+            "code": "12014",
+            "display": "TPMT"
+          }
+        ]
+      }
+    }
+  ],
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info",
+        "code": "363779003",
+        "display": "Genotype determination"
+      }
+    ],
+    "text": "Diplotype Call"
+  },
+  "subject": {
+    "reference": "Patient/example",
+    "display": "E***********"
+  },
+  "issued": "2013-04-03T15:30:10+01:00",
+  "valueString": "*1/*4",
+  "related": [
+    {
+      "type": "derived-from",
+      "target": {
+        "reference": "Observation/example-TPMT-haplotype-one"
+      }
+    },
+    {
+      "type": "derived-from",
+      "target": {
+        "reference": "Observation/example-TPMT-haplotype-two"
+      }
+    }
+  ]
+}
