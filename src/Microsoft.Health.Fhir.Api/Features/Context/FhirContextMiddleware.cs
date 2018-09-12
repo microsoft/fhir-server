@@ -31,10 +31,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 RequestType = ValueSets.AuditEventType.RestFulOperation,
             };
 
-            if (!string.IsNullOrEmpty(context.Request?.Path) && !string.IsNullOrEmpty(context.Request.Method))
+            HttpRequest request = context.Request;
+
+            if (!string.IsNullOrEmpty(request?.Path) && !string.IsNullOrEmpty(context.Request.Method))
             {
                 fhirContextAccessor.FhirContext.RequestUri = new Uri(context.Request.GetDisplayUrl());
                 fhirContextAccessor.FhirContext.HttpMethod = new HttpMethod(context.Request.Method);
+            }
+
+            if (request != null &&
+                request.Host.HasValue)
+            {
+                fhirContextAccessor.FhirContext.BaseUri = new Uri(
+                    $"{request.Scheme}://{request.Host.ToUriComponent()}{request.PathBase.ToUriComponent()}");
             }
 
             if (context.User != null)

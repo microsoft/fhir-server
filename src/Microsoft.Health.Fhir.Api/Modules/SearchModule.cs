@@ -16,10 +16,11 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Legacy;
 using Microsoft.Health.Fhir.Core.Features.Search.Legacy.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -68,6 +69,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             }
             else
             {
+                services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
+
                 services.Add<SearchParameterDefinitionManager>()
                     .Singleton()
                     .AsSelf()
@@ -75,10 +78,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     .AsService<IProvideCapability>()
                     .AsService<ISearchParameterDefinitionManager>();
 
+                services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
+                    .AssignableTo<IFhirElementToSearchValueTypeConverter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<IFhirElementToSearchValueTypeConverter>();
+
                 services.Add<FhirElementToSearchValueTypeConverterManager>()
                     .Singleton()
                     .AsSelf()
-                    .AsService<IStartable>()
                     .AsService<IFhirElementToSearchValueTypeConverterManager>();
 
                 services.AddSingleton<ISearchIndexer, SearchIndexer>();

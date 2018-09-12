@@ -24,6 +24,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         string RouteName { get; set; }
 
+        /// <summary>
+        /// Gets the base URL for the server.
+        /// </summary>
+        /// <returns>The base URL for the server.</returns>
+        Uri BaseUri { get; set; }
+
         ClaimsPrincipal Principal { get; set; }
     }
 }

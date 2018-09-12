@@ -32,6 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public string RouteName { get; set; }
 
+        public Uri BaseUri { get; set; }
+
         public ClaimsPrincipal Principal { get; set; }
     }
 }

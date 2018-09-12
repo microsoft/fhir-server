@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -23,14 +24,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
     public class SearchValueExpressionBuilderTests
     {
         private const string DefaultParamName = "param";
+        private static readonly Uri BaseUrl = new Uri("http://localhost/");
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();
 
         private readonly SearchValueExpressionBuilder _builder;
 
         public SearchValueExpressionBuilderTests()
         {
-            _builder = new SearchValueExpressionBuilder(_searchParameterDefinitionManager);
+            _builder = new SearchValueExpressionBuilder(_searchParameterDefinitionManager, _referenceSearchValueParser);
         }
 
         public static IEnumerable<object[]> GetNonEqualSearchComparatorAsMemberData()
@@ -213,6 +216,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateStringExpression(e1, FieldName.QuantitySystem, StringOperator.Equals, quantitySystem2, false),
                     e1 => ValidateStringExpression(e1, FieldName.QuantityCode, StringOperator.Equals, quantityCode2, false),
                     e1 => ValidateBinaryExpression(e1, FieldName.Quantity, BinaryOperator.LessThanOrEqual, quantity2)));
+        }
+
+        [Theory]
+        [MemberData(nameof(GetAllModifiersExceptMissing))]
+        public void GivenACompositeWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifierCode modifier)
+        {
+            var quantityUri = new Uri("http://quantity");
+
+            SearchParameter searchParameter = CreateCompositeSearchParameter(
+                new ComponentComponent()
+                {
+                    Definition = new ResourceReference(quantityUri.ToString()),
+                },
+                new ComponentComponent()
+                {
+                    Definition = new ResourceReference(quantityUri.ToString()),
+                });
+
+            _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(
+                new SearchParameter()
+                {
+                    Name = "quantity",
+                    Type = SearchParamType.Quantity,
+                });
+
+            Assert.Throws<InvalidSearchOperationException>(
+                () => _builder.Build(CreateSearchParameter(SearchParamType.Composite), modifier, "10|s|c$10|s|c"));
         }
 
         [Theory]
@@ -528,21 +558,91 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Fact]
-        public void GivenAReference_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
+        public void GivenAReferenceUsingResourceId_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
-            const string reference = "Patient/123";
+            const string resourceId = "123";
+
+            _referenceSearchValueParser.Parse(resourceId).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, resourceId));
+
+            Validate(
+                CreateSearchParameter(SearchParamType.Reference),
+                null,
+                resourceId,
+                e => ValidateStringExpression(e, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false));
+        }
+
+        [Fact]
+        public void GivenAReferenceUsingResourceTypeAndResourceIdTargetingInternalResource_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
+        {
+            const ResourceType resourceType = ResourceType.Patient;
+            const string resourceId = "123";
+            string reference = $"{resourceType}/{resourceId}";
+
+            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(ReferenceKind.Internal, null, resourceType, resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
                 null,
                 reference,
-                e => ValidateStringExpression(e, FieldName.Reference, StringOperator.Equals, reference, false));
+                e => ValidateMultiaryExpression(
+                    e,
+                    MultiaryOperator.And,
+                    e1 => ValidateMissingFieldExpression(e1, FieldName.ReferenceBaseUri),
+                    e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceType, StringOperator.Equals, resourceType.ToString(), false),
+                    e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false)));
+        }
+
+        [Theory]
+        [InlineData(ReferenceKind.InternalOrExternal)]
+        [InlineData(ReferenceKind.External)]
+        public void GivenAReferenceUsingResourceTypeAndResourceId_WhenBuilt_ThenCorrectExpressionShouldBeCreated(ReferenceKind referenceLocations)
+        {
+            const ResourceType resourceType = ResourceType.Patient;
+            const string resourceId = "123";
+            string reference = $"{resourceType}/{resourceId}";
+
+            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(referenceLocations, null, resourceType, resourceId));
+
+            Validate(
+                CreateSearchParameter(SearchParamType.Reference),
+                null,
+                reference,
+                e => ValidateMultiaryExpression(
+                    e,
+                    MultiaryOperator.And,
+                    e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceType, StringOperator.Equals, resourceType.ToString(), false),
+                    e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false)));
+        }
+
+        [Fact]
+        public void GivenAReferenceUsingAbsoluteUrl_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
+        {
+            const ResourceType resourceType = ResourceType.Account;
+            const string resourceId = "xyz";
+            const string baseUrl = "http://somehwere.com/stu3/";
+
+            string reference = $"{baseUrl}{resourceType}/{resourceId}";
+
+            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, new Uri(baseUrl), resourceType, resourceId));
+
+            Validate(
+                CreateSearchParameter(SearchParamType.Reference),
+                null,
+                reference,
+                e => ValidateMultiaryExpression(
+                    e,
+                    MultiaryOperator.And,
+                    e1 => ValidateStringExpression(e1, FieldName.ReferenceBaseUri, StringOperator.Equals, baseUrl, false),
+                    e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceType, StringOperator.Equals, resourceType.ToString(), false),
+                    e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false)));
         }
 
         [Theory]
         [MemberData(nameof(GetAllModifiersExceptMissing))]
         public void GivenAReferenceWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifierCode modifier)
         {
+            _referenceSearchValueParser.Parse(Arg.Any<string>()).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123"));
+
             Assert.Throws<InvalidSearchOperationException>(
                 () => _builder.Build(CreateSearchParameter(SearchParamType.Reference), modifier, "Patient/test"));
         }
