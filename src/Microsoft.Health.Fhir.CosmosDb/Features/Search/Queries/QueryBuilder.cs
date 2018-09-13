@@ -14,8 +14,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     public class QueryBuilder : IQueryBuilder
     {
-        private const int SearchCriteriaLimit = 5;
-
         public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
         {
             return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
@@ -50,21 +48,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendSelectFromRoot();
                 }
 
+                AppendSystemDataFilter("WHERE");
+
                 MultiaryExpression expression = searchOptions.Expression;
 
                 if (expression != null)
                 {
-                    if (expression.Expressions.Count > SearchCriteriaLimit)
-                    {
-                        throw new SearchOperationNotSupportedException(
-                            string.Format(Resources.ExceededSearchCriteriaLimit, SearchCriteriaLimit));
-                    }
-
                     var expressionQueryBuilder = new ExpressionQueryBuilder(
                         _queryBuilder,
                         _queryParameterManager);
 
-                    ExpressionToJoin(expressionQueryBuilder, expression);
+                    for (int i = 0; i < expression.Expressions.Count; i++)
+                    {
+                        _queryBuilder.Append("AND ");
+
+                        expressionQueryBuilder.AppendSubquery(expression.Expressions[i]);
+                    }
                 }
 
                 AppendFilterCondition(
@@ -72,8 +71,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     (KnownResourceWrapperProperties.ResourceTypeName, searchOptions.ResourceType),
                     (KnownResourceWrapperProperties.IsHistory, false),
                     (KnownResourceWrapperProperties.IsDeleted, false));
-
-                AppendSystemDataFilter("AND");
 
                 SqlQuerySpec query = new SqlQuerySpec(
                     _queryBuilder.ToString(),
@@ -88,6 +85,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendSelectFromRoot();
 
+                AppendSystemDataFilter("WHERE");
+
                 MultiaryExpression expression = searchOptions.Expression;
 
                 if (expression != null)
@@ -96,7 +95,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         _queryBuilder,
                         _queryParameterManager);
 
-                    ExpressionToJoin(expressionQueryBuilder, expression);
+                    for (int i = 0; i < expression.Expressions.Count; i++)
+                    {
+                        _queryBuilder.Append("AND ");
+
+                        expressionQueryBuilder.AppendSubquery(expression.Expressions[i]);
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(resourceType))
@@ -104,12 +108,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendFilterCondition(
                         "AND",
                         (KnownResourceWrapperProperties.ResourceTypeName, searchOptions.ResourceType));
-
-                    AppendSystemDataFilter("AND");
-                }
-                else
-                {
-                    AppendSystemDataFilter("WHERE");
                 }
 
                 _queryBuilder
@@ -126,27 +124,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 return query;
             }
 
-            private void ExpressionToJoin(ExpressionQueryBuilder expressionQueryBuilder, MultiaryExpression expression)
-            {
-                for (int i = 0; i < expression.Expressions.Count; i++)
-                {
-                    expressionQueryBuilder.SearchIndexAliasName = $"{SearchValueConstants.SearchIndexAliasName}{i}";
-
-                    Expression subExpression = expression.Expressions[i];
-
-                    _queryBuilder
-                        .Append("JOIN (SELECT VALUE ")
-                        .Append(expressionQueryBuilder.SearchIndexAliasName)
-                        .Append(" FROM ")
-                        .Append(expressionQueryBuilder.SearchIndexAliasName)
-                        .Append(" IN ")
-                        .Append(SearchValueConstants.RootAliasName).Append(".").Append(KnownResourceWrapperProperties.SearchIndices)
-                        .Append(" WHERE (");
-                    subExpression.AcceptVisitor(expressionQueryBuilder);
-                    _queryBuilder.AppendLine("))");
-                }
-            }
-
             private void AppendSelectFromRoot(string selectList = SearchValueConstants.RootAliasName)
             {
                 _queryBuilder
@@ -156,26 +133,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     .AppendLine(SearchValueConstants.RootAliasName);
             }
 
-            private void AppendFilterCondition(string logicalOperator, params (string Name, object Value)[] conditions)
+            private void AppendFilterCondition(string logicalOperator, params (string, object)[] conditions)
             {
-                _queryBuilder.Append("WHERE ");
-
                 for (int i = 0; i < conditions.Length; i++)
                 {
-                    var condition = conditions[i];
-
                     _queryBuilder
-                        .Append(SearchValueConstants.RootAliasName).Append(".").Append(condition.Name)
-                        .Append(" = ")
-                        .AppendLine(_queryParameterManager.AddOrGetParameterMapping(condition.Value));
+                        .Append(logicalOperator)
+                        .Append(" ");
 
-                    if (i != conditions.Length - 1)
-                    {
-                        _queryBuilder
-                            .Append(logicalOperator)
-                            .Append(" ");
-                    }
+                    (string name, object value) = conditions[i];
+
+                    AppendFilterCondition(name, value);
                 }
+            }
+
+            private void AppendFilterCondition(string name, object value)
+            {
+                _queryBuilder
+                        .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
+                        .Append(" = ")
+                        .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
             }
 
             private void AppendSystemDataFilter(string keyword = null)

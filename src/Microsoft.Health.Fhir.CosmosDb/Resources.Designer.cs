@@ -61,15 +61,6 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to More than {0} search criteria is not supported..
-        /// </summary>
-        internal static string ExceededSearchCriteriaLimit {
-            get {
-                return ResourceManager.GetString("ExceededSearchCriteriaLimit", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Unhandled {0} &apos;{1}&apos;..
         /// </summary>
         internal static string UnhandledEnumValue {

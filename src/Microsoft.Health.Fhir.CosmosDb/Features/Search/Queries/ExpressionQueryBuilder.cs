@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
@@ -56,8 +57,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         private readonly StringBuilder _queryBuilder;
         private readonly QueryParameterManager _queryParameterManager;
 
-        private string _searchIndexAliasName;
-
         internal ExpressionQueryBuilder(
             StringBuilder queryBuilder,
             QueryParameterManager queryParameterManager)
@@ -69,19 +68,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             _queryParameterManager = queryParameterManager;
         }
 
-        internal string SearchIndexAliasName
+        public void AppendSubquery(Expression expression)
         {
-            get
-            {
-                Debug.Assert(!string.IsNullOrEmpty(_searchIndexAliasName), $"The {nameof(SearchIndexAliasName)} should be set.");
+            _queryBuilder.Append("EXISTS (SELECT VALUE ")
+                .Append(SearchValueConstants.SearchIndexAliasName)
+                .Append(" FROM ")
+                .Append(SearchValueConstants.SearchIndexAliasName)
+                .Append(" IN ")
+                .Append(SearchValueConstants.RootAliasName)
+                .Append(".")
+                .Append(KnownResourceWrapperProperties.SearchIndices)
+                .Append(" WHERE ");
 
-                return _searchIndexAliasName;
-            }
+            expression.AcceptVisitor(this);
 
-            set
-            {
-                _searchIndexAliasName = value;
-            }
+            _queryBuilder.AppendLine(")");
         }
 
         public void Visit(BinaryExpression expression)
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             string paramName = AddParameterMapping(expression.Value);
 
             _queryBuilder
-                .Append(SearchIndexAliasName).Append(".").Append(GetFieldName(expression))
+                .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(GetFieldName(expression))
                 .Append(" ")
                 .Append(GetMappedValue(BinaryOperatorMapping, expression.BinaryOperator))
                 .Append(" ")
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             _queryBuilder
                 .Append("NOT IS_DEFINED(")
-                .Append(SearchIndexAliasName).Append(".").Append(GetFieldName(expression))
+                .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(GetFieldName(expression))
                 .Append(")");
         }
 
@@ -178,7 +179,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             if (expression.StringOperator == StringOperator.Equals)
             {
                 _queryBuilder
-                    .Append(SearchIndexAliasName).Append(".").Append(fieldName)
+                    .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(fieldName)
                     .Append(" = ")
                     .Append(AddParameterMapping(value));
             }
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryBuilder
                     .Append(GetMappedValue(StringOperatorMapping, expression.StringOperator))
                     .Append("(")
-                    .Append(SearchIndexAliasName).Append(".").Append(fieldName)
+                    .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(fieldName)
                     .Append(", ")
                     .Append(AddParameterMapping(value))
                     .Append(")");
