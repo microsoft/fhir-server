@@ -120,7 +120,13 @@
   <data name="ExceededSearchCriteriaLimit" xml:space="preserve">
     <value>More than {0} search criteria is not supported.</value>
   </data>
+  <data name="InvalidConsistencyLevel" xml:space="preserve">
+    <value>Consistency level '{0} specified in the request is invalid when service is configured with consistency level '{1}'. Ensure the request consistency level is not stronger than the service consistency level.</value>
+  </data>
   <data name="UnhandledEnumValue" xml:space="preserve">
     <value>Unhandled {0} '{1}'.</value>
+  </data>
+  <data name="UnrecognizedConsistencyLevel" xml:space="preserve">
+    <value>Invalid consitency level '{0}'. Valid values are {1}.</value>
   </data>
 </root>

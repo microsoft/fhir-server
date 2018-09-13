@@ -70,11 +70,29 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Consistency level &apos;{0} specified in the request is invalid when service is configured with consistency level &apos;{1}&apos;. Ensure the request consistency level is not stronger than the service consistency level..
+        /// </summary>
+        internal static string InvalidConsistencyLevel {
+            get {
+                return ResourceManager.GetString("InvalidConsistencyLevel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unhandled {0} &apos;{1}&apos;..
         /// </summary>
         internal static string UnhandledEnumValue {
             get {
                 return ResourceManager.GetString("UnhandledEnumValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid consitency level &apos;{0}&apos;. Valid values are {1}..
+        /// </summary>
+        internal static string UnrecognizedConsistencyLevel {
+            get {
+                return ResourceManager.GetString("UnrecognizedConsistencyLevel", resourceCulture);
             }
         }
     }

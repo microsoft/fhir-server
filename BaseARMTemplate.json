@@ -41,6 +41,12 @@
         "securityAuthenticationAuthority": {
             "type": "string",
             "defaultValue": ""
+        },
+        "cosmosDbAccountConsistencyPolicy": {
+            "type": "object",
+            "defaultValue": {
+                "defaultConsistencyLevel": "Strong"
+            }
         }
     },
     "variables": {
@@ -119,6 +125,7 @@
             "properties": {
                 "name": "[variables('serviceName')]",
                 "databaseAccountOfferType": "Standard",
+                "consistencyPolicy": "[parameters('cosmosDbAccountConsistencyPolicy')]",
                 "locations": [
                     {
                         "locationName": "[resourceGroup().location]",

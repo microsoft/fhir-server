@@ -6,8 +6,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
@@ -44,20 +47,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             _environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
 
+            HttpMessageHandler messageHandler;
+
             if (string.IsNullOrWhiteSpace(_environmentUrl))
             {
                 _environmentUrl = "http://localhost/";
 
                 StartInMemoryServer(targetProjectParentDirectory);
 
-                HttpClient = _server.CreateClient();
+                messageHandler = _server.CreateHandler();
             }
             else
             {
-                HttpClient = new HttpClient();
+                messageHandler = new HttpClientHandler();
             }
 
-            HttpClient.BaseAddress = new Uri(_environmentUrl);
+            HttpClient = new HttpClient(new SessionMessageHandler(messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
             FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
             FhirXmlClient = new Lazy<FhirClient>(() => new FhirClient(HttpClient, ResourceFormat.Xml));
@@ -175,6 +180,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             while (directoryInfo.Parent != null);
 
             throw new Exception($"Project root could not be located using the application root {applicationBasePath}.");
+        }
+
+        /// <summary>
+        /// An <see cref="HttpMessageHandler"/> that maintains session consistency between requests.
+        /// </summary>
+        private class SessionMessageHandler : DelegatingHandler
+        {
+            private string _sessionToken;
+
+            public SessionMessageHandler(HttpMessageHandler innerHandler)
+                : base(innerHandler)
+            {
+            }
+
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                if (!string.IsNullOrEmpty(_sessionToken))
+                {
+                    request.Headers.TryAddWithoutValidation("x-ms-session-token", _sessionToken);
+                }
+
+                request.Headers.TryAddWithoutValidation("x-ms-consistency-level", "Session");
+
+                var response = await base.SendAsync(request, cancellationToken);
+
+                if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
+                {
+                    _sessionToken = tokens.SingleOrDefault();
+                }
+
+                return response;
+            }
         }
     }
 }

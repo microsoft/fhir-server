@@ -10,8 +10,10 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Consistency;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -23,16 +25,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly ILogger<DocumentClientInitializer> _logger;
         private readonly IUpgradeManager _upgradeManager;
+        private readonly IFhirContextAccessor _fhirContextAccessor;
 
-        public DocumentClientInitializer(IDocumentClientTestProvider testProvider, ILogger<DocumentClientInitializer> logger, IUpgradeManager upgradeManager)
+        public DocumentClientInitializer(IDocumentClientTestProvider testProvider, ILogger<DocumentClientInitializer> logger, IUpgradeManager upgradeManager, IFhirContextAccessor fhirContextAccessor)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(upgradeManager, nameof(upgradeManager));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
+            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
 
             _testProvider = testProvider;
             _logger = logger;
             _upgradeManager = upgradeManager;
+            _fhirContextAccessor = fhirContextAccessor;
         }
 
         /// <summary>
@@ -81,7 +86,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // if the values don't always have complete 7 digits, the comparison might not work properly.
             serializerSettings.Converters.Add(new IsoDateTimeConverter { DateTimeFormat = "o" });
 
-            return new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy);
+            return new DocumentClientWithConsistencyLevelFromContext(
+                new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
+                _fhirContextAccessor);
         }
 
         /// <summary>
