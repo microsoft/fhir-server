@@ -61,15 +61,6 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to More than {0} search criteria is not supported..
-        /// </summary>
-        internal static string ExceededSearchCriteriaLimit {
-            get {
-                return ResourceManager.GetString("ExceededSearchCriteriaLimit", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Consistency level &apos;{0} specified in the request is invalid when service is configured with consistency level &apos;{1}&apos;. Ensure the request consistency level is not stronger than the service consistency level..
         /// </summary>
         internal static string InvalidConsistencyLevel {
