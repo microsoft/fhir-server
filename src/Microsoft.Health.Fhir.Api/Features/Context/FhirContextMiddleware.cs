@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net.Http;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
@@ -29,18 +28,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             fhirContextAccessor.FhirContext = new FhirContext(correlationIdProvider.Invoke())
             {
                 RequestType = ValueSets.AuditEventType.RestFulOperation,
+                Principal = context.User,
+                RequestUri = context.Request.Path.HasValue ? new Uri(context.Request.GetDisplayUrl()) : null,
+                HttpMethod = context.Request.Method,
+                RequestHeaders = context.Request.Headers,
+                ResponseHeaders = context.Response.Headers,
             };
-
-            if (!string.IsNullOrEmpty(context.Request?.Path) && !string.IsNullOrEmpty(context.Request.Method))
-            {
-                fhirContextAccessor.FhirContext.RequestUri = new Uri(context.Request.GetDisplayUrl());
-                fhirContextAccessor.FhirContext.HttpMethod = new HttpMethod(context.Request.Method);
-            }
-
-            if (context.User != null)
-            {
-                fhirContextAccessor.FhirContext.Principal = context.User;
-            }
 
             // Call the next delegate/middleware in the pipeline
             return _next(context);

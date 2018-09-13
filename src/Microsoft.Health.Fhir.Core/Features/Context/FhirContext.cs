@@ -4,10 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net.Http;
+using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -26,12 +27,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public Coding RequestSubType { get; set; }
 
-        public HttpMethod HttpMethod { get; set; }
+        public string HttpMethod { get; set; }
 
         public Uri RequestUri { get; set; }
 
         public string RouteName { get; set; }
 
         public ClaimsPrincipal Principal { get; set; }
+
+        public IDictionary<string, StringValues> RequestHeaders { get; set; }
+
+        public IDictionary<string, StringValues> ResponseHeaders { get; set; }
     }
 }
