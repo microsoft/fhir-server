@@ -5,14 +5,18 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
 
@@ -26,6 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirXmlSerializer _fhirXmlSerializer;
         private readonly CorrelationIdProvider _correlationIdProvider;
+        private readonly IEnumerable<TextOutputFormatter> _outputFormatters;
 
         public BaseExceptionMiddleware(
             RequestDelegate next,
@@ -33,7 +38,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             FhirJsonSerializer fhirJsonSerializer,
             FhirXmlSerializer fhirXmlSerializer,
-            CorrelationIdProvider correlationIdProvider)
+            CorrelationIdProvider correlationIdProvider,
+            IEnumerable<TextOutputFormatter> outputFormatters)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -41,6 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(fhirXmlSerializer, nameof(fhirXmlSerializer));
             EnsureArg.IsNotNull(correlationIdProvider, nameof(correlationIdProvider));
+            EnsureArg.IsNotNull(outputFormatters, nameof(outputFormatters));
 
             _next = next;
             _logger = logger;
@@ -48,6 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirXmlSerializer = fhirXmlSerializer;
             _correlationIdProvider = correlationIdProvider;
+            _outputFormatters = outputFormatters;
         }
 
         public async Task Invoke(HttpContext context)
@@ -102,11 +110,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                 };
 
                 var contentType = GetResourceFormatFromContentType(context);
+                context.Response.ContentType = contentType.MediaType;
 
-                switch (contentType)
+                switch (contentType.Format)
                 {
                     case ResourceFormat.Xml:
-                        context.Response.ContentType = ContentType.XML_CONTENT_HEADER;
                         await context.Response.WriteAsync(_fhirXmlSerializer.SerializeToString(operationOutcome));
                         break;
                     default:
@@ -117,15 +125,39 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
             }
         }
 
-        private static ResourceFormat GetResourceFormatFromContentType(HttpContext context)
+        private (string MediaType, ResourceFormat Format) GetResourceFormatFromContentType(HttpContext context)
         {
+            var defaultFormat = (ContentType.JSON_CONTENT_HEADER, ResourceFormat.Unknown);
             try
             {
-                return ContentType.GetResourceFormatFromContentType(context.Request.ContentType ?? context.Request.Headers["Accept"]);
+                var acceptHeaders = context.Request.GetTypedHeaders().Accept.Select(x => x.MediaType.Value);
+
+                // Check _format override
+                if (context.Request.Query.TryGetValue(KnownQueryParameterNames.Format, out var queryValues) && queryValues.Any())
+                {
+                    ResourceFormat resourceFormat = ContentType.GetResourceFormatFromFormatParam(queryValues.First());
+                    return (_outputFormatters.GetClosestClientMediaType(resourceFormat, acceptHeaders), resourceFormat);
+                }
+
+                // Check headers
+                var acceptList = new[] { context.Request.ContentType }
+                    .Concat(acceptHeaders)
+                    .Where(x => x != null);
+
+                foreach (var header in acceptList)
+                {
+                    var format = ContentType.GetResourceFormatFromContentType(header);
+                    if (format != ResourceFormat.Unknown)
+                    {
+                        return (header, format);
+                    }
+                }
+
+                return defaultFormat;
             }
             catch
             {
-                return ResourceFormat.Unknown;
+                return defaultFormat;
             }
         }
     }

@@ -60,7 +60,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.TypesInSameAssemblyAs<FhirJsonOutputFormatter>()
                 .AssignableTo<TextOutputFormatter>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsService<TextOutputFormatter>();
 
             services.Add<FhirRequestContextAccessor>()
                 .Singleton()

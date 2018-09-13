@@ -4,21 +4,26 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Net.Http.Headers;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -26,12 +31,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     internal class ValidateContentTypeFilterAttribute : ActionFilterAttribute
     {
         private readonly IConformanceProvider _conformanceProvider;
+        private readonly IEnumerable<TextOutputFormatter> _outputFormatters;
 
-        public ValidateContentTypeFilterAttribute(IConformanceProvider conformanceProvider)
+        public ValidateContentTypeFilterAttribute(IConformanceProvider conformanceProvider, IEnumerable<TextOutputFormatter> outputFormatters)
         {
             EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
+            EnsureArg.IsNotNull(outputFormatters, nameof(outputFormatters));
 
             _conformanceProvider = conformanceProvider;
+            _outputFormatters = outputFormatters;
         }
 
         public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
@@ -41,6 +49,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             // Check the _format first since it takes precedence over the accept header.
             var format = GetSpecifiedFormat(context);
 
+            var acceptHeaders = context.HttpContext.Request.GetTypedHeaders().Accept;
+
             if (!string.IsNullOrEmpty(format))
             {
                 var resourceFormat = ContentType.GetResourceFormatFromFormatParam(format);
@@ -49,12 +59,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     throw new UnsupportedMediaTypeException(Resources.UnsupportedFormatParameter);
                 }
 
+                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat, acceptHeaders.Select(x => x.MediaType.Value));
+
                 // Overrides output format type
-                context.HttpContext.Response.ContentType = ContentType.BuildContentType(resourceFormat, true);
+                context.HttpContext.Response.ContentType = closestClientMediaType;
             }
             else
             {
-                var acceptHeaders = context.HttpContext.Request.GetTypedHeaders().Accept;
                 if (acceptHeaders != null && acceptHeaders.All(a => a.MediaType != "*/*"))
                 {
                     var isAcceptHeaderValid = false;
