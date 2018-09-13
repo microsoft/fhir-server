@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -103,24 +101,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 Debug.Assert(documentQuery != null, $"The {nameof(documentQuery)} should not be null.");
 
-                // TODO: We should check to see if we can implement the filtering logic in the stored procedure.
-                // We will potentially return less documents than asked but that's allowed in the spec. This is the
-                // simplest solution to filter out the duplicates for now until we figure out whether filtering is
-                // doable or not in stored procedure.
                 FeedResponse<Document> fetchedResults = await documentQuery.ExecuteNextAsync<Document>(cancellationToken);
 
-                IEnumerable<CosmosResourceWrapper> wrappers = fetchedResults
-                    .Select(r => r.GetPropertyValue<CosmosResourceWrapper>(SearchValueConstants.RootAliasName));
-
-                var results = new Dictionary<string, CosmosResourceWrapper>(StringComparer.Ordinal);
-
-                foreach (CosmosResourceWrapper wrapper in wrappers)
-                {
-                    if (!results.ContainsKey(wrapper.Id))
-                    {
-                        results.Add(wrapper.Id, wrapper);
-                    }
-                }
+                CosmosResourceWrapper[] wrappers = fetchedResults
+                    .Select(r => r.GetPropertyValue<CosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
 
                 string continuationTokenId = null;
 
@@ -132,7 +116,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     continuationTokenId = await _continuationTokenCache.SaveContinuationTokenAsync(fetchedResults.ResponseContinuation, cancellationToken);
                 }
 
-                return new SearchResult(results.Values, continuationTokenId);
+                return new SearchResult(wrappers, continuationTokenId);
             }
         }
     }
