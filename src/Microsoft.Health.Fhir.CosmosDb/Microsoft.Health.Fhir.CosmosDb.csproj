@@ -67,10 +67,13 @@
     </PropertyGroup>
   </Target>
   <Target Name="GenerateFiles" BeforeTargets="CoreCompile" Inputs="$(GeneratorPath)" Outputs="@(Generated)">
+    <ItemGroup>
+      <Compile Include="@(Generated)" Condition="!Exists('@(Generated)')" />
+    </ItemGroup>
     <Exec Command="dotnet $(GeneratorPath) %(Generated.Generator) %(Generated.FullPath) %(Generated.Namespace)  &quot;@(ReferencePathWithRefAssemblies)&quot;" />
     <ItemGroup>
-      <Compile Remove="@(Generated)" />
-      <Compile Include="@(Generated)" />
+      <!--<Compile Remove="Features/Consistency/DocumentClientWithConsistencyLevelFromContext.Generated.cs" />-->
+      <!--<Compile Include="@(Generated)" />-->
     </ItemGroup>
   </Target>
 

@@ -6,6 +6,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
@@ -168,6 +169,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
                     fhirContext.ResponseHeaders[CosmosDbConsistencyHeaders.SessionToken] = sessionToken;
                 }
             }
+        }
+
+        Task<StoredProcedureResponse<TValue>> IDocumentClient.ExecuteStoredProcedureAsync<TValue>(string storedProcedureLink, params object[] procedureParams)
+        {
+            return ((IDocumentClient)this).ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, UpdateOptions(default(RequestOptions)), procedureParams);
+        }
+
+        Task<StoredProcedureResponse<TValue>> IDocumentClient.ExecuteStoredProcedureAsync<TValue>(Uri storedProcedureUri, params dynamic[] procedureParams)
+        {
+            return ((IDocumentClient)this).ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, UpdateOptions(default(RequestOptions)), procedureParams);
         }
     }
 }

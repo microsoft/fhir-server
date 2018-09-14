@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents.Client;
@@ -36,16 +37,25 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
         private class ConsistencyLevelRewriter : CSharpSyntaxRewriter
         {
             private readonly SemanticModel _semanticModel;
-            private readonly INamedTypeSymbol _taskType;
-            private readonly INamedTypeSymbol[] _optionTypes;
-            private readonly INamedTypeSymbol[] _responseTypes;
+            private readonly INamedTypeSymbol _taskTypeSymbol;
+            private readonly INamedTypeSymbol[] _optionTypeSymbols;
+            private readonly INamedTypeSymbol[] _responseTypeSymbols;
+            private readonly HashSet<string> _methodsWithOptionOverloads;
 
             public ConsistencyLevelRewriter(Compilation compilation, SemanticModel semanticModel)
             {
-                _taskType = compilation.GetTypeByMetadataName(typeof(Task<>).FullName);
+                // look for methods that rely on overloading instead of FeedOptions/RequestOptions being an optional parameter
+                
+                var optionParameterTypes = new[] { typeof(FeedOptions), typeof(RequestOptions) };
+                _methodsWithOptionOverloads = typeof(IDocumentClient).GetMethods()
+                    .GroupBy(m => m.Name)
+                    .Where(g =>
+                        g.Select(m => m.GetParameters().Any(p => optionParameterTypes.Contains(p.ParameterType)))
+                            .Distinct().Count() > 1).Select(g => g.Key).ToHashSet();
 
-                _optionTypes = new[] { typeof(FeedOptions), typeof(RequestOptions), typeof(ResourceResponse<>), typeof(StoredProcedureResponse<>) }.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToArray();
-                _responseTypes = new[] { typeof(DocumentResponse<>), typeof(FeedResponse<>), typeof(ResourceResponse<>), typeof(StoredProcedureResponse<>) }.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToArray();
+                _taskTypeSymbol = compilation.GetTypeByMetadataName(typeof(Task<>).FullName);
+                _optionTypeSymbols = optionParameterTypes.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToArray();
+                _responseTypeSymbols = new[] { typeof(DocumentResponse<>), typeof(FeedResponse<>), typeof(ResourceResponse<>), typeof(StoredProcedureResponse<>) }.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToArray();
                 _semanticModel = semanticModel;
             }
 
@@ -53,7 +63,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             {
                 ITypeSymbol type = _semanticModel.GetTypeInfo(node.Expression).Type;
 
-                if (_optionTypes.Contains(type))
+                if (_optionTypeSymbols.Contains(type))
                 {
                     return node.WithExpression(InvocationExpression(IdentifierName("UpdateOptions")).AddArgumentListArguments(node));
                 }
@@ -65,11 +75,21 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             {
                 var visitedNode = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node);
 
+                if (ReferenceEquals(visitedNode, node) &&
+                    _methodsWithOptionOverloads.Contains(node.Identifier.ValueText))
+                {
+                    // Don't generate methods where we have to call an overloads. 
+                    // The logic is a bit more complicated and there are only
+                    // two methods anyway. They can be written out by hand in the 
+                    // partial class
+                    return IncompleteMember();
+                }
+
                 if (_semanticModel.GetTypeInfo(node.ReturnType).Type is INamedTypeSymbol type &&
-                    type.ConstructedFrom.Equals(_taskType) &&
+                    type.ConstructedFrom.Equals(_taskTypeSymbol) &&
                     type.TypeArguments[0] is INamedTypeSymbol argumentType &&
                     argumentType.IsGenericType &&
-                    _responseTypes.Contains(argumentType.ConstructedFrom))
+                    _responseTypeSymbols.Contains(argumentType.ConstructedFrom))
                 {
                     visitedNode = visitedNode.AddModifiers(Token(SyntaxKind.AsyncKeyword));
                     var invocation = visitedNode.DescendantNodes().OfType<InvocationExpressionSyntax>().First();

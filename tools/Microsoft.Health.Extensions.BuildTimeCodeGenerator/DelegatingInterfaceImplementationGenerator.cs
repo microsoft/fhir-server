@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -19,6 +20,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
         private readonly SyntaxTokenList _constructorModifiers;
         private readonly Type[] _interfacesToImplement;
         private static readonly IdentifierNameSyntax FieldName = IdentifierName("_inner");
+        private static readonly AttributeListSyntax ExcludeFromCodeCoverageAttributeSyntax = AttributeList(SingletonSeparatedList(Attribute(IdentifierName(typeof(ExcludeFromCodeCoverageAttribute).FullName))));
 
         public DelegatingInterfaceImplementationGenerator(SyntaxTokenList typeModifiers, SyntaxTokenList constructorModifiers, params Type[] interfacesToImplement)
         {
@@ -79,7 +81,9 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 
                 foreach (var propertyInfo in interfaceType.GetProperties())
                 {
-                    var propertyDeclarationSyntax = PropertyDeclaration(propertyInfo.PropertyType.ToTypeSyntax(), propertyInfo.Name).WithExplicitInterfaceSpecifier(explicitInterfaceSpecifier);
+                    var propertyDeclarationSyntax = PropertyDeclaration(propertyInfo.PropertyType.ToTypeSyntax(), propertyInfo.Name)
+                        .WithExplicitInterfaceSpecifier(explicitInterfaceSpecifier)
+                        .AddAttributeLists(ExcludeFromCodeCoverageAttributeSyntax);
 
                     if (propertyInfo.GetGetMethod() != null)
                     {
@@ -105,7 +109,13 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                 {
                     var method = MethodDeclaration(methodInfo.ReturnType.ToTypeSyntax(), methodInfo.Name)
                         .WithExplicitInterfaceSpecifier(explicitInterfaceSpecifier)
-                        .WithParameterList(ParameterList(SeparatedList(methodInfo.GetParameters().Select(p => Parameter(Identifier(p.Name)).WithType(p.ParameterType.ToTypeSyntax())))))
+                        .AddParameterListParameters(
+                            methodInfo.GetParameters().Select(p =>
+                                    Parameter(Identifier(p.Name))
+                                        .WithType(p.ParameterType.ToTypeSyntax())
+                                        .WithModifiers(p.IsDefined(typeof(ParamArrayAttribute), false) ? TokenList(Token(SyntaxKind.ParamsKeyword)) : TokenList()))
+                                .ToArray())
+                        .AddAttributeLists(ExcludeFromCodeCoverageAttributeSyntax)
                         .WithBody(Block());
 
                     if (methodInfo.IsGenericMethod)
