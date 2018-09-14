@@ -24,6 +24,7 @@
     <None Remove="TestFiles\BloodPressure.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWithEyeColor.json" />
+    <None Remove="TestFiles\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\ObservationWithInvalidStatus.json" />
     <None Remove="TestFiles\ObservationWithInvalidStatus.xml" />
     <None Remove="TestFiles\ObservationWithNoCode.json" />
@@ -35,6 +36,7 @@
     <None Remove="TestFiles\Patient.json" />
     <None Remove="TestFiles\Patient.xml" />
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
+    <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
     <None Remove="TestFiles\WeightInPounds.json" />
@@ -60,6 +62,7 @@
     <EmbeddedResource Include="TestFiles\ObservationWithTemperature.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithTPMTDiplotype.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithTPMTHaplotypeOne.json" />
+    <EmbeddedResource Include="TestFiles\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithInvalidStatus.xml" />
     <EmbeddedResource Include="TestFiles\ObservationWithInvalidStatus.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithNoCode.xml" />
@@ -68,6 +71,9 @@
     <EmbeddedResource Include="TestFiles\Patient.json" />
     <EmbeddedResource Include="TestFiles\Patient.xml" />
     <EmbeddedResource Include="TestFiles\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\ValidCompartmentDefinition.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
     <EmbeddedResource Include="TestFiles\Weight.json" />
     <EmbeddedResource Include="TestFiles\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\WeightInPounds.json" />

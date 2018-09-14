@@ -1,0 +1,117 @@
+﻿{
+    "resourceType": "Bundle",
+    "id": "compartments",
+    "meta": {
+        "lastUpdated": "2017-04-19T07:44:43.294+10:00"
+    },
+    "type": "collection",
+    "entry": [
+        {
+            "fullUrl": "http://hl7.org/fhir/CompartmentDefinition/patient",
+            "resource": {
+                "resourceType": "CompartmentDefinition",
+                "id": "patient",
+                "text": {
+                    "status": "generated",
+                    "div": "<div>!-- Snipped for Brevity --></div>"
+                },
+                "url": "http://hl7.org/fhir/CompartmentDefinition/patient",
+                "name": "Base FHIR compartment definition for Patient",
+                "status": "draft",
+                "experimental": true,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "FHIR Project Team",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    }
+                ],
+                "description": "There is an instance of the patient compartment for each patient resource, and the identity of the compartment is the same as the patient. When a patient is linked to another patient, all the records associated with the linked patient are in the compartment associated with the target of the link.. The set of resources associated with a particular patient",
+                "code": "Patient",
+                "search": true,
+                "resource": [
+                    {
+                        "code": "Communication",
+                        "param": [
+                            "subject",
+                            "sender",
+                            "recipient"
+                        ]
+                    },
+                    {
+                        "code": "Condition",
+                        "param": [
+                            "patient",
+                            "asserter"
+                        ]
+                    },
+                    {
+                        "code": "Encounter",
+                        "param": [
+                            "patient"
+                        ]
+                    },
+                    {
+                        "code": "Observation",
+                        "param": [
+                            "subject",
+                            "performer"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/CompartmentDefinition/encounter",
+            "resource": {
+                "resourceType": "CompartmentDefinition",
+                "id": "encounter",
+                "text": {
+                    "status": "generated",
+                    "div": "<div>!-- Snipped for Brevity --></div>"
+                },
+                "url": "http://hl7.org/fhir/CompartmentDefinition/encounter",
+                "name": "Base FHIR compartment definition for Encounter",
+                "status": "draft",
+                "experimental": true,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "FHIR Project Team",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    }
+                ],
+                "description": "There is an instance of the encounter compartment for each encounter resource, and the identity of the compartment is the same as the encounter. The set of resources associated with a particular encounter",
+                "code": "Encounter",
+                "search": true,
+                "resource": [
+                    {
+                        "code": "Account"
+                    },
+                    {
+                        "code": "Condition",
+                        "param": [
+                            "context"
+                        ]
+                    },
+                    {
+                        "code": "Observation",
+                        "param": [
+                            "encounter"
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
