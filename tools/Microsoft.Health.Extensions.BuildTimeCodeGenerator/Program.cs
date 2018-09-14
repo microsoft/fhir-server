@@ -16,6 +16,12 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
     {
         public static void Main(string[] args)
         {
+            if (args.Length != 4)
+            {
+                Console.WriteLine($"Usage: dotnet {typeof(Program).Assembly.GetName().Name}.dll <GeneratorName> <OutputFilePath> <NamespaceName> <SemicolonDelimitedBuildReferences>");
+                Environment.Exit(1);
+            }
+
             string generatorName = args[0];
             string outputFile = args[1];
             string namespaceName = args[2];

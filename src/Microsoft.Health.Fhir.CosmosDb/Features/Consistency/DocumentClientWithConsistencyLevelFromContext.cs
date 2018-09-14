@@ -71,11 +71,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
                 options = new FeedOptions();
             }
 
-            // TODO: property exists in v2 of the SDK
-            // if (consistencyLevel != null)
-            // {
-            //    options.ConsistencyLevel = consistencyLevel;
-            // }
+            if (consistencyLevel != null)
+            {
+                options.ConsistencyLevel = consistencyLevel;
+            }
 
             if (!string.IsNullOrEmpty(sessionToken))
             {
@@ -121,6 +120,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
 
         /// <summary>
         /// Determines whether the requested consistency level is valid given the DocumentClient's consistency level.
+        /// DocumentClient throws an ArgumentException when a requested consistency level is invalid. Since ArgumentException
+        /// is not very specific and we would rather not inspect the exception message, we do the check ourselves here.
         /// Copied from the DocumentDB SDK.
         /// </summary>
         private bool ValidateConsistencyLevel(ConsistencyLevel desiredConsistency)

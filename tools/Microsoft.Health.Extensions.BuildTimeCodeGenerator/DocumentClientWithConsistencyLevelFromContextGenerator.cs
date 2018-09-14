@@ -16,10 +16,16 @@ using IDocumentClient = Microsoft.Azure.Documents.IDocumentClient;
 
 namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 {
+    /// <summary>
+    /// Generates a partial class for wrapping IDocumentClient, where for each call, where applicable,
+    /// we set ConsistencyLevel and/or SessionToken on <see cref="FeedOptions" /> or <see cref="RequestOptions"/>
+    /// parameters based on HTTP request headers, and we set the session consistency output header based on the response.
+    /// </summary>
     internal class DocumentClientWithConsistencyLevelFromContextGenerator : ICodeGenerator
     {
         public SyntaxNode Generate(string namespaceName, string typeName, Compilation compilation)
         {
+            // First generate a basic class that implementes the interfaces and delegates to an inner field.
             var generator = new DelegatingInterfaceImplementationGenerator(
                 typeModifiers: TokenList(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.PartialKeyword)),
                 constructorModifiers: TokenList(Token(SyntaxKind.PrivateKeyword)),
@@ -29,6 +35,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             var syntaxNode = generator.Generate(namespaceName, typeName, compilation);
 
             compilation = compilation.AddSyntaxTrees(syntaxNode.SyntaxTree);
+
+            // then rewrite it with logic specific to this generator
 
             var rewriter = new ConsistencyLevelRewriter(compilation, compilation.GetSemanticModel(syntaxNode.SyntaxTree));
             return rewriter.Visit(syntaxNode);
@@ -45,13 +53,13 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             public ConsistencyLevelRewriter(Compilation compilation, SemanticModel semanticModel)
             {
                 // look for methods that rely on overloading instead of FeedOptions/RequestOptions being an optional parameter
-                
+
                 var optionParameterTypes = new[] { typeof(FeedOptions), typeof(RequestOptions) };
                 _methodsWithOptionOverloads = typeof(IDocumentClient).GetMethods()
                     .GroupBy(m => m.Name)
                     .Where(g =>
-                        g.Select(m => m.GetParameters().Any(p => optionParameterTypes.Contains(p.ParameterType)))
-                            .Distinct().Count() > 1).Select(g => g.Key).ToHashSet();
+                        g.Select(m => m.GetParameters().Any(p => optionParameterTypes.Contains(p.ParameterType))).Distinct().Count() > 1)
+                    .Select(g => g.Key).ToHashSet();
 
                 _taskTypeSymbol = compilation.GetTypeByMetadataName(typeof(Task<>).FullName);
                 _optionTypeSymbols = optionParameterTypes.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToArray();
@@ -78,10 +86,11 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                 if (ReferenceEquals(visitedNode, node) &&
                     _methodsWithOptionOverloads.Contains(node.Identifier.ValueText))
                 {
-                    // Don't generate methods where we have to call an overloads. 
+                    // Don't generate methods where the body would call an overload.
                     // The logic is a bit more complicated and there are only
-                    // two methods anyway. They can be written out by hand in the 
-                    // partial class
+                    // two methods anyway. They can be written out by hand in the
+                    // partial class.
+
                     return IncompleteMember();
                 }
 

@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Consistency
         public async Task GivenACreateRequest_WithSessionConsistency_ThenTheResponseHeadersContainTheSessionToken()
         {
             _innerClient
-                .CreateDocumentAsync("coll", (1, 2), Arg.Is<RequestOptions>(o => o.ConsistencyLevel == ConsistencyLevel.Session))
+                .CreateDocumentAsync("coll", (1, 2), Arg.Is<RequestOptions>(o => o.ConsistencyLevel == ConsistencyLevel.Session && o.SessionToken == "1"))
                 .Returns(CreateResourceResponse(new Document(), HttpStatusCode.OK, new NameValueCollection { { CosmosDbConsistencyHeaders.SessionToken, "2" } }));
 
             _requestHeaders.Add(CosmosDbConsistencyHeaders.ConsistencyLevel, "Session");
@@ -80,8 +80,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Consistency
         public async Task GivenAFeedRequest_WithSessionConsistency_ThenTheResponseHeadersContainTheSessionToken()
         {
             _innerClient
-                .ReadDatabaseFeedAsync(Arg.Is<FeedOptions>(o => o.ConsistencyLevel == ConsistencyLevel.Session))
-                .ReturnsForAnyArgs(CreateFeedResponse(Enumerable.Empty<Database>(), new NameValueCollection { { CosmosDbConsistencyHeaders.SessionToken, "2" } }));
+                .ReadDatabaseFeedAsync(Arg.Is<FeedOptions>(o => o.ConsistencyLevel == ConsistencyLevel.Session && o.SessionToken == "1"))
+                .Returns(CreateFeedResponse(Enumerable.Empty<Database>(), new NameValueCollection { { CosmosDbConsistencyHeaders.SessionToken, "2" } }));
 
             _requestHeaders.Add(CosmosDbConsistencyHeaders.ConsistencyLevel, "Session");
             _requestHeaders.Add(CosmosDbConsistencyHeaders.SessionToken, "1");

@@ -14,6 +14,10 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 {
+    /// <summary>
+    /// Generates a class that implements one or more interfaces, delegating implementation to an inner field.
+    /// Implementations are explicit.
+    /// </summary>
     internal class DelegatingInterfaceImplementationGenerator : ICodeGenerator
     {
         private readonly SyntaxTokenList _typeModifiers;
