@@ -143,18 +143,32 @@ namespace Microsoft.Health.Fhir.AccessControl.TemplateExpressions.Evaluation
             return CompileBatch(new Dictionary<string, TemplateExpression> { { string.Empty, templateExpression } }).Single().Value;
         }
 
-        private static NameSyntax GetTypeSyntax(Type t)
+        private static TypeSyntax GetTypeSyntax(Type t)
         {
-            NameSyntax qualification = t.IsNested
+            if (t.IsGenericParameter)
+            {
+                return IdentifierName(t.Name);
+            }
+
+            if (t.IsArray)
+            {
+                return ArrayType(
+                    GetTypeSyntax(t.GetElementType()),
+                    SingletonList(
+                        ArrayRankSpecifier(
+                            SingletonSeparatedList<ExpressionSyntax>(
+                                OmittedArraySizeExpression()))));
+            }
+
+            TypeSyntax qualification = t.IsNested
                 ? GetTypeSyntax(t.DeclaringType)
                 : t.Namespace.Split('.').Select(s => (NameSyntax)IdentifierName(s)).Aggregate((acc, next) => QualifiedName(acc, (SimpleNameSyntax)next));
 
             SimpleNameSyntax name = t.IsGenericType
                 ? GenericName(t.Name.Substring(0, t.Name.IndexOf('`', StringComparison.Ordinal)))
-                    .WithTypeArgumentList(TypeArgumentList(SeparatedList(t.GetGenericArguments().Select(type => (TypeSyntax)GetTypeSyntax(type)))))
+                    .WithTypeArgumentList(SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(t.GetGenericArguments().Select(GetTypeSyntax))))
                 : (SimpleNameSyntax)IdentifierName(t.Name);
-
-            return QualifiedName(qualification, name);
+            return QualifiedName((NameSyntax)qualification, name);
         }
 
         private static ExpressionSyntax AwaitIfNecessary((ExpressionSyntax expression, Type type) expression)
@@ -168,8 +182,8 @@ namespace Microsoft.Health.Fhir.AccessControl.TemplateExpressions.Evaluation
             Type returnType = function.ReturnType;
 
             var identifier = function.Delegate.Target == null && function.Delegate.Method.DeclaringType.IsPublic && function.Delegate.Method.IsPublic
-                ? (NameSyntax)QualifiedName(GetTypeSyntax(function.Delegate.Method.DeclaringType), IdentifierName(function.Delegate.Method.Name))
-                : IdentifierName(expression.Identifier);
+                ? QualifiedName((NameSyntax)GetTypeSyntax(function.Delegate.Method.DeclaringType), IdentifierName(function.Delegate.Method.Name))
+                : (NameSyntax)IdentifierName(expression.Identifier);
 
             IEnumerable<ExpressionSyntax> GetAllArguments()
             {
