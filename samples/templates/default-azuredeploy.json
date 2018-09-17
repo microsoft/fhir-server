@@ -75,7 +75,7 @@
         "keyvaultEndpoint": "[concat('https://', variables('serviceName'), '.vault.azure.net/')]",
         "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
         "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
-        "securityAuthenticationEnabled": "[if(and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience')))),bool('true'),bool('false'))]"
+        "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]"
     },
     "resources": [
         {
