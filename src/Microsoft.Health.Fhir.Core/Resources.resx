@@ -172,6 +172,9 @@
   <data name="InvalidListConfigSetting" xml:space="preserve">
     <value>Unsupported values for field '{0}' were selected. Please check your configured options.</value>
   </data>
+  <data name="InvalidRoleName" xml:space="preserve">
+    <value>The role was not found.</value>
+  </data>
   <data name="InvalidSearchCountSpecified" xml:space="preserve">
     <value>The count must be greater than zero.</value>
   </data>

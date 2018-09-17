@@ -10,11 +10,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
 {
-    public class InMemoryDataStore : IDataStore
+    public class InMemoryDataStore : IDataStore, ISecurityDataStore
     {
         private static readonly Dictionary<string, List<ResourceWrapper>> List = new Dictionary<string, List<ResourceWrapper>>();
 
@@ -94,6 +95,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
         private static string GetKey(string resourceType, string resourceId)
         {
             return $"{resourceType}_{resourceId}";
+        }
+
+        public Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<Role> UpsertRoleAsync(Role role, WeakETag weakETag, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task DeleteRoleAsync(string name, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }
