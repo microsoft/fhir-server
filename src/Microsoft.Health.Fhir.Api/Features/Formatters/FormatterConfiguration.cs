@@ -20,8 +20,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     {
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly IConfiguredConformanceProvider _configuredConformanceProvider;
-        private readonly IEnumerable<TextInputFormatter> _inputFormatters;
-        private readonly IEnumerable<TextOutputFormatter> _outputFormatters;
+        private readonly TextInputFormatter[] _inputFormatters;
+        private readonly TextOutputFormatter[] _outputFormatters;
 
         public FormatterConfiguration(
             IOptions<FeatureConfiguration> featureConfiguration,
@@ -36,20 +36,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             _featureConfiguration = featureConfiguration.Value;
             _configuredConformanceProvider = configuredConformanceProvider;
-            _inputFormatters = inputFormatters;
-            _outputFormatters = outputFormatters;
+            _inputFormatters = inputFormatters.ToArray();
+            _outputFormatters = outputFormatters.ToArray();
         }
 
         public void PostConfigure(string name, MvcOptions options)
         {
-            foreach (var formatter in _inputFormatters)
+            for (int i = 0; i < _inputFormatters.Length; i++)
             {
-                options.InputFormatters.Add(formatter);
+                options.InputFormatters.Insert(i, _inputFormatters[i]);
             }
 
-            foreach (var formatter in _outputFormatters)
+            for (int i = 0; i < _outputFormatters.Length; i++)
             {
-                options.OutputFormatters.Add(formatter);
+                options.OutputFormatters.Insert(i, _outputFormatters[i]);
             }
 
             if (_featureConfiguration.SupportsXml)

@@ -61,7 +61,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IProvideCapability>();
 
             services.AddSingleton<IContentTypeService, ContentTypeService>();
-
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
 
@@ -99,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     .AsService<TextOutputFormatter>();
             }
 
-			services.Add<FhirRequestContextAccessor>()
+            services.Add<FhirRequestContextAccessor>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IFhirRequestContextAccessor>();

@@ -39,15 +39,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             _outputFormatters = outputFormatters.ToArray();
         }
 
-        public async Task CheckRequestedContentTypeAsync(HttpContext contextHttpContext)
+        public async Task CheckRequestedContentTypeAsync(HttpContext httpContext)
         {
-            var acceptHeaders = contextHttpContext.Request.GetTypedHeaders().Accept;
-            var format = GetSpecifiedFormat(contextHttpContext);
+            var acceptHeaders = httpContext.Request.GetTypedHeaders().Accept;
+            string formatOverride = QueryStringFormat(httpContext);
 
             // Check the _format first since it takes precedence over the accept header.
-            if (!string.IsNullOrEmpty(format))
+            if (!string.IsNullOrEmpty(formatOverride))
             {
-                ResourceFormat resourceFormat = ContentType.GetResourceFormatFromFormatParam(format);
+                ResourceFormat resourceFormat = ContentType.GetResourceFormatFromFormatParam(formatOverride);
                 if (!await IsFormatSupportedAsync(resourceFormat))
                 {
                     throw new UnsupportedMediaTypeException(Resources.UnsupportedFormatParameter);
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                 string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat, acceptHeaders.Select(x => x.MediaType.Value));
 
                 // Overrides output format type
-                contextHttpContext.Response.ContentType = closestClientMediaType;
+                httpContext.Response.ContentType = closestClientMediaType;
             }
             else
             {
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             }
         }
 
-        private static string GetSpecifiedFormat(HttpContext context)
+        private static string QueryStringFormat(HttpContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
