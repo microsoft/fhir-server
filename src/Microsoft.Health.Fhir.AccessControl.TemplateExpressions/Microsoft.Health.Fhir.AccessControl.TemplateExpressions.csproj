@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <!-- Due to the bug in VS, The DebugType needs to be set to Full for CodeCoverage to work property. Remove after the fix is deployed.-->
+    <DebugType>Full</DebugType>
+    <LangVersion>latest</LangVersion>
+    <HighEntropyVA>true</HighEntropyVA>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\stylecop.json" Link="stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ensure.That" Version="8.0.0" />
+    <PackageReference Include="FluentValidation" Version="7.6.100" />
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.1" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="2.9.0" />
+    <PackageReference Include="Superpower" Version="2.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.1" />
+    <PackageReference Include="Microsoft.CodeCoverage" Version="1.0.3" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.0-beta008" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="DiagnosticMessages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>DiagnosticMessages.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="DiagnosticMessages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>DiagnosticMessages.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

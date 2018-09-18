@@ -33,6 +33,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions.DependencyInjection.UnitTests", "src\Microsoft.Health.Extensions.DependencyInjection.UnitTests\Microsoft.Health.Extensions.DependencyInjection.UnitTests.csproj", "{614DE061-52A0-4471-A3F1-50C9C907FFDB}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.AccessControl.TemplateExpressions", "src\Microsoft.Health.Fhir.AccessControl.TemplateExpressions\Microsoft.Health.Fhir.AccessControl.TemplateExpressions.csproj", "{DE50F93A-66ED-4103-BF04-26864914C19F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.AccessControl.TemplateExpressions.UnitTests", "src\Microsoft.Health.Fhir.AccessControl.TemplateExpressions.UnitTests\Microsoft.Health.Fhir.AccessControl.TemplateExpressions.UnitTests.csproj", "{2ACA360F-29DE-47EF-8E66-EDEBBA0B38BE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -91,6 +95,14 @@ Global
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DE50F93A-66ED-4103-BF04-26864914C19F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE50F93A-66ED-4103-BF04-26864914C19F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE50F93A-66ED-4103-BF04-26864914C19F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE50F93A-66ED-4103-BF04-26864914C19F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2ACA360F-29DE-47EF-8E66-EDEBBA0B38BE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2ACA360F-29DE-47EF-8E66-EDEBBA0B38BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2ACA360F-29DE-47EF-8E66-EDEBBA0B38BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2ACA360F-29DE-47EF-8E66-EDEBBA0B38BE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -109,9 +121,11 @@ Global
 		{C015551C-0009-49CE-8C8D-B206BED0BB42} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{E2C2B117-32CD-449F-A4A8-4C8BA874D693} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
+		{DE50F93A-66ED-4103-BF04-26864914C19F} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
+		{2ACA360F-29DE-47EF-8E66-EDEBBA0B38BE} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 EndGlobal
