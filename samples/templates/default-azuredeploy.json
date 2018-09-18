@@ -75,7 +75,8 @@
         "keyvaultEndpoint": "[concat('https://', variables('serviceName'), '.vault.azure.net/')]",
         "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
         "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
-        "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]"
+        "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
+        "deploySourceCode": "[and(not(empty(parameters('repositoryUrl'))),not(empty(parameters('repositoryBranch'))))]"
     },
     "resources": [
         {
@@ -151,6 +152,7 @@
                     "apiVersion": "2015-08-01",
                     "name": "web",
                     "type": "sourcecontrols",
+                    "condition": "[variables('deploySourceCode')]",
                     "dependsOn": [
                       "[resourceId('Microsoft.Web/Sites', variables('serviceName'))]"
                     ],
