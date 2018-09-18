@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 {
     public interface IContentTypeService
     {
-        Task CheckDesiredContentFormatAsync(HttpContext contextHttpContext);
+        Task CheckRequestedContentTypeAsync(HttpContext contextHttpContext);
 
         Task<bool> IsFormatSupportedAsync(ResourceFormat resourceFormat);
     }

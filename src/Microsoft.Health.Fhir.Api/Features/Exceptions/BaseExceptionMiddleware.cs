@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 
                 try
                 {
-                    await _contentTypeService.CheckDesiredContentFormatAsync(context);
+                    await _contentTypeService.CheckRequestedContentTypeAsync(context);
                 }
                 catch (UnsupportedMediaTypeException)
                 {

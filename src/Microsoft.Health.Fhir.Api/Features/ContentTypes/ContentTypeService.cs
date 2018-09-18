@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             _outputFormatters = outputFormatters.ToArray();
         }
 
-        public async Task CheckDesiredContentFormatAsync(HttpContext contextHttpContext)
+        public async Task CheckRequestedContentTypeAsync(HttpContext contextHttpContext)
         {
             var acceptHeaders = contextHttpContext.Request.GetTypedHeaders().Accept;
             var format = GetSpecifiedFormat(contextHttpContext);
