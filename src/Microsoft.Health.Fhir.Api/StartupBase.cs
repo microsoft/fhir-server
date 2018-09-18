@@ -59,9 +59,12 @@ namespace Microsoft.Health.Fhir.Api
 
             services.AddSingleton(Configuration);
 
+            var featureConfiguration = new FeatureConfiguration();
+            Configuration.GetSection("Features").Bind(featureConfiguration);
+            services.AddSingleton(Options.Create(featureConfiguration));
+
             services
-                .Configure<ConformanceConfiguration>(Configuration.GetSection("Conformance"))
-                .Configure<FeatureConfiguration>(Configuration.GetSection("Features"));
+                .Configure<ConformanceConfiguration>(Configuration.GetSection("Conformance"));
 
             services.AddOptions();
             services.AddMvc(options =>
@@ -71,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api
 
             foreach (Assembly assembly in AssembliesContainingStartupModules)
             {
-                services.RegisterAssemblyModules(assembly, Configuration);
+                services.RegisterAssemblyModules(assembly, Configuration, featureConfiguration);
             }
         }
 

@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -27,6 +29,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public class FhirModule : IStartupModule
     {
+        private readonly FeatureConfiguration _featureConfiguration;
+
+        public FhirModule(FeatureConfiguration featureConfiguration)
+        {
+            EnsureArg.IsNotNull(featureConfiguration, nameof(featureConfiguration));
+
+            _featureConfiguration = featureConfiguration;
+        }
+
         /// <inheritdoc />
         public void Load(IServiceCollection services)
         {
@@ -49,21 +60,46 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IPostConfigureOptions<MvcOptions>>()
                 .AsService<IProvideCapability>();
 
+            services.AddSingleton<IContentTypeService, ContentTypeService>();
+
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
 
-            services.TypesInSameAssemblyAs<FhirJsonInputFormatter>()
-                .AssignableTo<TextInputFormatter>()
-                .Singleton()
-                .AsSelf();
+            // HTML
+            // If UI is supported, then add the formatter so that the
+            // document can be output in HTML view.
+            if (_featureConfiguration.SupportsUI)
+            {
+                services.Add<HtmlOutputFormatter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<TextOutputFormatter>();
+            }
 
-            services.TypesInSameAssemblyAs<FhirJsonOutputFormatter>()
-                .AssignableTo<TextOutputFormatter>()
+            services.Add<FhirJsonInputFormatter>()
+                .Singleton()
+                .AsSelf()
+                .AsService<TextInputFormatter>();
+
+            services.Add<FhirJsonOutputFormatter>()
                 .Singleton()
                 .AsSelf()
                 .AsService<TextOutputFormatter>();
 
-            services.Add<FhirRequestContextAccessor>()
+            if (_featureConfiguration.SupportsXml)
+            {
+                services.Add<FhirXmlInputFormatter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<TextInputFormatter>();
+
+                services.Add<FhirXmlOutputFormatter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<TextOutputFormatter>();
+            }
+
+			services.Add<FhirRequestContextAccessor>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IFhirRequestContextAccessor>();

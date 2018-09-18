@@ -5,15 +5,20 @@
 
 using System.Collections.Generic;
 using System.Linq;
-using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     public static class FormatterExtensions
     {
+        private static readonly IDictionary<ResourceFormat, string> ResourceFormatContentType = new Dictionary<ResourceFormat, string>
+        {
+            { ResourceFormat.Json, ContentType.JSON_CONTENT_HEADER },
+            { ResourceFormat.Xml, ContentType.XML_CONTENT_HEADER },
+        };
+
         internal static string GetClosestClientMediaType(this IEnumerable<TextOutputFormatter> outputFormatters, ResourceFormat resourceFormat, IEnumerable<string> acceptHeaders)
         {
             // When overriding the MediaType with the querystring parameter
@@ -21,24 +26,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             // For this reason we try to match a media type from the OutputFormatter with the request Accept header.
 
             string closestClientMediaType = null;
-            string preferred = ContentType.BuildContentType(resourceFormat, true);
-            var preferredMediaType = new MediaType(preferred);
+            string preferred = resourceFormat.ToContentType();
 
-            var selectionContext = new OutputFormatterWriteContext(new DefaultHttpContext(), (stream, encoding) => null, typeof(Resource), null)
-            {
-                ContentType = $"{preferredMediaType.Type}/{preferredMediaType.SubType}",
-            };
-
-            TextOutputFormatter formatter = outputFormatters.FirstOrDefault(x => x.CanWriteResult(selectionContext));
-
-            if (formatter != null)
+            if (outputFormatters != null)
             {
                 closestClientMediaType = acceptHeaders
-                    .Intersect(formatter.SupportedMediaTypes)
+                    .Intersect(outputFormatters.SelectMany(x => x.SupportedMediaTypes))
                     .FirstOrDefault();
             }
 
             return closestClientMediaType ?? preferred;
+        }
+
+        private static string ToContentType(this ResourceFormat resourceType)
+        {
+            if (ResourceFormatContentType.TryGetValue(resourceType, out string contentType))
+            {
+                return contentType;
+            }
+
+            throw new UnsupportedMediaTypeException(Resources.UnsupportedFormatParameter);
         }
     }
 }

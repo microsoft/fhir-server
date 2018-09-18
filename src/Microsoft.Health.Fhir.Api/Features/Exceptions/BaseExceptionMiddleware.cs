@@ -5,18 +5,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
-using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
-using Microsoft.Health.Fhir.Api.Features.Formatters;
-using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
 
@@ -27,35 +26,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
         private readonly RequestDelegate _next;
         private readonly ILogger<BaseExceptionMiddleware> _logger;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly FhirJsonSerializer _fhirJsonSerializer;
-        private readonly FhirXmlSerializer _fhirXmlSerializer;
         private readonly CorrelationIdProvider _correlationIdProvider;
-        private readonly IEnumerable<TextOutputFormatter> _outputFormatters;
+        private readonly IContentTypeService _contentTypeService;
 
         public BaseExceptionMiddleware(
             RequestDelegate next,
             ILogger<BaseExceptionMiddleware> logger,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            FhirJsonSerializer fhirJsonSerializer,
-            FhirXmlSerializer fhirXmlSerializer,
             CorrelationIdProvider correlationIdProvider,
-            IEnumerable<TextOutputFormatter> outputFormatters)
+            IContentTypeService contentTypeService)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
-            EnsureArg.IsNotNull(fhirXmlSerializer, nameof(fhirXmlSerializer));
             EnsureArg.IsNotNull(correlationIdProvider, nameof(correlationIdProvider));
-            EnsureArg.IsNotNull(outputFormatters, nameof(outputFormatters));
+            EnsureArg.IsNotNull(contentTypeService, nameof(contentTypeService));
 
             _next = next;
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _fhirJsonSerializer = fhirJsonSerializer;
-            _fhirXmlSerializer = fhirXmlSerializer;
             _correlationIdProvider = correlationIdProvider;
-            _outputFormatters = outputFormatters;
+            _contentTypeService = contentTypeService;
         }
 
         public async Task Invoke(HttpContext context)
@@ -81,7 +72,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                 }
 
                 context.Response.Clear();
-                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
                 var diagnostics = Resources.GeneralInternalError;
 
@@ -109,56 +99,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                     },
                 };
 
-                var contentType = GetResourceFormatFromContentType(context);
-                context.Response.ContentType = contentType.MediaType;
-
-                switch (contentType.Format)
+                try
                 {
-                    case ResourceFormat.Xml:
-                        await context.Response.WriteAsync(_fhirXmlSerializer.SerializeToString(operationOutcome));
-                        break;
-                    default:
-                        context.Response.ContentType = ContentType.JSON_CONTENT_HEADER;
-                        await context.Response.WriteAsync(_fhirJsonSerializer.SerializeToString(operationOutcome));
-                        break;
+                    await _contentTypeService.CheckDesiredContentFormatAsync(context);
                 }
+                catch (UnsupportedMediaTypeException)
+                {
+                    context.Response.ContentType = ContentType.JSON_CONTENT_HEADER;
+                }
+
+                var result = FhirResult.Create(operationOutcome, HttpStatusCode.InternalServerError);
+
+                await ExecuteResultAsync(context, result);
             }
         }
 
-        private (string MediaType, ResourceFormat Format) GetResourceFormatFromContentType(HttpContext context)
+        protected internal virtual async Task ExecuteResultAsync(HttpContext context, IActionResult result)
         {
-            var defaultFormat = (ContentType.JSON_CONTENT_HEADER, ResourceFormat.Unknown);
-            try
-            {
-                var acceptHeaders = context.Request.GetTypedHeaders().Accept.Select(x => x.MediaType.Value);
-
-                // Check _format override
-                if (context.Request.Query.TryGetValue(KnownQueryParameterNames.Format, out var queryValues) && queryValues.Any())
-                {
-                    ResourceFormat resourceFormat = ContentType.GetResourceFormatFromFormatParam(queryValues.First());
-                    return (_outputFormatters.GetClosestClientMediaType(resourceFormat, acceptHeaders), resourceFormat);
-                }
-
-                // Check headers
-                var acceptList = new[] { context.Request.ContentType }
-                    .Concat(acceptHeaders)
-                    .Where(x => x != null);
-
-                foreach (var header in acceptList)
-                {
-                    var format = ContentType.GetResourceFormatFromContentType(header);
-                    if (format != ResourceFormat.Unknown)
-                    {
-                        return (header, format);
-                    }
-                }
-
-                return defaultFormat;
-            }
-            catch
-            {
-                return defaultFormat;
-            }
+            await result.ExecuteResultAsync(new ActionContext { HttpContext = context });
         }
     }
 }

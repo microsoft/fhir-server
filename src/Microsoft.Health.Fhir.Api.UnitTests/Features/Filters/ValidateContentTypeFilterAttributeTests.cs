@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +15,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     public class ValidateContentTypeFilterAttributeTests
     {
         private readonly IConformanceProvider _conformanceProvider;
-        private CapabilityStatement _statement;
+        private readonly CapabilityStatement _statement;
 
         public ValidateContentTypeFilterAttributeTests()
         {
@@ -239,7 +239,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 formatters = new[] { formatter };
             }
 
-            return new ValidateContentTypeFilterAttribute(_conformanceProvider, formatters);
+            var service = new ContentTypeService(_conformanceProvider, formatters);
+
+            return new ValidateContentTypeFilterAttribute(service);
         }
 
         private static ActionExecutingContext CreateContext(string id)
