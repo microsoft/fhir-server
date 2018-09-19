@@ -14,19 +14,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// </summary>
     public interface ICompartmentDefinitionManager
     {
-        /// <summary>
-        /// Get the compartment Definition for the given <paramref name="compartmentType"/>.
-        /// </summary>
-        /// <param name="compartmentType">The compartment type.</param>
-        /// <returns>The compartment definition.</returns>
-        CompartmentDefinition GetCompartmentDefinition(CompartmentType compartmentType);
 
         /// <summary>
         /// Get the compartment index for the given <paramref name="resourceType"/>.
         /// </summary>
         /// <param name="resourceType">The fhir resource type for which to get the index.</param>
         /// <returns>The index of compartment type to fieldnames that represent the <paramref name="resourceType"/> in a compartment.</returns>
-        IDictionary<CompartmentType, IList<string>> GetCompartmentSearchParams(ResourceType resourceType);
+        IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>> GetCompartmentSearchParams(ResourceType resourceType);
 
         /// <summary>
         /// Get the compartment index for the given <paramref name="resourceType"/>.
@@ -34,6 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="resourceType">The fhir resource type for which to get the index.</param>
         /// <param name="compartmentSearchParams">On return, the index of compartment type to the fieldnames that represent the <paramref name="resourceType"/> in a compartment if it exists. Otherwise the default value.</param>
         /// <returns><c>true</c> if the compartmentSearchParams exists; otherwise, <c>false</c>.</returns>
-        bool TryGetCompartmentSearchParams(ResourceType resourceType, out IDictionary<CompartmentType, IList<string>> compartmentSearchParams);
+        bool TryGetCompartmentSearchParams(ResourceType resourceType, out IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>> compartmentSearchParams);
     }
 }

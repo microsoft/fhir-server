@@ -66,7 +66,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IFhirContextAccessor, FhirContextAccessor>();
             services.AddSingleton<CorrelationIdProvider>(provider => () => Guid.NewGuid().ToString());
-            services.AddSingleton<IUrlResolver, UrlResolver>();
 
             // Add conformance provider for implementation metadata.
             services.AddSingleton<IConfiguredConformanceProvider, DefaultConformanceProvider>();

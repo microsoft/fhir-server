@@ -20,8 +20,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<IStartable>()
-
-                // TODO Add the capability once fuly implemented.
                 .AsService<ICompartmentDefinitionManager>();
         }
     }

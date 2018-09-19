@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         // Given a fhir resource type, you can get the search params by compartment type.
         // Example (Appointment (FhirResource), { Patient (CompartmentType), actor (searchparam) })
-        private Dictionary<ResourceType, IDictionary<CompartmentType, IList<string>>> _resourceTypeParamsByCompartmentDictionary = new Dictionary<ResourceType, IDictionary<CompartmentType, IList<string>>>();
+        private Dictionary<ResourceType, Dictionary<CompartmentType, List<string>>> _resourceTypeParamsByCompartmentDictionary = new Dictionary<ResourceType, Dictionary<CompartmentType, List<string>>>();
 
         private bool _initialized;
 
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _bundle = bundle;
         }
 
-        internal IDictionary<ResourceType, IDictionary<CompartmentType, IList<string>>> CompartmentSearchParams
+        internal IDictionary<ResourceType, IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>>> CompartmentSearchParams
         {
             get
             {
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     Build();
                 }
 
-                return _resourceTypeParamsByCompartmentDictionary;
+                return _resourceTypeParamsByCompartmentDictionary as IDictionary<ResourceType, IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>>>;
             }
         }
 
@@ -106,7 +106,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 validatedCompartments.Add(compartment.Code.Value, compartment);
             }
 
-            EnsureNoIssues();
+            if (issues.Count != 0)
+            {
+                throw new InvalidDefinitionException(
+                    Core.Resources.CompartmentDefinitionContainsInvalidEntry,
+                    issues.ToArray());
+            }
+
             return validatedCompartments;
 
             void AddIssue(string format, params object[] args)
@@ -118,16 +124,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     Diagnostics = string.Format(CultureInfo.InvariantCulture, format, args),
                 });
             }
-
-            void EnsureNoIssues()
-            {
-                if (issues.Count != 0)
-                {
-                    throw new InvalidDefinitionException(
-                        Core.Resources.CompartmentDefinitionContainsInvalidEntry,
-                        issues.ToArray());
-                }
-            }
         }
 
         private void BuildResourceTypeLookup(CompartmentDefinition compartment)
@@ -136,17 +132,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             {
                 if (!_resourceTypeParamsByCompartmentDictionary.TryGetValue(resource.Code.Value, out var resourceTypeDict))
                 {
-                    resourceTypeDict = new Dictionary<CompartmentType, IList<string>>();
+                    resourceTypeDict = new Dictionary<CompartmentType, List<string>>();
                     _resourceTypeParamsByCompartmentDictionary.Add(resource.Code.Value, resourceTypeDict);
                 }
 
-                // Already populated
                 if (resourceTypeDict.ContainsKey(compartment.Code.Value))
                 {
+                    // Already populated
                     continue;
                 }
 
-                resourceTypeDict[compartment.Code.Value] = resource.Param.ToList();
+                resourceTypeDict[compartment.Code.Value] = resource.Param?.ToList();
             }
 
             return;

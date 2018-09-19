@@ -20,8 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public class CompartmentDefinitionManager : IStartable, ICompartmentDefinitionManager
     {
         private readonly FhirJsonParser _fhirJsonParser;
-        private IDictionary<CompartmentType, CompartmentDefinition> _compartmentlLookup;
-        private IDictionary<ResourceType, IDictionary<CompartmentType, IList<string>>> _compartmentSearchParams;
+        private IDictionary<ResourceType, IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>>> _compartmentSearchParams;
 
         public CompartmentDefinitionManager(FhirJsonParser fhirJsonParser)
         {
@@ -40,26 +39,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             using (JsonReader jsonReader = new JsonTextReader(reader))
             {
                 var bundle = _fhirJsonParser.Parse<Bundle>(jsonReader);
-
                 var builder = new CompartmentDefinitionBuilder(bundle);
 
                 builder.Build();
                 _compartmentSearchParams = builder.CompartmentSearchParams;
-                _compartmentlLookup = builder.CompartmentLookup;
             }
         }
 
-        public CompartmentDefinition GetCompartmentDefinition(CompartmentType compartmentType)
-        {
-            if (_compartmentlLookup.TryGetValue(compartmentType, out var compartmentDefinition))
-            {
-                return compartmentDefinition;
-            }
-
-            throw new NotSupportedException(compartmentType.ToString());
-        }
-
-        public IDictionary<CompartmentType, IList<string>> GetCompartmentSearchParams(ResourceType resourceType)
+        public IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>> GetCompartmentSearchParams(ResourceType resourceType)
         {
             if (_compartmentSearchParams.TryGetValue(resourceType, out var compartmentSearchParams))
             {
@@ -69,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new ResourceNotSupportedException(resourceType.ToString());
         }
 
-        public bool TryGetCompartmentSearchParams(ResourceType resourceType, out IDictionary<CompartmentType, IList<string>> compartmentSearchParams)
+        public bool TryGetCompartmentSearchParams(ResourceType resourceType, out IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>> compartmentSearchParams)
         {
             return _compartmentSearchParams.TryGetValue(resourceType, out compartmentSearchParams);
         }
