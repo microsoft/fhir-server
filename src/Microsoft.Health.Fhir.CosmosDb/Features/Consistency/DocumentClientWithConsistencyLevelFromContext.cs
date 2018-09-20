@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
     /// </summary>
     internal sealed partial class DocumentClientWithConsistencyLevelFromContext
     {
+        private static readonly string ValidConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
         private readonly IFhirContextAccessor _fhirContextAccessor;
 
         public DocumentClientWithConsistencyLevelFromContext(IDocumentClient inner, IFhirContextAccessor fhirContextAccessor)
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
 
         private RequestOptions UpdateOptions(RequestOptions options)
         {
-            var (consistencyLevel, sessionToken) = GetConsistencyHeaders();
+            (ConsistencyLevel? consistencyLevel, string sessionToken) = GetConsistencyHeaders();
 
             if (consistencyLevel == null && string.IsNullOrEmpty(sessionToken))
             {
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
 
         private FeedOptions UpdateOptions(FeedOptions options)
         {
-            var (consistencyLevel, sessionToken) = GetConsistencyHeaders();
+            (ConsistencyLevel? consistencyLevel, string sessionToken) = GetConsistencyHeaders();
 
             if (consistencyLevel == null && string.IsNullOrEmpty(sessionToken))
             {
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
             {
                 if (!Enum.TryParse(values, out ConsistencyLevel parsedLevel))
                 {
-                    throw new BadRequestException(string.Format(CultureInfo.CurrentCulture, Resources.UnrecognizedConsistencyLevel, values, string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"{v}"))));
+                    throw new BadRequestException(string.Format(CultureInfo.CurrentCulture, Resources.UnrecognizedConsistencyLevel, values, ValidConsistencyLevelsForErrorMessage));
                 }
 
                 if (parsedLevel != _inner.ConsistencyLevel)

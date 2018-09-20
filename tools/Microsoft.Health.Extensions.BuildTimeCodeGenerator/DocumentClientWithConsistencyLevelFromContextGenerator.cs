@@ -25,7 +25,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
     {
         public SyntaxNode Generate(string namespaceName, string typeName, Compilation compilation)
         {
-            // First generate a basic class that implementes the interfaces and delegates to an inner field.
+            // First generate a basic class that implements the interfaces and delegates to an inner field.
             var generator = new DelegatingInterfaceImplementationGenerator(
                 typeModifiers: TokenList(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.PartialKeyword)),
                 constructorModifiers: TokenList(Token(SyntaxKind.PrivateKeyword)),
