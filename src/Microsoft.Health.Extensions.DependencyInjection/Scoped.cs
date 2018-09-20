@@ -10,11 +10,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Microsoft.Health.Extensions.DependencyInjection
 {
     /// <inheritdoc />
-    public sealed class Owned<T> : IOwned<T>
+    internal sealed class Scoped<T> : IScoped<T>
     {
         private IServiceScope _scope;
 
-        public Owned(IServiceProvider provider)
+        public Scoped(IServiceProvider provider)
         {
             EnsureArg.IsNotNull(provider, nameof(provider));
 

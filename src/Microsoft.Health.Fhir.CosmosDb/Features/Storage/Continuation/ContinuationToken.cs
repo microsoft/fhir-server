@@ -4,11 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Security.Cryptography;
-using System.Text;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation
@@ -21,7 +17,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation
         {
             EnsureArg.IsNotNullOrWhiteSpace(continuationToken, nameof(continuationToken));
 
-            Id = Hash(continuationToken);
+            Id = Hasher.ComputeHash(continuationToken);
             Token = continuationToken;
             TimeToLive = (int)TimeSpan.FromDays(1).TotalSeconds;
         }
@@ -40,13 +36,5 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1822:Mark members as static", Justification = "Used in serialization to Cosmos DB")]
         [JsonProperty("partitionKey")]
         public string PartitionKey => ContinuationTokenPartition;
-
-        private static string Hash(string token)
-        {
-            using (var hasher = new SHA256Managed())
-            {
-                return hasher.ComputeHash(Encoding.UTF8.GetBytes(token)).ToSafeBase64();
-            }
-        }
     }
 }
