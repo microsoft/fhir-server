@@ -75,7 +75,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void StartInMemoryServer(string targetProjectParentDirectory)
         {
-            var startupAssembly = typeof(TStartup).GetTypeInfo().Assembly;
             var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
 
             var builder = WebHost.CreateDefaultBuilder()
@@ -127,20 +126,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             HttpClient.Dispose();
             _server?.Dispose();
-        }
-
-        protected virtual void InitializeServices(IServiceCollection services)
-        {
-            var startupAssembly = typeof(TStartup).GetTypeInfo().Assembly;
-
-            // Inject a custom application part manager.
-            // Overrides AddMvcCore() because it uses TryAdd().
-            var manager = new ApplicationPartManager();
-            manager.ApplicationParts.Add(new AssemblyPart(startupAssembly));
-            manager.FeatureProviders.Add(new ControllerFeatureProvider());
-            manager.FeatureProviders.Add(new ViewComponentFeatureProvider());
-
-            services.AddSingleton(manager);
         }
 
         /// <summary>

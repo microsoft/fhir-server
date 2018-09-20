@@ -10,7 +10,5 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Crucible = "Crucible";
 
         public const string Xml = "Xml";
-
-        public const string ExceptionMiddleware = "ExceptionMiddleware";
     }
 }
