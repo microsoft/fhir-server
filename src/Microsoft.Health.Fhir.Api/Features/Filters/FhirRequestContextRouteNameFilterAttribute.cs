@@ -13,18 +13,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Class)]
     public class FhirRequestContextRouteNameFilterAttribute : ActionFilterAttribute
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
-        public FhirRequestContextRouteNameFilterAttribute(IFhirRequestContextAccessor fhirRequestAccessor)
+        public FhirRequestContextRouteNameFilterAttribute(IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
-            EnsureArg.IsNotNull(fhirRequestAccessor, nameof(fhirRequestAccessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
-            _fhirRequestAccessor = fhirRequestAccessor;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)
         {
-            _fhirRequestAccessor.FhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
+            _fhirRequestContextAccessor.FhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
         }
     }
 }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Features.Context;
@@ -16,9 +17,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
     public class FhirRequestContextMiddlewareTests
     {
         [Fact]
-        public async Task WhenExecutingFhirRequestContextMiddleware_GivenAnHttpContext_TheFhirContextObjectShouldBeInitialized()
+        public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectRequestTypeShouldBeSet()
         {
-            IFhirRequestContext fhirRequestContext = await SetupAsync();
+            IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());
 
             Assert.NotNull(fhirRequestContext.RequestType);
 
@@ -27,20 +28,42 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Fact]
-        public async Task WhenExecutingFhirRequestContextMiddleware_GivenAnHttpRequest_TheFhirContextObjectShouldBeInitialized()
+        public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectUriShouldBeSet()
         {
-            IFhirRequestContext fhirRequestContext = await SetupAsync();
+            IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());
 
             Assert.Equal(new Uri("https://localhost:30/stu3/Observation?code=123"), fhirRequestContext.Uri);
         }
 
-        private async Task<IFhirRequestContext> SetupAsync()
+        [Fact]
+        public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectBaseUriShouldBeSet()
+        {
+            IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());
+
+            Assert.Equal(new Uri("https://localhost:30/stu3"), fhirRequestContext.BaseUri);
+        }
+
+        [Fact]
+        public async Task GivenAnHttpContextWithPrincipal_WhenExecutingFhirRequestContextMiddleware_ThenPrincipalShouldBeSet()
+        {
+            HttpContext httpContext = CreateHttpContext();
+
+            var principal = new ClaimsPrincipal();
+
+            httpContext.User = principal;
+
+            IFhirRequestContext fhirRequestContext = await SetupAsync(httpContext);
+
+            Assert.Same(principal, fhirRequestContext.Principal);
+        }
+
+        private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)
         {
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
             string Provider() => Guid.NewGuid().ToString();
 
-            await fhirContextMiddlware.Invoke(CreateHttpContext(), fhirRequestContextAccessor, Provider);
+            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, Provider);
 
             Assert.NotNull(fhirRequestContextAccessor.FhirRequestContext);
 

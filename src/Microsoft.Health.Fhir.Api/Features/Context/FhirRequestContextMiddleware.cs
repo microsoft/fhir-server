@@ -6,6 +6,7 @@
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -25,14 +26,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
         {
             HttpRequest request = context.Request;
 
+            string baseUriInString = UriHelper.BuildAbsolute(
+                request.Scheme,
+                request.Host,
+                request.PathBase);
+
+            string uriInString = UriHelper.BuildAbsolute(
+                request.Scheme,
+                request.Host,
+                request.PathBase,
+                request.Path,
+                request.QueryString);
+
             var fhirRequestContext = new FhirRequestContext(
                 request.Method,
-                request.Scheme,
-                request.Host.HasValue ? request.Host.Host : string.Empty,
-                request.Host.Port,
-                request.PathBase.HasValue ? request.PathBase.ToUriComponent() : string.Empty,
-                request.Path.HasValue ? request.Path.ToUriComponent() : string.Empty,
-                request.QueryString.HasValue ? request.QueryString.ToUriComponent() : string.Empty,
+                uriInString,
+                baseUriInString,
                 ValueSets.AuditEventType.RestFulOperation,
                 correlationIdProvider.Invoke());
 

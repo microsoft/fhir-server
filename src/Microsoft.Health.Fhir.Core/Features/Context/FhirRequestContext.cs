@@ -13,100 +13,48 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 {
     public class FhirRequestContext : IFhirRequestContext
     {
+        private readonly string _uriString;
+        private readonly string _baseUriString;
+
         private Uri _uri;
         private Uri _baseUri;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1054:Uri parameters should not be strings", Justification = "Lazily initialized to avoid unnecessary allocation.")]
         public FhirRequestContext(
             string method,
-            string scheme,
-            string host,
-            int? port,
-            string pathBase,
-            string path,
-            string queryString,
+            string uriString,
+            string baseUriString,
             Coding requestType,
             string correlationId)
         {
             EnsureArg.IsNotNullOrWhiteSpace(method, nameof(method));
-            EnsureArg.IsNotNullOrWhiteSpace(scheme, nameof(scheme));
-            EnsureArg.IsNotNullOrWhiteSpace(host, nameof(host));
-            EnsureArg.IsNotNullOrWhiteSpace(path, nameof(path));
+            EnsureArg.IsNotNullOrWhiteSpace(uriString, nameof(uriString));
+            EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
             EnsureArg.IsNotNull(requestType, nameof(requestType));
             EnsureArg.IsNotNullOrWhiteSpace(correlationId, nameof(correlationId));
 
             Method = method;
-            Scheme = scheme;
-            Host = host;
-            Port = port;
-            PathBase = pathBase;
-            Path = path;
-            QueryString = queryString;
+            _uriString = uriString;
+            _baseUriString = baseUriString;
             RequestType = requestType;
             CorrelationId = correlationId;
         }
 
         public string Method { get; }
 
-        public string Scheme { get; }
-
-        public string Host { get; }
-
-        public int? Port { get; }
-
-        public string PathBase { get; }
-
-        public string Path { get; }
-
-        public string QueryString { get; }
+        public Uri BaseUri
+        {
+            get
+            {
+                return LazyInitializer.EnsureInitialized(ref _baseUri, () => new Uri(_baseUriString));
+            }
+        }
 
         public Uri Uri
         {
             get
             {
-                LazyInitializer.EnsureInitialized(ref _uri, () =>
-                {
-                    var builder = new UriBuilder
-                    {
-                        Scheme = Scheme,
-                        Host = Host,
-                        Path = $"{PathBase}{Path}",
-                        Query = QueryString,
-                    };
-
-                    if (Port != null)
-                    {
-                        builder.Port = Port.Value;
-                    }
-
-                    return builder.Uri;
-                });
-
-                return _uri;
-            }
-        }
-
-        public Uri BaseUri
-        {
-            get
-            {
-                LazyInitializer.EnsureInitialized(ref _baseUri, () =>
-                {
-                    var builder = new UriBuilder
-                    {
-                        Scheme = Scheme,
-                        Host = Host,
-                        Path = PathBase,
-                    };
-
-                    if (Port != null)
-                    {
-                        builder.Port = Port.Value;
-                    }
-
-                    return builder.Uri;
-                });
-
-                return _baseUri;
+                return LazyInitializer.EnsureInitialized(ref _uri, () => new Uri(_uriString));
             }
         }
 

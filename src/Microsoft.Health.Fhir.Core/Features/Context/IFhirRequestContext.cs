@@ -13,21 +13,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
     {
         string Method { get; }
 
-        string Scheme { get; }
-
-        string Host { get; }
-
-        int? Port { get; }
-
-        string PathBase { get; }
-
-        string Path { get; }
-
-        string QueryString { get; }
+        Uri BaseUri { get; }
 
         Uri Uri { get; }
-
-        Uri BaseUri { get; }
 
         string CorrelationId { get; }
 
