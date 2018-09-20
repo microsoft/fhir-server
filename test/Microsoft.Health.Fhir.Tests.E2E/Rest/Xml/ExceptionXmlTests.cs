@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Xml
@@ -12,7 +11,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Xml
     [Trait(Traits.Category, Categories.Xml)]
     public class ExceptionXmlTests : ExceptionTests
     {
-        public ExceptionXmlTests(HttpIntegrationTestFixture<Startup> fixture)
+        public ExceptionXmlTests(HttpIntegrationTestFixture<StartupWithThrowingMiddleware> fixture)
             : base(fixture)
         {
             Client = fixture.FhirXmlClient.Value;

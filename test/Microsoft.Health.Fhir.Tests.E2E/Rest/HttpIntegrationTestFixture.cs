@@ -51,6 +51,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 StartInMemoryServer(targetProjectParentDirectory);
 
                 HttpClient = _server.CreateClient();
+
+                IsUsingInProcTestServer = true;
             }
             else
             {
@@ -63,6 +65,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirXmlClient = new Lazy<FhirClient>(() => new FhirClient(HttpClient, ResourceFormat.Xml));
         }
 
+        public bool IsUsingInProcTestServer { get; }
+
         public HttpClient HttpClient { get; }
 
         public FhirClient FhirClient { get; }
@@ -71,8 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void StartInMemoryServer(string targetProjectParentDirectory)
         {
-            var startupAssembly = typeof(TStartup).GetTypeInfo().Assembly;
-            var contentRoot = GetProjectPath(targetProjectParentDirectory, startupAssembly);
+            var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
@@ -125,20 +128,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _server?.Dispose();
         }
 
-        protected virtual void InitializeServices(IServiceCollection services)
-        {
-            var startupAssembly = typeof(TStartup).GetTypeInfo().Assembly;
-
-            // Inject a custom application part manager.
-            // Overrides AddMvcCore() because it uses TryAdd().
-            var manager = new ApplicationPartManager();
-            manager.ApplicationParts.Add(new AssemblyPart(startupAssembly));
-            manager.FeatureProviders.Add(new ControllerFeatureProvider());
-            manager.FeatureProviders.Add(new ViewComponentFeatureProvider());
-
-            services.AddSingleton(manager);
-        }
-
         /// <summary>
         /// Gets the full path to the target project that we wish to test
         /// </summary>
@@ -146,35 +135,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// The parent directory of the target project.
         /// e.g. src, samples, test, or test/Websites
         /// </param>
-        /// <param name="startupAssembly">The target project's assembly.</param>
+        /// <param name="startupType">The startup type</param>
         /// <returns>The full path to the target project.</returns>
-        private static string GetProjectPath(string projectRelativePath, Assembly startupAssembly)
+        private static string GetProjectPath(string projectRelativePath, Type startupType)
         {
-            // Get name of the target project which we want to test
-            var projectName = startupAssembly.GetName().Name;
-
-            // Get currently executing test project path
-            var applicationBasePath = System.AppContext.BaseDirectory;
-
-            // Find the path to the target project
-            var directoryInfo = new DirectoryInfo(applicationBasePath);
-            do
+            for (Type type = startupType; type != null; type = type.BaseType)
             {
-                directoryInfo = directoryInfo.Parent;
+                // Get name of the target project which we want to test
+                var projectName = type.GetTypeInfo().Assembly.GetName().Name;
 
-                var projectDirectoryInfo = new DirectoryInfo(Path.Combine(directoryInfo.FullName, projectRelativePath));
-                if (projectDirectoryInfo.Exists)
+                // Get currently executing test project path
+                var applicationBasePath = System.AppContext.BaseDirectory;
+
+                // Find the path to the target project
+                var directoryInfo = new DirectoryInfo(applicationBasePath);
+                do
                 {
-                    var projectFileInfo = new FileInfo(Path.Combine(projectDirectoryInfo.FullName, projectName, $"{projectName}.csproj"));
-                    if (projectFileInfo.Exists)
+                    directoryInfo = directoryInfo.Parent;
+
+                    var projectDirectoryInfo = new DirectoryInfo(Path.Combine(directoryInfo.FullName, projectRelativePath));
+                    if (projectDirectoryInfo.Exists)
                     {
-                        return Path.Combine(projectDirectoryInfo.FullName, projectName);
+                        var projectFileInfo = new FileInfo(Path.Combine(projectDirectoryInfo.FullName, projectName, $"{projectName}.csproj"));
+                        if (projectFileInfo.Exists)
+                        {
+                            return Path.Combine(projectDirectoryInfo.FullName, projectName);
+                        }
                     }
                 }
+                while (directoryInfo.Parent != null);
             }
-            while (directoryInfo.Parent != null);
 
-            throw new Exception($"Project root could not be located using the application root {applicationBasePath}.");
+            throw new Exception($"Project root could not be located for startup type {startupType.FullName}");
         }
     }
 }
