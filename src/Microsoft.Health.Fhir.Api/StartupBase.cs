@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api
                 module.Configure(app, env, appLifetime, loggerFactory, Configuration);
             }
 
-            app.UseFhirContext();
+            app.UseFhirRequestContext();
             app.UseStaticFiles();
             app.UseMvc();
         }

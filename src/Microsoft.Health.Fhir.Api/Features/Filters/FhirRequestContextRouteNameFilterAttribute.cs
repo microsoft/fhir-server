@@ -4,24 +4,27 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
-    public class FhirContextRouteNameFilterAttribute : ActionFilterAttribute
+    public class FhirRequestContextRouteNameFilterAttribute : ActionFilterAttribute
     {
-        private readonly IFhirContextAccessor _accessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestAccessor;
 
-        public FhirContextRouteNameFilterAttribute(IFhirContextAccessor accessor)
+        public FhirRequestContextRouteNameFilterAttribute(IFhirRequestContextAccessor fhirRequestAccessor)
         {
-            _accessor = accessor;
+            EnsureArg.IsNotNull(fhirRequestAccessor, nameof(fhirRequestAccessor));
+
+            _fhirRequestAccessor = fhirRequestAccessor;
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)
         {
-            _accessor.FhirContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
+            _fhirRequestAccessor.FhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
         }
     }
 }

@@ -315,7 +315,7 @@ In the case of internal reference:
 {
     "p": "performer",
     "rt": "Practitioner",
-    "rt": "123"
+    "ri": "123"
 }
 ```
 

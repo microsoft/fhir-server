@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
         private readonly ISearchOptionsFactory _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
         private readonly IBundleFactory _bundleFactory;
-        private readonly IFhirContextAccessor _fhirContextAccessor = Substitute.For<IFhirContextAccessor>();
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
 
         private readonly TestSearchService _searchService;
         private readonly RawResourceFactory _rawResourceFactory;
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchServiceTests()
         {
-            _bundleFactory = new BundleFactory(_urlResolver, _fhirContextAccessor);
+            _bundleFactory = new BundleFactory(_urlResolver, _fhirRequestContextAccessor);
             _dataStore = Substitute.For<IDataStore>();
 
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _urlResolver.ResolveSearchUrl(Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(SearchUrl);
 
             _correlationId = Guid.NewGuid().ToString();
-            _fhirContextAccessor.FhirContext.CorrelationId.Returns(_correlationId);
+            _fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(_correlationId);
         }
 
         [Fact]

@@ -17,14 +17,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         private const string ParamNameS = "s";
         private static readonly Uri BaseUri = new Uri("https://localhost/stu3/");
 
-        private readonly IFhirContextAccessor _fhirContextAccessor = Substitute.For<IFhirContextAccessor>();
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly ReferenceSearchValueParser _referenceSearchValueParser;
 
         public ReferenceSearchValueParserTests()
         {
-            _fhirContextAccessor.FhirContext.BaseUri.Returns(BaseUri);
+            _fhirRequestContextAccessor.FhirRequestContext.BaseUri.Returns(BaseUri);
 
-            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirContextAccessor);
+            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor);
         }
 
         [Fact]

@@ -23,19 +23,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Class)]
     internal class AuditLoggingFilterAttribute : ActionFilterAttribute
     {
-        private readonly IFhirContextAccessor _fhirContextAccessor;
-        private readonly IClaimsIndexer _claimsIndexer;
         private readonly IAuditLogger _auditLogger;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly IClaimsIndexer _claimsIndexer;
         private static ConcurrentDictionary<ControllerActionDescriptor, Attribute> s_attributeDict = new ConcurrentDictionary<ControllerActionDescriptor, Attribute>();
 
-        public AuditLoggingFilterAttribute(IAuditLogger auditLogger, IFhirContextAccessor fhirContextAccessor, IClaimsIndexer claimsIndexer)
+        public AuditLoggingFilterAttribute(
+            IAuditLogger auditLogger,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IClaimsIndexer claimsIndexer)
         {
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
-            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(claimsIndexer, nameof(claimsIndexer));
 
             _auditLogger = auditLogger;
-            _fhirContextAccessor = fhirContextAccessor;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _claimsIndexer = claimsIndexer;
         }
 
@@ -61,15 +64,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                 var auditEventSubTypeAttribute = attribute as AuditEventSubTypeAttribute;
 
-                _fhirContextAccessor.FhirContext.RequestSubType = new Coding(ValueSets.AuditEventSubType.System, auditEventSubTypeAttribute.AuditEventType);
+                IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+
+                fhirRequestContext.RequestSubType = new Coding(ValueSets.AuditEventSubType.System, auditEventSubTypeAttribute.AuditEventType);
 
                 _auditLogger.LogAudit(
                     AuditAction.Executing,
-                    action: _fhirContextAccessor.FhirContext.RequestSubType.Code,
+                    action: fhirRequestContext.RequestSubType.Code,
                     resourceType: null,
-                    requestUri: _fhirContextAccessor.FhirContext.RequestUri,
+                    requestUri: fhirRequestContext.Uri,
                     statusCode: null,
-                    correlationId: _fhirContextAccessor.FhirContext.CorrelationId,
+                    correlationId: _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
                     claims: _claimsIndexer.Extract());
             }
 
@@ -102,15 +107,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 return;
             }
 
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+
             var fhirResult = filterContext.Result as FhirResult;
 
             _auditLogger.LogAudit(
                 AuditAction.Executed,
-                _fhirContextAccessor.FhirContext.RequestSubType.Code,
+                fhirRequestContext.RequestSubType.Code,
                 fhirResult?.Resource?.TypeName,
-                _fhirContextAccessor.FhirContext.RequestUri,
+                fhirRequestContext.Uri,
                 (HttpStatusCode)filterContext.HttpContext.Response.StatusCode,
-                _fhirContextAccessor.FhirContext.CorrelationId,
+                _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
                 _claimsIndexer.Extract());
 
             base.OnResultExecuted(filterContext);

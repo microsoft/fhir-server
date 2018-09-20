@@ -4,31 +4,38 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net.Http;
 using System.Security.Claims;
 using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
-    public interface IFhirContext
+    public interface IFhirRequestContext
     {
+        string Method { get; }
+
+        string Scheme { get; }
+
+        string Host { get; }
+
+        int? Port { get; }
+
+        string PathBase { get; }
+
+        string Path { get; }
+
+        string QueryString { get; }
+
+        Uri Uri { get; }
+
+        Uri BaseUri { get; }
+
         string CorrelationId { get; }
 
-        Coding RequestType { get; set; }
+        Coding RequestType { get; }
 
         Coding RequestSubType { get; set; }
 
-        HttpMethod HttpMethod { get; set; }
-
-        Uri RequestUri { get; set; }
-
         string RouteName { get; set; }
-
-        /// <summary>
-        /// Gets the base URL for the server.
-        /// </summary>
-        /// <returns>The base URL for the server.</returns>
-        Uri BaseUri { get; set; }
 
         ClaimsPrincipal Principal { get; set; }
     }

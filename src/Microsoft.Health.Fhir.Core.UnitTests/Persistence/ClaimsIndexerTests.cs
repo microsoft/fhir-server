@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 {
     public class ClaimsIndexerTests
     {
-        private readonly IFhirContextAccessor _fhirContextAccessor = Substitute.For<IFhirContextAccessor>();
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly IOptions<SecurityConfiguration> _securityOptions = Substitute.For<IOptions<SecurityConfiguration>>();
         private readonly SecurityConfiguration _securityConfiguration = Substitute.For<SecurityConfiguration>();
         private readonly ClaimsPrincipal _claimsPrincipal = Substitute.For<ClaimsPrincipal>();
@@ -27,8 +27,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         public ClaimsIndexerTests()
         {
             _securityOptions.Value.Returns(_securityConfiguration);
-            _fhirContextAccessor.FhirContext.Principal.Returns(_claimsPrincipal);
-            _claimsIndexer = new ClaimsIndexer(_fhirContextAccessor, _securityOptions);
+            _fhirRequestContextAccessor.FhirRequestContext.Principal.Returns(_claimsPrincipal);
+            _claimsIndexer = new ClaimsIndexer(_fhirRequestContextAccessor, _securityOptions);
         }
 
         private static Claim Claim1 => new Claim("claim1", "value1");
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         public void GivenANullFhirContextAccessor_WhenInitializing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(
-                "fhirContextAccessor",
+                "fhirRequestContextAccessor",
                 () => new ClaimsIndexer(null, Options.Create(new SecurityConfiguration())));
         }
 
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         {
             Assert.Throws<ArgumentNullException>(
                 "securityConfiguration",
-                () => new ClaimsIndexer(new FhirContextAccessor(), null));
+                () => new ClaimsIndexer(new FhirRequestContextAccessor(), null));
         }
 
         [Fact]

@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -22,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     {
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly ILogger<FhirController> _logger = NullLogger<FhirController>.Instance;
-        private readonly IFhirContextAccessor _contextAccessor = Substitute.For<IFhirContextAccessor>();
+        private readonly IFhirRequestContextAccessor _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
         private readonly FeatureConfiguration _featureConfiguration = new FeatureConfiguration();
 
