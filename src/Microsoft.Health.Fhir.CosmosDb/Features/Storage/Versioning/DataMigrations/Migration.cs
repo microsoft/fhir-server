@@ -3,15 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
+using System.Collections.Generic;
 using Microsoft.Azure.Documents;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning.DataMigrations
 {
-    public interface ICosmosDbDistributedLockFactory
+    public abstract class Migration
     {
-        ICosmosDbDistributedLock Create(Uri collectionUri, string lockId);
+        public string Name => GetType().Name;
 
-        ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId);
+        public abstract SqlQuerySpec DocumentsToMigrate();
+
+        public abstract IEnumerable<IUpdateOperation> Migrate(Document wrapper);
     }
 }

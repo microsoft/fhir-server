@@ -8,11 +8,14 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Container;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning.DataMigrations;
 using Microsoft.Health.Fhir.Web.Features.Storage;
 
 namespace Microsoft.Health.Fhir.Web.Modules
@@ -54,23 +57,25 @@ namespace Microsoft.Health.Fhir.Web.Modules
                 .Singleton()
                 .AsService<IDocumentClientTestProvider>();
 
-            // Register Func<IDocumentClient>.
+            // Register IDocumentClient
             // We are intentionally not registering IDocumentClient directly, because
             // we want this codebase to support different configurations, where the
             // lifetime of the document clients can be managed outside of the IoC
             // container, which will automatically dispose it if exposed as a scoped
             // service or as transient but consumed from another scoped service.
 
-            services.Add<Func<IDocumentClient>>(sp => () => sp.GetService<DocumentClientProvider>().DocumentClient)
-                .Singleton()
+            services.Add(sp => sp.GetService<DocumentClientProvider>().CreateDocumentClientScope())
+                .Transient()
                 .AsSelf();
+
+            services.AddFactory<IScoped<IDocumentClient>>();
 
             services.Add<DocumentClientInitializer>()
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();
 
             services.Add<CosmosDocumentQueryFactory>()
-                .Scoped()
+                .Singleton()
                 .AsService<ICosmosDocumentQueryFactory>();
 
             services.Add<CosmosDocumentQueryLogger>()
@@ -87,7 +92,20 @@ namespace Microsoft.Health.Fhir.Web.Modules
                 .AsSelf()
                 .AsService<ICollectionUpdater>();
 
-            services.AddSingleton<ICosmosDbDistributedLockFactory, CosmosDbDistributedLockFactory>();
+            services.Add<CosmosDbDistributedLockFactory>()
+                .Singleton()
+                .AsService<ICosmosDbDistributedLockFactory>();
+
+            services.TypesInSameAssemblyAs<Migration>()
+                .AssignableTo<Migration>()
+                .Transient()
+                .AsSelf()
+                .AsService<Migration>();
+
+            services.Add<DataMigrationTask>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>();
         }
     }
 }
