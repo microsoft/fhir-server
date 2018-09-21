@@ -25,19 +25,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly ILogger<DocumentClientInitializer> _logger;
         private readonly IUpgradeManager _upgradeManager;
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
-        public DocumentClientInitializer(IDocumentClientTestProvider testProvider, ILogger<DocumentClientInitializer> logger, IUpgradeManager upgradeManager, IFhirContextAccessor fhirContextAccessor)
+        public DocumentClientInitializer(IDocumentClientTestProvider testProvider, ILogger<DocumentClientInitializer> logger, IUpgradeManager upgradeManager, IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(upgradeManager, nameof(upgradeManager));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
-            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _testProvider = testProvider;
             _logger = logger;
             _upgradeManager = upgradeManager;
-            _fhirContextAccessor = fhirContextAccessor;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             return new DocumentClientWithConsistencyLevelFromContext(
                 new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
-                _fhirContextAccessor);
+                _fhirRequestContextAccessor);
         }
 
         /// <summary>

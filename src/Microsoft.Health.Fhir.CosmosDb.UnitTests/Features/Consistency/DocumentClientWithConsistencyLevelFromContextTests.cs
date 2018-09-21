@@ -31,16 +31,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Consistency
         private readonly Dictionary<string, StringValues> _requestHeaders = new Dictionary<string, StringValues>();
         private readonly Dictionary<string, StringValues> _responseHeaders = new Dictionary<string, StringValues>();
         private readonly IDocumentClient _consistentClient;
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
         public DocumentClientWithConsistencyLevelFromContextTests()
         {
             _innerClient = Substitute.For<IDocumentClient>();
-            _fhirContextAccessor = Substitute.For<IFhirContextAccessor>();
-            _fhirContextAccessor.FhirContext.RequestHeaders.Returns(_requestHeaders);
-            _fhirContextAccessor.FhirContext.ResponseHeaders.Returns(_responseHeaders);
+            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders.Returns(_requestHeaders);
+            _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Returns(_responseHeaders);
 
-            _consistentClient = new DocumentClientWithConsistencyLevelFromContext(_innerClient, _fhirContextAccessor);
+            _consistentClient = new DocumentClientWithConsistencyLevelFromContext(_innerClient, _fhirRequestContextAccessor);
         }
 
         [Fact]
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Consistency
         [Fact]
         public async Task GivenACreateRequest_WithNoFhirContext_ThenNoRequestOptionsAreCreated()
         {
-            _fhirContextAccessor.FhirContext.ReturnsNull();
+            _fhirRequestContextAccessor.FhirRequestContext.ReturnsNull();
             _innerClient.CreateDocumentAsync("coll", (1, 2)).Returns(CreateResourceResponse(new Document(), HttpStatusCode.OK, new NameValueCollection()));
             await _consistentClient.CreateDocumentAsync("coll", (1, 2));
             await _innerClient.Received().CreateDocumentAsync("coll", (1, 2));

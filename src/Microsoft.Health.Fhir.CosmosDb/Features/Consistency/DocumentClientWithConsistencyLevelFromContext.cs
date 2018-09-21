@@ -22,13 +22,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
     internal sealed partial class DocumentClientWithConsistencyLevelFromContext
     {
         private static readonly string ValidConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
-        public DocumentClientWithConsistencyLevelFromContext(IDocumentClient inner, IFhirContextAccessor fhirContextAccessor)
+        public DocumentClientWithConsistencyLevelFromContext(IDocumentClient inner, IFhirRequestContextAccessor fhirRequestContextAccessor)
             : this(inner)
         {
-            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
-            _fhirContextAccessor = fhirContextAccessor;
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         private RequestOptions UpdateOptions(RequestOptions options)
@@ -87,16 +87,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
 
         private (ConsistencyLevel? consistencyLevel, string sessionToken) GetConsistencyHeaders()
         {
-            IFhirContext fhirContext = _fhirContextAccessor.FhirContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-            if (fhirContext == null)
+            if (fhirRequestContext == null)
             {
                 return (null, null);
             }
 
             ConsistencyLevel? requestedConsistencyLevel = null;
 
-            if (fhirContext.RequestHeaders.TryGetValue(CosmosDbConsistencyHeaders.ConsistencyLevel, out var values))
+            if (fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbConsistencyHeaders.ConsistencyLevel, out var values))
             {
                 if (!Enum.TryParse(values, out ConsistencyLevel parsedLevel))
                 {
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
                 }
             }
 
-            fhirContext.RequestHeaders.TryGetValue(CosmosDbConsistencyHeaders.SessionToken, out values);
+            fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbConsistencyHeaders.SessionToken, out values);
 
             return (requestedConsistencyLevel, values);
         }
@@ -165,10 +165,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
         {
             if (!string.IsNullOrEmpty(sessionToken))
             {
-                IFhirContext fhirContext = _fhirContextAccessor.FhirContext;
-                if (fhirContext != null)
+                IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                if (fhirRequestContext != null)
                 {
-                    fhirContext.ResponseHeaders[CosmosDbConsistencyHeaders.SessionToken] = sessionToken;
+                    fhirRequestContext.ResponseHeaders[CosmosDbConsistencyHeaders.SessionToken] = sessionToken;
                 }
             }
         }

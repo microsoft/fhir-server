@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.PostConfigure<MvcOptions>(options =>
             {
                 options.ModelBinderProviders.Insert(0, new PartialDateTimeBinderProvider());
-                options.Filters.Add(typeof(FhirContextRouteNameFilterAttribute));
+                options.Filters.Add(typeof(FhirRequestContextRouteNameFilterAttribute));
             });
 
             // These are needed for IUrlResolver used by search.

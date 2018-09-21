@@ -29,14 +29,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
     public class AuditLoggingFilterTests
     {
-        private ResultExecutedContext _executedContext;
-        private IFhirContextAccessor _fhirContextAccessor = Substitute.For<IFhirContextAccessor>();
-        private IFhirContext _fhirContext = Substitute.For<IFhirContext>();
-        private IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
-        private FhirResult _fhirResult;
+        private readonly ResultExecutedContext _executedContext;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
+        private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
+        private readonly FhirResult _fhirResult;
         private readonly IOptions<SecurityConfiguration> _securityOptions = Substitute.For<IOptions<SecurityConfiguration>>();
         private readonly SecurityConfiguration _securityConfiguration = Substitute.For<SecurityConfiguration>();
         private readonly ClaimsPrincipal _claimsPrincipal = Substitute.For<ClaimsPrincipal>();
+
+        private readonly AuditLoggingFilterAttribute _filter;
 
         private IReadOnlyCollection<KeyValuePair<string, string>> _claims;
         private IClaimsIndexer _claimsIndexer;
@@ -55,11 +57,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             _executedContext.HttpContext.Response.StatusCode = (int)HttpStatusCode.Created;
             _fhirResult.StatusCode = HttpStatusCode.Created;
-            _fhirContext.RequestType = new Coding("System", "TestRequestType");
-            _fhirContext.RequestSubType = new Coding("System", "TestRequestSubType");
-            _fhirContext.RequestUri = new Uri("https://fhirtest/fhir?count=100");
-            _fhirContextAccessor.FhirContext.Returns(_fhirContext);
-            _fhirContextAccessor.FhirContext.Principal.Returns(_claimsPrincipal);
+            _fhirRequestContext.RequestType.Returns(new Coding("System", "TestRequestType"));
+            _fhirRequestContext.RequestSubType = new Coding("System", "TestRequestSubType");
+            _fhirRequestContext.Uri.Returns(new Uri("https://fhirtest/fhir?count=100"));
+            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor.FhirRequestContext.Principal.Returns(_claimsPrincipal);
+
             _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string> { "claim1" });
             _securityOptions.Value.Returns(_securityConfiguration);
             _claimsPrincipal.Claims.Returns(new List<System.Security.Claims.Claim> { Claim1 });
@@ -72,6 +75,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _claimsIndexer = Substitute.For<IClaimsIndexer>();
 
             _claimsIndexer.Extract().Returns(_claims);
+
+            _filter = new AuditLoggingFilterAttribute(
+                _auditLogger,
+                _fhirRequestContextAccessor,
+                _claimsIndexer);
         }
 
         private static System.Security.Claims.Claim Claim1 => new System.Security.Claims.Claim("claim1", "value1");
@@ -85,15 +93,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 _actionArguments,
                 FilterTestsHelper.CreateMockFhirController());
 
-            var filter = new AuditLoggingFilterAttribute(_auditLogger, _fhirContextAccessor, _claimsIndexer);
-
             var descriptor = executingContext.ActionDescriptor as ControllerActionDescriptor;
 
             descriptor.MethodInfo = typeof(FilterTestsHelper).GetMethod("MethodWithAnonymousAttribute");
-            filter.OnActionExecuting(executingContext);
+            _filter.OnActionExecuting(executingContext);
             _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(Arg.Any<AuditAction>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Uri>(), Arg.Any<HttpStatusCode?>(), Arg.Any<string>(), Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>());
             _executedContext.ActionDescriptor = executingContext.ActionDescriptor;
-            filter.OnResultExecuted(_executedContext);
+            _filter.OnResultExecuted(_executedContext);
             _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(Arg.Any<AuditAction>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Uri>(), Arg.Any<HttpStatusCode?>(), Arg.Any<string>(), Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>());
         }
 
@@ -106,23 +112,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 _actionArguments,
                 FilterTestsHelper.CreateMockFhirController());
 
-            var filter = new AuditLoggingFilterAttribute(_auditLogger, _fhirContextAccessor, _claimsIndexer);
-
             var descriptor = executingContext.ActionDescriptor as ControllerActionDescriptor;
 
             var claims = _claimsIndexer.Extract();
 
             descriptor.MethodInfo = typeof(FilterTestsHelper).GetMethod("MethodWithAuditEventAttribute");
-            filter.OnActionExecuting(executingContext);
-            _auditLogger.Received(1).LogAudit(AuditAction.Executing, _fhirContext.RequestSubType.Code, null, _fhirContext.RequestUri, null, _fhirContext.CorrelationId, _claims);
+            _filter.OnActionExecuting(executingContext);
+            _auditLogger.Received(1).LogAudit(AuditAction.Executing, _fhirRequestContext.RequestSubType.Code, null, _fhirRequestContext.Uri, null, _fhirRequestContext.CorrelationId, _claims);
             _executedContext.ActionDescriptor = executingContext.ActionDescriptor;
-            filter.OnResultExecuted(_executedContext);
+            _filter.OnResultExecuted(_executedContext);
             _auditLogger.Received(2).LogAudit(Arg.Any<AuditAction>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Uri>(), Arg.Any<HttpStatusCode?>(), Arg.Any<string>(), Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>());
-            _auditLogger.Received(1).LogAudit(AuditAction.Executed, _fhirContext.RequestSubType.Code, _fhirResult.Resource.TypeName, _fhirContext.RequestUri, _fhirResult.StatusCode, _fhirContext.CorrelationId, _claims);
+            _auditLogger.Received(1).LogAudit(AuditAction.Executed, _fhirRequestContext.RequestSubType.Code, _fhirResult.Resource.TypeName, _fhirRequestContext.Uri, _fhirResult.StatusCode, _fhirRequestContext.CorrelationId, _claims);
         }
 
-        [Fact]
-        public void GivenAFhirRequest_WhenExecutingAnValidAction_ThenCorrectRequestSubTypeMustBeSet()
+        [Theory]
+        [InlineData("Create", AuditEventSubType.Create)]
+        [InlineData("Update", AuditEventSubType.Update)]
+        [InlineData("Read", AuditEventSubType.Read)]
+        [InlineData("SystemHistory", AuditEventSubType.HistorySystem)]
+        [InlineData("TypeHistory", AuditEventSubType.HistoryType)]
+        [InlineData("History", AuditEventSubType.HistoryInstance)]
+        [InlineData("VRead", AuditEventSubType.VRead)]
+        [InlineData("Delete", AuditEventSubType.Delete)]
+        [InlineData("Search", AuditEventSubType.SearchType)]
+        [InlineData("SearchPost", AuditEventSubType.SearchType)]
+        public void GivenAFhirRequest_WhenExecutingAnValidAction_ThenCorrectRequestSubTypeMustBeSet(string methodName, string auditEventSubType)
         {
             var executingContext = new ActionExecutingContext(
                 new ActionContext(new DefaultHttpContext(), new RouteData(), new ControllerActionDescriptor() { DisplayName = "Executing Context Test Descriptor" }),
@@ -130,20 +144,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 _actionArguments,
                 FilterTestsHelper.CreateMockFhirController());
 
-            var filter = new AuditLoggingFilterAttribute(_auditLogger, _fhirContextAccessor, _claimsIndexer);
-
             var fhirController = executingContext.Controller as FhirController;
 
-            AssertProperRequestSubTypeSet(executingContext, "Create", AuditEventSubType.Create, filter);
-            AssertProperRequestSubTypeSet(executingContext, "Update", AuditEventSubType.Update, filter);
-            AssertProperRequestSubTypeSet(executingContext, "Read", AuditEventSubType.Read, filter);
-            AssertProperRequestSubTypeSet(executingContext, "SystemHistory", AuditEventSubType.HistorySystem, filter);
-            AssertProperRequestSubTypeSet(executingContext, "TypeHistory", AuditEventSubType.HistoryType, filter);
-            AssertProperRequestSubTypeSet(executingContext, "History", AuditEventSubType.HistoryInstance, filter);
-            AssertProperRequestSubTypeSet(executingContext, "VRead", AuditEventSubType.VRead, filter);
-            AssertProperRequestSubTypeSet(executingContext, "Delete", AuditEventSubType.Delete, filter);
-            AssertProperRequestSubTypeSet(executingContext, "Search", AuditEventSubType.SearchType, filter);
-            AssertProperRequestSubTypeSet(executingContext, "SearchPost", AuditEventSubType.SearchType, filter);
+            AssertProperRequestSubTypeSet(executingContext, methodName, auditEventSubType, _filter);
         }
 
         private void AssertProperRequestSubTypeSet(ActionExecutingContext executingContext, string methodName, string requestSubType, AuditLoggingFilterAttribute filter)
@@ -153,8 +156,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             descriptor.MethodInfo = typeof(FhirController).GetMethod(methodName);
             filter.OnActionExecuting(executingContext);
-            Assert.Equal(_fhirContextAccessor.FhirContext.RequestSubType.Code, requestSubType);
-            Assert.Equal(_fhirContextAccessor.FhirContext.RequestSubType.System, AuditEventSubType.System);
+            Assert.Equal(_fhirRequestContextAccessor.FhirRequestContext.RequestSubType.Code, requestSubType);
+            Assert.Equal(_fhirRequestContextAccessor.FhirRequestContext.RequestSubType.System, AuditEventSubType.System);
         }
 
         [Fact]
@@ -166,12 +169,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 _actionArguments,
                 FilterTestsHelper.CreateMockFhirController());
 
-            var filter = new AuditLoggingFilterAttribute(_auditLogger, _fhirContextAccessor, _claimsIndexer);
             var descriptor = executingContext.ActionDescriptor as ControllerActionDescriptor;
 
             descriptor.MethodInfo = typeof(FilterTestsHelper).GetMethod("MethodWithNoAttribute");
 
-            var excp = Assert.Throws<NotSupportedException>(() => filter.OnActionExecuting(executingContext));
+            var excp = Assert.Throws<NotSupportedException>(() => _filter.OnActionExecuting(executingContext));
             Assert.Contains(excp.Message, "Audit Event Sub Type is not set for method MethodWithNoAttribute");
         }
     }

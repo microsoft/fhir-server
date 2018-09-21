@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 {
     public class DocumentClientInitializerTests
     {
-        private readonly DocumentClientInitializer _documentClientInitializer = new DocumentClientInitializer(Substitute.For<IDocumentClientTestProvider>(), NullLogger<DocumentClientInitializer>.Instance, Substitute.For<IUpgradeManager>(), Substitute.For<IFhirContextAccessor>());
+        private readonly DocumentClientInitializer _documentClientInitializer = new DocumentClientInitializer(Substitute.For<IDocumentClientTestProvider>(), NullLogger<DocumentClientInitializer>.Instance, Substitute.For<IUpgradeManager>(), Substitute.For<IFhirRequestContextAccessor>());
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
         {
             AllowDatabaseCreation = false,

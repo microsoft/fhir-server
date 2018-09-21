@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues
 {
+    /// <inheritdoc />
     public partial class ResourceTypeManifestManager : IResourceTypeManifestManager, IProvideCapability
     {
         private readonly ISearchParamFactory _searchParamFactory;

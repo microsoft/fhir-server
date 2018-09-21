@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upgradeManager = new CollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
             IDocumentClientTestProvider testProvider = new DocumentClientReadWriteTestProvider();
 
-            var documentClientInitializer = new DocumentClientInitializer(testProvider, NullLogger<DocumentClientInitializer>.Instance, upgradeManager, Substitute.For<IFhirContextAccessor>());
+            var documentClientInitializer = new DocumentClientInitializer(testProvider, NullLogger<DocumentClientInitializer>.Instance, upgradeManager, Substitute.For<IFhirRequestContextAccessor>());
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration).GetAwaiter().GetResult();
 

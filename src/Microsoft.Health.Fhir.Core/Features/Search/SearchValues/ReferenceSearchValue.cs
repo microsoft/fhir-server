@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
+using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
@@ -12,10 +14,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// </summary>
     public class ReferenceSearchValue : ISearchValue
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ReferenceSearchValue"/> class.
-        /// </summary>
-        /// <param name="reference">The reference value.</param>
         public ReferenceSearchValue(string reference)
         {
             EnsureArg.IsNotNullOrWhiteSpace(reference, nameof(reference));
@@ -24,21 +22,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         }
 
         /// <summary>
-        /// Gets the reference value.
+        /// Initializes a new instance of the <see cref="ReferenceSearchValue"/> class.
         /// </summary>
+        /// <param name="referenceKind">The kind of reference.</param>
+        /// <param name="baseUri">The base URI of the resource.</param>
+        /// <param name="resourceType">The resource type.</param>
+        /// <param name="resourceId">The resource id.</param>
+        public ReferenceSearchValue(ReferenceKind referenceKind, Uri baseUri, ResourceType? resourceType, string resourceId)
+        {
+            if (baseUri != null)
+            {
+                EnsureArg.IsNotNull(resourceType, nameof(resourceType));
+            }
+
+            EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
+
+            Kind = referenceKind;
+            BaseUri = baseUri;
+            ResourceType = resourceType;
+            ResourceId = resourceId;
+        }
+
+        // TODO: Keeping this for legacy search. Remove once the legacy search code is removed.
         public string Reference { get; }
+
+        /// <summary>
+        /// Gets the kind of reference.
+        /// </summary>
+        public ReferenceKind Kind { get; }
+
+        /// <summary>
+        /// Gets the base URI of the resource.
+        /// </summary>
+        public Uri BaseUri { get; }
+
+        /// <summary>
+        /// Gets the resource type.
+        /// </summary>
+        public ResourceType? ResourceType { get; }
+
+        /// <summary>
+        /// Gets the resource id.
+        /// </summary>
+        public string ResourceId { get; }
 
         /// <summary>
         /// Parses the string value to an instance of <see cref="ReferenceSearchValue"/>.
         /// </summary>
         /// <param name="s">The string to be parsed.</param>
         /// <returns>An instance of <see cref="ReferenceSearchValue"/>.</returns>
+        // TODO: Keeping this for legacy search. Remove once the legacy search code is removed.
         public static ReferenceSearchValue Parse(string s)
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
-            // TODO: Add logic to normalize the internal URL.
-            // (e.g., change to relative URL if it's internal resource).
             return new ReferenceSearchValue(s);
         }
 
@@ -53,7 +90,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public override string ToString()
         {
-            return Reference;
+            if (BaseUri != null)
+            {
+                return $"{BaseUri}{ResourceType}/{ResourceId}";
+            }
+            else if (ResourceType == null)
+            {
+                return ResourceId;
+            }
+
+            return $"{ResourceType}/{ResourceId}";
         }
     }
 }

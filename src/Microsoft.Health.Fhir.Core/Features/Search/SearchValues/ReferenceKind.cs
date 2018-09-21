@@ -3,16 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
+namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
     /// <summary>
-    /// Debug related configuration.
+    /// Defines the kinds of reference.
     /// </summary>
-    public class DebugConfiguration
+    public enum ReferenceKind
     {
         /// <summary>
-        /// Gets or sets a value indicating whether use the exception thrower.
+        /// The reference can be an internal or external.
         /// </summary>
-        public bool UseExceptionThrower { get; set; }
+        InternalOrExternal,
+
+        /// <summary>
+        /// The reference is an internal reference.
+        /// </summary>
+        Internal,
+
+        /// <summary>
+        /// The reference is an external reference.
+        /// </summary>
+        External,
     }
 }

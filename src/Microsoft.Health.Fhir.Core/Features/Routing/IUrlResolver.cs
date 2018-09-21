@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// Resolves the URL for the server metadata.
         /// </summary>
         /// <param name="includeSystemQueryString">A indicator if the system query string parameter should be included</param>
-        /// <returns>The URL for the metadata route</returns>
+        /// <returns>The URL for the metadata route.</returns>
         Uri ResolveMetadataUrl(bool includeSystemQueryString);
 
         /// <summary>

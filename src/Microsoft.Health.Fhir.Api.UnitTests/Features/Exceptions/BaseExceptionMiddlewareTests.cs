@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
     {
         private readonly string _correlationId;
         private readonly DefaultHttpContext _context;
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirXmlSerializer _fhirXmlSerializer;
         private readonly CorrelationIdProvider _provider = () => Guid.NewGuid().ToString();
@@ -31,8 +31,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
         {
             _correlationId = Guid.NewGuid().ToString();
 
-            _fhirContextAccessor = Substitute.For<IFhirContextAccessor>();
-            _fhirContextAccessor.FhirContext.CorrelationId.Returns(_correlationId);
+            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            _fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(_correlationId);
             _fhirJsonSerializer = new FhirJsonSerializer();
             _fhirXmlSerializer = new FhirXmlSerializer();
 
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
         [InlineData("The MetadataAddress or Authority must use HTTPS unless disabled for development by setting RequireHttpsMetadata=false.", "The security configuration requires the authority to be set to an https address.")]
         public async Task WhenExecutingBaseExceptionMiddleware_GivenAnHttpContextWithException_TheResponseShouldBeOperationOutcome(string exceptionMessage, string diagnosticMessage)
         {
-            var baseExceptionMiddleware = new BaseExceptionMiddleware(innerHttpContext => throw new Exception(exceptionMessage), NullLogger<BaseExceptionMiddleware>.Instance, _fhirContextAccessor, _fhirJsonSerializer, _fhirXmlSerializer, _provider);
+            var baseExceptionMiddleware = new BaseExceptionMiddleware(innerHttpContext => throw new Exception(exceptionMessage), NullLogger<BaseExceptionMiddleware>.Instance, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirXmlSerializer, _provider);
 
             await baseExceptionMiddleware.Invoke(_context);
 
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
         [Fact]
         public async Task WhenExecutingBaseExceptionMiddleware_GivenAnHttpContextWithNoException_TheResponseShouldBeEmpty()
         {
-            var baseExceptionMiddleware = new BaseExceptionMiddleware(innerHttpContext => Task.CompletedTask, NullLogger<BaseExceptionMiddleware>.Instance, _fhirContextAccessor, _fhirJsonSerializer, _fhirXmlSerializer, _provider);
+            var baseExceptionMiddleware = new BaseExceptionMiddleware(innerHttpContext => Task.CompletedTask, NullLogger<BaseExceptionMiddleware>.Instance, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirXmlSerializer, _provider);
 
             await baseExceptionMiddleware.Invoke(_context);
 
