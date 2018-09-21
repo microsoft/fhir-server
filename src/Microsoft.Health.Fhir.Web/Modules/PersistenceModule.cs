@@ -7,11 +7,13 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Container;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning.DataMigrations;
 using Microsoft.Health.Fhir.Web.Features.Storage;
 
 namespace Microsoft.Health.Fhir.Web.Modules
@@ -91,6 +93,17 @@ namespace Microsoft.Health.Fhir.Web.Modules
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()
                 .AsService<ICosmosDbDistributedLockFactory>();
+
+            services.TypesInSameAssemblyAs<Migration>()
+                .AssignableTo<Migration>()
+                .Transient()
+                .AsSelf()
+                .AsService<Migration>();
+
+            services.Add<DataMigrationTask>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>();
         }
     }
 }
