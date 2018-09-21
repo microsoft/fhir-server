@@ -17,11 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public sealed class SystemConformanceProvider : ISystemConformanceProvider, IDisposable
     {
-        private readonly Func<IOwned<IEnumerable<IProvideCapability>>> _capabilityProviders;
+        private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
         private ListedCapabilityStatement _listedCapabilityStatement;
         private SemaphoreSlim _sem = new SemaphoreSlim(1, 1);
 
-        public SystemConformanceProvider(Func<IOwned<IEnumerable<IProvideCapability>>> capabilityProviders)
+        public SystemConformanceProvider(Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders)
         {
             EnsureArg.IsNotNull(capabilityProviders, nameof(capabilityProviders));
 

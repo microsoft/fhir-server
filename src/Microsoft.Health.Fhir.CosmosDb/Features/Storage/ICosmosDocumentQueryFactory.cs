@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Linq;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -16,8 +17,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Creates an instance of <see cref="CosmosDocumentQuery{T}"/>.
         /// </summary>
         /// <typeparam name="T">The document type.</typeparam>
+        /// <param name="documentClient">The document client</param>
         /// <param name="queryContext">The SQL query context.</param>
         /// <returns>An instance of <see cref="CosmosDocumentQuery{T}"/>.</returns>
-        IDocumentQuery<T> Create<T>(CosmosQueryContext queryContext);
+        IDocumentQuery<T> Create<T>(IDocumentClient documentClient, CosmosQueryContext queryContext);
     }
 }

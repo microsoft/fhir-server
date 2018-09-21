@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Configuration;
@@ -54,23 +53,25 @@ namespace Microsoft.Health.Fhir.Web.Modules
                 .Singleton()
                 .AsService<IDocumentClientTestProvider>();
 
-            // Register Func<IDocumentClient>.
+            // Register IDocumentClient
             // We are intentionally not registering IDocumentClient directly, because
             // we want this codebase to support different configurations, where the
             // lifetime of the document clients can be managed outside of the IoC
             // container, which will automatically dispose it if exposed as a scoped
             // service or as transient but consumed from another scoped service.
 
-            services.Add<Func<IDocumentClient>>(sp => () => sp.GetService<DocumentClientProvider>().DocumentClient)
-                .Singleton()
+            services.Add(sp => sp.GetService<DocumentClientProvider>().CreateDocumentClientScope())
+                .Transient()
                 .AsSelf();
+
+            services.AddFactory<IScoped<IDocumentClient>>();
 
             services.Add<DocumentClientInitializer>()
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();
 
             services.Add<CosmosDocumentQueryFactory>()
-                .Scoped()
+                .Singleton()
                 .AsService<ICosmosDocumentQueryFactory>();
 
             services.Add<CosmosDocumentQueryLogger>()
@@ -87,7 +88,9 @@ namespace Microsoft.Health.Fhir.Web.Modules
                 .AsSelf()
                 .AsService<ICollectionUpdater>();
 
-            services.AddSingleton<ICosmosDbDistributedLockFactory, CosmosDbDistributedLockFactory>();
+            services.Add<CosmosDbDistributedLockFactory>()
+                .Singleton()
+                .AsService<ICosmosDbDistributedLockFactory>();
         }
     }
 }
