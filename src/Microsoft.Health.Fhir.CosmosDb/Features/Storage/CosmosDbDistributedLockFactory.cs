@@ -7,18 +7,30 @@ using System;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class CosmosDbDistributedLockFactory : ICosmosDbDistributedLockFactory
     {
+        private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
         private readonly ILogger<CosmosDbDistributedLock> _logger;
 
-        public CosmosDbDistributedLockFactory(ILogger<CosmosDbDistributedLock> logger)
+        public CosmosDbDistributedLockFactory(Func<IScoped<IDocumentClient>> documentClientFactory, ILogger<CosmosDbDistributedLock> logger)
         {
+            EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _documentClientFactory = documentClientFactory;
             _logger = logger;
+        }
+
+        public ICosmosDbDistributedLock Create(Uri collectionUri, string lockId)
+        {
+            EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
+            EnsureArg.IsNotNullOrEmpty(lockId, nameof(lockId));
+
+            return new CosmosDbDistributedLock(_documentClientFactory, collectionUri, lockId, _logger);
         }
 
         public ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId)
@@ -27,7 +39,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
             EnsureArg.IsNotNullOrEmpty(lockId, nameof(lockId));
 
-            return new CosmosDbDistributedLock(() => client, collectionUri, lockId, _logger);
+            return new CosmosDbDistributedLock(() => new DocumentClientScope(client), collectionUri, lockId, _logger);
         }
     }
 }

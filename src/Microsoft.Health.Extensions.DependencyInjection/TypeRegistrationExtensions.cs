@@ -52,6 +52,8 @@ namespace Microsoft.Health.Extensions.DependencyInjection
         /// <param name="serviceCollection">The service collection.</param>
         public static void AddFactory<T>(this IServiceCollection serviceCollection)
         {
+            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+
             Type typeArguments = typeof(T);
             Type factoryFunc = typeof(Func<>).MakeGenericType(typeArguments);
 
@@ -63,6 +65,28 @@ namespace Microsoft.Health.Extensions.DependencyInjection
             Delegate implDelegate = implFactoryMethod.CreateDelegate(typeof(Func<IServiceProvider, object>), null);
 
             serviceCollection.AddTransient(factoryFunc, (Func<IServiceProvider, object>)implDelegate);
+        }
+
+        /// <summary>
+        /// Register Lazy as an Open Generic, this can resolve any service with Lazy instantiation
+        /// </summary>
+        /// <param name="serviceCollection">The service collection.</param>
+        public static void AddLazy(this IServiceCollection serviceCollection)
+        {
+            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+
+            serviceCollection.AddTransient(typeof(Lazy<>), typeof(LazyProvider<>));
+        }
+
+        /// <summary>
+        /// Register Scope as an Open Generic, this can resolve any service with an owned lifetime scope
+        /// </summary>
+        /// <param name="serviceCollection">The service collection.</param>
+        public static void AddOwnedScope(this IServiceCollection serviceCollection)
+        {
+            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+
+            serviceCollection.AddTransient(typeof(IScoped<>), typeof(Scoped<>));
         }
 
         private static object Factory<T>(IServiceProvider provider)

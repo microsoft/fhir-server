@@ -192,12 +192,12 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
                 .AsSelf()
                 .AsService<IList<string>>();
 
-            _collection.AddTransient(typeof(IOwned<>), typeof(Owned<>));
+            _collection.AddTransient(typeof(IScoped<>), typeof(Scoped<>));
 
             var ioc = _collection.BuildServiceProvider();
 
-            var a = ioc.GetService<IOwned<List<string>>>();
-            var b = ioc.GetService<IOwned<IList<string>>>();
+            var a = ioc.GetService<IScoped<List<string>>>();
+            var b = ioc.GetService<IScoped<IList<string>>>();
 
             Assert.NotEqual(a.Value.GetHashCode(), b.Value.GetHashCode());
         }

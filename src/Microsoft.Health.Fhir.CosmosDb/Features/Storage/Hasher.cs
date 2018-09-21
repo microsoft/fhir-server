@@ -4,14 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Azure.Documents;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public interface ICosmosDbDistributedLockFactory
+    internal class Hasher
     {
-        ICosmosDbDistributedLock Create(Uri collectionUri, string lockId);
-
-        ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId);
+        public static string ComputeHash(string data)
+        {
+            using (var sha256 = new SHA256Managed())
+            {
+                var hashed = sha256.ComputeHash(Encoding.UTF8.GetBytes(data));
+                return BitConverter.ToString(hashed).Replace("-", string.Empty, StringComparison.Ordinal);
+            }
+        }
     }
 }
