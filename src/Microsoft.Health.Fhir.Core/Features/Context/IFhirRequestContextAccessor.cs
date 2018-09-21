@@ -3,19 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
-    public class FhirContextAccessor : IFhirContextAccessor
+    public interface IFhirRequestContextAccessor
     {
-        private readonly AsyncLocal<IFhirContext> _fhirContextCurrent = new AsyncLocal<IFhirContext>();
-
-        public IFhirContext FhirContext
-        {
-            get => _fhirContextCurrent.Value;
-
-            set => _fhirContextCurrent.Value = value;
-        }
+        IFhirRequestContext FhirRequestContext { get; set; }
     }
 }

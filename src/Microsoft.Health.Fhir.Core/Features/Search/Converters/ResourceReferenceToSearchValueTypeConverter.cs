@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
@@ -14,6 +15,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class ResourceReferenceToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<ResourceReference>
     {
+        private readonly IReferenceSearchValueParser _referenceSearchValueParser;
+
+        public ResourceReferenceToSearchValueTypeConverter(IReferenceSearchValueParser referenceSearchValueParser)
+        {
+            EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
+
+            _referenceSearchValueParser = referenceSearchValueParser;
+        }
+
         protected override IEnumerable<ISearchValue> ConvertTo(ResourceReference value)
         {
             if (value.Reference == null)
@@ -27,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 yield break;
             }
 
-            yield return new ReferenceSearchValue(value.Reference);
+            yield return _referenceSearchValueParser.Parse(value.Reference);
         }
     }
 }

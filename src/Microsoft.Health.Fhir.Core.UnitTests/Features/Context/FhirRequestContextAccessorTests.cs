@@ -6,29 +6,36 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 {
-    public class FhirContextAccessorTests
+    public class FhirRequestContextAccessorTests
     {
         [Fact]
-        public async Task GivenAFhirContextAccessor_WhenOnDifferentAsyncThreads_TheFhirContextIsDifferent()
+        public async Task GivenAFhirRequestContextAccessor_WhenOnDifferentAsyncThreads_TheFhirContextIsDifferent()
         {
-            var fhirContextAccessor = new FhirContextAccessor();
+            var fhirRequestContextAccessor = new FhirRequestContextAccessor();
 
             var thread1 = Task.Run(async () =>
             {
-                fhirContextAccessor.FhirContext = new FhirContext(Guid.NewGuid().ToString());
+                IFhirRequestContext fhirRequestContext = Substitute.For<IFhirRequestContext>();
+                fhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+
+                fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
                 await Task.Delay(50);
-                return fhirContextAccessor.FhirContext;
+                return fhirRequestContextAccessor.FhirRequestContext;
             });
 
             var thread2 = Task.Run(async () =>
             {
-                fhirContextAccessor.FhirContext = new FhirContext(Guid.NewGuid().ToString());
+                IFhirRequestContext fhirRequestContext = Substitute.For<IFhirRequestContext>();
+                fhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+
+                fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
                 await Task.Delay(0);
-                return fhirContextAccessor.FhirContext;
+                return fhirRequestContextAccessor.FhirRequestContext;
             });
 
             var correlationId1 = (await thread1).CorrelationId;

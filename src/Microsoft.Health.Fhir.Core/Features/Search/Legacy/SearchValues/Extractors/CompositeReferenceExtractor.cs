@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues
                     !reference.IsEmpty() &&
                     !reference.IsContainedReference)
                 {
-                    var referenceSearchValue = new ReferenceSearchValue(reference.Reference);
+                    var referenceSearchValue = ReferenceSearchValue.Parse(reference.Reference);
                     var compositeSearchValue = new LegacyCompositeSearchValue(
                         system,
                         code,

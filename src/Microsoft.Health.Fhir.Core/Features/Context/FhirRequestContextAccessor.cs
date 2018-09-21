@@ -3,27 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Net.Http;
-using System.Security.Claims;
-using Hl7.Fhir.Model;
+using System.Threading;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
-    public interface IFhirContext
+    public class FhirRequestContextAccessor : IFhirRequestContextAccessor
     {
-        string CorrelationId { get; }
+        private readonly AsyncLocal<IFhirRequestContext> _fhirRequestContextCurrent = new AsyncLocal<IFhirRequestContext>();
 
-        Coding RequestType { get; set; }
+        public IFhirRequestContext FhirRequestContext
+        {
+            get => _fhirRequestContextCurrent.Value;
 
-        Coding RequestSubType { get; set; }
-
-        HttpMethod HttpMethod { get; set; }
-
-        Uri RequestUri { get; set; }
-
-        string RouteName { get; set; }
-
-        ClaimsPrincipal Principal { get; set; }
+            set => _fhirRequestContextCurrent.Value = value;
+        }
     }
 }

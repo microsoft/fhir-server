@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<BaseExceptionMiddleware> _logger;
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirXmlSerializer _fhirXmlSerializer;
         private readonly CorrelationIdProvider _correlationIdProvider;
@@ -30,21 +30,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
         public BaseExceptionMiddleware(
             RequestDelegate next,
             ILogger<BaseExceptionMiddleware> logger,
-            IFhirContextAccessor fhirContextAccessor,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
             FhirJsonSerializer fhirJsonSerializer,
             FhirXmlSerializer fhirXmlSerializer,
             CorrelationIdProvider correlationIdProvider)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(fhirXmlSerializer, nameof(fhirXmlSerializer));
             EnsureArg.IsNotNull(correlationIdProvider, nameof(correlationIdProvider));
 
             _next = next;
             _logger = logger;
-            _fhirContextAccessor = fhirContextAccessor;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirXmlSerializer = fhirXmlSerializer;
             _correlationIdProvider = correlationIdProvider;
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                     throw;
                 }
 
-                var localCorrelationId = _fhirContextAccessor.FhirContext?.CorrelationId;
+                var localCorrelationId = _fhirRequestContextAccessor.FhirRequestContext?.CorrelationId;
 
                 if (string.IsNullOrWhiteSpace(localCorrelationId))
                 {

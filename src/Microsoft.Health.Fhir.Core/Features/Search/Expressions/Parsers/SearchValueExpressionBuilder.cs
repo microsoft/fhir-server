@@ -16,36 +16,42 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using static Hl7.Fhir.Model.SearchParameter;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
     /// <summary>
     /// A builder used to build expression from the search value.
     /// </summary>
     public class SearchValueExpressionBuilder : ISearchValueExpressionBuilder
     {
-        private static readonly Dictionary<SearchParamType, Func<string, ISearchValue>> ParserDictionary = new Dictionary<SearchParamType, Func<string, ISearchValue>>()
-        {
-            { SearchParamType.Date, DateTimeSearchValue.Parse },
-            { SearchParamType.Number, NumberSearchValue.Parse },
-            { SearchParamType.Quantity, QuantitySearchValue.Parse },
-            { SearchParamType.Reference, ReferenceSearchValue.Parse },
-            { SearchParamType.String, StringSearchValue.Parse },
-            { SearchParamType.Token, TokenSearchValue.Parse },
-            { SearchParamType.Uri, UriSearchValue.Parse },
-        };
-
         private static readonly Tuple<string, SearchComparator>[] SearchParamComparators = Enum.GetValues(typeof(SearchComparator))
             .Cast<SearchComparator>()
             .Select(e => Tuple.Create(e.GetLiteral(), e)).ToArray();
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IReferenceSearchValueParser _referenceSearchValueParser;
+
+        private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
 
         public SearchValueExpressionBuilder(
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IReferenceSearchValueParser referenceSearchValueParser)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _referenceSearchValueParser = referenceSearchValueParser;
+
+            _parserDictionary = new Dictionary<SearchParamType, Func<string, ISearchValue>>()
+            {
+                { SearchParamType.Date, DateTimeSearchValue.Parse },
+                { SearchParamType.Number, NumberSearchValue.Parse },
+                { SearchParamType.Quantity, QuantitySearchValue.Parse },
+                { SearchParamType.Reference, _referenceSearchValueParser.Parse },
+                { SearchParamType.String, StringSearchValue.Parse },
+                { SearchParamType.Token, TokenSearchValue.Parse },
+                { SearchParamType.Uri, UriSearchValue.Parse },
+            };
         }
 
         public Expression Build(
@@ -92,6 +98,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 // Build the expression for based on the search value.
                 if (searchParameter.Type == SearchParamType.Composite)
                 {
+                    if (modifier != null)
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
+                    }
+
                     IReadOnlyList<string> compositeValueParts = value.SplitByCompositeSeparator();
 
                     if (compositeValueParts.Count > searchParameter.Component.Count)
@@ -139,12 +151,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 outputExpressions.ToArray());
         }
 
-        private static Expression Build(
+        private Expression Build(
             SearchParameter searchParameter,
             SearchModifierCode? modifier,
             int? componentIndex,
             string value)
         {
+            ReadOnlySpan<char> valueSpan = value.AsSpan();
+
             // By default, the comparator is equal.
             SearchComparator comparator = SearchComparator.Eq;
 
@@ -159,15 +173,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 if (matchedComparator != null)
                 {
                     comparator = matchedComparator.Item2;
-                    value = value.Substring(matchedComparator.Item1.Length);
+                    valueSpan = valueSpan.Slice(matchedComparator.Item1.Length);
                 }
             }
 
             // Parse the value.
-            Func<string, ISearchValue> parser = ParserDictionary[searchParameter.Type.Value];
+            Func<string, ISearchValue> parser = _parserDictionary[searchParameter.Type.Value];
 
             // Build the expression.
-            SearchValueExpressionBuilderHelper helper = new SearchValueExpressionBuilderHelper();
+            var helper = new SearchValueExpressionBuilderHelper();
 
             // If the value contains comma, then we need to convert it into in expression.
             // But in this case, the user cannot specify prefix.
@@ -176,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             if (parts.Count == 1)
             {
                 // This is a single value expression.
-                ISearchValue searchValue = parser(value);
+                ISearchValue searchValue = parser(valueSpan.ToString());
 
                 return helper.Build(
                     searchParameter.Name,

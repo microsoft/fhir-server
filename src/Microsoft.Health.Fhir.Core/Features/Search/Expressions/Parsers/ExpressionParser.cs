@@ -14,7 +14,7 @@ using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using static Hl7.Fhir.Model.SearchParameter;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
     /// <summary>
     /// Provides mechanism to parse the search expression.
