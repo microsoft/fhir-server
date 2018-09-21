@@ -4,10 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Security.Claims;
-using System.Threading;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -25,38 +26,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             string uriString,
             string baseUriString,
             Coding requestType,
-            string correlationId)
+            string correlationId,
+            IDictionary<string, StringValues> requestHeaders,
+            IDictionary<string, StringValues> responseHeaders)
         {
             EnsureArg.IsNotNullOrWhiteSpace(method, nameof(method));
             EnsureArg.IsNotNullOrWhiteSpace(uriString, nameof(uriString));
             EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
             EnsureArg.IsNotNull(requestType, nameof(requestType));
             EnsureArg.IsNotNullOrWhiteSpace(correlationId, nameof(correlationId));
+            EnsureArg.IsNotNull(responseHeaders, nameof(responseHeaders));
+            EnsureArg.IsNotNull(requestHeaders, nameof(requestHeaders));
 
             Method = method;
             _uriString = uriString;
             _baseUriString = baseUriString;
             RequestType = requestType;
             CorrelationId = correlationId;
+            RequestHeaders = requestHeaders;
+            ResponseHeaders = responseHeaders;
         }
 
         public string Method { get; }
 
-        public Uri BaseUri
-        {
-            get
-            {
-                return _baseUri ?? (_baseUri = new Uri(_baseUriString));
-            }
-        }
+        public Uri BaseUri => _baseUri ?? (_baseUri = new Uri(_baseUriString));
 
-        public Uri Uri
-        {
-            get
-            {
-                return _uri ?? (_uri = new Uri(_uriString));
-            }
-        }
+        public Uri Uri => _uri ?? (_uri = new Uri(_uriString));
 
         public string CorrelationId { get; }
 
@@ -67,5 +62,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public string RouteName { get; set; }
 
         public ClaimsPrincipal Principal { get; set; }
+
+        public IDictionary<string, StringValues> RequestHeaders { get; }
+
+        public IDictionary<string, StringValues> ResponseHeaders { get;  }
     }
 }

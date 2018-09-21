@@ -39,11 +39,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.QueryString);
 
             var fhirRequestContext = new FhirRequestContext(
-                request.Method,
-                uriInString,
-                baseUriInString,
-                ValueSets.AuditEventType.RestFulOperation,
-                correlationIdProvider.Invoke());
+                method: request.Method,
+                uriString: uriInString,
+                baseUriString: baseUriInString,
+                requestType: ValueSets.AuditEventType.RestFulOperation,
+                correlationId: correlationIdProvider.Invoke(),
+                requestHeaders: context.Request.Headers,
+                responseHeaders: context.Response.Headers);
 
             if (context.User != null)
             {

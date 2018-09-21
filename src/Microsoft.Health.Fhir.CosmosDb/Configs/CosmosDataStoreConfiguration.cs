@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Configs
@@ -22,6 +23,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         public ConnectionMode ConnectionMode { get; set; } = ConnectionMode.Direct;
 
         public Protocol ConnectionProtocol { get; set; } = Protocol.Tcp;
+
+        public ConsistencyLevel? DefaultConsistencyLevel { get; set; }
 
         public bool AllowDatabaseCreation { get; set; } = true;
 
