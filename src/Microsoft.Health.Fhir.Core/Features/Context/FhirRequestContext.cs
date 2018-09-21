@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         {
             get
             {
-                return LazyInitializer.EnsureInitialized(ref _baseUri, () => new Uri(_baseUriString));
+                return _baseUri ?? (_baseUri = new Uri(_baseUriString));
             }
         }
 
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         {
             get
             {
-                return LazyInitializer.EnsureInitialized(ref _uri, () => new Uri(_uriString));
+                return _uri ?? (_uri = new Uri(_uriString));
             }
         }
 
