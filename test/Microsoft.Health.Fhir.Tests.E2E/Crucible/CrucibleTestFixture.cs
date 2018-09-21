@@ -487,36 +487,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             _output = output;
         }
 
-        [Fact]
-        public void CheckFailures()
-        {
-            var results = _dataSource?.TestRun?.Value?.TestRun?.TestResults;
-
-            if (results != null)
-            {
-                var failures = results
-                        .SelectMany(findTest => findTest.Result.Select(x =>
-                        {
-                            var testName = $"{x.TestId ?? findTest.TestId}/{x.Id}";
-                            if (x.Status == "fail" && !KnownBroken.Contains(testName))
-                            {
-                                return $"{x.TestId ?? findTest.TestId}/{x.Id}";
-                            }
-
-                            return null;
-                        }))
-                    .Where(x => x != null)
-                    .ToArray();
-
-                Array.Sort(failures);
-
-                _output.WriteLine("Current list of failures, see Run() for more details:");
-                _output.WriteLine(string.Join(Environment.NewLine, failures));
-
-                Assert.Equal(KnownFailures, failures);
-            }
-        }
-
         [Theory]
         [MemberData(nameof(GetTests))]
         [Trait(Traits.Category, Categories.Crucible)]
