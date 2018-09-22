@@ -15,87 +15,25 @@ To use the FHIR server, two Azure Active Directory applications must be register
 
 Both Azure Active Directory applications can be registered using the Azure Portal. Please refer to the [Azure Active Directory application registration documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-v1-integrate-apps-with-azure-ad).
 
-You can also register the applications using the [AzureAD PowerShell module](https://docs.microsoft.com/en-us/powershell/module/azuread/). First register an app for the FHIR server API:
+You can also register the applications using the [AzureAD PowerShell module](https://docs.microsoft.com/en-us/powershell/module/azuread/). This repository includes a PowerShell module with some wrapper functions that help with the Azure AD app registration process.
+
+First import the module with the wrapper functions:
 
 ```PowerShell
-# Make sure you are connected to Azure AD:
-Connect-AzureAd
+Import-Module .\samples\scripts\PowerShell\FhirServer\FhirServer.psd1
+```
 
-# FHIR audience URL. 
-# A good choice is the URL of your FHIR service, e.g:
+Register an app for the FHIR server API:
+
+```PowerShell
 $fhirServiceName = "myfhirservice"
-
-# Note: use "https://${fhirServiceName}.azurewebsites.us" for US Government
-$fhirApiAudience = "https://${fhirServiceName}.azurewebsites.net"
-
-# Create the App Registration:
-$apiAppReg = New-AzureADApplication -DisplayName $fhirApiAudience -IdentifierUris $fhirApiAudience
-New-AzureAdServicePrincipal -AppId $apiAppReg.AppId
-
-# Gather some information for the deployment:
-$aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
-$aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
-
-$securityAuthenticationAuthority = "${aadEndpoint}${aadTenantId}"
-$securityAuthenticationAudience = $fhirApiAudience
-
-# Display deployment information
-Write-Host @"
-FHIR Service Name (serviceName): ${fhirServiceName}
-Authority (securityAuthenticationAuthority): ${securityAuthenticationAuthority}
-Audience (securityAuthenticationAudience): ${securityAuthenticationAudience}
-"@
+$apiAppReg = New-FhirServerApiAppRegistration -FhirServiceName $fhirServiceName
 ```
 
 To access the FHIR server from a client application, you will also need a client app registration with a client secret. This client application registration will need to have appropriate application permissions and reply URLs configured. Here is how to register a client app for use with [Postman](https://getpostman.com):
 
 ```PowerShell
-# First specify which permissions this app should have.
-
-# Required App permission for Azure AD sign-in
-$reqAad = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
-$reqAad.ResourceAppId = "00000002-0000-0000-c000-000000000000"
-$reqAad.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" `
--ArgumentList "311a71cc-e848-46a1-bdf8-97ff7156d8e6","Scope"
-
-# Required App Permission for the API application registration. 
-$reqApi = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
-$reqApi.ResourceAppId = $apiAppReg.AppId #From API App registration above
-
-# Just add the first scope (user impersonation)
-$reqApi.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" `
--ArgumentList $apiAppReg.Oauth2Permissions[0].id,"Scope"
-
-# Application registration for API
-$postmanReplyUrl="https://www.getpostman.com/oauth2/callback"
-
-$clientAppReg = New-AzureADApplication -DisplayName "${fhirServiceName}-postman" `
--IdentifierUris "https://${fhirServiceName}-postman" `
--RequiredResourceAccess $reqAad,$reqApi -ReplyUrls $postmanReplyUrl
-
-# Create a client secret
-$clientAppPassword = New-AzureADApplicationPasswordCredential -ObjectId $clientAppReg.ObjectId
-
-# Create Service Principal
-New-AzureAdServicePrincipal -AppId $clientAppReg.AppId
-
-# Write some information needed to use client app
-$clientId = $clientAppReg.AppId
-$clientSecret = $clientAppPassword.Value
-$replyUrl = $clientAppReg.ReplyUrls[0]
-$authUrl = "${securityAuthenticationAuthority}/oauth2/authorize?resource=${securityAuthenticationAudience}"
-$tokenUrl = "${securityAuthenticationAuthority}/oauth2/token"
-
-Write-Host @"  
-=== Settings for Postman OAuth2 authentication ===
-
-   Callback URL: ${replyUrl}
-   Auth URL: ${authUrl}
-   Access Token URL: ${tokenUrl}
-   Client ID: ${clientId}
-   Client Secret: ${clientSecret}
-
-"@
+$clientAppReg = New-FhirServerClientAppRegistration -ApiAppId $apiAppReg.AppId -DisplayName "myfhirclient" -ReplyUrl "https://www.getpostman.com/oauth2/callback"
 ```
 
 Deploying the FHIR Server Template
@@ -118,9 +56,10 @@ $rg = New-AzureRmResourceGroup -Name "RG-NAME" -Location westus2
 
 New-AzureRmResourceGroupDeployment `
 -TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
--ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName `
--securityAuthenticationAuthority $securityAuthenticationAuthority `
--securityAuthenticationAudience $securityAuthenticationAudience
+-ResourceGroupName $rg.ResourceGroupName ` 
+-serviceName $fhirServiceName ` 
+-securityAuthenticationAuthority $apiAppReg.Authority ` 
+-securityAuthenticationAudience $apiAppReg.Audience
 ```
 
 To deploy without Authentication/Authorization:
@@ -133,29 +72,31 @@ New-AzureRmResourceGroupDeployment `
 -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
 
+Cleaning up Azure AD App Registrations
+--------------------------------------
+
+To remove the app registrations:
+
+```PowerShell
+Remove-FhirServerApplicationRegistration -AppId $clientAppReg.AppId
+Remove-FhirServerApplicationRegistration -AppId $apiAppReg.AppId
+```
+
 Testing FHIR Server with Postman
 --------------------------------
 
 You can use [Postman](https://getpostman.com) to test the FHIR server. If you have deployed with Authentication/Authorization enabled, you will need to [configure Azure AD authorization](https://blog.jongallant.com/2017/03/azure-active-directory-access-tokens-postman/
 ) to obtain a token. Use type "OAuth 2.0" and set the following parameters:
 
-*Grant Type*: `Auhorization Code`
-
-*Callback URL*: `https://www.getpostman.com/oauth2/callback`
-
-*Auth URL*: `https://login.microsoftonline.com/{TENANT-ID}/oauth2/authorize?resource={AUDIENCE}`
-
-*Access Token URL*: `https://login.microsoftonline.com/{TENANT-ID}/oauth2/token`
-
-*Client ID*: `CLIENT-APP-ID` (see above)
-
-*Client Secret*: `SECRET` (see above)
-
-*Scope*: `Ignored` (not used for Azure AD v1.0 endpoints)
-
-*State*: e.g., `12345`
-
-*Client Authentication*: `Send client credentials in body`
+* Grant Type: `Auhorization Code`
+* Callback URL: `https://www.getpostman.com/oauth2/callback`
+* Auth URL: `https://login.microsoftonline.com/{TENANT-ID}/oauth2/authorize?resource={AUDIENCE}`
+* Access Token URL: `https://login.microsoftonline.com/{TENANT-ID}/oauth2/token`
+* Client ID: `CLIENT-APP-ID` (`$clientAppReg.AppId`)
+* Client Secret: `SECRET` (`$clientAppReg.AppSecret`)
+* Scope: `Ignored` (not used for Azure AD v1.0 endpoints)
+* State: e.g., `12345`
+* Client Authentication: `Send client credentials in body`
 
 Verify that the following requests return status `200 OK`:
 
