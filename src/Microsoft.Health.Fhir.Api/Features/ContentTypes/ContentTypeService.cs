@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
     {
         private readonly IConformanceProvider _conformanceProvider;
         private readonly ICollection<TextOutputFormatter> _outputFormatters;
+        private readonly ConcurrentDictionary<ResourceFormat, bool> _supportedFormats = new ConcurrentDictionary<ResourceFormat, bool>();
 
         public ContentTypeService(
             IConformanceProvider conformanceProvider,
@@ -42,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
         public async Task CheckRequestedContentTypeAsync(HttpContext httpContext)
         {
             var acceptHeaders = httpContext.Request.GetTypedHeaders().Accept;
-            string formatOverride = QueryStringFormat(httpContext);
+            string formatOverride = GetFormatFromQueryString(httpContext);
 
             // Check the _format first since it takes precedence over the accept header.
             if (!string.IsNullOrEmpty(formatOverride))
@@ -84,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             }
         }
 
-        private static string QueryStringFormat(HttpContext context)
+        private static string GetFormatFromQueryString(HttpContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
@@ -108,19 +110,27 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 
         public async Task<bool> IsFormatSupportedAsync(ResourceFormat resourceFormat)
         {
+            if (_supportedFormats.TryGetValue(resourceFormat, out var isSupported))
+            {
+                return isSupported;
+            }
+
             CapabilityStatement statement = await _conformanceProvider.GetCapabilityStatementAsync();
 
-            switch (resourceFormat)
+            return _supportedFormats.GetOrAdd(resourceFormat, format =>
             {
-                case ResourceFormat.Json:
-                    return statement.Format.Any(f => f.Contains("json", StringComparison.Ordinal));
+                switch (resourceFormat)
+                {
+                    case ResourceFormat.Json:
+                        return statement.Format.Any(f => f.Contains("json", StringComparison.Ordinal));
 
-                case ResourceFormat.Xml:
-                    return statement.Format.Any(f => f.Contains("xml", StringComparison.Ordinal));
+                    case ResourceFormat.Xml:
+                        return statement.Format.Any(f => f.Contains("xml", StringComparison.Ordinal));
 
-                default:
-                    return false;
-            }
+                    default:
+                        return false;
+                }
+            });
         }
     }
 }
