@@ -3,16 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Persistence.InMemory;
-using Microsoft.Health.Fhir.Tests.Common.Persistence;
+using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
+namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class InMemoryStorageTests : FhirStorageTestsBase
+    public class RoleConfiguration
     {
-        public InMemoryStorageTests()
-            : base(new InMemoryDataStore(), new InMemoryDataStore())
-        {
-        }
+        public virtual IEnumerable<Role> Roles { get; set; }
     }
 }

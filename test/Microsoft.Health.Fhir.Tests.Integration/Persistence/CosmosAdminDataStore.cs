@@ -4,12 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation;
@@ -19,7 +21,7 @@ using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class CosmosAdminDataStore : IDataStore, IContinuationTokenCache, IDisposable
+    public class CosmosAdminDataStore : IDataStore, IContinuationTokenCache, IDisposable, ISecurityDataStore
     {
         private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStore _dataStore;
@@ -90,6 +92,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public Task<string> SaveContinuationTokenAsync(string continuationToken, CancellationToken cancellationToken = default)
         {
             return _dataStore.SaveContinuationTokenAsync(continuationToken, cancellationToken);
+        }
+
+        public Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken)
+        {
+            return _dataStore.GetAllRolesAsync(cancellationToken);
+        }
+
+        public Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken)
+        {
+            return _dataStore.GetRoleAsync(name, cancellationToken);
+        }
+
+        public Task<Role> UpsertRoleAsync(Role role, WeakETag weakETag, CancellationToken cancellationToken)
+        {
+            return _dataStore.UpsertRoleAsync(role, weakETag, cancellationToken);
+        }
+
+        public Task DeleteRoleAsync(string name, CancellationToken cancellationToken)
+        {
+            return _dataStore.DeleteRoleAsync(name, cancellationToken);
         }
     }
 }

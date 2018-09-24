@@ -223,6 +223,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The role was not found..
+        /// </summary>
+        internal static string InvalidRoleName {
+            get {
+                return ResourceManager.GetString("InvalidRoleName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The count must be greater than zero..
         /// </summary>
         internal static string InvalidSearchCountSpecified {

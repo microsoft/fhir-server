@@ -3,16 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Persistence.InMemory;
-using Microsoft.Health.Fhir.Tests.Common.Persistence;
+using System.Runtime.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public class InMemoryStorageTests : FhirStorageTestsBase
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ResourceAction
     {
-        public InMemoryStorageTests()
-            : base(new InMemoryDataStore(), new InMemoryDataStore())
-        {
-        }
+        [EnumMember(Value = "read")]
+        Read,
+
+        [EnumMember(Value = "write")]
+        Write,
     }
 }

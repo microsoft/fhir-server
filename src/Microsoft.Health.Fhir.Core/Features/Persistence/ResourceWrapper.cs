@@ -79,9 +79,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.IsHistory)]
         public virtual bool IsHistory { get; protected set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1822:Mark members as static", Justification = "Used in serialization")]
         [JsonProperty(KnownResourceWrapperProperties.IsSystem)]
-        public bool IsSystem => false;
+        public bool IsSystem { get; } = false;
 
         [JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }

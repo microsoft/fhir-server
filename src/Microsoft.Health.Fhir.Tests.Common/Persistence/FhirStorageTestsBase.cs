@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
 using Xunit;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         private readonly CapabilityStatement _conformance;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
-        public FhirStorageTestsBase(IDataStore dataStore)
+        public FhirStorageTestsBase(IDataStore dataStore, ISecurityDataStore securityDataStore)
         {
             _conformance = CapabilityStatementMock.GetMockedCapabilityStatement();
 
@@ -58,9 +59,12 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
                 });
 
             FhirRepository = new FhirRepository(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory);
+            SecurityRepository = new SecurityRepository(securityDataStore);
         }
 
         protected IFhirRepository FhirRepository { get; }
+
+        protected ISecurityRepository SecurityRepository { get; }
 
         [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
