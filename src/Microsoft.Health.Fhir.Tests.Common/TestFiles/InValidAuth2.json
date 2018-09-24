@@ -1,0 +1,44 @@
+﻿{
+    "Roles": [
+        {
+            "name": "clinician",
+            "resourcePermissions": [
+                {
+                    "filter": {
+                        "templateExpression": "asaasasa"
+                    },
+                    "actions": [
+                        "Read",
+                        "Write"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Nurse",
+            "resourcePermissions": [
+                {
+                    "filter": {
+                        "templateExpression": "*"
+                    },
+                    "actions": []
+                }
+            ]
+        },
+        {
+            "name": "admin",
+            "resourcePermissions": [
+                {
+                    "filter": {
+                        "templateExpression": "*"
+                    },
+                    "actions": [
+                        "Read",
+                        "Write",
+                        "SomeAction"
+                    ]
+                }
+            ]
+        }
+    ]
+}

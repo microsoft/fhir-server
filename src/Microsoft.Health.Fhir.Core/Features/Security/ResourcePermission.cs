@@ -5,16 +5,12 @@
 
 using System.Collections.Generic;
 
-namespace Microsoft.Health.Fhir.Core.Configs
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public class SecurityConfiguration
+    public class ResourcePermission
     {
-        public bool Enabled { get; set; }
+        public Filter Filter { get; set; }
 
-        public AuthenticationConfiguration Authentication { get; set; }
-
-        public virtual HashSet<string> LastModifiedClaims { get; set; }
-
-        public bool EnableAuthorization { get; set; }
+        public IReadOnlyList<ResourceAction> Actions { get; set; }
     }
 }

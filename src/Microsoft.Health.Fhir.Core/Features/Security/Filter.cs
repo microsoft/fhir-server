@@ -3,18 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-
-namespace Microsoft.Health.Fhir.Core.Configs
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public class SecurityConfiguration
+    public class Filter
     {
-        public bool Enabled { get; set; }
-
-        public AuthenticationConfiguration Authentication { get; set; }
-
-        public virtual HashSet<string> LastModifiedClaims { get; set; }
-
-        public bool EnableAuthorization { get; set; }
+        public string TemplateExpression { get; set; }
     }
 }

@@ -22,6 +22,8 @@
     <None Remove="TestFiles\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\BloodGlucose.json" />
     <None Remove="TestFiles\BloodPressure.json" />
+    <None Remove="TestFiles\InValidAuth1.json" />
+    <None Remove="TestFiles\InValidAuth2.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWithEyeColor.json" />
     <None Remove="TestFiles\ObservationWithInvalidStatus.json" />
@@ -35,6 +37,7 @@
     <None Remove="TestFiles\Patient.json" />
     <None Remove="TestFiles\Patient.xml" />
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
+    <None Remove="TestFiles\ValidAuth.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
     <None Remove="TestFiles\WeightInPounds.json" />
@@ -55,6 +58,7 @@
     <EmbeddedResource Include="TestFiles\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\InValidAuth2.json" />
     <EmbeddedResource Include="TestFiles\ObservationWith20MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithEyeColor.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithTemperature.json" />
@@ -68,6 +72,8 @@
     <EmbeddedResource Include="TestFiles\Patient.json" />
     <EmbeddedResource Include="TestFiles\Patient.xml" />
     <EmbeddedResource Include="TestFiles\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\InValidAuth1.json" />
+    <EmbeddedResource Include="TestFiles\ValidAuth.json" />
     <EmbeddedResource Include="TestFiles\Weight.json" />
     <EmbeddedResource Include="TestFiles\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\WeightInPounds.json" />

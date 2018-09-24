@@ -1,0 +1,46 @@
+﻿{
+    "Roles": [
+        {
+            "name": "clinician",
+            "resourcePermissions": [
+                {
+                    "filter": {
+                        "uriTemplate": "*"
+                    },
+                    "actions": [
+                        "Read",
+                        "Write"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Researcher",
+            "resourcePermissions": [
+                {
+                    "filter": {
+                        "uriTemplate": "*"
+                    },
+                    "actions": [
+                        "Read"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "admin",
+            "resourcePermissions": [
+                {
+                    "filter": {
+                        "uriTemplate": "*"
+                    },
+                    "actions": [
+                        "Read",
+                        "Write",
+                        "HardDelete"
+                    ]
+                }
+            ]
+        }
+    ]
+}

@@ -70,6 +70,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The authorization permission definition contains one or mroe invalid entries..
+        /// </summary>
+        internal static string AuthorizationPermissionDefinitionInvalid {
+            get {
+                return ResourceManager.GetString("AuthorizationPermissionDefinitionInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to CapabilityStatement must only have a single item in the &apos;Rest&apos; collection..
         /// </summary>
         internal static string CapabilityStatementSingleRestItem {
@@ -219,6 +228,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidListConfigSetting {
             get {
                 return ResourceManager.GetString("InvalidListConfigSetting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The role was not found..
+        /// </summary>
+        internal static string InvalidRoleName {
+            get {
+                return ResourceManager.GetString("InvalidRoleName", resourceCulture);
             }
         }
         
@@ -376,11 +394,56 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &quot;Role does not have any ResourcePermission.&quot;.
+        /// </summary>
+        internal static string ResourcePermissionEmpty {
+            get {
+                return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The supplied version &apos;{0}&apos; did not match..
         /// </summary>
         internal static string ResourceVersionConflict {
             get {
                 return ResourceManager.GetString("ResourceVersionConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;Role name cannot be null or empty.&quot;.
+        /// </summary>
+        internal static string RoleNameEmpty {
+            get {
+                return ResourceManager.GetString("RoleNameEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Rolepermission for Role {0} has invalid filter expression..
+        /// </summary>
+        internal static string RolePermissionWithInvalidTemplateExpression {
+            get {
+                return ResourceManager.GetString("RolePermissionWithInvalidTemplateExpression", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Rolepermission for Role {0} does not have any Actions..
+        /// </summary>
+        internal static string RolePermissionWithNoAction {
+            get {
+                return ResourceManager.GetString("RolePermissionWithNoAction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Rolepermission for Role {0} has no template expression..
+        /// </summary>
+        internal static string RolePermissionWithNoTemplateExpression {
+            get {
+                return ResourceManager.GetString("RolePermissionWithNoTemplateExpression", resourceCulture);
             }
         }
         
