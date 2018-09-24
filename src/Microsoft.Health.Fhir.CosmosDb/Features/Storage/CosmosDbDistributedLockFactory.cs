@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
             EnsureArg.IsNotNullOrEmpty(lockId, nameof(lockId));
 
-            return new CosmosDbDistributedLock(() => new DocumentClientScope(client), collectionUri, lockId, _logger);
+            return new CosmosDbDistributedLock(() => new NonDisposingScope(client), collectionUri, lockId, _logger);
         }
     }
 }

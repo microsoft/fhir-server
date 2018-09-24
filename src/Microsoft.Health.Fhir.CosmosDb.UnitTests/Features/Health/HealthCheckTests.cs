@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         public HealthCheckTests()
         {
             _healthCheck = new CosmosHealthCheck(
-                new DocumentClientScope(_documentClient),
+                new NonDisposingScope(_documentClient),
                 _configuration,
                 _testProvider,
                 NullLogger<CosmosHealthCheck>.Instance);

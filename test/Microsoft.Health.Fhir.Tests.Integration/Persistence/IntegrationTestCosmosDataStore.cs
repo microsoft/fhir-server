@@ -20,13 +20,13 @@ using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class CosmosAdminDataStore : IDataStore, IContinuationTokenCache, IDisposable
+    public class IntegrationTestCosmosDataStore : IDataStore, IContinuationTokenCache, IDisposable
     {
         private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStore _dataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 
-        public CosmosAdminDataStore()
+        public IntegrationTestCosmosDataStore()
         {
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration).GetAwaiter().GetResult();
 
             var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(NullCosmosDocumentQueryLogger.Instance);
-            _dataStore = new CosmosDataStore(new DocumentClientScope(_documentClient), _cosmosDataStoreConfiguration, cosmosDocumentQueryFactory, NullLogger<CosmosDataStore>.Instance);
+            _dataStore = new CosmosDataStore(new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, cosmosDocumentQueryFactory, NullLogger<CosmosDataStore>.Instance);
         }
 
         public void Dispose()

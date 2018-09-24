@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Web.Features.Storage
                 _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
             }
 
-            return new DocumentClientScope(DocumentClient);
+            return new NonDisposingScope(DocumentClient);
         }
     }
 }

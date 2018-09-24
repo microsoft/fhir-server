@@ -82,7 +82,7 @@ namespace Microsoft.Health.Extensions.DependencyInjection
         /// Register Scope as an Open Generic, this can resolve any service with an owned lifetime scope
         /// </summary>
         /// <param name="serviceCollection">The service collection.</param>
-        public static void AddOwnedScope(this IServiceCollection serviceCollection)
+        public static void AddScoped(this IServiceCollection serviceCollection)
         {
             EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
 

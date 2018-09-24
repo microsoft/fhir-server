@@ -62,9 +62,8 @@ namespace Microsoft.Health.Fhir.Web.Modules
 
             services.Add(sp => sp.GetService<DocumentClientProvider>().CreateDocumentClientScope())
                 .Transient()
-                .AsSelf();
-
-            services.AddFactory<IScoped<IDocumentClient>>();
+                .AsSelf()
+                .AsFactory();
 
             services.Add<DocumentClientInitializer>()
                 .Singleton()
