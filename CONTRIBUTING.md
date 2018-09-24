@@ -1,13 +1,14 @@
 # Contributing to FHIR server
 
-This document describes contribution guideline for the FHIR server repo.
+This document describes contribution guidelines for the FHIR server repo.
 
 ## Submitting Pull Requests
 
 - **DO** submit all changes via pull requests (PRs). They will be reviewed and potentially be merged by maintainers after a peer review that includes at least one of the team members.
 - **DO** give PRs short but descriptive names.
-- **DO** refer any relevant issues and use [keywords](https://help.github.com/articles/closing-issues-using-keywords/) that automatically close issues when the PR is merged.
-- **DO** ensure each commit successfully builds. The entire PR must pass all tests and CI system before it will be merged.
+- **DO** write a useful but brief description of what the PR is for.
+- **DO** refer to any relevant issues and use [keywords](https://help.github.com/articles/closing-issues-using-keywords/) that automatically close issues when the PR is merged.
+- **DO** ensure each commit successfully builds. The entire PR must pass all checks before it will be merged.
 - **DO** address PR feedback in additional commits instead of amending.
 - **DO** assume that [Squash and Merge](https://blog.github.com/2016-04-01-squash-your-commits/) will be used to merge the commits unless specifically requested otherwise.
 - **DO NOT** submit "work in progress" PRs. A PR should only be submitted when it is considered ready for review.
@@ -15,10 +16,10 @@ This document describes contribution guideline for the FHIR server repo.
 
 ## Coding Style
 
-The projects enforces coding style through [StyleCop.Analyzers](https://github.com/DotNetAnalyzers/StyleCopAnalyzers) as well as included [.editorconfig](../editorconfig). Contributors should ensure they follow these guidelines when making submissions.
+The coding style is enforced through [StyleCop.Analyzers](https://github.com/DotNetAnalyzers/StyleCopAnalyzers), [.editorconfig](.editorconfig), and [stylecop.json](stylecop.json). Contributors should ensure these guidelines are followed when making submissions.
 
 - **DO** address the StyleCop.Analyzers errors.
-- **DO** follow the [.editorconfig](](../editorconfig)) settings.
+- **DO** follow the [.editorconfig](.editorconfig) and [stylecop.json](stylecop.json) settings.
 
 ## Creating Issues
 
