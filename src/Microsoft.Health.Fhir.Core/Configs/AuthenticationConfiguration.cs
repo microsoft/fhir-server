@@ -14,7 +14,5 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public string Audience { get; set; }
 
         public string Authority { get; set; }
-
-        public bool RequireHttpsMetaData { get; set; }
     }
 }
