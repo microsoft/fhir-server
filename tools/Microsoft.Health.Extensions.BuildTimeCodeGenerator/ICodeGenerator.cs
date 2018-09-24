@@ -3,16 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
+using Microsoft.CodeAnalysis;
+
+namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 {
-    /// <summary>
-    /// Debug related configuration.
-    /// </summary>
-    public class DebugConfiguration
+    public interface ICodeGenerator
     {
-        /// <summary>
-        /// Gets or sets a value indicating whether use the exception thrower.
-        /// </summary>
-        public bool UseExceptionThrower { get; set; }
+        SyntaxNode Generate(string namespaceName, string typeName, Compilation compilation);
     }
 }

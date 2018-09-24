@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Container;
@@ -31,8 +30,6 @@ namespace Microsoft.Health.Fhir.Api
     public abstract class StartupBase<TLoggerCategoryName>
     {
         private readonly ILogger<TLoggerCategoryName> _logger;
-
-        private DebugConfiguration _debugConfiguration;
 
         protected StartupBase(IHostingEnvironment env, ILogger<TLoggerCategoryName> logger, IConfiguration configuration)
         {
@@ -61,10 +58,6 @@ namespace Microsoft.Health.Fhir.Api
             _logger.LogInformation("Configuring services on startup.");
 
             services.AddSingleton(Configuration);
-
-            _debugConfiguration = new DebugConfiguration();
-            Configuration.GetSection("Debug").Bind(_debugConfiguration);
-            services.AddSingleton(Options.Create(_debugConfiguration));
 
             services
                 .Configure<ConformanceConfiguration>(Configuration.GetSection("Conformance"))
@@ -111,11 +104,6 @@ namespace Microsoft.Health.Fhir.Api
                 app.UseStatusCodePagesWithReExecute("/CustomError", "?statusCode={0}");
             }
 
-            if (_debugConfiguration.UseExceptionThrower)
-            {
-                app.UseExceptionThrower();
-            }
-
             app.UseAuthentication();
 
             foreach (var module in app.ApplicationServices.GetService<IEnumerable<IStartupConfiguration>>())
@@ -123,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api
                 module.Configure(app, env, appLifetime, loggerFactory, Configuration);
             }
 
-            app.UseFhirContext();
+            app.UseFhirRequestContext();
             app.UseStaticFiles();
             app.UseMvc();
         }

@@ -5,7 +5,7 @@
 
 using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
     public interface IExpressionParser
     {

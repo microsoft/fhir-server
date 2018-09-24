@@ -17,6 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     internal class SearchValueExpressionBuilderHelper : ISearchValueVisitor
     {
         private const double ApproximateDateTimeRangeMultiplier = .1;
+
         private string _searchParameterName;
         private SearchModifierCode? _modifier;
         private SearchComparator _comparator;
@@ -176,16 +177,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(reference, nameof(reference));
 
-            EnsureOnlyEqualComparatorIsSupported();
-
             if (_modifier != null)
             {
                 ThrowModifierNotSupported();
             }
 
-            // TODO: For now, we will assume that the incoming references are all in relative URL.
-            // User story 63437 will deal with full URL scenario.
-            _outputExpression = Expression.StringEquals(FieldName.Reference, _componentIndex, reference.Reference, false);
+            EnsureOnlyEqualComparatorIsSupported();
+
+            if (reference.BaseUri != null)
+            {
+                // The reference is external.
+                _outputExpression = Expression.And(
+                    Expression.StringEquals(FieldName.ReferenceBaseUri, _componentIndex, reference.BaseUri.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
+            }
+            else if (reference.ResourceType == null)
+            {
+                // Only resource id is specified.
+                _outputExpression = Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false);
+            }
+            else if (reference.Kind == ReferenceKind.Internal)
+            {
+                // The reference must be internal.
+                _outputExpression = Expression.And(
+                    Expression.Missing(FieldName.ReferenceBaseUri, _componentIndex),
+                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
+            }
+            else
+            {
+                // The reference can be internal or external.
+                _outputExpression = Expression.And(
+                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
+            }
         }
 
         void ISearchValueVisitor.Visit(StringSearchValue s)

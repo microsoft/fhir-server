@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Legacy.SearchValu
         public const string ExpectedQuantitySystem = "qSystem";
         public const string ExpectedQuantityCode = "qCode";
         public const decimal ExpectedQuantityValue = 1.345m;
-        public const string ExpectedReference = "Patient\\123";
+        public const string ExpectedReference = "Patient/123";
         public const string ExpectedString = "test";
         public const decimal ExpectedDecimal = 1.345m;
 

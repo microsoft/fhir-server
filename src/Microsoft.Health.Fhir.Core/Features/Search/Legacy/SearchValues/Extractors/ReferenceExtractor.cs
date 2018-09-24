@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues
                     !reference.IsContainedReference &&
                     (_resourceTypeFilter == null || reference.IsReferenceTypeOf(_resourceTypeFilter.Value)))
                 {
-                    results.Add(new ReferenceSearchValue(reference.Reference));
+                    results.Add(ReferenceSearchValue.Parse(reference.Reference));
                 }
             }
 

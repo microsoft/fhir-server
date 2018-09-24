@@ -1,16 +1,26 @@
 {
-    "$schema": "http://schemas.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "serviceName": {
-            "type": "string"
+            "type": "string",
+            "metadata": {
+                "description": "Name of the FHIR service Web App."
+            }
         },
         "appServicePlanResourceGroup": {
             "type": "string",
-            "defaultValue": ""
+            "defaultValue": "",
+            "metadata": {
+                "description": "Resource group containing App Service Plan. If empty, deployment resource group is used."
+            }
         },
         "appServicePlanName": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Name of App Service Plan (existing or new). If empty, a name will be generated."
+            }
         },
         "appServicePlanSku": {
             "type": "string",
@@ -30,24 +40,52 @@
             ],
             "defaultValue": "S1"
         },
-        "additionalKeyVaultPrincipalTenantId": {
-            "type": "string",
-            "defaultValue": ""
-        },
-        "additionalKeyVaultObjectId": {
-            "type": "string",
-            "defaultValue": ""
-        },
         "securityAuthenticationAuthority": {
             "type": "string",
-            "defaultValue": ""
+            "defaultValue": "",
+            "metadata": {
+                "description": "OAuth Authority"
+            }
+        },
+        "securityAuthenticationAudience": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Audience (aud) to validate in JWT"
+            }
+        },
+        "repositoryUrl": {
+            "type": "string",
+            "defaultValue": "https://github.com/Microsoft/fhir-server",
+            "metadata": {
+                "description": "Respository to pull source code from. If blank, source code will not be deployed."
+            }
+        },
+        "repositoryBranch": {
+            "type": "string",
+            "defaultValue": "master",
+            "metadata": {
+                "description": "Source code branch to deploy."
+            }
+        },
+        "cosmosDbAccountConsistencyPolicy": {
+            "type": "object",
+            "defaultValue": {
+                "defaultConsistencyLevel": "Strong"
+            },
+            "metadata": {
+                "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
+            }
         }
     },
     "variables": {
         "serviceName": "[toLower(parameters('serviceName'))]",
         "identityResourceId": "[concat(resourceId('Microsoft.Web/sites', variables('serviceName')),'/providers/Microsoft.ManagedIdentity/Identities/default')]",
         "keyvaultEndpoint": "[concat('https://', variables('serviceName'), '.vault.azure.net/')]",
-        "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]"
+        "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
+        "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
+        "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
+        "deploySourceCode": "[and(not(empty(parameters('repositoryUrl'))),not(empty(parameters('repositoryBranch'))))]"
     },
     "resources": [
         {
@@ -65,14 +103,14 @@
                     "resources": [
                         {
                             "apiVersion": "2015-08-01",
-                            "name": "[parameters('appServicePlanName')]",
+                            "name": "[variables('appServicePlanName')]",
                             "type": "Microsoft.Web/serverfarms",
                             "location": "[resourceGroup().location]",
                             "sku": {
                                 "name": "[parameters('appServicePlanSku')]"
                             },
                             "properties": {
-                                "name": "[parameters('appServicePlanName')]"
+                                "name": "[variables('appServicePlanName')]"
                             }
                         }
                     ]
@@ -89,7 +127,7 @@
             },
             "properties": {
                 "clientAffinityEnabled": false,
-                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', parameters('appServicePlanName'))]",
+                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
                 "siteConfig": {
                     "appSettings": [
                         {
@@ -101,14 +139,38 @@
                             "value": "[variables('keyvaultEndpoint')]"
                         },
                         {
+                            "name": "Security:Enabled",
+                            "value": "[variables('securityAuthenticationEnabled')]"
+                        },
+                        {
                             "name": "Security:Authentication:Authority",
                             "value": "[parameters('securityAuthenticationAuthority')]"
+                        },
+                        {
+                            "name": "Security:Authentication:Audience",
+                            "value": "[parameters('securityAuthenticationAudience')]"
                         }
                     ]
                 }
             },
             "dependsOn": [
                 "nestedTemplate"
+            ],
+            "resources": [
+                {
+                    "apiVersion": "2015-08-01",
+                    "name": "web",
+                    "type": "sourcecontrols",
+                    "condition": "[variables('deploySourceCode')]",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/Sites', variables('serviceName'))]"
+                    ],
+                    "properties": {
+                        "RepoUrl": "[parameters('repositoryUrl')]",
+                        "branch": "[parameters('repositoryBranch')]",
+                        "IsManualIntegration": true
+                    }
+                }
             ]
         },
         {
@@ -119,6 +181,7 @@
             "properties": {
                 "name": "[variables('serviceName')]",
                 "databaseAccountOfferType": "Standard",
+                "consistencyPolicy": "[parameters('cosmosDbAccountConsistencyPolicy')]",
                 "locations": [
                     {
                         "locationName": "[resourceGroup().location]",
@@ -155,29 +218,6 @@
             },
             "dependsOn": [
                 "[concat('Microsoft.Web/sites/', variables('serviceName'))]"
-            ]
-        },
-        {
-            "condition": "[and(not(empty(parameters('additionalKeyVaultPrincipalTenantId'))), not(empty(parameters('additionalKeyVaultObjectId'))))]",
-            "type": "Microsoft.KeyVault/vaults/accessPolicies",
-            "name": "[concat(variables('serviceName'), '/add')]",
-            "apiVersion": "2018-02-14",
-            "properties": {
-                "accessPolicies": [
-                    {
-                        "tenantId": "[parameters('additionalKeyVaultPrincipalTenantId')]",
-                        "objectId": "[parameters('additionalKeyVaultObjectId')]",
-                        "permissions": {
-                            "secrets": [
-                                "get",
-                                "list"
-                            ]
-                        }
-                    }
-                ]
-            },
-            "dependsOn": [
-                "[concat('Microsoft.KeyVault/vaults/', variables('serviceName'))]"
             ]
         },
         {

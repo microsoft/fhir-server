@@ -20,9 +20,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "argonautproviderconnectathontest/APCT04",
             "argonautproviderconnectathontest/APCT05",
             "argonautproviderconnectathontest/APCT06",
-            "connectathon_care_plan_track/CCPT1",
-            "connectathon_care_plan_track/CCPT2",
-            "connectathon_care_plan_track/CCPT3",
             "connectathon_patient_track/C8T1_3",
             "connectathon-15-location-locate-endpoint-json/01-LocationSearchName",
             "connectathon-15-location-locate-endpoint-json/02-LocationSearchAddress",
@@ -488,36 +485,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
         {
             _dataSource = dataSource;
             _output = output;
-        }
-
-        [Fact]
-        public void CheckFailures()
-        {
-            var results = _dataSource?.TestRun?.Value?.TestRun?.TestResults;
-
-            if (results != null)
-            {
-                var failures = results
-                        .SelectMany(findTest => findTest.Result.Select(x =>
-                        {
-                            var testName = $"{x.TestId ?? findTest.TestId}/{x.Id}";
-                            if (x.Status == "fail" && !KnownBroken.Contains(testName))
-                            {
-                                return $"{x.TestId ?? findTest.TestId}/{x.Id}";
-                            }
-
-                            return null;
-                        }))
-                    .Where(x => x != null)
-                    .ToArray();
-
-                Array.Sort(failures);
-
-                _output.WriteLine("Current list of failures, see Run() for more details:");
-                _output.WriteLine(string.Join(Environment.NewLine, failures));
-
-                Assert.Equal(KnownFailures, failures);
-            }
         }
 
         [Theory]

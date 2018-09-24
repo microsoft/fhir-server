@@ -4,26 +4,33 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net.Http;
+using System.Collections.Generic;
 using System.Security.Claims;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
-    public interface IFhirContext
+    public interface IFhirRequestContext
     {
+        string Method { get; }
+
+        Uri BaseUri { get; }
+
+        Uri Uri { get; }
+
         string CorrelationId { get; }
 
-        Coding RequestType { get; set; }
+        Coding RequestType { get; }
 
         Coding RequestSubType { get; set; }
-
-        HttpMethod HttpMethod { get; set; }
-
-        Uri RequestUri { get; set; }
 
         string RouteName { get; set; }
 
         ClaimsPrincipal Principal { get; set; }
+
+        IDictionary<string, StringValues> RequestHeaders { get; }
+
+        IDictionary<string, StringValues> ResponseHeaders { get; }
     }
 }

@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly ILogger<FhirController> _logger;
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly FeatureConfiguration _featureConfiguration;
 
@@ -60,26 +60,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="mediator">The mediator.</param>
         /// <param name="logger">The logger.</param>
-        /// <param name="fhirContextAccessor">The FhirContextAccessor</param>
+        /// <param name="fhirRequestContextAccessor">The FHIR request context accessor.</param>
         /// <param name="urlResolver">The urlResolver.</param>
         /// <param name="uiConfiguration">The UI configuration.</param>
         public FhirController(
             IMediator mediator,
             ILogger<FhirController> logger,
-            IFhirContextAccessor fhirContextAccessor,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(uiConfiguration, nameof(uiConfiguration));
             EnsureArg.IsNotNull(uiConfiguration.Value, nameof(uiConfiguration));
 
             _mediator = mediator;
             _logger = logger;
-            _fhirContextAccessor = fhirContextAccessor;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
             _featureConfiguration = uiConfiguration.Value;
         }
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(
                 new OperationOutcome
                 {
-                    Id = _fhirContextAccessor.FhirContext.CorrelationId,
+                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
                     Issue = new List<OperationOutcome.IssueComponent>
                     {
                         new OperationOutcome.IssueComponent

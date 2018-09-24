@@ -84,7 +84,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         public void Visit(ReferenceSearchValue reference)
         {
-            AddProperty(SearchValueConstants.ReferenceName, reference.Reference);
+            // TODO: Remove
+            AddPropertyIfNotNull(SearchValueConstants.ReferenceName, reference.Reference);
+
+            AddPropertyIfNotNull(SearchValueConstants.ReferenceBaseUriName, reference.BaseUri?.ToString());
+            AddPropertyIfNotNull(SearchValueConstants.ReferenceResourceTypeName, reference.ResourceType?.ToString());
+            AddProperty(SearchValueConstants.ReferenceResourceIdName, reference.ResourceId);
         }
 
         public void Visit(StringSearchValue s)
@@ -95,21 +100,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         public void Visit(TokenSearchValue token)
         {
-            AddIfNotNull(SearchValueConstants.SystemName, token.System);
-            AddIfNotNull(SearchValueConstants.CodeName, token.Code);
+            AddPropertyIfNotNull(SearchValueConstants.SystemName, token.System);
+            AddPropertyIfNotNull(SearchValueConstants.CodeName, token.Code);
 
             if (!ExcludeTokenText)
             {
                 // Since text is case-insensitive search, it will always be normalized.
-                AddIfNotNull(SearchValueConstants.NormalizedTextName, token.Text?.ToUpperInvariant());
-            }
-
-            void AddIfNotNull(string name, string value)
-            {
-                if (value != null)
-                {
-                    AddProperty(name, value);
-                }
+                AddPropertyIfNotNull(SearchValueConstants.NormalizedTextName, token.Text?.ToUpperInvariant());
             }
         }
 
@@ -131,6 +128,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             }
 
             Output.Add(new JProperty(name, value));
+        }
+
+        private void AddPropertyIfNotNull(string name, string value)
+        {
+            if (value != null)
+            {
+                AddProperty(name, value);
+            }
         }
     }
 }

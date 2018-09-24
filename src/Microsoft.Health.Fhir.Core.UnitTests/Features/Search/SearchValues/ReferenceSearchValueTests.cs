@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Xunit;
 
@@ -42,23 +43,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => ReferenceSearchValue.Parse(s));
         }
 
-        [Fact]
-        public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned()
+        [Theory]
+        [InlineData("http://localhost/", ResourceType.Patient, "123", "http://localhost/Patient/123")]
+        [InlineData(null, ResourceType.Observation, "xyz", "Observation/xyz")]
+        [InlineData(null, null, "abc", "abc")]
+        public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(
+            string uriString,
+            ResourceType? resourceType,
+            string resourceId,
+            string expected)
         {
-            string expected = "Observation/abc";
+            Uri uri = null;
 
-            ReferenceSearchValue value = ReferenceSearchValue.Parse(expected);
+            if (uriString != null)
+            {
+                uri = new Uri(uriString);
+            }
 
-            Assert.NotNull(value);
-            Assert.Equal(expected, value.Reference);
-        }
-
-        [Fact]
-        public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
-        {
-            string expected = "Organization/1";
-
-            ReferenceSearchValue value = new ReferenceSearchValue(expected);
+            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, uri, resourceType, resourceId);
 
             Assert.Equal(expected, value.ToString());
         }
