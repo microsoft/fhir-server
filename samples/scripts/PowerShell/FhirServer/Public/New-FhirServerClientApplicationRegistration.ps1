@@ -1,4 +1,4 @@
-function New-FhirServerClientAppRegistration {
+function New-FhirServerClientApplicationRegistration {
 
 param(
     [Parameter(Mandatory = $true)]

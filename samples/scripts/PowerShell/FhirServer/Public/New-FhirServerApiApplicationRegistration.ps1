@@ -1,4 +1,4 @@
-function New-FhirServerApiAppRegistration {
+function New-FhirServerApiApplicationRegistration {
 
 param(
     [Parameter(Mandatory = $false)]

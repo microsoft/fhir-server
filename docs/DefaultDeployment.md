@@ -27,13 +27,13 @@ Register an app for the FHIR server API:
 
 ```PowerShell
 $fhirServiceName = "myfhirservice"
-$apiAppReg = New-FhirServerApiAppRegistration -FhirServiceName $fhirServiceName
+$apiAppReg = New-FhirServerApiApplicationRegistration -FhirServiceName $fhirServiceName
 ```
 
 To access the FHIR server from a client application, you will also need a client app registration with a client secret. This client application registration will need to have appropriate application permissions and reply URLs configured. Here is how to register a client app for use with [Postman](https://getpostman.com):
 
 ```PowerShell
-$clientAppReg = New-FhirServerClientAppRegistration -ApiAppId $apiAppReg.AppId -DisplayName "myfhirclient" -ReplyUrl "https://www.getpostman.com/oauth2/callback"
+$clientAppReg = New-FhirServerClientApplicationRegistration -ApiAppId $apiAppReg.AppId -DisplayName "myfhirclient" -ReplyUrl "https://www.getpostman.com/oauth2/callback"
 ```
 
 Deploying the FHIR Server Template
