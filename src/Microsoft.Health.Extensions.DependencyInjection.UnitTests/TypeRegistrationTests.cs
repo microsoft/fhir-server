@@ -242,6 +242,7 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
         [Fact]
         public void GivenAType_WhenRegisteringScopedWithExplicitRegistration_ThenOnlyExplicitRegistrationIsReturned()
         {
+            // Add open generic first
             _collection.AddScoped();
 
             // Adds actual List
@@ -253,6 +254,29 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
             _collection.Add(x => new TestScope(x.GetService<IList<string>>()))
                 .Scoped()
                 .AsService<IScoped<IList<string>>>();
+
+            var ioc = _collection.BuildServiceProvider();
+
+            var resolvedService = ioc.GetService<IScoped<IList<string>>>();
+
+            Assert.IsType<TestScope>(resolvedService);
+        }
+
+        [Fact]
+        public void GivenAType_WhenRegisteringScopedWithExplicitRegistrationReverseOrder_ThenOnlyExplicitRegistrationIsReturned()
+        {
+            // Adds actual List
+            _collection.Add<List<string>>()
+                .Transient()
+                .AsService<IList<string>>();
+
+            // Adds explicit Scope registration
+            _collection.Add(x => new TestScope(x.GetService<IList<string>>()))
+                .Scoped()
+                .AsService<IScoped<IList<string>>>();
+
+            // Add open generic second
+            _collection.AddScoped();
 
             var ioc = _collection.BuildServiceProvider();
 
