@@ -17,7 +17,7 @@ catch
 
 $appReg = Get-AzureADApplication -Filter "AppId eq '${AppId}'"
 
-if ([string]::IsNullOrEmpty($appReg))
+if (!$appReg)
 {
     Write-Host "Application with AppId = ${AppId} was not found."
     Break
