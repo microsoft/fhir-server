@@ -1,6 +1,6 @@
 # Contributing to FHIR server
 
-This document describes contribution guidelines for the FHIR server repo.
+This document describes guidelines for contributing to the FHIR server repo.
 
 ## Submitting Pull Requests
 
@@ -25,7 +25,7 @@ The coding style is enforced through [StyleCop.Analyzers](https://github.com/Dot
 
 - **DO** use a descriptive title that identifies the issue or the requested feature.
 - **DO** write a detailed description of the issue or the requested feature.
-- **DO** provide details for any bug report:
+- **DO** provide details for issues you create:
   - Describe the expected and actual behavior.
   - Provide any relevant exception message or OperationOutcome.
-- **DO** subscribe to notifications for created issues in case there are any follow up questions.
+- **DO** subscribe to notifications for created issues in case there are any follow-up questions.
