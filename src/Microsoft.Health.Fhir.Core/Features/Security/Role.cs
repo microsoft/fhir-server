@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
@@ -16,17 +17,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         {
         }
 
+        [JsonConstructor]
         public Role(string name, IReadOnlyList<ResourcePermission> resourcePermissions)
         {
             Name = name;
             ResourcePermissions = resourcePermissions;
         }
 
-        public string Name { get; set; }
+        public string Name { get; internal set; }
 
-        public virtual string Version { get; set; }
+        public virtual string Version { get; internal set; }
 
-        public IReadOnlyList<ResourcePermission> ResourcePermissions { get; set; }
+        public IReadOnlyList<ResourcePermission> ResourcePermissions { get; internal set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
@@ -44,18 +46,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             {
                 if (permission.Actions == null || permission.Actions.Count == 0)
                 {
-                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RolePermissionWithNoAction, Name));
+                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
                 }
 
                 if (permission.Filter == null || string.IsNullOrWhiteSpace(permission.Filter.TemplateExpression))
                 {
-                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RolePermissionWithNoTemplateExpression, Name));
+                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoTemplateExpression, Name));
                 }
 
                 // TODO: Replace this check with a comprehensive expression validator once we have expression parsing
                 if (!permission.Filter.TemplateExpression.Equals("*", StringComparison.OrdinalIgnoreCase))
                 {
-                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RolePermissionWithInvalidTemplateExpression, Name));
+                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithInvalidTemplateExpression, Name));
                 }
             }
         }

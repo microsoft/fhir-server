@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
             if (role == null)
             {
-                throw new InvalidSearchOperationException("Role specified wasn't found");
+                throw new KeyNotFoundException(Core.Resources.RoleNotFound);
             }
 
             return Task.FromResult(role);

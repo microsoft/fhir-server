@@ -18,8 +18,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         public AuthPermissionConfigTests()
         {
-            var invalidJson1 = Samples.GetJson("InValidAuth1");
-            var invalidJson2 = Samples.GetJson("InValidAuth2");
+            var invalidJson1 = Samples.GetJson("AuthConfigWIthInvalidFilter");
+            var invalidJson2 = Samples.GetJson("AuthConfigWithInvalidAction");
 
             try
             {
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [Fact]
         public void NoError_On_Valid_AuthPermission()
         {
-            var validJson = Samples.GetJson("ValidAuth");
+            var validJson = Samples.GetJson("AuthConfigWithValidRoles");
             var roleConfig = RoleConfiguration.ValidateAndGetRoleConfiguration(validJson);
             Assert.NotNull(roleConfig);
             Assert.NotNull(roleConfig.Roles);
@@ -54,13 +54,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [Fact]
         public void Invalid_TemplateExpresssion_On_ClinicianRole()
         {
-            Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("Rolepermission for Role clinician has invalid filter expression.")));
+            Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role clinician has invalid filter expression.")));
         }
 
         [Fact]
         public void Invalid_Actions_OnNurseRole()
         {
-            Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("Rolepermission for Role Nurse does not have any Actions.")));
+            Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role Nurse does not have any Actions.")));
         }
 
         [Fact]

@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The authorization permission definition contains one or mroe invalid entries..
+        ///   Looks up a localized string similar to The authorization permission definition contains one or more invalid entries..
         /// </summary>
         internal static string AuthorizationPermissionDefinitionInvalid {
             get {
@@ -421,29 +421,38 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Rolepermission for Role {0} has invalid filter expression..
+        ///   Looks up a localized string similar to Role specified was not found.
         /// </summary>
-        internal static string RolePermissionWithInvalidTemplateExpression {
+        internal static string RoleNotFound {
             get {
-                return ResourceManager.GetString("RolePermissionWithInvalidTemplateExpression", resourceCulture);
+                return ResourceManager.GetString("RoleNotFound", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Rolepermission for Role {0} does not have any Actions..
+        ///   Looks up a localized string similar to ResourcePermission for Role {0} has invalid filter expression..
         /// </summary>
-        internal static string RolePermissionWithNoAction {
+        internal static string RoleResourcePermissionWithInvalidTemplateExpression {
             get {
-                return ResourceManager.GetString("RolePermissionWithNoAction", resourceCulture);
+                return ResourceManager.GetString("RoleResourcePermissionWithInvalidTemplateExpression", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Rolepermission for Role {0} has no template expression..
+        ///   Looks up a localized string similar to ResourcePermission for Role {0} does not have any Actions..
         /// </summary>
-        internal static string RolePermissionWithNoTemplateExpression {
+        internal static string RoleResourcePermissionWithNoAction {
             get {
-                return ResourceManager.GetString("RolePermissionWithNoTemplateExpression", resourceCulture);
+                return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ResourcePermission for Role {0} has no template expression..
+        /// </summary>
+        internal static string RoleResourcePermissionWithNoTemplateExpression {
+            get {
+                return ResourceManager.GetString("RoleResourcePermissionWithNoTemplateExpression", resourceCulture);
             }
         }
         

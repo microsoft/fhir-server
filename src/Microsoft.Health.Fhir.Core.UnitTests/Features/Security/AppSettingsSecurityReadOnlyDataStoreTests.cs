@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using NSubstitute;
 using Xunit;
@@ -68,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             _roleConfiguration.Roles.Returns(new List<Role> { new Role { Name = "role1", Version = "abc" }, new Role { Name = "role2", Version = "def" }, });
 
-            await Assert.ThrowsAsync<InvalidSearchOperationException>(async () => await appSettingsSecurityDataStore.GetRoleAsync("role3", CancellationToken.None));
+            await Assert.ThrowsAsync<KeyNotFoundException>(async () => await appSettingsSecurityDataStore.GetRoleAsync("role3", CancellationToken.None));
         }
 
         [Fact]

@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 if (issues.Count != 0)
                 {
                     throw new InvalidDefinitionException(
-                        "The authorization permission definition contains one or more invalid entries.",
+                        Core.Resources.AuthorizationPermissionDefinitionInvalid,
                         issues.ToArray());
                 }
             }
