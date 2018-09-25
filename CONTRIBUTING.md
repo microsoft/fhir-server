@@ -28,4 +28,4 @@ The coding style is enforced through [StyleCop.Analyzers](https://github.com/Dot
 - **DO** provide details for any bug report:
   - Describe the expected and actual behavior.
   - Provide any relevant exception message or OperationOutcome.
-- **DO** subscribe to notifications for created issue in case there are any follow up questions.
+- **DO** subscribe to notifications for created issues in case there are any follow up questions.
