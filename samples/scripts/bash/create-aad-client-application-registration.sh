@@ -90,7 +90,7 @@ aadEndpoint=$(az cloud show --name $environmentName | jq -r .endpoints.activeDir
 authUrl="${aadEndpoint}/${aadTenantId}/oauth2/authorize?resource=${apiAppAudience}"
 tokenUrl="${aadEndpoint}/${aadTenantId}/oauth2/token"
 
-#Service principal for API 
+#Service principal for client application 
 sp=$(az ad sp create --id ${clientAppId})
 
 #Return summary information
