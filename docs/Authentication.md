@@ -9,8 +9,7 @@ The current authentication settings exposed in configuration are the following:
     "Authentication": {
         "Mode": "jwt",
         "Audience": "fhir-api",
-        "Authority": "http://localhost:53727",
-        "RequireHttpsMetaData":  false 
+        "Authority": "https://localhost:53727"
     }
 ```
 |Element|Description|
@@ -19,7 +18,6 @@ The current authentication settings exposed in configuration are the following:
 |Authentication:Mode|The type of authentication enabled for the server. The only currently supported value is `jwt`.|
 |Authentication:Audience|Identifies the recipient that the token is intended for. In this context it should be set to something representing the FHIR API itself.|
 |Authentication:Authority|The issuer of the jwt token.|
-|Authentication:RequireHttpsMetaData|Sets if HTTPS is required for the metadata address or authority.|
 
 ## IdentityServer
 For the F5 experience and test environments, IdentityServer is included and enabled to act as the authentication provider for the FHIR API. 
