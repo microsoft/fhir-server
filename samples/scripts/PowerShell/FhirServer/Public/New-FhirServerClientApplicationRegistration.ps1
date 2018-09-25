@@ -1,5 +1,20 @@
 function New-FhirServerClientApplicationRegistration {
-
+    <#
+    .SYNOPSIS
+    Create an AAD Application registration for a client application.
+    .DESCRIPTION
+    Create a new AAD Application registration for a client application that consumes an API.
+    .EXAMPLE
+    New-FhirServerClientApplicationRegistration -DisplayName "clientapplication" -ApiAppId 9125e524-1509-XXXX-XXXX-74137cc75422
+    .PARAMETER ApiAppId
+    API AAD Application registration Id
+    .PARAMETER DisplayName
+    Display name for the client AAD Application registration
+    .PARAMETER ReplyUrl
+    Reply URL for the client AAD Application registration
+    .PARAMETER IdentifierUri
+    Identifier URI for the client AAD Application registration
+    #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$ApiAppId,
@@ -11,7 +26,7 @@ function New-FhirServerClientApplicationRegistration {
         [string]$ReplyUrl = "https://www.getpostman.com/oauth2/callback",
 
         [Parameter(Mandatory = $false)]
-        [string]$IdentifierUri
+        [string]$IdentifierUri = "https://${DisplayName}"
     )
 
     # Get current AzureAd context
@@ -19,20 +34,23 @@ function New-FhirServerClientApplicationRegistration {
         $session = Get-AzureADCurrentSessionInfo -ErrorAction Stop
     } 
     catch {
-        Write-Host "Please log into Azure AD with Connect-AzureAD cmdlet before proceeding"
+        Write-Host "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
         Break
-    }
-
-    if ([string]::IsNullOrEmpty($IdentifierUri)) {
-        $IdentifierUri = "https://${DisplayName}"
     }
 
     $apiAppReg = Get-AzureADApplication -Filter "AppId eq '${ApiAppId}'"
 
+    # Some GUID values for Azure Active Directory
+    # https://blogs.msdn.microsoft.com/aaddevsup/2018/06/06/guid-table-for-windows-azure-active-directory-permissions/
+    # Windows AAD Resource ID:
+    $windowsAadResourceId = "00000002-0000-0000-c000-000000000000"
+    # 'Sign in and read user profile' permission (scope)
+    $signInScope = "311a71cc-e848-46a1-bdf8-97ff7156d8e6"
+
     # Required App permission for Azure AD sign-in
     $reqAad = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
-    $reqAad.ResourceAppId = "00000002-0000-0000-c000-000000000000"
-    $reqAad.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList "311a71cc-e848-46a1-bdf8-97ff7156d8e6", "Scope"
+    $reqAad.ResourceAppId = $windowsAadResourceId
+    $reqAad.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $signInScope, "Scope"
 
     # Required App Permission for the API application registration. 
     $reqApi = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"

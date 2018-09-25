@@ -1,13 +1,31 @@
 function New-FhirServerApiApplicationRegistration {
-
+    <#
+    .SYNOPSIS
+    Create an AAD Application registration for a FHIR server instance.
+    .DESCRIPTION
+    Create a new AAD Application registration for a FHIR server instance. 
+    A FhirServiceName or FhirServiceAudience must be supplied.
+    .EXAMPLE
+    New-FhirServerApiApplicationRegistration -FhirServiceName "myfhiservice" 
+    .EXAMPLE
+    New-FhirServerApiApplicationRegistration -FhirServiceAudience "https://myfhirservice.azurewebsites.net"
+    .PARAMETER FhirServiceName
+    Name of the FHIR service instance. 
+    .PARAMETER FhirServiceAudience
+    Full URL of the FHIR service.
+    .PARAMETER WebAppSuffix
+    Will be appended to FHIR service name to form the FhirServiceAudience if one is not supplied,
+    e.g., azurewebsites.net or azurewebsites.us (for US Government cloud)
+    #>
+    [CmdletBinding(DefaultParameterSetName='ByFhirServiceName')]
     param(
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByFhirServiceName' )]
         [string]$FhirServiceName,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByFhirServiceAudience' )]
         [string]$FhirServiceAudience,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'ByFhirServiceName' )]
         [String]$WebAppSuffix = "azurewebsites.net"
     )
 
@@ -16,12 +34,7 @@ function New-FhirServerApiApplicationRegistration {
         $session = Get-AzureADCurrentSessionInfo -ErrorAction Stop
     } 
     catch {
-        Write-Host "Please log into Azure AD with Connect-AzureAD cmdlet before proceeding"
-        Break
-    }
-
-    if ([string]::IsNullOrEmpty($FhirServiceName) -and [string]::IsNullOrEmpty($FhirServiceAudience)) {
-        Write-Host "Please provide either a FhirServiceName or a FhirServiceAudience"
+        Write-Host "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
         Break
     }
 

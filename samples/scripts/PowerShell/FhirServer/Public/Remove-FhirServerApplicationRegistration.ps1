@@ -1,5 +1,12 @@
 function Remove-FhirServerApplicationRegistration {
-
+    <#
+    .SYNOPSIS
+    Remove (delete) an AAD Application registration
+    .DESCRIPTION
+    Deletes an AAD Application registration with a specific AppId
+    .EXAMPLE
+    Remove-FhirServerApplicationRegistration -AppId 9125e524-1509-XXXX-XXXX-74137cc75422
+    #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$AppId
@@ -10,7 +17,7 @@ function Remove-FhirServerApplicationRegistration {
         $session = Get-AzureADCurrentSessionInfo -ErrorAction Stop
     } 
     catch {
-        Write-Host "Please log into Azure AD with Connect-AzureAD cmdlet before proceeding"
+        Write-Host "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
         Break
     }
 
