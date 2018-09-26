@@ -3,15 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
+using EnsureThat;
 using Microsoft.Azure.Documents;
+using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public interface ICosmosDbDistributedLockFactory
+    public sealed class NonDisposingScope : IScoped<IDocumentClient>
     {
-        ICosmosDbDistributedLock Create(Uri collectionUri, string lockId);
+        public NonDisposingScope(IDocumentClient documentClient)
+        {
+            EnsureArg.IsNotNull(documentClient, nameof(documentClient));
+            Value = documentClient;
+        }
 
-        ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId);
+        public IDocumentClient Value { get; }
+
+        public void Dispose()
+        {
+        }
     }
 }

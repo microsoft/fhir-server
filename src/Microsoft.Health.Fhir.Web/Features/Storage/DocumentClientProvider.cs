@@ -86,5 +86,15 @@ namespace Microsoft.Health.Fhir.Web.Features.Storage
                 _documentClient = null;
             }
         }
+
+        public IScoped<IDocumentClient> CreateDocumentClientScope()
+        {
+            if (_initializationOperation.EnsureInitialized().Status != TaskStatus.RanToCompletion)
+            {
+                _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
+            }
+
+            return new NonDisposingScope(DocumentClient);
+        }
     }
 }

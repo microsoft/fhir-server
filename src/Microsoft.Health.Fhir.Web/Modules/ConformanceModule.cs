@@ -5,7 +5,6 @@
 
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 
@@ -19,7 +18,10 @@ namespace Microsoft.Health.Fhir.Web.Modules
 
             // You can create your own ConformanceProvider by using your own implementation of IConfiguredConformanceProvider
             // here you can replace it with that implementation instead of using the DefaultConformanceProvider
-            services.Replace(ServiceDescriptor.Singleton<IConfiguredConformanceProvider, DefaultConformanceProvider>());
+
+            services.Add<DefaultConformanceProvider>()
+                .Singleton()
+                .ReplaceService<IConfiguredConformanceProvider>();
         }
     }
 }

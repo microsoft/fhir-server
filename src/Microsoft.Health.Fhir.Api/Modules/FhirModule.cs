@@ -130,14 +130,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
 
-            // Register a factory to resolve an owned scope that returns all components that provide capabilities
-            services.AddFactory<IOwned<IEnumerable<IProvideCapability>>>();
+            // Register a factory to resolve a scope that returns all components that provide capabilities
+            services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
 
-            // Register Owned as an Open Generic, this can resolve any service with an owned lifetime scope
-            services.AddTransient(typeof(IOwned<>), typeof(Owned<>));
-
-            // Register Lazy<> as an Open Generic, this can resolve any service with Lazy instantiation
-            services.AddTransient(typeof(Lazy<>), typeof(LazyProvider<>));
+            services.AddLazy();
+            services.AddScoped();
         }
     }
 }
