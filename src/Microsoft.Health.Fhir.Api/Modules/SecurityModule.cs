@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -49,6 +50,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     builder.RequireAuthenticatedUser();
                     builder.Requirements.Add(new FhirAccessRequirement());
                 }));
+
+                services.AddSingleton<IAuthorizationHandler, DefaultFhirAccessRequirementHandler>();
             }
             else
             {

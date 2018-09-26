@@ -9,7 +9,7 @@ The current authentication settings exposed in configuration are the following:
     "Authentication": {
         "Mode": "jwt",
         "Audience": "fhir-api",
-        "Authority": "https://localhost:53727"
+        "Authority": "https://localhost:44348"
     }
 ```
 |Element|Description|
@@ -43,7 +43,7 @@ For the F5 experience and test environments, IdentityServer is included and enab
 To obtain a token issue the following command.
 ```
 POST /connect/token HTTP/1.1
-Host: http://localhost:53725
+Host: https://localhost:44348
 Content-Type: application/x-www-form-urlencoded
 
 client_id=known-client-id&client_secret=known-client-secret&grant_type=client_credentials&scope=fhir-api

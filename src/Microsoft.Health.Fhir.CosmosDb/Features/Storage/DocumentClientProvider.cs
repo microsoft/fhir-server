@@ -64,8 +64,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         /// <summary>
         /// Returns a task representing the initialization operation. Once completed,
-        /// this method will always retun a completed task. If the task fails, the method
-        /// can be called again to rety the operation.
+        /// this method will always return a completed task. If the task fails, the method
+        /// can be called again to retry the operation.
         /// </summary>
         /// <returns>A task representing the initialization operation.</returns>
         public Task EnsureInitialized() => _initializationOperation.EnsureInitialized();
