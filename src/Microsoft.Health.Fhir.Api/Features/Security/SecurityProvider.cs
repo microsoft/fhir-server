@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Security
 {
@@ -28,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 
         public void Build(ListedCapabilityStatement statement)
         {
-            if (_securityConfiguration.Enabled && _securityConfiguration.Authentication?.Mode == AuthenticationMode.Jwt)
+            if (_securityConfiguration.Enabled)
             {
                 statement.AddOAuthSecurityService(_securityConfiguration.Authentication.Authority, _logger);
             }

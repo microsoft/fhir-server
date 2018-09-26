@@ -11,7 +11,6 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -30,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            if (_securityConfiguration.Enabled && _securityConfiguration.Authentication?.Mode == AuthenticationMode.Jwt)
+            if (_securityConfiguration.Enabled)
             {
                 services.AddAuthentication(options =>
                     {
