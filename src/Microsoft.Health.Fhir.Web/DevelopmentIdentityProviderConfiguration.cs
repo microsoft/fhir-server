@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public class TestIdentityProviderConfiguration
+    public class DevelopmentIdentityProviderConfiguration
     {
         public string Audience { get; set; }
 

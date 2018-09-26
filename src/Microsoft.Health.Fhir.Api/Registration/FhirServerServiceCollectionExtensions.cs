@@ -7,12 +7,11 @@ using System;
 using System.Reflection;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Registration;
 
-namespace Microsoft.Health.Fhir.Api.Registration
+namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerServiceCollectionExtensions
     {

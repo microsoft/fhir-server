@@ -5,15 +5,15 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Registration;
 
-namespace Microsoft.Health.Fhir.Api.Registration
+namespace Microsoft.AspNetCore.Builder
 {
     public static class FhirServerApplicationBuilderExtensions
     {

@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             services.AddFhirServer(Configuration).AddCosmosDb();
 
-            services.AddTestIdentityProvider(Configuration);
+            services.AddDevelopmentIdentityProvider(Configuration);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             app.UseFhirServer();
 
-            app.UseTestIdentityProvider();
+            app.UseDevelopmentIdentityProvider();
         }
     }
 }

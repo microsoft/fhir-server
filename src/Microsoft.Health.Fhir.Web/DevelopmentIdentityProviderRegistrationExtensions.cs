@@ -11,18 +11,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public static class TestIdentityProviderRegistrationExtensions
+    public static class DevelopmentIdentityProviderRegistrationExtensions
     {
         /// <summary>
         /// Adds an in-process identity provider.
         /// </summary>
         /// <param name="services">The services collection.</param>
-        /// <param name="configuration">The configuration root. The "TestIdentityProvider" section will be used to populate configuration values.</param>
+        /// <param name="configuration">The configuration root. The "DevelopmentIdentityProvider" section will be used to populate configuration values.</param>
         /// <returns>The same services collection.</returns>
-        public static IServiceCollection AddTestIdentityProvider(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddDevelopmentIdentityProvider(this IServiceCollection services, IConfiguration configuration)
         {
-            var identityProviderConfiguration = new TestIdentityProviderConfiguration();
-            configuration.GetSection("TestIdentityProvider").Bind(identityProviderConfiguration);
+            var identityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
+            configuration.GetSection("DevelopmentIdentityProvider").Bind(identityProviderConfiguration);
 
             services.AddIdentityServer()
                 .AddDeveloperSigningCredential()
@@ -58,6 +58,6 @@ namespace Microsoft.Health.Fhir.Web
         /// </summary>
         /// <param name="app">The application builder</param>
         /// <returns>The application builder.</returns>
-        public static IApplicationBuilder UseTestIdentityProvider(this IApplicationBuilder app) => app.UseIdentityServer();
+        public static IApplicationBuilder UseDevelopmentIdentityProvider(this IApplicationBuilder app) => app.UseIdentityServer();
     }
 }
