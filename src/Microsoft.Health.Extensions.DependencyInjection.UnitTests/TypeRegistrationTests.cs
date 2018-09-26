@@ -56,6 +56,24 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
         }
 
         [Fact]
+        public void GivenAType_WhenRegisteringAndReplacingService_ThenTheNewServicesIsRegistered()
+        {
+            new TypeRegistration(_collection, typeof(StreamReader))
+                .Transient()
+                .AsService<TextReader>();
+
+            new TypeRegistration(_collection, typeof(StringReader))
+                .Transient()
+                .ReplaceService<TextReader>();
+
+            Assert.Collection(_collection, x =>
+            {
+                Assert.Equal(typeof(StringReader), x.ImplementationType);
+                Assert.Equal(typeof(TextReader), x.ServiceType);
+            });
+        }
+
+        [Fact]
         public void GivenADelegate_WhenRegisteringTransientAsSelf_ThenTheServicesIsRegistered()
         {
             new TypeRegistration(_collection, typeof(StreamReader), provider => new StreamReader(new MemoryStream()))
@@ -68,13 +86,33 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
         }
 
         [Fact]
-        public void GivenADelegate_WhenRegisteringTransientAsImplementedInterfaces_ThenTheServicesIsRegistered()
+        public void GivenADelegate_WhenRegisteringTransientAsImplementedInterfaces_ThenIDisposableIsNotRegistered()
         {
-            new TypeRegistration(_collection, typeof(StreamReader), provider => new StreamReader(new MemoryStream()))
+            new TypeRegistration(_collection, typeof(TestDisposableObjectWithInterface))
                 .Transient()
                 .AsImplementedInterfaces();
 
-            Assert.Equal(typeof(IDisposable), _collection.Single().ServiceType);
+            Assert.True(_collection.All(x => x.ServiceType != typeof(IDisposable)));
+        }
+
+        [Fact]
+        public void GivenADelegate_WhenRegisteringTransientAsImplementedInterfaces_ThenTheServicesIsRegistered()
+        {
+            new TypeRegistration(_collection, typeof(TestDisposableObjectWithInterface))
+                .Transient()
+                .AsImplementedInterfaces();
+
+            Assert.Equal(typeof(IEquatable<string>), _collection.Single().ServiceType);
+        }
+
+        [Fact]
+        public void GivenADelegate_WhenRegisteringTransientAsImplementedInterfaces_ThenTheServicesWithDelegateIsRegistered()
+        {
+            new TypeRegistration(_collection, typeof(TestDisposableObjectWithInterface))
+                .Transient()
+                .AsImplementedInterfaces(x => typeof(IEquatable<string>).IsAssignableFrom(x));
+
+            Assert.Equal(typeof(IEquatable<string>), _collection.Single().ServiceType);
         }
 
         [Fact]
@@ -171,10 +209,9 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
             new TypeRegistration(_collection, typeof(List<string>))
                 .Singleton()
                 .AsSelf()
-                .AsService<IList<string>>();
-
-            _collection.AddFactory<List<string>>();
-            _collection.AddFactory<IList<string>>();
+                .AsService<IList<string>>()
+                .AsFactory<List<string>>()
+                .AsFactory<IList<string>>();
 
             var ioc = _collection.BuildServiceProvider();
 
@@ -192,14 +229,87 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
                 .AsSelf()
                 .AsService<IList<string>>();
 
-            _collection.AddTransient(typeof(IOwned<>), typeof(Owned<>));
+            _collection.AddTransient(typeof(IScoped<>), typeof(Scoped<>));
 
             var ioc = _collection.BuildServiceProvider();
 
-            var a = ioc.GetService<IOwned<List<string>>>();
-            var b = ioc.GetService<IOwned<IList<string>>>();
+            var a = ioc.GetService<IScoped<List<string>>>();
+            var b = ioc.GetService<IScoped<IList<string>>>();
 
             Assert.NotEqual(a.Value.GetHashCode(), b.Value.GetHashCode());
+        }
+
+        [Fact]
+        public void GivenAType_WhenRegisteringScopedWithExplicitRegistration_ThenOnlyExplicitRegistrationIsReturned()
+        {
+            // Add open generic first
+            _collection.AddScoped();
+
+            // Adds actual List
+            _collection.Add<List<string>>()
+                .Transient()
+                .AsService<IList<string>>();
+
+            // Adds explicit Scope registration
+            _collection.Add(x => new TestScope(x.GetService<IList<string>>()))
+                .Scoped()
+                .AsService<IScoped<IList<string>>>();
+
+            var ioc = _collection.BuildServiceProvider();
+
+            var resolvedService = ioc.GetService<IScoped<IList<string>>>();
+
+            Assert.IsType<TestScope>(resolvedService);
+        }
+
+        [Fact]
+        public void GivenAType_WhenRegisteringScopedWithExplicitRegistrationReverseOrder_ThenOnlyExplicitRegistrationIsReturned()
+        {
+            // Adds actual List
+            _collection.Add<List<string>>()
+                .Transient()
+                .AsService<IList<string>>();
+
+            // Adds explicit Scope registration
+            _collection.Add(x => new TestScope(x.GetService<IList<string>>()))
+                .Scoped()
+                .AsService<IScoped<IList<string>>>();
+
+            // Add open generic second
+            _collection.AddScoped();
+
+            var ioc = _collection.BuildServiceProvider();
+
+            var resolvedService = ioc.GetService<IScoped<IList<string>>>();
+
+            Assert.IsType<TestScope>(resolvedService);
+        }
+
+        private class TestScope : IScoped<IList<string>>
+        {
+            public TestScope(IList<string> value)
+            {
+                Value = value;
+            }
+
+            public IList<string> Value { get; }
+
+            public void Dispose()
+            {
+            }
+        }
+
+        private class TestDisposableObjectWithInterface : IEquatable<string>, IDisposable
+        {
+            public bool Equals(string other)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void Dispose()
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }

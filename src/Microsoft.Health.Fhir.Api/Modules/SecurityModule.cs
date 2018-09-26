@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     {
                         options.Authority = securityConfiguration.Authentication.Authority;
                         options.Audience = securityConfiguration.Authentication.Audience;
-                        options.RequireHttpsMetadata = securityConfiguration.Authentication.RequireHttpsMetaData;
+                        options.RequireHttpsMetadata = true;
                     });
 
                 services.AddAuthorization(options => options.AddPolicy(PolicyNames.FhirPolicy, builder =>

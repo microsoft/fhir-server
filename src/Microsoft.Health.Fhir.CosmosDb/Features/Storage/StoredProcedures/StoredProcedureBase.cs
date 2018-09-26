@@ -6,8 +6,6 @@
 using System;
 using System.IO;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
@@ -23,7 +21,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
         protected StoredProcedureBase()
         {
             _body = new Lazy<string>(GetBody);
-            _versionedName = new Lazy<string>(() => $"{Name}_{Hash(_body.Value)}");
+            _versionedName = new Lazy<string>(() => $"{Name}_{Hasher.ComputeHash(_body.Value)}");
         }
 
         protected virtual string Name => CamelCase(GetType().Name);
@@ -72,17 +70,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
             using (var reader = new StreamReader(resourceStream))
             {
                 return reader.ReadToEnd();
-            }
-        }
-
-        private static string Hash(string data)
-        {
-            EnsureArg.IsNotEmpty(data, nameof(data));
-
-            using (var sha256 = new SHA256Managed())
-            {
-                var hashed = sha256.ComputeHash(Encoding.UTF8.GetBytes(data));
-                return BitConverter.ToString(hashed).Replace("-", string.Empty, StringComparison.Ordinal);
             }
         }
 

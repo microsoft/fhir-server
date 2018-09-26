@@ -3,16 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Security;
+using System.Threading.Tasks;
+using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Http;
 
-namespace Microsoft.Health.Fhir.Core.Configs
+namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 {
-    public class AuthenticationConfiguration
+    public interface IContentTypeService
     {
-        public AuthenticationMode Mode { get; set; }
+        Task CheckRequestedContentTypeAsync(HttpContext httpContext);
 
-        public string Audience { get; set; }
-
-        public string Authority { get; set; }
+        Task<bool> IsFormatSupportedAsync(ResourceFormat resourceFormat);
     }
 }

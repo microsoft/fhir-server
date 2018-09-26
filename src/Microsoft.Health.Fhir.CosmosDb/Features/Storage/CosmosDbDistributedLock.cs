@@ -11,6 +11,7 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Newtonsoft.Json;
 
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private CancellationTokenSource _keepAliveCancellationSource;
         private Task _keepAliveTask;
         private string _lockDocumentSelfLink;
-        private readonly Func<IDocumentClient> _documentClientFactory;
+        private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosDbDistributedLock"/> class.
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="collectionUri">The URI of the collection to use</param>
         /// <param name="lockId">The id of the lock. The document created in the database will use this id and will be prefixed with <see cref="IdPrefix"/>.</param>
         /// <param name="logger">A logger instance</param>
-        public CosmosDbDistributedLock(Func<IDocumentClient> documentClientFactory, Uri collectionUri, string lockId, ILogger<CosmosDbDistributedLock> logger)
+        public CosmosDbDistributedLock(Func<IScoped<IDocumentClient>> documentClientFactory, Uri collectionUri, string lockId, ILogger<CosmosDbDistributedLock> logger)
             : this(documentClientFactory, collectionUri, lockId, logger, DefaultLockDocumentTimeToLive)
         {
         }
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="lockId">The id of the lock. The document created in the database will use this ID will be prefixed with <see cref="IdPrefix"/>.</param>
         /// <param name="logger">A logger instance</param>
         /// <param name="lockDocumentTimeToLive">The time to live for the lock document. If the process crashes, the lock will be released after this amount of time</param>
-        public CosmosDbDistributedLock(Func<IDocumentClient> documentClientFactory, Uri collectionUri, string lockId, ILogger<CosmosDbDistributedLock> logger, TimeSpan lockDocumentTimeToLive)
+        public CosmosDbDistributedLock(Func<IScoped<IDocumentClient>> documentClientFactory, Uri collectionUri, string lockId, ILogger<CosmosDbDistributedLock> logger, TimeSpan lockDocumentTimeToLive)
         {
             EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
             EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
@@ -114,14 +115,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                var response = await _documentClientFactory.Invoke().CreateDocumentAsync(_collectionUri, _lockDocument);
+                using (var scopedDocumentClient = _documentClientFactory.Invoke())
+                {
+                    var response = await scopedDocumentClient.Value.CreateDocumentAsync(_collectionUri, _lockDocument);
 
-                _lockDocumentSelfLink = response.Resource.SelfLink;
-                _keepAliveCancellationSource = new CancellationTokenSource();
-                _keepAliveTask = LockKeepAliveLoop(_keepAliveCancellationSource.Token);
+                    _lockDocumentSelfLink = response.Resource.SelfLink;
+                    _keepAliveCancellationSource = new CancellationTokenSource();
+                    _keepAliveTask = LockKeepAliveLoop(_keepAliveCancellationSource.Token);
 
-                _logger.LogInformation("Lock {LockId} acquired", _lockId);
-                return true;
+                    _logger.LogInformation("Lock {LockId} acquired", _lockId);
+                    return true;
+                }
             }
             catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.Conflict)
             {
@@ -156,7 +160,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 try
                 {
-                    await _documentClientFactory.Invoke().DeleteDocumentAsync(_lockDocumentSelfLink, new RequestOptions { PartitionKey = new PartitionKey(LockDocument.LockPartition) });
+                    using (var scopedDocumentClient = _documentClientFactory.Invoke())
+                    {
+                        await scopedDocumentClient.Value.DeleteDocumentAsync(_lockDocumentSelfLink, new RequestOptions { PartitionKey = new PartitionKey(LockDocument.LockPartition) });
+                    }
                 }
                 catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -211,7 +218,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     try
                     {
-                        await _documentClientFactory.Invoke().UpsertDocumentAsync(_collectionUri, _lockDocument);
+                        using (var scopedDocumentClient = _documentClientFactory.Invoke())
+                        {
+                            await scopedDocumentClient.Value.UpsertDocumentAsync(_collectionUri, _lockDocument);
+                        }
+
                         break;
                     }
                     catch (DocumentClientException e) when (e.StatusCode == (HttpStatusCode)429)

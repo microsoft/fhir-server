@@ -37,6 +37,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(result);
         }
 
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAFhirObjectAndXmlContentType_WhenSerializing_ThenTheObjectIsSerializedToTheResponseStream()
+        {
+            var formatter = new FhirXmlOutputFormatter(new FhirXmlSerializer(), NullLogger<FhirXmlOutputFormatter>.Instance);
+
+            var resource = new OperationOutcome();
+            var serializer = new FhirXmlSerializer();
+
+            var defaultHttpContext = new DefaultHttpContext();
+            defaultHttpContext.Request.ContentType = ContentType.XML_CONTENT_HEADER;
+            var responseBody = new MemoryStream();
+            defaultHttpContext.Response.Body = responseBody;
+
+            var writerFactory = Substitute.For<Func<Stream, Encoding, TextWriter>>();
+            writerFactory.Invoke(Arg.Any<Stream>(), Arg.Any<Encoding>()).Returns(p => new StreamWriter(p.ArgAt<Stream>(0)));
+
+            await formatter.WriteResponseBodyAsync(
+                new OutputFormatterWriteContext(
+                    defaultHttpContext,
+                    writerFactory,
+                    typeof(OperationOutcome),
+                    resource),
+                Encoding.UTF8);
+
+            Assert.Equal(serializer.SerializeToString(resource), Encoding.UTF8.GetString(responseBody.ToArray()));
+
+            responseBody.Dispose();
+        }
+
         private bool CanWrite(Type modelType, string contentType)
         {
             var formatter = new FhirXmlOutputFormatter(new FhirXmlSerializer(), NullLogger<FhirXmlOutputFormatter>.Instance);
@@ -46,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
             var result = formatter.CanWriteResult(
                 new OutputFormatterWriteContext(
-                    new DefaultHttpContext(),
+                    defaultHttpContext,
                     Substitute.For<Func<Stream, Encoding, TextWriter>>(),
                     modelType,
                     new Observation()));
