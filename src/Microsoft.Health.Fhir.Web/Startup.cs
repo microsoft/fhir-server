@@ -4,24 +4,65 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using Microsoft.AspNetCore.Hosting;
+using IdentityServer4.Models;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Web.Features.IdentityServer;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public class Startup : Microsoft.Health.Fhir.Api.StartupBase<Startup>
+    public class Startup
     {
-        public Startup(IHostingEnvironment env, ILogger<Startup> logger, IConfiguration configuration)
-            : base(env, logger, configuration)
+        public Startup(IConfiguration configuration)
         {
+            Configuration = configuration;
         }
 
-        protected override IEnumerable<Assembly> AssembliesContainingStartupModules
+        public IConfiguration Configuration { get; }
+
+        // This method gets called by the runtime. Use this method to add services to the container.
+        public virtual void ConfigureServices(IServiceCollection services)
         {
-            get { return base.AssembliesContainingStartupModules.Concat(new[] { typeof(Startup).Assembly }); }
+            services
+                .AddFhirServer(Configuration)
+                .AddCosmosDb();
+
+            var identityServerConfiguration = new IdentityServerConfiguration();
+            Configuration.GetSection("IdentityServer").Bind(identityServerConfiguration);
+            services.AddIdentityServer()
+                .AddDeveloperSigningCredential()
+                .AddInMemoryApiResources(new List<ApiResource>
+                {
+                    new ApiResource(identityServerConfiguration.Audience),
+                })
+                .AddInMemoryClients(new List<Client>
+                {
+                    new Client
+                    {
+                        ClientId = identityServerConfiguration.ClientId,
+
+                        // no interactive user, use the clientid/secret for authentication
+                        AllowedGrantTypes = GrantTypes.ClientCredentials,
+
+                        // secret for authentication
+                        ClientSecrets =
+                        {
+                            new Secret(identityServerConfiguration.ClientSecret.Sha256()),
+                        },
+
+                        // scopes that client has access to
+                        AllowedScopes = { identityServerConfiguration.Audience },
+                    },
+                });
+        }
+
+        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        public virtual void Configure(IApplicationBuilder app)
+        {
+            app.UseFhirServer();
+
+            app.UseIdentityServer();
         }
     }
 }

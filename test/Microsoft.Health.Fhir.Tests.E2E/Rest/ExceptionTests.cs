@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Api.Features.Container;
+using Microsoft.Health.Fhir.Api.Features.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
@@ -105,8 +105,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public class StartupWithThrowingMiddleware : Startup, IStartupConfiguration
         {
-            public StartupWithThrowingMiddleware(IHostingEnvironment env, ILogger<Startup> logger, IConfiguration configuration)
-                : base(env, logger, configuration)
+            public StartupWithThrowingMiddleware(IConfiguration configuration)
+                : base(configuration)
             {
             }
 
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 base.ConfigureServices(services);
             }
 
-            void IStartupConfiguration.Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime appLifetime, ILoggerFactory loggerFactory, IConfiguration configuration)
+            void IStartupConfiguration.Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime appLifetime, ILoggerFactory loggerFactory)
             {
                 app.Use(async (context, next) =>
                 {

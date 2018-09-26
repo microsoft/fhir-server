@@ -7,12 +7,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Container;
+using Microsoft.Health.Fhir.Api.Features.Registration;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Features.Initialization;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         }
 
         /// <inheritdoc />
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime appLifetime, ILoggerFactory loggerFactory, IConfiguration configuration)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime appLifetime, ILoggerFactory loggerFactory)
         {
             ILogger logger = loggerFactory.CreateLogger<InitializationModule>();
 

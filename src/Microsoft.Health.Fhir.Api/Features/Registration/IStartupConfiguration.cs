@@ -5,10 +5,9 @@
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Microsoft.Health.Fhir.Api.Features.Container
+namespace Microsoft.Health.Fhir.Api.Features.Registration
 {
     /// <summary>
     /// Provides a contract that enables extensible configuration for the application
@@ -22,7 +21,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Container
         /// <param name="env">The environment.</param>
         /// <param name="appLifetime">The application lifetime.</param>
         /// <param name="loggerFactory">The logger factory.</param>
-        /// <param name="configuration">The configuration.</param>
-        void Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime appLifetime, ILoggerFactory loggerFactory, IConfiguration configuration);
+        void Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime appLifetime, ILoggerFactory loggerFactory);
     }
 }
