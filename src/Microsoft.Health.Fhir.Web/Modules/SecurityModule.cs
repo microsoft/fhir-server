@@ -29,14 +29,15 @@ namespace Microsoft.Health.Fhir.Web.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            SecurityConfiguration securityConfiguration = new SecurityConfiguration();
-            _configuration.GetSection("Security").Bind(securityConfiguration);
+            AuthorizationConfiguration authorizationConfiguration = new AuthorizationConfiguration();
+            IConfigurationSection authSection = _configuration.GetSection("Authorization");
+            authSection.Bind(authorizationConfiguration);
 
-            // Adds the sample authorization present as part of the project to the dependency chain
-            // Change to use service.AddFhirAuthorization with a stream pointing to a json file for a custom auth specification.
-            if (securityConfiguration.EnableAuthorization)
+            if (authorizationConfiguration.Enabled)
             {
-                services.AddSampleFhirAuthorization();
+                // Adds the authorization specification as part of the appsettings to the dependency chain
+                // Change appsettings for a custom auth specification.
+                services.AddFhirAuthorization(authSection);
             }
 
             // You can create your own FhirAccessRequirementHandler by implementating an IAuthorizationHandler.

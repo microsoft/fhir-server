@@ -24,11 +24,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             ResourcePermissions = resourcePermissions;
         }
 
-        public string Name { get; internal set; }
+        public string Name { get; set; }
 
-        public virtual string Version { get; internal set; }
+        public virtual string Version { get; set; }
 
-        public IReadOnlyList<ResourcePermission> ResourcePermissions { get; internal set; }
+        public IReadOnlyList<ResourcePermission> ResourcePermissions { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
@@ -47,17 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                 if (permission.Actions == null || permission.Actions.Count == 0)
                 {
                     yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
-                }
-
-                if (permission.Filter == null || string.IsNullOrWhiteSpace(permission.Filter.TemplateExpression))
-                {
-                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoTemplateExpression, Name));
-                }
-
-                // TODO: Replace this check with a comprehensive expression validator once we have expression parsing
-                if (!permission.Filter.TemplateExpression.Equals("*", StringComparison.OrdinalIgnoreCase))
-                {
-                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithInvalidTemplateExpression, Name));
                 }
             }
         }

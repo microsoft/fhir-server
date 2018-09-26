@@ -16,26 +16,23 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class RoleConfiguration
     {
-        public virtual IEnumerable<Role> Roles { get; set; }
+        public RoleConfiguration()
+        {
+        }
 
-        public static RoleConfiguration ValidateAndGetRoleConfiguration(string authjson)
+        [JsonConstructor]
+        public RoleConfiguration(IReadOnlyList<Role> roles)
+        {
+            Roles = roles;
+        }
+
+        public virtual IReadOnlyList<Role> Roles { get; set; }
+
+        public void Validate()
         {
             var issues = new List<IssueComponent>();
 
-            RoleConfiguration roleConfiguration = JsonConvert.DeserializeObject<RoleConfiguration>(
-            authjson,
-            new JsonSerializerSettings
-            {
-                Error = (sender, args) =>
-                {
-                    AddIssue(args.ErrorContext.Error.Message);
-                    args.ErrorContext.Handled = true;
-                },
-            });
-
-            EnsureNoIssues();
-
-            foreach (Role role in roleConfiguration.Roles)
+            foreach (Role role in Roles)
             {
                 var validationErrors = role.Validate(new ValidationContext(role));
 
@@ -48,9 +45,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 }
             }
 
-            EnsureNoIssues();
+            if (issues.Count != 0)
+            {
+                throw new InvalidDefinitionException(
+                    Core.Resources.AuthorizationPermissionDefinitionInvalid,
+                    issues.ToArray());
+            }
 
-            return roleConfiguration;
+            return;
 
             void AddIssue(string format, params object[] args)
             {
@@ -60,16 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
                     Code = IssueType.Invalid,
                     Diagnostics = string.Format(CultureInfo.InvariantCulture, format, args),
                 });
-            }
-
-            void EnsureNoIssues()
-            {
-                if (issues.Count != 0)
-                {
-                    throw new InvalidDefinitionException(
-                        Core.Resources.AuthorizationPermissionDefinitionInvalid,
-                        issues.ToArray());
-                }
             }
         }
     }

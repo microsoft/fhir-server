@@ -9,9 +9,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
@@ -19,14 +18,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
     {
         private readonly RoleConfiguration _roleConfiguration;
 
-        public AppSettingsSecurityReadOnlyDataStore(RoleConfiguration roleConfiguration)
+        public AppSettingsSecurityReadOnlyDataStore(IOptions<RoleConfiguration> roleConfiguration)
         {
-            EnsureArg.IsNotNull(roleConfiguration, nameof(roleConfiguration));
+            EnsureArg.IsNotNull(roleConfiguration?.Value, nameof(roleConfiguration));
 
-            _roleConfiguration = roleConfiguration;
+            _roleConfiguration = roleConfiguration.Value;
         }
 
-        public Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<Role>> GetAllRolesAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(_roleConfiguration.Roles);
         }
@@ -41,16 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             }
 
             return Task.FromResult(role);
-        }
-
-        public Task<Role> UpsertRoleAsync(Role role, WeakETag weakETag, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task DeleteRoleAsync(string name, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
         }
     }
 }

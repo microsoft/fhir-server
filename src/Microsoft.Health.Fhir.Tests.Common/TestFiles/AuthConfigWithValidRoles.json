@@ -5,9 +5,6 @@
             "name": "clinician",
             "resourcePermissions": [
                 {
-                    "filter": {
-                        "templateExpression": "*"
-                    },
                     "actions": [
                         "Read",
                         "Write"
@@ -19,9 +16,6 @@
             "name": "Nurse",
             "resourcePermissions": [
                 {
-                    "filter": {
-                        "templateExpression": "*"
-                    },
                     "actions": [
                         "Read"
                     ]
@@ -32,9 +26,6 @@
             "name": "admin",
             "resourcePermissions": [
                 {
-                    "filter": {
-                        "templateExpression": "*"
-                    },
                     "actions": [
                         "Read",
                         "Write",
