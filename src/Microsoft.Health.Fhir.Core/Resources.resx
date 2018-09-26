@@ -242,6 +242,9 @@
   <data name="RoleNotFound" xml:space="preserve">
     <value>Role specified was not found</value>
   </data>
+  <data name="RoleResourcePermissionNotSupported" xml:space="preserve">
+    <value>More than {0} ResourcePermission for Role {1}  is not currently suported.</value>
+  </data>
   <data name="RoleResourcePermissionWithInvalidTemplateExpression" xml:space="preserve">
     <value>ResourcePermission for Role {0} has invalid filter expression.</value>
   </data>

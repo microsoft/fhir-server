@@ -8,6 +8,11 @@
                         "Read",
                         "Write"
                     ]
+                },
+                {
+                    "actions": [
+                        "Write"
+                    ]
                 }
             ]
         },

@@ -430,6 +430,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to More than {0} ResourcePermission for Role {1}  is not currently suported..
+        /// </summary>
+        internal static string RoleResourcePermissionNotSupported {
+            get {
+                return ResourceManager.GetString("RoleResourcePermissionNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ResourcePermission for Role {0} has invalid filter expression..
         /// </summary>
         internal static string RoleResourcePermissionWithInvalidTemplateExpression {

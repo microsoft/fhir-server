@@ -27,9 +27,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [Fact]
         public async void GivenAnAppSettingsSecurityDataStore_WhenGettingAllWithMultipleRoles_ThenCorrectNumberReturned()
         {
+            _roleConfiguration.Roles.Returns(new List<Role> { new Role() { Name = "TestRole1" }, new Role() { Name = "TestRole2" }, });
             var appSettingsSecurityDataStore = new AppSettingsSecurityReadOnlyDataStore(_roleConfigurationOptions);
-
-            _roleConfiguration.Roles.Returns(new List<Role> { new Role(), new Role(), });
 
             var results = await appSettingsSecurityDataStore.GetAllRolesAsync(CancellationToken.None);
 
@@ -40,10 +39,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [Fact]
         public async void GivenAnAppSettingsSecurityDataStore_WhenGettingAllWithNoRoles_ThenCorrectNumberReturned()
         {
-            var appSettingsSecurityDataStore = new AppSettingsSecurityReadOnlyDataStore(_roleConfigurationOptions);
-
             _roleConfiguration.Roles.Returns(new List<Role>());
-
+            var appSettingsSecurityDataStore = new AppSettingsSecurityReadOnlyDataStore(_roleConfigurationOptions);
             var results = await appSettingsSecurityDataStore.GetAllRolesAsync(CancellationToken.None);
 
             Assert.Empty(results);
@@ -52,9 +49,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [Fact]
         public async void GivenAnAppSettingsSecurityDataStore_WhenGettingOneRoleWithMultipleRoles_ThenCorrectRoleReturned()
         {
-            var appSettingsSecurityDataStore = new AppSettingsSecurityReadOnlyDataStore(_roleConfigurationOptions);
-
             _roleConfiguration.Roles.Returns(new List<Role> { new Role { Name = "role1", Version = "abc" }, new Role { Name = "role2", Version = "def" }, });
+            var appSettingsSecurityDataStore = new AppSettingsSecurityReadOnlyDataStore(_roleConfigurationOptions);
 
             var result = await appSettingsSecurityDataStore.GetRoleAsync("role1", CancellationToken.None);
 

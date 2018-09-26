@@ -16,30 +16,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class AppSettingsSecurityReadOnlyDataStore : ISecurityDataStore
     {
-        private readonly RoleConfiguration _roleConfiguration;
+        private readonly Dictionary<string, Role> _roleLookup = new Dictionary<string, Role>(StringComparer.InvariantCultureIgnoreCase);
 
         public AppSettingsSecurityReadOnlyDataStore(IOptions<RoleConfiguration> roleConfiguration)
         {
             EnsureArg.IsNotNull(roleConfiguration?.Value, nameof(roleConfiguration));
 
-            _roleConfiguration = roleConfiguration.Value;
+            _roleLookup = roleConfiguration.Value.Roles.ToDictionary(r => r.Name);
         }
 
         public Task<IReadOnlyList<Role>> GetAllRolesAsync(CancellationToken cancellationToken)
         {
-            return Task.FromResult(_roleConfiguration.Roles);
+            return Task.FromResult((IReadOnlyList<Role>)_roleLookup.Values.ToList());
         }
 
         public Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken)
         {
-            var role = _roleConfiguration.Roles.FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.InvariantCultureIgnoreCase));
-
-            if (role == null)
+            if (!_roleLookup.ContainsKey(name))
             {
                 throw new KeyNotFoundException(Core.Resources.RoleNotFound);
             }
 
-            return Task.FromResult(role);
+            return Task.FromResult(_roleLookup[name]);
         }
     }
 }

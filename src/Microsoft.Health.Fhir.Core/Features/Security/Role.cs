@@ -42,6 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                 yield return new ValidationResult(Core.Resources.ResourcePermissionEmpty);
             }
 
+            if (ResourcePermissions != null && ResourcePermissions.Count > 1)
+            {
+                yield return new ValidationResult(string.Format(Core.Resources.RoleResourcePermissionNotSupported, 1, Name));
+            }
+
             foreach (ResourcePermission permission in ResourcePermissions)
             {
                 if (permission.Actions == null || permission.Actions.Count == 0)
