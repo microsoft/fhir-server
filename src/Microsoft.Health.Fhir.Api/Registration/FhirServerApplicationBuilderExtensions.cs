@@ -5,18 +5,23 @@
 
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
-using Microsoft.Health.Fhir.Api.Features.Registration;
 
-namespace Microsoft.AspNetCore.Builder
+namespace Microsoft.Health.Fhir.Api.Registration
 {
     public static class FhirServerApplicationBuilderExtensions
     {
+        /// <summary>
+        /// Adds FHIR server functionality to the pipeline.
+        /// </summary>
+        /// <param name="app">The application builder instance.</param>
+        /// <returns>THe application builder instance.</returns>
         public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app)
         {
             EnsureArg.IsNotNull(app, nameof(app));

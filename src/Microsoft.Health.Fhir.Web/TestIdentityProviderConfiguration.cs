@@ -3,12 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Extensions.DependencyInjection;
-
-namespace Microsoft.Health.Fhir.Core.Features.Registration
+namespace Microsoft.Health.Fhir.Web
 {
-    public interface IFhirServerBuilder
+    public class TestIdentityProviderConfiguration
     {
-        IServiceCollection Services { get; }
+        public string Audience { get; set; }
+
+        public string ClientId { get; set; }
+
+        public string ClientSecret { get; set; }
     }
 }

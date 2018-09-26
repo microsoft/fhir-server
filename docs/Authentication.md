@@ -24,8 +24,7 @@ For the F5 experience and test environments, IdentityServer is included and enab
 
 ### IdentityServer Settings
 ```
-"IdentityServer": {
-    "Enabled": true,
+"TestIdentityProvider": {
     "Audience": "fhir-api",
     "ClientId": "known-client-id",
     "ClientSecret": "known-client-secret" 

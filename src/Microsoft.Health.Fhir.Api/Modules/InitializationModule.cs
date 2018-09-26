@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Registration;
+using Microsoft.Health.Fhir.Api.Registration;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Initialization;
 

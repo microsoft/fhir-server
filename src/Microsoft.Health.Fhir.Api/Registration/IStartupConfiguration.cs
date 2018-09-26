@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Microsoft.Health.Fhir.Api.Features.Registration
+namespace Microsoft.Health.Fhir.Api.Registration
 {
     /// <summary>
     /// Provides a contract that enables extensible configuration for the application
