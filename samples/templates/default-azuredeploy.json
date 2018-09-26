@@ -222,7 +222,7 @@
         },
         {
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/DataStore--Host')]",
+            "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
@@ -235,7 +235,7 @@
         },
         {
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/DataStore--Key')]",
+            "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
