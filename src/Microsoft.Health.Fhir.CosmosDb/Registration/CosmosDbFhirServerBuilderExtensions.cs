@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Health;
@@ -31,7 +29,9 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder)
         {
-            fhirServerBuilder.Services.Add(provider =>
+            IServiceCollection services = fhirServerBuilder.Services;
+
+            services.Add(provider =>
                 {
                     var config = new CosmosDataStoreConfiguration();
                     provider.GetService<IConfiguration>().GetSection("CosmosDb").Bind(config);
@@ -47,56 +47,58 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            fhirServerBuilder.Services.Add<CosmosDataStore>()
+            services.Add<CosmosDataStore>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            fhirServerBuilder.Services.Add<DocumentClientProvider>()
+            services.Add<DocumentClientProvider>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IStartable>() // so that it starts initializing ASAP
                 .AsService<IRequireInitializationOnFirstRequest>(); // so that web requests block on its initialization.
 
-            fhirServerBuilder.Services.Add<DocumentClientReadWriteTestProvider>()
+            services.Add<DocumentClientReadWriteTestProvider>()
                 .Singleton()
                 .AsService<IDocumentClientTestProvider>();
 
-            // Register Func<IDocumentClient>.
+            // Register IDocumentClient
             // We are intentionally not registering IDocumentClient directly, because
             // we want this codebase to support different configurations, where the
             // lifetime of the document clients can be managed outside of the IoC
             // container, which will automatically dispose it if exposed as a scoped
             // service or as transient but consumed from another scoped service.
 
-            fhirServerBuilder.Services.Add<Func<IDocumentClient>>(sp => () => sp.GetService<DocumentClientProvider>().DocumentClient)
-                .Singleton()
-                .AsSelf();
+            services.Add(sp => sp.GetService<DocumentClientProvider>().CreateDocumentClientScope())
+                .Transient()
+                .AsSelf()
+                .AsFactory();
 
-            fhirServerBuilder.Services.Add<DocumentClientInitializer>()
+            services.Add<DocumentClientInitializer>()
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();
 
-            fhirServerBuilder.Services.Add<CosmosDocumentQueryFactory>()
-                .Scoped()
+            services.Add<CosmosDocumentQueryFactory>()
+                .Singleton()
                 .AsService<ICosmosDocumentQueryFactory>();
 
-            fhirServerBuilder.Services.Add<CosmosDocumentQueryLogger>()
+            services.Add<CosmosDocumentQueryLogger>()
                 .Singleton()
                 .AsService<ICosmosDocumentQueryLogger>();
 
-            fhirServerBuilder.Services.Add<CollectionUpgradeManager>()
+            services.Add<CollectionUpgradeManager>()
                 .Singleton()
                 .AsService<IUpgradeManager>();
 
-            fhirServerBuilder.Services.TypesInSameAssemblyAs<ICollectionUpdater>()
+            services.TypesInSameAssemblyAs<ICollectionUpdater>()
                 .AssignableTo<ICollectionUpdater>()
                 .Singleton()
                 .AsSelf()
                 .AsService<ICollectionUpdater>();
 
-            fhirServerBuilder.Services.AddSingleton<ICosmosDbDistributedLockFactory, CosmosDbDistributedLockFactory>();
-
+            services.Add<CosmosDbDistributedLockFactory>()
+                .Singleton()
+                .AsService<ICosmosDbDistributedLockFactory>();
             return fhirServerBuilder;
         }
 

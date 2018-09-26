@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -19,13 +20,13 @@ using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class CosmosAdminDataStore : IDataStore, IContinuationTokenCache, IDisposable
+    public class IntegrationTestCosmosDataStore : IDataStore, IContinuationTokenCache, IDisposable
     {
         private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStore _dataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 
-        public CosmosAdminDataStore()
+        public IntegrationTestCosmosDataStore()
         {
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new StoredProcedureInstaller(),
             };
 
-            var dbLock = new CosmosDbDistributedLockFactory(NullLogger<CosmosDbDistributedLock>.Instance);
+            var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<IDocumentClient>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
 
             var upgradeManager = new CollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
             IDocumentClientTestProvider testProvider = new DocumentClientReadWriteTestProvider();
@@ -52,8 +53,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration).GetAwaiter().GetResult();
 
-            var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(() => _documentClient, NullCosmosDocumentQueryLogger.Instance);
-            _dataStore = new CosmosDataStore(() => _documentClient, _cosmosDataStoreConfiguration, cosmosDocumentQueryFactory, NullLogger<CosmosDataStore>.Instance);
+            var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(NullCosmosDocumentQueryLogger.Instance);
+            _dataStore = new CosmosDataStore(new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, cosmosDocumentQueryFactory, NullLogger<CosmosDataStore>.Instance);
         }
 
         public void Dispose()

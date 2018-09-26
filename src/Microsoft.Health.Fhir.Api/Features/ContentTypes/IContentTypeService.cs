@@ -3,15 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using Microsoft.Azure.Documents;
+using System.Threading.Tasks;
+using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Http;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 {
-    public interface ICosmosDbDistributedLockFactory
+    public interface IContentTypeService
     {
-        ICosmosDbDistributedLock Create(Uri collectionUri, string lockId);
+        Task CheckRequestedContentTypeAsync(HttpContext httpContext);
 
-        ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId);
+        Task<bool> IsFormatSupportedAsync(ResourceFormat resourceFormat);
     }
 }

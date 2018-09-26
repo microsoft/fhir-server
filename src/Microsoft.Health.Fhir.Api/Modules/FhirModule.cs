@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -27,6 +29,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public class FhirModule : IStartupModule
     {
+        private readonly FeatureConfiguration _featureConfiguration;
+
+        public FhirModule(FhirServerConfiguration fhirServerConfiguration)
+        {
+            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
+            _featureConfiguration = fhirServerConfiguration.Features;
+        }
+
         /// <inheritdoc />
         public void Load(IServiceCollection services)
         {
@@ -49,18 +59,43 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IPostConfigureOptions<MvcOptions>>()
                 .AsService<IProvideCapability>();
 
+            services.AddSingleton<IContentTypeService, ContentTypeService>();
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
 
-            services.TypesInSameAssemblyAs<FhirJsonInputFormatter>()
-                .AssignableTo<TextInputFormatter>()
-                .Singleton()
-                .AsSelf();
+            // HTML
+            // If UI is supported, then add the formatter so that the
+            // document can be output in HTML view.
+            if (_featureConfiguration.SupportsUI)
+            {
+                services.Add<HtmlOutputFormatter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<TextOutputFormatter>();
+            }
 
-            services.TypesInSameAssemblyAs<FhirJsonOutputFormatter>()
-                .AssignableTo<TextOutputFormatter>()
+            services.Add<FhirJsonInputFormatter>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsService<TextInputFormatter>();
+
+            services.Add<FhirJsonOutputFormatter>()
+                .Singleton()
+                .AsSelf()
+                .AsService<TextOutputFormatter>();
+
+            if (_featureConfiguration.SupportsXml)
+            {
+                services.Add<FhirXmlInputFormatter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<TextInputFormatter>();
+
+                services.Add<FhirXmlOutputFormatter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<TextOutputFormatter>();
+            }
 
             services.Add<FhirRequestContextAccessor>()
                 .Singleton()
@@ -94,14 +129,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
 
-            // Register a factory to resolve an owned scope that returns all components that provide capabilities
-            services.AddFactory<IOwned<IEnumerable<IProvideCapability>>>();
+            // Register a factory to resolve a scope that returns all components that provide capabilities
+            services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
 
-            // Register Owned as an Open Generic, this can resolve any service with an owned lifetime scope
-            services.AddTransient(typeof(IOwned<>), typeof(Owned<>));
-
-            // Register Lazy<> as an Open Generic, this can resolve any service with Lazy instantiation
-            services.AddTransient(typeof(Lazy<>), typeof(LazyProvider<>));
+            services.AddLazy();
+            services.AddScoped();
         }
     }
 }

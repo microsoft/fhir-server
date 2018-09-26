@@ -6,13 +6,16 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Microsoft.Health.Extensions.DependencyInjection
 {
     public class TypeRegistrationBuilder
     {
+        private readonly MethodInfo _factoryGenericMethod = typeof(TypeRegistrationExtensions).GetMethod(nameof(TypeRegistrationExtensions.AddFactory), BindingFlags.Public | BindingFlags.Static);
         private readonly IServiceCollection _serviceCollection;
         private readonly Type _type;
         private readonly Func<IServiceProvider, object> _delegateRegistration;
@@ -48,6 +51,45 @@ namespace Microsoft.Health.Extensions.DependencyInjection
         }
 
         /// <summary>
+        /// Creates a service registration for the specified interface that can be resolved with Func
+        /// </summary>
+        /// <typeparam name="T">Type of service to be registered</typeparam>
+        /// <returns>The registration builder</returns>
+        public TypeRegistrationBuilder AsFactory<T>()
+        {
+            var factoryMethod = _factoryGenericMethod.MakeGenericMethod(typeof(T));
+
+            factoryMethod.Invoke(null, new object[] { _serviceCollection });
+
+            return this;
+        }
+
+        /// <summary>
+        /// Creates a service registration for the specified interface that can be resolved with Func
+        /// </summary>
+        /// <returns>The registration builder</returns>
+        public TypeRegistrationBuilder AsFactory()
+        {
+            var factoryMethod = _factoryGenericMethod.MakeGenericMethod(_type);
+
+            factoryMethod.Invoke(null, new object[] { _serviceCollection });
+
+            return this;
+        }
+
+        /// <summary>
+        /// Replaces a service registration for the specified interface
+        /// </summary>
+        /// <typeparam name="T">Type of service to be registered</typeparam>
+        /// <returns>The registration builder</returns>
+        public TypeRegistrationBuilder ReplaceService<T>()
+        {
+            RegisterType(typeof(T), true);
+
+            return this;
+        }
+
+        /// <summary>
         /// Creates a service registration for all interfaces implemented by the type
         /// </summary>
         /// <param name="interfaceFilter">A predicate specifying which interfaces to register.</param>
@@ -59,7 +101,12 @@ namespace Microsoft.Health.Extensions.DependencyInjection
                 _firstRegisteredType != null || _registrationMode == TypeRegistration.RegistrationMode.Transient,
                 $"Using \"AsImplementedInterfaces()\" without calling \"AsSelf()\" first in registration for \"{_type.Name}\" could have inconsistent results.");
 
-            var interfaces = _type.GetInterfaces().Where(x => interfaceFilter == null || interfaceFilter(x));
+            if (interfaceFilter == null)
+            {
+                interfaceFilter = x => x != typeof(IDisposable);
+            }
+
+            var interfaces = _type.GetInterfaces().Where(x => interfaceFilter(x));
 
             foreach (var typeInterface in interfaces)
             {
@@ -83,16 +130,18 @@ namespace Microsoft.Health.Extensions.DependencyInjection
             return this;
         }
 
-        private void RegisterType(Type serviceType)
+        private void RegisterType(Type serviceType, bool replace = false)
         {
             EnsureArg.IsNotNull(serviceType, nameof(serviceType));
 
             if (_firstRegisteredType == null && _registrationMode != TypeRegistration.RegistrationMode.Transient)
             {
-                SetupRootRegistration(serviceType);
+                SetupRootRegistration(serviceType, replace);
 
                 return;
             }
+
+            ServiceDescriptor serviceDescriptor;
 
             switch (_registrationMode)
             {
@@ -100,53 +149,76 @@ namespace Microsoft.Health.Extensions.DependencyInjection
 
                     if (_delegateRegistration != null)
                     {
-                        _serviceCollection.AddTransient(serviceType, _delegateRegistration);
+                        serviceDescriptor = ServiceDescriptor.Transient(serviceType, _delegateRegistration);
                     }
                     else
                     {
-                        _serviceCollection.AddTransient(serviceType, _type);
+                        serviceDescriptor = ServiceDescriptor.Transient(serviceType, _type);
                     }
 
                     break;
                 case TypeRegistration.RegistrationMode.Scoped:
 
-                    _serviceCollection.AddScoped(serviceType, _cachedResolver);
+                    serviceDescriptor = ServiceDescriptor.Scoped(serviceType, _cachedResolver);
 
                     break;
                 case TypeRegistration.RegistrationMode.Singleton:
 
-                    _serviceCollection.AddSingleton(serviceType, _cachedResolver);
+                    serviceDescriptor = ServiceDescriptor.Singleton(serviceType, _cachedResolver);
 
                     break;
                 default:
                     throw new NotSupportedException();
             }
+
+            if (replace)
+            {
+                _serviceCollection.Replace(serviceDescriptor);
+            }
+            else
+            {
+                _serviceCollection.Add(serviceDescriptor);
+            }
         }
 
-        private void SetupRootRegistration(Type serviceType)
+        private void SetupRootRegistration(Type serviceType, bool replace)
         {
             _firstRegisteredType = serviceType;
+
+            ServiceDescriptor serviceDescriptor = null;
 
             if (_delegateRegistration == null)
             {
                 if (_registrationMode == TypeRegistration.RegistrationMode.Scoped)
                 {
-                    _serviceCollection.AddScoped(serviceType, _type);
+                    serviceDescriptor = ServiceDescriptor.Scoped(serviceType, _type);
                 }
                 else if (_registrationMode == TypeRegistration.RegistrationMode.Singleton)
                 {
-                    _serviceCollection.AddSingleton(serviceType, _type);
+                    serviceDescriptor = ServiceDescriptor.Singleton(serviceType, _type);
                 }
             }
             else
             {
                 if (_registrationMode == TypeRegistration.RegistrationMode.Scoped)
                 {
-                    _serviceCollection.AddScoped(serviceType, _delegateRegistration);
+                    serviceDescriptor = ServiceDescriptor.Scoped(serviceType, _delegateRegistration);
                 }
                 else if (_registrationMode == TypeRegistration.RegistrationMode.Singleton)
                 {
-                    _serviceCollection.AddSingleton(serviceType, _delegateRegistration);
+                    serviceDescriptor = ServiceDescriptor.Singleton(serviceType, _delegateRegistration);
+                }
+            }
+
+            if (serviceDescriptor != null)
+            {
+                if (replace)
+                {
+                    _serviceCollection.Replace(serviceDescriptor);
+                }
+                else
+                {
+                    _serviceCollection.Add(serviceDescriptor);
                 }
             }
 
