@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -30,8 +31,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             if (outputFormatters != null)
             {
+                // Gets formatters that can write the desired format
+                var validFormatters = outputFormatters
+                    .Where(x => x.GetSupportedContentTypes(preferred, typeof(Resource)) != null)
+                    .ToArray();
+
+                // Using the valid formatters, select the correct content type header for the client
                 closestClientMediaType = acceptHeaders
-                    .Intersect(outputFormatters.SelectMany(x => x.SupportedMediaTypes))
+                    .SelectMany(x => validFormatters.SelectMany(y => y.GetSupportedContentTypes(x, typeof(Resource)) ?? Enumerable.Empty<string>()))
                     .FirstOrDefault();
             }
 
