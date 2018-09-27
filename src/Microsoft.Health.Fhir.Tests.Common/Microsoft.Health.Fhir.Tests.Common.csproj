@@ -76,10 +76,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.2" />
     <PackageReference Include="Hl7.Fhir.STU3" Version="0.96.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02" />
     <PackageReference Include="NSubstitute" Version="3.1.0" />
     <PackageReference Include="xunit" Version="2.3.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />
   </ItemGroup>
 
   <ItemGroup>

@@ -221,7 +221,7 @@ The following is an example of what is persisted in the Cosmos DB.
         "format": "Json"
     },
     "request": {
-        "url": "http://localhost:53727/Observation",
+        "url": "https://localhost:44348/Observation",
         "method": "POST"
     },
     "isDeleted": false,

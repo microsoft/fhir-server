@@ -5,10 +5,9 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -29,13 +28,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public class SearchModule : IStartupModule
     {
-        private readonly IConfiguration _configuration;
+        private readonly SearchConfiguration _searchConfiguration;
 
-        public SearchModule(IConfiguration configuration)
+        public SearchModule(FhirServerConfiguration fhirServerConfiguration)
         {
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
-
-            _configuration = configuration;
+            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
+            _searchConfiguration = fhirServerConfiguration.Search;
         }
 
         /// <inheritdoc />
@@ -43,16 +41,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            SearchConfiguration searchConfiguration = new SearchConfiguration();
-
-            _configuration.GetSection("Search").Bind(searchConfiguration);
-
-            services.AddSingleton(Options.Create(searchConfiguration));
-
             services.AddSingleton<IUrlResolver, UrlResolver>();
             services.AddSingleton<IBundleFactory, BundleFactory>();
 
-            if (searchConfiguration.UseLegacySearch)
+            if (_searchConfiguration.UseLegacySearch)
             {
                 services.AddSingleton<ISearchParamDefinitionManager, SearchParamDefinitionManager>();
                 services.AddSingleton<ISearchParamFactory, SearchParamFactory>();

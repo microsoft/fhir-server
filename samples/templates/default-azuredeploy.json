@@ -135,19 +135,19 @@
                             "value": "6.9.4"
                         },
                         {
-                            "name": "KEYVAULT_ENDPOINT",
+                            "name": "KeyVault:Endpoint",
                             "value": "[variables('keyvaultEndpoint')]"
                         },
                         {
-                            "name": "Security:Enabled",
+                            "name": "FhirServer:Security:Enabled",
                             "value": "[variables('securityAuthenticationEnabled')]"
                         },
                         {
-                            "name": "Security:Authentication:Authority",
+                            "name": "FhirServer:Security:Authentication:Authority",
                             "value": "[parameters('securityAuthenticationAuthority')]"
                         },
                         {
-                            "name": "Security:Authentication:Audience",
+                            "name": "FhirServer:Security:Authentication:Audience",
                             "value": "[parameters('securityAuthenticationAudience')]"
                         }
                     ]
@@ -222,7 +222,7 @@
         },
         {
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/DataStore--Host')]",
+            "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
@@ -235,7 +235,7 @@
         },
         {
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/DataStore--Key')]",
+            "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",

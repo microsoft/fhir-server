@@ -9,15 +9,14 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Container;
+using Microsoft.Health.Fhir.Core.Features.Initialization;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
-namespace Microsoft.Health.Fhir.Web.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Provides an <see cref="IDocumentClient"/> instance that is opened and whose collection has beeen propertly initialized for use.
-    /// Initialization starts asynchronously during application startup and is guranteed to complete before any web request is handled by a controller.
+    /// Provides an <see cref="IDocumentClient"/> instance that is opened and whose collection has been properly initialized for use.
+    /// Initialization starts asynchronously during application startup and is guaranteed to complete before any web request is handled by a controller.
     /// </summary>
     public class DocumentClientProvider : IStartable, IRequireInitializationOnFirstRequest, IDisposable
     {
@@ -65,8 +64,8 @@ namespace Microsoft.Health.Fhir.Web.Features.Storage
 
         /// <summary>
         /// Returns a task representing the initialization operation. Once completed,
-        /// this method will always retun a completed task. If the task fails, the method
-        /// can be called again to rety the operation.
+        /// this method will always return a completed task. If the task fails, the method
+        /// can be called again to retry the operation.
         /// </summary>
         /// <returns>A task representing the initialization operation.</returns>
         public Task EnsureInitialized() => _initializationOperation.EnsureInitialized();

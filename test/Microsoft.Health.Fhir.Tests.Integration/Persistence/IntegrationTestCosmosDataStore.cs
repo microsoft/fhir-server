@@ -30,12 +30,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
-                Host = Environment.GetEnvironmentVariable("DataStore:Host") ?? CosmosDbLocalEmulator.Host,
-                Key = Environment.GetEnvironmentVariable("DataStore:Key") ?? CosmosDbLocalEmulator.Key,
-                DatabaseId = Environment.GetEnvironmentVariable("DataStore:DatabaseId") ?? "FhirTests",
+                Host = Environment.GetEnvironmentVariable("CosmosDb:Host") ?? CosmosDbLocalEmulator.Host,
+                Key = Environment.GetEnvironmentVariable("CosmosDb:Key") ?? CosmosDbLocalEmulator.Key,
+                DatabaseId = Environment.GetEnvironmentVariable("CosmosDb:DatabaseId") ?? "FhirTests",
                 CollectionId = Guid.NewGuid().ToString(),
                 AllowDatabaseCreation = true,
-                PreferredLocations = Environment.GetEnvironmentVariable("DataStore:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
+                PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
             };
 
             var updaters = new ICollectionUpdater[]
