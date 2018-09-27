@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -20,17 +21,24 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class CosmosDbFhirServerBuilderExtensions
     {
-        public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder)
+        /// <summary>
+        /// Adds Cosmos Db as the data store for the FHIR server.
+        /// Settings are read from the "CosmosDB" configuration section and can optionally be overridden with the <paramref name="configureAction"/> delegate.
+        /// </summary>
+        /// <param name="fhirServerBuilder">The FHIR server builder.</param>
+        /// <param name="configureAction">An optional delegate for overriding configuration properties.</param>
+        /// <returns>The builder.</returns>
+        public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
 
             return fhirServerBuilder
-                .AddCosmosDbPersistence()
+                .AddCosmosDbPersistence(configureAction)
                 .AddCosmosDbSearch()
                 .AddCosmosDbHealthCheck();
         }
 
-        private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder)
+        private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction)
         {
             IServiceCollection services = fhirServerBuilder.Services;
 
@@ -38,6 +46,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     var config = new CosmosDataStoreConfiguration();
                     provider.GetService<IConfiguration>().GetSection("CosmosDb").Bind(config);
+                    configureAction?.Invoke(config);
 
                     if (string.IsNullOrEmpty(config.Host))
                     {
