@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Health;
@@ -21,6 +22,8 @@ namespace Microsoft.Extensions.DependencyInjection
     {
         public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder)
         {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
             return fhirServerBuilder
                 .AddCosmosDbPersistence()
                 .AddCosmosDbSearch()

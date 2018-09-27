@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 using IdentityServer4.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,9 @@ namespace Microsoft.Health.Fhir.Web
         /// <returns>The same services collection.</returns>
         public static IServiceCollection AddDevelopmentIdentityProvider(this IServiceCollection services, IConfiguration configuration)
         {
+            EnsureArg.IsNotNull(services, nameof(services));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
+
             var identityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
             configuration.GetSection("DevelopmentIdentityProvider").Bind(identityProviderConfiguration);
 
@@ -58,6 +62,11 @@ namespace Microsoft.Health.Fhir.Web
         /// </summary>
         /// <param name="app">The application builder</param>
         /// <returns>The application builder.</returns>
-        public static IApplicationBuilder UseDevelopmentIdentityProvider(this IApplicationBuilder app) => app.UseIdentityServer();
+        public static IApplicationBuilder UseDevelopmentIdentityProvider(this IApplicationBuilder app)
+        {
+            EnsureArg.IsNotNull(app, nameof(app));
+
+            return app.UseIdentityServer();
+        }
     }
 }
