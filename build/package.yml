@@ -32,7 +32,6 @@ steps:
     inputs:
       command: pack
       configuration: '$(buildConfiguration)'
-      packagesToPack: '**/*.csproj;!**/*Tests*.csproj'
       packDirectory: '$(build.artifactStagingDirectory)/nupkgs'
       versioningScheme: 'byEnvVar'
       versionEnvVar: 'nuget_version'

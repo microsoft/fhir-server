@@ -2,14 +2,11 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    <PackageId>Microsoft.Health.Fhir.Web</PackageId>
-    <Authors>Microsoft.Health.Fhir.Web</Authors>
     <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <!-- Due to the bug in VS, The DebugType needs to be set to Full for CodeCoverage to work property. Remove after the fix is deployed.-->
     <DebugType>Full</DebugType>
-    <IsPackable>true</IsPackable>
     <LangVersion>latest</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
