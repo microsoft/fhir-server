@@ -5,8 +5,6 @@
     <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
-    <IsPackable>true</IsPackable>
-    <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
     <LangVersion>latest</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
   </PropertyGroup>
