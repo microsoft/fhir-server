@@ -64,7 +64,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             var appSettingsSecurityDataStore = new AppSettingsSecurityReadOnlyDataStore(_roleConfigurationOptions);
 
             _roleConfiguration.Roles.Returns(new List<Role> { new Role { Name = "role1", Version = "abc" }, new Role { Name = "role2", Version = "def" }, });
-
             await Assert.ThrowsAsync<KeyNotFoundException>(async () => await appSettingsSecurityDataStore.GetRoleAsync("role3", CancellationToken.None));
         }
     }
