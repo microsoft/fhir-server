@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
@@ -10,7 +11,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Registration;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Initialization;
 
@@ -20,18 +20,26 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// Starts all <see cref="IStartable"/> instances in the IoC container and ensures that all <see cref="IRequireInitializationOnFirstRequest"/> instances
     /// are initialized before any controllers are invoked.
     /// </summary>
-    public class InitializationModule : IStartupModule, IStartupConfiguration
+    public class InitializationModule : IStartupModule, IStartupFilter
     {
         /// <inheritdoc />
         public void Load(IServiceCollection services)
         {
-            services.AddSingleton<IStartupConfiguration>(this);
+            services.AddSingleton<IStartupFilter>(this);
         }
 
-        /// <inheritdoc />
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime appLifetime, ILoggerFactory loggerFactory)
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
         {
-            ILogger logger = loggerFactory.CreateLogger<InitializationModule>();
+            return builder =>
+            {
+                Configure(builder);
+                next(builder);
+            };
+        }
+
+        private static void Configure(IApplicationBuilder app)
+        {
+            ILogger logger = app.ApplicationServices.GetRequiredService<ILoggerFactory>().CreateLogger<InitializationModule>();
 
             // start IStartable services.
             foreach (var startable in app.ApplicationServices.GetService<IEnumerable<IStartable>>())

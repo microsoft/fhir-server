@@ -7,7 +7,6 @@ The current authentication settings exposed in configuration are the following:
 "Security": {
     "Enabled":  true,
     "Authentication": {
-        "Mode": "jwt",
         "Audience": "fhir-api",
         "Authority": "https://localhost:44348"
     }

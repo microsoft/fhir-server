@@ -6,9 +6,14 @@
 using System;
 using System.Reflection;
 using EnsureThat;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -42,11 +47,13 @@ namespace Microsoft.Extensions.DependencyInjection
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Security));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Conformance));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Features));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Search));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Conformance));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Search));
+
+            services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
 
@@ -62,6 +69,46 @@ namespace Microsoft.Extensions.DependencyInjection
             }
 
             public IServiceCollection Services { get; }
+        }
+
+        /// <summary>
+        /// An <see cref="IStartupFilter"/> that configures middleware components before any components are added in Startup.Configure
+        /// </summary>
+        private class FhirServerStartupFilter : IStartupFilter
+        {
+            public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+            {
+                return app =>
+                {
+                    IHostingEnvironment env = app.ApplicationServices.GetRequiredService<IHostingEnvironment>();
+
+                    // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
+                    app.UseBaseHeaders();
+
+                    if (env.IsDevelopment())
+                    {
+                        app.UseDeveloperExceptionPage();
+                    }
+                    else
+                    {
+                        // This middleware will capture issues within other middleware that prevent the ExceptionHandler from completing.
+                        // This should be the first middleware added because they execute in order.
+                        app.UseBaseException();
+
+                        // This middleware will capture any unhandled exceptions and attempt to return an operation outcome using the customError page
+                        app.UseExceptionHandler("/CustomError");
+
+                        // This middleware will capture any handled error with the status code between 400 and 599 that hasn't had a body or content-type set. (i.e. 404 on unknown routes)
+                        app.UseStatusCodePagesWithReExecute("/CustomError", "?statusCode={0}");
+                    }
+
+                    app.UseAuthentication();
+
+                    app.UseFhirRequestContext();
+
+                    next(app);
+                };
+            }
         }
     }
 }

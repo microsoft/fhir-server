@@ -9,10 +9,9 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Api.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
@@ -103,20 +102,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             DotNetAttributeValidation.Validate(operationOutcome, true);
         }
 
-        public class StartupWithThrowingMiddleware : Startup, IStartupConfiguration
+        public class StartupWithThrowingMiddleware : Startup
         {
             public StartupWithThrowingMiddleware(IConfiguration configuration)
                 : base(configuration)
             {
             }
 
-            public override void ConfigureServices(IServiceCollection services)
-            {
-                services.AddSingleton<IStartupConfiguration>(this);
-                base.ConfigureServices(services);
-            }
-
-            void IStartupConfiguration.Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime appLifetime, ILoggerFactory loggerFactory)
+            public override void Configure(IApplicationBuilder app)
             {
                 app.Use(async (context, next) =>
                 {
@@ -145,6 +138,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                     await next();
                 });
+
+                base.Configure(app);
             }
         }
     }
