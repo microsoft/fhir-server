@@ -8,6 +8,7 @@ usage ()
 {
   echo "Usage: "
   echo "  $0 -s <name service name> | -a <fhir server audience>"
+  echo "     [-w <web app suffix>]"
   exit
 }
 
@@ -45,7 +46,7 @@ done
 [ -z $FHIRSERVICENAME ] && [ -z $AUDIENCE ] && echo "Please provide FHIR Service name or Audience" && usage
 
 if [[ -z $AUDIENCE ]]; then
-    AUDIENCE="${FHIRSERVICENAME}.${WEBAPPSUFFIX}"
+    AUDIENCE="https://${FHIRSERVICENAME}.${WEBAPPSUFFIX}"
 fi
 
 context=$(az account show)

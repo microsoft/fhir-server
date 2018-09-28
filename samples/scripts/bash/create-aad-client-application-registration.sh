@@ -8,7 +8,8 @@ IDENTIFIERURI=""
 usage ()
 {
   echo "Usage: "
-  echo "  $0 -a <api aad app id> -d <display name> -r <reply url>"
+  echo "  $0 -a <api aad app id> -d <display name>"
+  echo "     [-r <reply url>] [-i <identifier uri>]"
   exit
 }
 
@@ -47,6 +48,7 @@ case $key in
 esac
 done
 
+command -v jq >/dev/null 2>&1 || { echo >&2 "This script requires 'jq' to be installed."; exit 1; }
 
 [ -z $APIAPPID ] && echo "Please provide FHIR Service API App ID" && usage
 [ -z $DISPLAYNAME ] && echo "Please provide Display Name" && usage
