@@ -8,29 +8,20 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 
-namespace Microsoft.Health.Fhir.Web.Modules
+namespace Microsoft.Health.Fhir.Web
 {
-    public class SecurityModule : IStartupModule
+    public static class AuthorizationConfigurationRegistrationExtensions
     {
-        private readonly IConfiguration _configuration;
-
-        public SecurityModule(IConfiguration configuration)
-        {
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
-
-            _configuration = configuration;
-        }
-
-        public void Load(IServiceCollection services)
+        public static IServiceCollection AddAuthorizationConfiguration(this IServiceCollection services, IConfiguration configuration)
         {
             EnsureArg.IsNotNull(services, nameof(services));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
 
             AuthorizationConfiguration authorizationConfiguration = new AuthorizationConfiguration();
-            IConfigurationSection authSection = _configuration.GetSection("Security:Authorization");
+            IConfigurationSection authSection = configuration.GetSection("FhirServer:Security:Authorization");
             authSection.Bind(authorizationConfiguration);
 
             if (authorizationConfiguration.Enabled)
@@ -48,6 +39,8 @@ namespace Microsoft.Health.Fhir.Web.Modules
             // You can create your own FhirAccessRequirementHandler by implementating an IAuthorizationHandler.
             // Replace the DefaultFhirAccessRequirementHandler here with your custom implementation to have it handle the FhirAccessRequirement.
             services.AddSingleton<IAuthorizationHandler, DefaultFhirAccessRequirementHandler>();
+
+            return services;
         }
     }
 }
