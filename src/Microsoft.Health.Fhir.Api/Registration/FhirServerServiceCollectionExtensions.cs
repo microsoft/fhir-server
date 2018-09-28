@@ -57,6 +57,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
 
+            services.AddHttpClient();
+
             return new FhirServerBuilder(services);
         }
 
