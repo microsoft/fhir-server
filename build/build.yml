@@ -3,7 +3,6 @@ parameters:
   name: Windows
   queue: 'Hosted VS2017'
   packageArtifacts: true
-  publishNugets: true
 
 phases:
 - phase: ${{ parameters.name }}
@@ -30,5 +29,3 @@ phases:
 
   - ${{ if eq(parameters.packageArtifacts, 'true') }}:
     - template: package.yml
-      parameters:
-        publishNugets: ${{ parameters.publishNugets }}
