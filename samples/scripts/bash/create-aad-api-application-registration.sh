@@ -42,6 +42,7 @@ case $key in
 esac
 done
 
+command -v jq >/dev/null 2>&1 || { echo >&2 "This script requires 'jq' to be installed."; exit 1; }
 
 [ -z $FHIRSERVICENAME ] && [ -z $AUDIENCE ] && echo "Please provide FHIR Service name or Audience" && usage
 
