@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Text;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Internal;
@@ -205,7 +206,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             _statement.Format = new[] { "xml" };
 
-            var xmlOutput = Substitute.For<TextOutputFormatter>();
+            var xmlOutput = Substitute.ForPartsOf<TextOutputFormatter>();
+            xmlOutput.SupportedEncodings.Add(Encoding.UTF8);
             xmlOutput.SupportedMediaTypes.Add("application/fhir+xml");
             xmlOutput.SupportedMediaTypes.Add(applicationXml);
             xmlOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);

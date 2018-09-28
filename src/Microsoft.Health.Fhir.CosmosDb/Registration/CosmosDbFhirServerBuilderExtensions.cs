@@ -3,28 +3,50 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Container;
+using Microsoft.Health.Fhir.Core.Features.Health;
+using Microsoft.Health.Fhir.Core.Features.Initialization;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Health;
+using Microsoft.Health.Fhir.CosmosDb.Features.Search;
+using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
-using Microsoft.Health.Fhir.Web.Features.Storage;
 
-namespace Microsoft.Health.Fhir.Web.Modules
+namespace Microsoft.Extensions.DependencyInjection
 {
-    public class PersistenceModule : IStartupModule
+    public static class CosmosDbFhirServerBuilderExtensions
     {
-        public void Load(IServiceCollection services)
+        /// <summary>
+        /// Adds Cosmos Db as the data store for the FHIR server.
+        /// Settings are read from the "CosmosDB" configuration section and can optionally be overridden with the <paramref name="configureAction"/> delegate.
+        /// </summary>
+        /// <param name="fhirServerBuilder">The FHIR server builder.</param>
+        /// <param name="configureAction">An optional delegate for overriding configuration properties.</param>
+        /// <returns>The builder.</returns>
+        public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
-            EnsureArg.IsNotNull(services);
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
+            return fhirServerBuilder
+                .AddCosmosDbPersistence(configureAction)
+                .AddCosmosDbSearch()
+                .AddCosmosDbHealthCheck();
+        }
+
+        private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction)
+        {
+            IServiceCollection services = fhirServerBuilder.Services;
 
             services.Add(provider =>
                 {
                     var config = new CosmosDataStoreConfiguration();
-                    provider.GetService<IConfiguration>().GetSection("DataStore").Bind(config);
+                    provider.GetService<IConfiguration>().GetSection("CosmosDb").Bind(config);
+                    configureAction?.Invoke(config);
 
                     if (string.IsNullOrEmpty(config.Host))
                     {
@@ -45,7 +67,7 @@ namespace Microsoft.Health.Fhir.Web.Modules
             services.Add<DocumentClientProvider>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IStartable>() // so that it starts intializing ASAP
+                .AsService<IStartable>() // so that it starts initializing ASAP
                 .AsService<IRequireInitializationOnFirstRequest>(); // so that web requests block on its initialization.
 
             services.Add<DocumentClientReadWriteTestProvider>()
@@ -89,6 +111,31 @@ namespace Microsoft.Health.Fhir.Web.Modules
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()
                 .AsService<ICosmosDbDistributedLockFactory>();
+            return fhirServerBuilder;
+        }
+
+        private static IFhirServerBuilder AddCosmosDbHealthCheck(this IFhirServerBuilder fhirServerBuilder)
+        {
+            // We can move to framework such as https://github.com/dotnet-architecture/HealthChecks
+            // once they are released to do health check on multiple dependencies.
+            fhirServerBuilder.Services.Add<CosmosHealthCheck>()
+                .Scoped()
+                .AsSelf()
+                .AsService<IHealthCheck>();
+
+            return fhirServerBuilder;
+        }
+
+        private static IFhirServerBuilder AddCosmosDbSearch(this IFhirServerBuilder fhirServerBuilder)
+        {
+            fhirServerBuilder.Services.Add<CosmosSearchService>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            fhirServerBuilder.Services.AddSingleton<IQueryBuilder, QueryBuilder>();
+
+            return fhirServerBuilder;
         }
     }
 }

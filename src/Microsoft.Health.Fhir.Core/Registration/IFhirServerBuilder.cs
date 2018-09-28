@@ -3,12 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
-{
-    public class AuthenticationConfiguration
-    {
-        public string Audience { get; set; }
+using Microsoft.Extensions.DependencyInjection;
 
-        public string Authority { get; set; }
+namespace Microsoft.Health.Fhir.Core.Registration
+{
+    /// <summary>
+    /// A builder type for configuring FHIR server services.
+    /// </summary>
+    public interface IFhirServerBuilder
+    {
+        IServiceCollection Services { get; }
     }
 }

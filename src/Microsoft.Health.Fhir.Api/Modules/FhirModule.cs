@@ -31,11 +31,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
     {
         private readonly FeatureConfiguration _featureConfiguration;
 
-        public FhirModule(FeatureConfiguration featureConfiguration)
+        public FhirModule(FhirServerConfiguration fhirServerConfiguration)
         {
-            EnsureArg.IsNotNull(featureConfiguration, nameof(featureConfiguration));
-
-            _featureConfiguration = featureConfiguration;
+            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
+            _featureConfiguration = fhirServerConfiguration.Features;
         }
 
         /// <inheritdoc />

@@ -3,25 +3,35 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public class Startup : Microsoft.Health.Fhir.Api.StartupBase<Startup>
+    public class Startup
     {
-        public Startup(IHostingEnvironment env, ILogger<Startup> logger, IConfiguration configuration)
-            : base(env, logger, configuration)
+        public Startup(IConfiguration configuration)
         {
+            Configuration = configuration;
         }
 
-        protected override IEnumerable<Assembly> AssembliesContainingStartupModules
+        public IConfiguration Configuration { get; }
+
+        // This method gets called by the runtime. Use this method to add services to the container.
+        public virtual void ConfigureServices(IServiceCollection services)
         {
-            get { return base.AssembliesContainingStartupModules.Concat(new[] { typeof(Startup).Assembly }); }
+            services.AddFhirServer(Configuration).AddCosmosDb();
+
+            services.AddDevelopmentIdentityProvider(Configuration);
+        }
+
+        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        public virtual void Configure(IApplicationBuilder app)
+        {
+            app.UseFhirServer();
+
+            app.UseDevelopmentIdentityProvider();
         }
     }
 }

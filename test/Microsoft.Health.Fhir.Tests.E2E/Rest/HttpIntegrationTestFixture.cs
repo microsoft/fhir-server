@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     var securityConfig = new List<KeyValuePair<string, string>>
                     {
-                        new KeyValuePair<string, string>("Security:Enabled", "false"),
+                        new KeyValuePair<string, string>("FhirServer:Security:Enabled", "false"),
                     };
 
                     configBuilder.AddInMemoryCollection(securityConfig);

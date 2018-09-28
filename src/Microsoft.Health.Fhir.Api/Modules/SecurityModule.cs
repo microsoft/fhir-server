@@ -5,25 +5,23 @@
 
 using EnsureThat;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
     public class SecurityModule : IStartupModule
     {
-        private readonly IConfiguration _configuration;
+        private readonly SecurityConfiguration _securityConfiguration;
 
-        public SecurityModule(IConfiguration configuration)
+        public SecurityModule(FhirServerConfiguration fhirServerConfiguration)
         {
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
-
-            _configuration = configuration;
+            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
+            _securityConfiguration = fhirServerConfiguration.Security;
         }
 
         /// <inheritdoc />
@@ -31,11 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            SecurityConfiguration securityConfiguration = new SecurityConfiguration();
-            _configuration.GetSection("Security").Bind(securityConfiguration);
-            services.AddSingleton(Options.Create(securityConfiguration));
-
-            if (securityConfiguration.Enabled && securityConfiguration.Authentication?.Mode == AuthenticationMode.Jwt)
+            if (_securityConfiguration.Enabled)
             {
                 services.AddAuthentication(options =>
                     {
@@ -45,8 +39,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     })
                     .AddJwtBearer(options =>
                     {
-                        options.Authority = securityConfiguration.Authentication.Authority;
-                        options.Audience = securityConfiguration.Authentication.Audience;
+                        options.Authority = _securityConfiguration.Authentication.Authority;
+                        options.Audience = _securityConfiguration.Authentication.Audience;
                         options.RequireHttpsMetadata = true;
                     });
 
@@ -55,6 +49,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     builder.RequireAuthenticatedUser();
                     builder.Requirements.Add(new FhirAccessRequirement());
                 }));
+
+                services.AddSingleton<IAuthorizationHandler, DefaultFhirAccessRequirementHandler>();
             }
             else
             {
