@@ -175,9 +175,6 @@
   <data name="InvalidListConfigSetting" xml:space="preserve">
     <value>Unsupported values for field '{0}' were selected. Please check your configured options.</value>
   </data>
-  <data name="InvalidRoleName" xml:space="preserve">
-    <value>The role was not found.</value>
-  </data>
   <data name="InvalidSearchCountSpecified" xml:space="preserve">
     <value>The count must be greater than zero.</value>
   </data>
@@ -242,17 +239,8 @@
   <data name="RoleNotFound" xml:space="preserve">
     <value>Role specified was not found</value>
   </data>
-  <data name="RoleResourcePermissionNotSupported" xml:space="preserve">
-    <value>More than {0} ResourcePermission for Role {1}  is not currently suported.</value>
-  </data>
-  <data name="RoleResourcePermissionWithInvalidTemplateExpression" xml:space="preserve">
-    <value>ResourcePermission for Role {0} has invalid filter expression.</value>
-  </data>
   <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
     <value>ResourcePermission for Role {0} does not have any Actions.</value>
-  </data>
-  <data name="RoleResourcePermissionWithNoTemplateExpression" xml:space="preserve">
-    <value>ResourcePermission for Role {0} has no template expression.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>

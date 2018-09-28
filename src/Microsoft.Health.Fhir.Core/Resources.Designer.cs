@@ -232,15 +232,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The role was not found..
-        /// </summary>
-        internal static string InvalidRoleName {
-            get {
-                return ResourceManager.GetString("InvalidRoleName", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The count must be greater than zero..
         /// </summary>
         internal static string InvalidSearchCountSpecified {
@@ -430,38 +421,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to More than {0} ResourcePermission for Role {1}  is not currently suported..
-        /// </summary>
-        internal static string RoleResourcePermissionNotSupported {
-            get {
-                return ResourceManager.GetString("RoleResourcePermissionNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to ResourcePermission for Role {0} has invalid filter expression..
-        /// </summary>
-        internal static string RoleResourcePermissionWithInvalidTemplateExpression {
-            get {
-                return ResourceManager.GetString("RoleResourcePermissionWithInvalidTemplateExpression", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to ResourcePermission for Role {0} does not have any Actions..
         /// </summary>
         internal static string RoleResourcePermissionWithNoAction {
             get {
                 return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to ResourcePermission for Role {0} has no template expression..
-        /// </summary>
-        internal static string RoleResourcePermissionWithNoTemplateExpression {
-            get {
-                return ResourceManager.GetString("RoleResourcePermissionWithNoTemplateExpression", resourceCulture);
             }
         }
         

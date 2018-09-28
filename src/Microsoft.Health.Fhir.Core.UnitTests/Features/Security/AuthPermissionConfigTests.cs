@@ -45,11 +45,5 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         {
             Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role Nurse does not have any Actions.")));
         }
-
-        [Fact]
-        public void Invalid_ResourcePermissionCount_OnClinicianRole()
-        {
-            Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("More than 1 ResourcePermission for Role clinician  is not currently suported.")));
-        }
     }
 }

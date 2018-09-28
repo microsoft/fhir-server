@@ -5,8 +5,6 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Globalization;
-using System.Linq;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Newtonsoft.Json;
@@ -30,14 +28,19 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public void Validate()
         {
-            var issues = new List<IssueComponent>();
+            List<IssueComponent> issues = null;
 
             foreach (Role role in Roles)
             {
                 var validationErrors = role.Validate(new ValidationContext(role));
 
-                if (validationErrors.Any())
+                if (validationErrors != null)
                 {
+                    if (issues == null)
+                    {
+                        issues = new List<IssueComponent>();
+                    }
+
                     foreach (var validationError in validationErrors)
                     {
                         AddIssue(validationError.ErrorMessage);
@@ -54,13 +57,13 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
             return;
 
-            void AddIssue(string format, params object[] args)
+            void AddIssue(string message)
             {
                 issues.Add(new IssueComponent()
                 {
                     Severity = IssueSeverity.Fatal,
                     Code = IssueType.Invalid,
-                    Diagnostics = string.Format(CultureInfo.InvariantCulture, format, args),
+                    Diagnostics = message,
                 });
             }
         }

@@ -16,10 +16,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Remove="Features\Definition\sampleauth.json" />
-  </ItemGroup>
-
-  <ItemGroup>
     <AdditionalFiles Include="..\..\stylecop.json" Link="stylecop.json" />
   </ItemGroup>
   <ItemGroup>
@@ -47,10 +43,6 @@
 
   <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="1.0.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="Features\Definition\sampleauth.json" />
   </ItemGroup>
 
   <ItemGroup>

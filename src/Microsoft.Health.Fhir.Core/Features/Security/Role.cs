@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
@@ -40,11 +39,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             if (ResourcePermissions == null || ResourcePermissions.Count == 0)
             {
                 yield return new ValidationResult(Core.Resources.ResourcePermissionEmpty);
-            }
-
-            if (ResourcePermissions != null && ResourcePermissions.Count > 1)
-            {
-                yield return new ValidationResult(string.Format(Core.Resources.RoleResourcePermissionNotSupported, 1, Name));
             }
 
             foreach (ResourcePermission permission in ResourcePermissions)
