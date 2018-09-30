@@ -31,11 +31,10 @@ function New-FhirServerClientApplicationRegistration {
 
     # Get current AzureAd context
     try {
-        $session = Get-AzureADCurrentSessionInfo -ErrorAction Stop
+        Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
     } 
     catch {
-        Write-Host "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
-        Break
+        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
     }
 
     $apiAppReg = Get-AzureADApplication -Filter "AppId eq '${ApiAppId}'"
@@ -65,7 +64,7 @@ function New-FhirServerClientApplicationRegistration {
     $clientAppPassword = New-AzureADApplicationPasswordCredential -ObjectId $clientAppReg.ObjectId
 
     # Create Service Principal
-    $ignored = New-AzureAdServicePrincipal -AppId $clientAppReg.AppId
+    New-AzureAdServicePrincipal -AppId $clientAppReg.AppId | Out-Null
 
     $securityAuthenticationAudience = $apiAppReg.IdentifierUris[0]
     $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
