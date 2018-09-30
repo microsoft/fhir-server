@@ -46,9 +46,9 @@ steps:
       artifactType: 'container'
 
   - task: PublishBuildArtifacts@1
-    displayName: 'publish web arm template'
+    displayName: 'publish samples'
     inputs:
-      pathToPublish: './samples/templates/default-azuredeploy.json'
+      pathToPublish: './samples/'
       artifactName: 'deploy'
       artifactType: 'container'
 
