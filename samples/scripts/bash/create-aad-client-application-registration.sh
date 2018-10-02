@@ -66,7 +66,14 @@ fi
 #Grab a few details we will need
 apiAppReg=$(az ad app show --id $APIAPPID)
 apiAppId=$(echo $apiAppReg | jq -r .appId)
-apiAppScopeId=$(echo $apiAppReg | jq -r .additionalProperties.oauth2Permissions[0].id)
+
+#There are discrepancies between versions of Azure CLI.
+if [[ $(echo $apiAppReg | jq -r .additionalProperties) != "null" ]]; then
+    #Backwards compatibility
+    apiAppScopeId=$(echo $apiAppReg | jq -r .additionalProperties.oauth2Permissions[0].id)
+else
+    apiAppScopeId=$(echo $apiAppReg | jq -r .oauth2Permissions[0].id)
+fi
 
 # Some GUID values for Azure Active Directory 
 # https://blogs.msdn.microsoft.com/aaddevsup/2018/06/06/guid-table-for-windows-azure-active-directory-permissions/ 
