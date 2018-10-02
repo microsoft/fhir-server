@@ -74,7 +74,7 @@
     <ItemGroup>
       <Compile Include="@(Generated)" Condition="!Exists('@(Generated)')" />
     </ItemGroup>
-    <Exec Command="dotnet $(GeneratorPath) %(Generated.Generator) %(Generated.FullPath) %(Generated.Namespace)  &quot;@(ReferencePathWithRefAssemblies)&quot;" />
+    <Exec Command="dotnet $(GeneratorPath) %(Generated.Generator) %(Generated.FullPath) %(Generated.Namespace)" />
   </Target>
 
 </Project>
