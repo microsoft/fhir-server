@@ -34,15 +34,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             _interfacesToImplement = interfacesToImplement;
         }
 
-        public SyntaxNode Generate(string namespaceName, string typeName, Compilation compilation)
-        {
-            return CompilationUnit()
-                .AddMembers(
-                    NamespaceDeclaration(IdentifierName(namespaceName))
-                        .AddMembers(GetClass(typeName)));
-        }
-
-        public ClassDeclarationSyntax GetClass(string typeName)
+        public MemberDeclarationSyntax Generate(string typeName)
         {
             return ClassDeclaration(typeName)
                 .WithModifiers(_typeModifiers)
