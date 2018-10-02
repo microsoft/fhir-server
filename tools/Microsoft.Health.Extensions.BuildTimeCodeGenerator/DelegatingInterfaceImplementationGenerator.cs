@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                 var typedFieldName = interfaceIndex == 0 ? (ExpressionSyntax)FieldName : ParenthesizedExpression(CastExpression(interfaceType.ToTypeSyntax(), FieldName));
                 var explicitInterfaceSpecifier = ExplicitInterfaceSpecifier((NameSyntax)interfaceType.ToTypeSyntax());
 
-                foreach (var propertyInfo in interfaceType.GetProperties())
+                foreach (var propertyInfo in interfaceType.GetProperties().OrderBy(p => p.Name, StringComparer.Ordinal))
                 {
                     var propertyDeclarationSyntax = PropertyDeclaration(propertyInfo.PropertyType.ToTypeSyntax(), propertyInfo.Name)
                         .WithExplicitInterfaceSpecifier(explicitInterfaceSpecifier)
@@ -109,7 +110,13 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     yield return propertyDeclarationSyntax;
                 }
 
-                foreach (var methodInfo in interfaceType.GetMethods().Except(interfaceType.GetProperties().SelectMany(p => p.GetAccessors())))
+                IOrderedEnumerable<MethodInfo> orderedMethods = interfaceType
+                    .GetMethods()
+                    .Except(interfaceType.GetProperties().SelectMany(p => p.GetAccessors()))
+                    .OrderBy(m => m.Name, StringComparer.Ordinal)
+                    .ThenBy(m => string.Join(", ", m.GetParameters().Select(p => p.ParameterType.FullName)), StringComparer.Ordinal);
+
+                foreach (var methodInfo in orderedMethods)
                 {
                     var method = MethodDeclaration(methodInfo.ReturnType.ToTypeSyntax(), methodInfo.Name)
                         .WithExplicitInterfaceSpecifier(explicitInterfaceSpecifier)
