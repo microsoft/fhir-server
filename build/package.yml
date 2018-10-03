@@ -1,7 +1,3 @@
-parameters:
-  # Default values
-  publishNugets: true
-
 steps:
 
   # Package web
@@ -50,9 +46,9 @@ steps:
       artifactType: 'container'
 
   - task: PublishBuildArtifacts@1
-    displayName: 'publish web arm template'
+    displayName: 'publish samples'
     inputs:
-      pathToPublish: './samples/templates/default-azuredeploy.json'
+      pathToPublish: './samples/'
       artifactName: 'deploy'
       artifactType: 'container'
 
@@ -69,14 +65,3 @@ steps:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
-
-  # Push nugets
-
-  - ${{ if eq(parameters.publishNugets, 'true') }}:
-    - task: NuGetCommand@2
-      displayName: 'push to internal feed'
-      inputs:
-        command: 'push'
-        nuGetFeedType: 'internal'
-        packagesToPush: '$(build.artifactStagingDirectory)/nupkgs/*.nupkg'
-        publishVstsFeed: 'InternalBuilds'

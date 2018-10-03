@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 {
     public interface ICodeGenerator
     {
-        SyntaxNode Generate(string namespaceName, string typeName, Compilation compilation);
+        MemberDeclarationSyntax Generate(string typeName);
     }
 }

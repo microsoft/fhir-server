@@ -5,12 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Scripting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using IDocumentClient = Microsoft.Azure.Documents.IDocumentClient;
 
@@ -23,7 +26,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
     /// </summary>
     internal class DocumentClientWithConsistencyLevelFromContextGenerator : ICodeGenerator
     {
-        public SyntaxNode Generate(string namespaceName, string typeName, Compilation compilation)
+        public MemberDeclarationSyntax Generate(string typeName)
         {
             // First generate a basic class that implements the interfaces and delegates to an inner field.
             var generator = new DelegatingInterfaceImplementationGenerator(
@@ -32,14 +35,29 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                 typeof(IDocumentClient),
                 typeof(IDisposable));
 
-            var syntaxNode = generator.Generate(namespaceName, typeName, compilation);
+            MemberDeclarationSyntax declaration = generator.Generate(typeName);
 
-            compilation = compilation.AddSyntaxTrees(syntaxNode.SyntaxTree);
+            // Assembling a CSharpCompilation for .NET core is non-trivial. The scripting API takes care of
+            // this for us, so we just use it instead of constructing one ourselves.
 
-            // then rewrite it with logic specific to this generator
+            ScriptOptions scriptOptions = ScriptOptions.Default.WithReferences(typeof(IDocumentClient).Assembly);
+            Compilation compilation = CSharpScript.Create(declaration.NormalizeWhitespace().ToString(), scriptOptions).GetCompilation();
 
-            var rewriter = new ConsistencyLevelRewriter(compilation, compilation.GetSemanticModel(syntaxNode.SyntaxTree));
-            return rewriter.Visit(syntaxNode);
+            // Ensure that there are no complication errors. Any errors would lead to the ConsistencyLevelRewriter behaving unpredictably.
+
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToImmutableArray();
+            if (errors.Any())
+            {
+                throw new InvalidOperationException($"Unexpected error diagnostics:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}");
+            }
+
+            // Now rewrite the code with logic specific to this generator
+
+            SyntaxTree syntaxTree = compilation.SyntaxTrees.Single();
+
+            var rewriter = new ConsistencyLevelRewriter(compilation, compilation.GetSemanticModel(syntaxTree));
+            var rewrittenCompilationUnit = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
+            return rewrittenCompilationUnit.Members.Single();
         }
 
         private class ConsistencyLevelRewriter : CSharpSyntaxRewriter

@@ -247,7 +247,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             if (SecuritySettings.SecurityEnabled)
             {
-                var tokenHttpClient = new HttpClient();
                 var formContent = new FormUrlEncodedContent(new[]
                 {
                     new KeyValuePair<string, string>("client_id", AuthenticationSettings.ClientId),
@@ -256,7 +255,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                     new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
                     new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
                 });
-                HttpResponseMessage tokenResponse = tokenHttpClient.PostAsync(SecuritySettings.TokenUrl, formContent).GetAwaiter().GetResult();
+                HttpResponseMessage tokenResponse = HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent).GetAwaiter().GetResult();
 
                 var tokenJson = JObject.Parse(tokenResponse.Content.ReadAsStringAsync().Result);
 

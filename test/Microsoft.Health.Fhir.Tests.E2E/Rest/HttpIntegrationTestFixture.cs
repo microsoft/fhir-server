@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -13,9 +12,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private TestServer _server;
         private string _environmentUrl;
+        private HttpMessageHandler _messageHandler;
 
         public HttpIntegrationTestFixture()
             : this(Path.Combine("src"))
@@ -43,23 +45,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             _environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
 
-            HttpMessageHandler messageHandler;
-
             if (string.IsNullOrWhiteSpace(_environmentUrl))
             {
                 _environmentUrl = "http://localhost/";
 
                 StartInMemoryServer(targetProjectParentDirectory);
 
-                messageHandler = _server.CreateHandler();
+                _messageHandler = _server.CreateHandler();
                 IsUsingInProcTestServer = true;
             }
             else
             {
-                messageHandler = new HttpClientHandler();
+                _messageHandler = new HttpClientHandler();
             }
 
-            HttpClient = new HttpClient(new SessionMessageHandler(messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
+            HttpClient = new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
             FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
             FhirXmlClient = new Lazy<FhirClient>(() => new FhirClient(HttpClient, ResourceFormat.Xml));
@@ -79,16 +79,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
-                .ConfigureAppConfiguration((hostContext, configBuilder) =>
+                .UseStartup(typeof(TStartup))
+                .ConfigureServices(serviceCollection =>
                 {
-                    var securityConfig = new List<KeyValuePair<string, string>>
-                    {
-                        new KeyValuePair<string, string>("FhirServer:Security:Enabled", "false"),
-                    };
+                    // ensure that HttpClients
+                    // use a message handler for the test server
+                    serviceCollection
+                        .AddHttpClient(Options.DefaultName)
+                        .ConfigurePrimaryHttpMessageHandler(() => _messageHandler);
 
-                    configBuilder.AddInMemoryCollection(securityConfig);
-                })
-                .UseStartup(typeof(TStartup));
+                    serviceCollection.PostConfigure<JwtBearerOptions>(
+                        JwtBearerDefaults.AuthenticationScheme,
+                        options => options.BackchannelHttpHandler = _messageHandler);
+                });
 
             _server = new TestServer(builder);
         }
