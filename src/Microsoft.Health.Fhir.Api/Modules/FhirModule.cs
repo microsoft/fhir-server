@@ -17,9 +17,11 @@ using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -103,6 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IFhirRequestContextAccessor>();
 
             services.AddSingleton<CorrelationIdProvider>(provider => () => Guid.NewGuid().ToString());
+            services.AddSingleton<IUrlResolver, UrlResolver>();
 
             // Add conformance provider for implementation metadata.
             services.AddSingleton<IConfiguredConformanceProvider, DefaultConformanceProvider>();
