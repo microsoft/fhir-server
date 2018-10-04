@@ -24,7 +24,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
     public class FhirClient
     {
         private readonly ResourceFormat _format;
-
+        private string _userName;
+        private string _password;
         private readonly string _contentType;
 
         private readonly BaseFhirSerializer _serializer;
@@ -34,10 +35,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         private Func<string, Resource> _deserialize;
         private MediaTypeWithQualityHeaderValue _mediaType;
 
-        public FhirClient(HttpClient httpClient, ResourceFormat format)
+        public FhirClient(HttpClient httpClient, ResourceFormat format, string userName = "Admin", string password = "admin")
         {
             HttpClient = httpClient;
             _format = format;
+            _userName = userName;
+            _password = password;
 
             if (format == ResourceFormat.Json)
             {
@@ -81,6 +84,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) SecuritySettings { get; private set; }
 
         public HttpClient HttpClient { get; }
+
+        public async Task UpdateCredentials(string userName, string password)
+        {
+            _userName = userName;
+            _password = password;
+            await SetupAuthenticationAsync();
+        }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource)
             where T : Resource
@@ -254,6 +264,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                     new KeyValuePair<string, string>("grant_type", AuthenticationSettings.GrantType),
                     new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
                     new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
+                    new KeyValuePair<string, string>("username", _userName),
+                    new KeyValuePair<string, string>("password", _password),
                 });
                 HttpResponseMessage tokenResponse = HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent).GetAwaiter().GetResult();
 

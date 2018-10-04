@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public static string ClientSecret => GetEnvironmentVariableWithDefault("ClientSecret", "known-client-secret");
 
-        public static string GrantType => GetEnvironmentVariableWithDefault("GrantType", "client_credentials");
+        public static string GrantType => GetEnvironmentVariableWithDefault("GrantType", "password");
 
         public static string Scope => GetEnvironmentVariableWithDefault("Scope", "fhir-api");
 

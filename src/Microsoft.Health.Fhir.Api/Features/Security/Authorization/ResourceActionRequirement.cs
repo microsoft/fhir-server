@@ -3,18 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization;
 
-namespace Microsoft.Health.Fhir.Web
+namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
 {
-    public class DevelopmentIdentityProviderConfiguration
+    internal class ResourceActionRequirement : IAuthorizationRequirement
     {
-        public string Audience { get; set; }
+        public ResourceActionRequirement(string policyName)
+        {
+            PolicyName = policyName;
+        }
 
-        public string ClientId { get; set; }
-
-        public string ClientSecret { get; set; }
-
-        public IReadOnlyList<DevelopmentIdentityProviderUser> Users { get; set; }
+        public string PolicyName { get; private set; }
     }
 }

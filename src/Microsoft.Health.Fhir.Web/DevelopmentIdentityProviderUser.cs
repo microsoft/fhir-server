@@ -7,14 +7,14 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public class DevelopmentIdentityProviderConfiguration
+    public class DevelopmentIdentityProviderUser
     {
-        public string Audience { get; set; }
+        public string SubjectId { get; set; }
 
-        public string ClientId { get; set; }
+        public string UserName { get; set; }
 
-        public string ClientSecret { get; set; }
+        public string Password { get; set; }
 
-        public IReadOnlyList<DevelopmentIdentityProviderUser> Users { get; set; }
+        public IReadOnlyList<string> Roles { get; set; }
     }
 }

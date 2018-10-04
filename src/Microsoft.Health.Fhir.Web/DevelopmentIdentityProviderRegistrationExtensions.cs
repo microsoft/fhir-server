@@ -3,9 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using EnsureThat;
 using IdentityServer4.Models;
+using IdentityServer4.Test;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,8 +36,11 @@ namespace Microsoft.Health.Fhir.Web
                 .AddDeveloperSigningCredential()
                 .AddInMemoryApiResources(new List<ApiResource>
                 {
-                    new ApiResource(identityProviderConfiguration.Audience),
+                    new ApiResource(
+                        identityProviderConfiguration.Audience,
+                        claimTypes: new List<string>() { ClaimTypes.Role, ClaimTypes.Name, ClaimTypes.NameIdentifier, ClaimTypes.Email }),
                 })
+                .AddTestUsers(GetTestUsers(identityProviderConfiguration.Users))
                 .AddInMemoryClients(new List<Client>
                 {
                     new Client
@@ -41,7 +48,7 @@ namespace Microsoft.Health.Fhir.Web
                         ClientId = identityProviderConfiguration.ClientId,
 
                         // no interactive user, use the clientid/secret for authentication
-                        AllowedGrantTypes = GrantTypes.ClientCredentials,
+                        AllowedGrantTypes = GrantTypes.ResourceOwnerPasswordAndClientCredentials,
 
                         // secret for authentication
                         ClientSecrets =
@@ -55,6 +62,17 @@ namespace Microsoft.Health.Fhir.Web
                 });
 
             return services;
+        }
+
+        private static List<TestUser> GetTestUsers(IReadOnlyList<DevelopmentIdentityProviderUser> configUsers)
+        {
+            return configUsers.Select(user => new TestUser
+            {
+                SubjectId = user.SubjectId,
+                Username = user.UserName,
+                Password = user.Password,
+                Claims = user.Roles.Select(r => new Claim(ClaimTypes.Role, r)).ToList(),
+            }).ToList();
         }
 
         /// <summary>

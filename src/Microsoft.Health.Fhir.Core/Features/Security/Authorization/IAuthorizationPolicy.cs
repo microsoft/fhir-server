@@ -3,18 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Web
+namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
-    public class DevelopmentIdentityProviderConfiguration
+    public interface IAuthorizationPolicy
     {
-        public string Audience { get; set; }
-
-        public string ClientId { get; set; }
-
-        public string ClientSecret { get; set; }
-
-        public IReadOnlyList<DevelopmentIdentityProviderUser> Users { get; set; }
+        Task<bool> HasPermissionAsync(ClaimsPrincipal user, ResourceAction action);
     }
 }

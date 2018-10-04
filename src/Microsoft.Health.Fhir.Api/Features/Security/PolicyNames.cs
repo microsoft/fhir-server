@@ -8,5 +8,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
     public static class PolicyNames
     {
         public const string FhirPolicy = "Fhir Policy";
+
+        public const string ReadPolicy = "Read";
+
+        public const string WritePolicy = "Write";
+
+        public const string HardDeletePolicy = "HardDelete";
     }
 }
