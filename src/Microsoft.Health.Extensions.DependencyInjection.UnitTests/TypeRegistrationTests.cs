@@ -74,6 +74,22 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
         }
 
         [Fact]
+        public void GivenAFactory_WhenReplacingSelf_ThenOnlyTheNewServiceIsRegistered()
+        {
+            _collection
+                .Add(sp => "a")
+                .Transient()
+                .AsSelf();
+
+            _collection
+                .Add(sp => "b")
+                .Transient()
+                .ReplaceSelf();
+
+            Assert.Single(_collection.BuildServiceProvider().GetService<IEnumerable<string>>(), "b");
+        }
+
+        [Fact]
         public void GivenADelegate_WhenRegisteringTransientAsSelf_ThenTheServicesIsRegistered()
         {
             new TypeRegistration(_collection, typeof(StreamReader), provider => new StreamReader(new MemoryStream()))

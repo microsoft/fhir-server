@@ -130,6 +130,20 @@ namespace Microsoft.Health.Extensions.DependencyInjection
             return this;
         }
 
+        /// <summary>
+        /// Replaces a service registration for the concrete type
+        /// </summary>
+        /// <returns>The registration builder</returns>
+        /// <exception cref="NotSupportedException">Throws when Type was not explicitly defined</exception>
+        public TypeRegistrationBuilder ReplaceSelf()
+        {
+            Debug.Assert(_firstRegisteredType == null, $"The \"ReplaceSelf()\" registration for \"{_type.Name}\" should come first.");
+
+            RegisterType(_type, replace: true);
+
+            return this;
+        }
+
         private void RegisterType(Type serviceType, bool replace = false)
         {
             EnsureArg.IsNotNull(serviceType, nameof(serviceType));
