@@ -285,6 +285,37 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
             Assert.IsType<TestScope>(resolvedService);
         }
 
+        [Fact]
+        public void GivenAType_WhenRegisteringAsSelf_ThenTheTypeAppearsAsMetadataOnTheServiceDescriptor()
+        {
+            _collection.Add<List<string>>()
+                .Transient()
+                .AsSelf();
+
+            Assert.Equal(typeof(List<string>), (_collection.Single() as ServiceDescriptorWithMetadata)?.Metadata);
+        }
+
+        [Fact]
+        public void GivenAType_WhenRegisteringAsSelfAndAsAnotherService_ThenTheTypeAppearsAsMetadataOnTheServiceDescriptor()
+        {
+            _collection.Add<List<string>>()
+                .Transient()
+                .AsSelf()
+                .AsService<IList<string>>();
+
+            Assert.All(_collection, sd => Assert.Equal(typeof(List<string>), (sd as ServiceDescriptorWithMetadata)?.Metadata));
+        }
+
+        [Fact]
+        public void GivenFactory_WhenRegisteringAsSelfAsAService_ThenTheTypeAppearsAsMetadataOnTheServiceDescriptor()
+        {
+            _collection.Add(sp => new List<string>())
+                .Transient()
+                .AsService<IList<string>>();
+
+            Assert.All(_collection, sd => Assert.Equal(typeof(List<string>), (sd as ServiceDescriptorWithMetadata)?.Metadata));
+        }
+
         private class TestScope : IScoped<IList<string>>
         {
             public TestScope(IList<string> value)

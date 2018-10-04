@@ -171,6 +171,8 @@ namespace Microsoft.Health.Extensions.DependencyInjection
                     throw new NotSupportedException();
             }
 
+            serviceDescriptor = serviceDescriptor.WithMetadata(_type);
+
             if (replace)
             {
                 _serviceCollection.Replace(serviceDescriptor);
@@ -212,6 +214,8 @@ namespace Microsoft.Health.Extensions.DependencyInjection
 
             if (serviceDescriptor != null)
             {
+                serviceDescriptor = serviceDescriptor.WithMetadata(_type);
+
                 if (replace)
                 {
                     _serviceCollection.Replace(serviceDescriptor);
