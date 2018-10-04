@@ -14,5 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public AuthenticationConfiguration Authentication { get; set; }
 
         public virtual HashSet<string> LastModifiedClaims { get; set; }
+
+        public AuthorizationConfiguration Authorization { get; set; }
     }
 }

@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [Fact]
         public void Invalid_Actions_OnNurseRole()
         {
-            Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role Nurse does not have any Actions.")));
+            Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role 'Nurse' does not have any Actions.")));
         }
     }
 }

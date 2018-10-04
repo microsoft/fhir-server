@@ -421,7 +421,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ResourcePermission for Role {0} does not have any Actions..
+        ///   Looks up a localized string similar to ResourcePermission for Role &apos;{0}&apos; does not have any Actions..
         /// </summary>
         internal static string RoleResourcePermissionWithNoAction {
             get {

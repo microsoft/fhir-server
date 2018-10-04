@@ -240,7 +240,7 @@
     <value>Role specified was not found</value>
   </data>
   <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
-    <value>ResourcePermission for Role {0} does not have any Actions.</value>
+    <value>ResourcePermission for Role '{0}' does not have any Actions.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>
