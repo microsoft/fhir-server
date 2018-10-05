@@ -120,6 +120,9 @@
   <data name="AtAndSinceCannotBeBothSpecified" xml:space="preserve">
     <value>{0} and {1} cannot be both specified.</value>
   </data>
+  <data name="AuthorizationPermissionDefinitionInvalid" xml:space="preserve">
+    <value>The authorization permission definition contains one or more invalid entries.</value>
+  </data>
   <data name="CapabilityStatementSingleRestItem" xml:space="preserve">
     <value>CapabilityStatement must only have a single item in the 'Rest' collection.</value>
   </data>
@@ -223,9 +226,21 @@
   <data name="ResourceNotSupported" xml:space="preserve">
     <value>The resource type '{0}' is not supported.</value>
   </data>
+  <data name="ResourcePermissionEmpty" xml:space="preserve">
+    <value>"Role does not have any ResourcePermission."</value>
+  </data>
   <data name="ResourceVersionConflict" xml:space="preserve">
     <value>The supplied version '{0}' did not match.</value>
     <comment>{0}: ETag</comment>
+  </data>
+  <data name="RoleNameEmpty" xml:space="preserve">
+    <value>"Role name cannot be null or empty."</value>
+  </data>
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>Role specified was not found</value>
+  </data>
+  <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
+    <value>ResourcePermission for Role '{0}' does not have any Actions.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>

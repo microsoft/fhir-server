@@ -70,6 +70,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The authorization permission definition contains one or more invalid entries..
+        /// </summary>
+        internal static string AuthorizationPermissionDefinitionInvalid {
+            get {
+                return ResourceManager.GetString("AuthorizationPermissionDefinitionInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to CapabilityStatement must only have a single item in the &apos;Rest&apos; collection..
         /// </summary>
         internal static string CapabilityStatementSingleRestItem {
@@ -376,11 +385,47 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &quot;Role does not have any ResourcePermission.&quot;.
+        /// </summary>
+        internal static string ResourcePermissionEmpty {
+            get {
+                return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The supplied version &apos;{0}&apos; did not match..
         /// </summary>
         internal static string ResourceVersionConflict {
             get {
                 return ResourceManager.GetString("ResourceVersionConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;Role name cannot be null or empty.&quot;.
+        /// </summary>
+        internal static string RoleNameEmpty {
+            get {
+                return ResourceManager.GetString("RoleNameEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role specified was not found.
+        /// </summary>
+        internal static string RoleNotFound {
+            get {
+                return ResourceManager.GetString("RoleNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ResourcePermission for Role &apos;{0}&apos; does not have any Actions..
+        /// </summary>
+        internal static string RoleResourcePermissionWithNoAction {
+            get {
+                return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
             }
         }
         

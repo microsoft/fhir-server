@@ -20,6 +20,8 @@
     <None Remove="DefinitionFiles\SearchParametersWithInvalidEntries.json" />
     <None Remove="DefinitionFiles\SearchParametersWithInvalidType.json" />
     <None Remove="DefinitionFiles\SearchParametersWithNullEntry.json" />
+    <None Remove="TestFiles\AuthConfigWIthInvalidEntries.json" />
+    <None Remove="TestFiles\AuthConfigWithValidRoles.json" />
     <None Remove="TestFiles\BasicExampleNarrative.json" />
     <None Remove="TestFiles\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\BloodGlucose.json" />
@@ -70,6 +72,8 @@
     <EmbeddedResource Include="TestFiles\Patient.json" />
     <EmbeddedResource Include="TestFiles\Patient.xml" />
     <EmbeddedResource Include="TestFiles\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\AuthConfigWIthInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\Weight.json" />
     <EmbeddedResource Include="TestFiles\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\WeightInPounds.json" />
