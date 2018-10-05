@@ -32,9 +32,7 @@ namespace Microsoft.Health.Extensions.DependencyInjection
             EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
             EnsureArg.IsNotNull(delegateRegistration, nameof(delegateRegistration));
 
-            var returnType = delegateRegistration.GetMethodInfo().ReturnType;
-
-            return new TypeRegistration(serviceCollection, returnType, provider => delegateRegistration(provider));
+            return new TypeRegistration(serviceCollection, typeof(T), provider => delegateRegistration(provider));
         }
 
         public static TypeRegistration Add<T>(this IServiceCollection serviceCollection)
