@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -22,7 +21,6 @@ namespace Microsoft.Extensions.DependencyInjection
     public static class FhirServerServiceCollectionExtensions
     {
         private const string FhirServerConfigurationSectionName = "FhirServer";
-        private const string AuthorizationSectionName = "FhirServer:Security:Authorization";
 
         /// <summary>
         /// Adds services for enabling a FHIR server.
@@ -49,20 +47,11 @@ namespace Microsoft.Extensions.DependencyInjection
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
-            var roleConfiguration = new RoleConfiguration();
-            if (fhirServerConfiguration.Security.Authorization.Enabled)
-            {
-                configurationRoot?.GetSection(AuthorizationSectionName).Bind(roleConfiguration);
-                roleConfiguration.Validate();
-            }
-
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Conformance));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Search));
-            services.AddSingleton(Options.Options.Create(roleConfiguration));
-
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);

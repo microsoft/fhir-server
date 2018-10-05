@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Newtonsoft.Json;
 using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Core.Configs
@@ -16,12 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         public RoleConfiguration()
         {
-        }
-
-        [JsonConstructor]
-        public RoleConfiguration(IReadOnlyList<Role> roles)
-        {
-            Roles = roles;
         }
 
         public virtual IReadOnlyList<Role> Roles { get; set; }

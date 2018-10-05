@@ -74,6 +74,22 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
         }
 
         [Fact]
+        public void GivenAFactory_WhenReplacingSelf_ThenOnlyTheNewServiceIsRegistered()
+        {
+            _collection
+                .Add(sp => "a")
+                .Transient()
+                .AsSelf();
+
+            _collection
+                .Add(sp => "b")
+                .Transient()
+                .ReplaceSelf();
+
+            Assert.Single(_collection.BuildServiceProvider().GetService<IEnumerable<string>>(), "b");
+        }
+
+        [Fact]
         public void GivenADelegate_WhenRegisteringTransientAsSelf_ThenTheServicesIsRegistered()
         {
             new TypeRegistration(_collection, typeof(StreamReader), provider => new StreamReader(new MemoryStream()))
@@ -283,6 +299,37 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
             var resolvedService = ioc.GetService<IScoped<IList<string>>>();
 
             Assert.IsType<TestScope>(resolvedService);
+        }
+
+        [Fact]
+        public void GivenAType_WhenRegisteringAsSelf_ThenTheTypeAppearsAsMetadataOnTheServiceDescriptor()
+        {
+            _collection.Add<List<string>>()
+                .Transient()
+                .AsSelf();
+
+            Assert.Equal(typeof(List<string>), (_collection.Single() as ServiceDescriptorWithMetadata)?.Metadata);
+        }
+
+        [Fact]
+        public void GivenAType_WhenRegisteringAsSelfAndAsAnotherService_ThenTheTypeAppearsAsMetadataOnTheServiceDescriptor()
+        {
+            _collection.Add<List<string>>()
+                .Transient()
+                .AsSelf()
+                .AsService<IList<string>>();
+
+            Assert.All(_collection, sd => Assert.Equal(typeof(List<string>), (sd as ServiceDescriptorWithMetadata)?.Metadata));
+        }
+
+        [Fact]
+        public void GivenFactory_WhenRegisteringAsSelfAsAService_ThenTheTypeAppearsAsMetadataOnTheServiceDescriptor()
+        {
+            _collection.Add(sp => new List<string>())
+                .Transient()
+                .AsService<IList<string>>();
+
+            Assert.All(_collection, sd => Assert.Equal(typeof(List<string>), (sd as ServiceDescriptorWithMetadata)?.Metadata));
         }
 
         private class TestScope : IScoped<IList<string>>
