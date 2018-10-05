@@ -7,6 +7,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Security;
@@ -51,6 +52,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 }));
 
                 services.AddSingleton<IAuthorizationHandler, DefaultFhirAccessRequirementHandler>();
+
+                if (_securityConfiguration.Authorization.Enabled)
+                {
+                    _securityConfiguration.Authorization.RoleConfiguration.Validate();
+                    services.AddSingleton(Options.Create(_securityConfiguration.Authorization.RoleConfiguration));
+                }
             }
             else
             {
