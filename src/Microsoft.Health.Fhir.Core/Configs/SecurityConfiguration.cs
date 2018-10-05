@@ -11,10 +11,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         public bool Enabled { get; set; }
 
-        public AuthenticationConfiguration Authentication { get; } = new AuthenticationConfiguration();
+        public AuthenticationConfiguration Authentication { get; set; } = new AuthenticationConfiguration();
 
-        public virtual HashSet<string> LastModifiedClaims { get; } = new HashSet<string>();
+        public virtual HashSet<string> LastModifiedClaims { get; set; } = new HashSet<string>();
 
-        public AuthorizationConfiguration Authorization { get; } = new AuthorizationConfiguration();
+        public AuthorizationConfiguration Authorization { get; set; } = new AuthorizationConfiguration();
     }
 }
