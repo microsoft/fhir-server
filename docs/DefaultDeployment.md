@@ -1,13 +1,13 @@
-Microsoft Open Source FHIR Server Deployment
-============================================
+# Microsoft Open Source FHIR Server Deployment
 
 This document describes how to deploy the [Microsoft Open Source FHIR Server](https://github.com/Microsoft/fhir-server). The deployment is a two-step process:
 
 1. (Optional) Create and Azure Active Directory (AAD) Application registration to secure access to the FHIR server. 
 2. Deploy Cosmos DB, Azure Web App, and source code using an Azure Resource Manager template. 
 
-Azure Active Directory Application (AAD) Registration
------------------------------------------------
+The following instructions will be using PowerShell. You can also follow the [Instructions for Azure CLI and Bash](BashDeployment.md).
+
+## Azure Active Directory (AAD) Application Registration
 
 The FHIR server supports token based (JWT) authorization. If authorization is enabled, a client (e.g. a user) accessing the server must present a token from a specified authority and with a specified audience. 
 
@@ -36,8 +36,7 @@ To access the FHIR server from a client, you will also need a client AAD Applica
 $clientAppReg = New-FhirServerClientApplicationRegistration -ApiAppId $apiAppReg.AppId -DisplayName "myfhirclient" -ReplyUrl "https://www.getpostman.com/oauth2/callback"
 ```
 
-Deploying the FHIR Server Template
-----------------------------------
+## Deploying the FHIR Server Template
 
 To deploy the backend Cosmos DB, Azure Web App, and FHIR server code, use the buttons below to deploy through the Azure Portal. If you would like to protect the FHIR API with token authorization, you will need to supply application registration details as described above. 
 
@@ -72,8 +71,9 @@ New-AzureRmResourceGroupDeployment `
 -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
 
-Cleaning up Azure AD App Registrations
---------------------------------------
+You can use [Postman to test the FHIR server](PostmanTesting.md). 
+
+## Clean up Azure AD App Registrations
 
 To remove the AAD Application registrations:
 
@@ -82,25 +82,3 @@ Remove-FhirServerApplicationRegistration -AppId $clientAppReg.AppId
 Remove-FhirServerApplicationRegistration -AppId $apiAppReg.AppId
 ```
 
-Testing FHIR Server with Postman
---------------------------------
-
-You can use [Postman](https://getpostman.com) to test the FHIR server. If you have deployed with Authentication/Authorization enabled, you will need to [configure Azure AD authorization](https://blog.jongallant.com/2017/03/azure-active-directory-access-tokens-postman/
-) to obtain a token. Use type "OAuth 2.0" and set the following parameters:
-
-* Grant Type: `Auhorization Code`
-* Callback URL: `https://www.getpostman.com/oauth2/callback`
-* Auth URL: `https://login.microsoftonline.com/{TENANT-ID}/oauth2/authorize?resource={AUDIENCE}`
-* Access Token URL: `https://login.microsoftonline.com/{TENANT-ID}/oauth2/token`
-* Client ID: `CLIENT-APP-ID` (`$clientAppReg.AppId`)
-* Client Secret: `SECRET` (`$clientAppReg.AppSecret`)
-* Scope: `Ignored` (not used for Azure AD v1.0 endpoints)
-* State: e.g., `12345`
-* Client Authentication: `Send client credentials in body`
-
-Verify that the following requests return status `200 OK`:
-
-```
-GET https://myfhirservice.azurewebsites.net/metadata
-GET https://myfhirservice.azurewebsites.net/Patient
-```
