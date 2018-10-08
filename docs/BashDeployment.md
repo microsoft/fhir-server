@@ -5,7 +5,7 @@ This document describes how to deploy the [Microsoft Open Source FHIR Server](ht
 1. (Optional) Create and Azure Active Directory (AAD) Application registration to secure access to the FHIR server. 
 2. Deploy Cosmos DB, Azure Web App, and source code using an Azure Resource Manager template. 
 
-## Azure Active Directory Application (AAD) Registration
+## Azure Active Directory (AAD) Application Registration
 
 Azure Active Directory (AAD) application registrations can be created in the Azure portal, but the repository also contains some [bash helper scripts](https://github.com/Microsoft/fhir-server/tree/master/samples/scripts/bash) to assist with the application registration process on the command line:
 
@@ -14,11 +14,11 @@ Azure Active Directory (AAD) application registrations can be created in the Azu
 az login
 
 #Register the API application registration
-apiapp=$(./create-aad-api-application-registration.sh -s msftexamplefhir)
+apiapp=$(./create-aad-api-application-registration.sh --service-name msftexamplefhir)
 
 
 #Register the client application (e.g. for Postman):
-clientapp=$(./create-aad-client-application-registration.sh -a $apiappid -d msftexampleclient -r https://www.getpostman.com/oauth2/callback)
+clientapp=$(./create-aad-client-application-registration.sh --api-app-id $apiappid --display-name msftexampleclient --reply-url https://www.getpostman.com/oauth2/callback)
 
 #Capture information:
 apiappid=$(echo $apiapp | jq -r .AppId)

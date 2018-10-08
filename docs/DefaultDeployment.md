@@ -5,7 +5,7 @@ This document describes how to deploy the [Microsoft Open Source FHIR Server](ht
 1. (Optional) Create and Azure Active Directory (AAD) Application registration to secure access to the FHIR server. 
 2. Deploy Cosmos DB, Azure Web App, and source code using an Azure Resource Manager template. 
 
-The follow instructions will be using PowerShell. You can also follow the [Instructions for Azure CLI and Bash](BashDeployment.md).
+The following instructions will be using PowerShell. You can also follow the [Instructions for Azure CLI and Bash](BashDeployment.md).
 
 ## Azure Active Directory Application (AAD) Registration
 
