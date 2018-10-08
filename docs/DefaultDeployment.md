@@ -7,7 +7,7 @@ This document describes how to deploy the [Microsoft Open Source FHIR Server](ht
 
 The following instructions will be using PowerShell. You can also follow the [Instructions for Azure CLI and Bash](BashDeployment.md).
 
-## Azure Active Directory Application (AAD) Registration
+## Azure Active Directory (AAD) Application Registration
 
 The FHIR server supports token based (JWT) authorization. If authorization is enabled, a client (e.g. a user) accessing the server must present a token from a specified authority and with a specified audience. 
 
