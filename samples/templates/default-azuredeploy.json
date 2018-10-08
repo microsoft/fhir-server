@@ -83,6 +83,18 @@
             "metadata": {
                 "description": "Deploy Application Insights for the FHIR server. Disabled for Microsoft Azure Government (MAG)"
             }
+        },
+        "applicationInsightsLocation": {
+            "type": "string",
+            "defaultValue": "eastus",
+            "allowedValues": [
+                "southeastasia",
+                "northeurope",
+                "westeurope",
+                "eastus",
+                "southcentralus",
+                "westus2"
+            ]
         }
     },
     "variables": {
@@ -196,7 +208,7 @@
             "apiVersion": "2015-05-01",
             "name": "[variables('appInsightsName')]",
             "type": "Microsoft.Insights/components",
-            "location": "eastus",
+            "location": "[parameters('applicationInsightsLocation')]",
             "condition": "[variables('deployAppInsights')]",
             "kind": "web",
             "tags": {
