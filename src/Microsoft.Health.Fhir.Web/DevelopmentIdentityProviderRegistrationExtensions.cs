@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Web
 
         private static List<TestUser> GetTestUsers(IReadOnlyList<DevelopmentIdentityProviderUser> configUsers)
         {
-            return configUsers.Select(user => new TestUser
+            return configUsers?.Select(user => new TestUser
             {
                 SubjectId = user.SubjectId,
                 Username = user.UserName,

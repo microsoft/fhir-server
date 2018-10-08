@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             EnsureArg.IsNotNull(roleConfiguration.Value, nameof(roleConfiguration));
             _roleConfiguration = roleConfiguration.Value;
             _roles = _roleConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.InvariantCultureIgnoreCase);
-            _roles.Values.SelectMany(r => r.ResourcePermissions.Select(rp => rp.Actions).SelectMany(x => x).ToList());
             _roleNameToResourceActions = _roles.Select(kvp => KeyValuePair.Create(kvp.Key, kvp.Value.ResourcePermissions.Select(rp => rp.Actions).SelectMany(x => x))).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         }
 
