@@ -34,12 +34,14 @@
             ]
         }
     ],
-    "users": {
-        "id": "john",
-        "roles": [
-            "researcher"
-        ]
-    },
+    "users": [
+        {
+            "id": "john",
+            "roles": [
+                "researcher"
+            ]
+        }
+    ],
     "clientApplications": [
         {
             "id": "myadminclient",
@@ -49,8 +51,7 @@
         },
         {
             "id": "myclient",
-            "roles": [
-            ]
+            "roles": []
         }
     ]
 }
