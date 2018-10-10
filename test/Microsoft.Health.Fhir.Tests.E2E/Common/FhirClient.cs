@@ -267,9 +267,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                     new KeyValuePair<string, string>("username", _userName),
                     new KeyValuePair<string, string>("password", _password),
                 });
-                HttpResponseMessage tokenResponse = HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent).GetAwaiter().GetResult();
+                HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
-                var tokenJson = JObject.Parse(tokenResponse.Content.ReadAsStringAsync().Result);
+                var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
 
                 var bearerToken = tokenJson["access_token"].Value<string>();
 

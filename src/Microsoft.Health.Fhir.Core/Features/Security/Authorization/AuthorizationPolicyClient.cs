@@ -22,8 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 
         public AuthorizationPolicyClient(IOptions<RoleConfiguration> roleConfiguration)
         {
-            EnsureArg.IsNotNull(roleConfiguration, nameof(roleConfiguration));
-            EnsureArg.IsNotNull(roleConfiguration.Value, nameof(roleConfiguration));
+            EnsureArg.IsNotNull(roleConfiguration?.Value, nameof(roleConfiguration));
             _roleConfiguration = roleConfiguration.Value;
             _roles = _roleConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.InvariantCultureIgnoreCase);
             _roleNameToResourceActions = _roles.Select(kvp => KeyValuePair.Create(kvp.Key, kvp.Value.ResourcePermissions.Select(rp => rp.Actions).SelectMany(x => x))).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
@@ -32,9 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         public async Task<bool> HasPermissionAsync(ClaimsPrincipal user, ResourceAction action)
         {
             EnsureArg.IsNotNull(user, nameof(user));
-            IEnumerable<Role> roles;
-            IEnumerable<ResourceAction> actions;
-            (roles, actions) = await GetRolesAndActions(user);
+            (IEnumerable<Role> roles, IEnumerable<ResourceAction> actions) = await GetRolesAndActions(user);
 
             if (actions == null)
             {
@@ -47,8 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         private async Task<(IEnumerable<Role>, IEnumerable<ResourceAction>)> GetRolesAndActions(ClaimsPrincipal user)
         {
             var roles = user.Claims
-                .Where(claim => claim.Type == ClaimTypes.Role)
-                .Where(claim => _roles.ContainsKey(claim.Value))
+                .Where(claim => claim.Type == ClaimTypes.Role && _roles.ContainsKey(claim.Value))
                 .Select(claim => _roles[claim.Value]);
 
             var actions = roles?.Select(r => _roleNameToResourceActions[r.Name]).SelectMany(x => x);

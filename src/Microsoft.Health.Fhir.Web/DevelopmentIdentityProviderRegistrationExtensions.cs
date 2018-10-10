@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Web
                     {
                         ClientId = identityProviderConfiguration.ClientId,
 
-                        // no interactive user, use the clientid/secret for authentication
+                        // Use ether client credentials or password for authentication
                         AllowedGrantTypes = GrantTypes.ResourceOwnerPasswordAndClientCredentials,
 
                         // secret for authentication

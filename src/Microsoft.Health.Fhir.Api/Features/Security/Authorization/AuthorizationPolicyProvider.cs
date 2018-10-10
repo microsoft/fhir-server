@@ -12,9 +12,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
 {
     public class AuthorizationPolicyProvider : DefaultAuthorizationPolicyProvider
     {
+        private readonly AuthorizationOptions _options;
+
         public AuthorizationPolicyProvider(IOptions<AuthorizationOptions> options)
             : base(options)
         {
+            _options = options.Value;
         }
 
         public async override Task<AuthorizationPolicy> GetPolicyAsync(string policyName)
@@ -26,6 +29,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
             if (policy == null)
             {
                 policy = new AuthorizationPolicyBuilder().AddRequirements(new ResourceActionRequirement(policyName)).Build();
+
+                // This caches the the policy in the base class
+                _options.AddPolicy(policyName, policy);
             }
 
             return policy;

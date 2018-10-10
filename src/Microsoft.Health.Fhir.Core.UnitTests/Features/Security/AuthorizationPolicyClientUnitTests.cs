@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         [Theory]
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.Read)]
-        public void HasPermissionAsync_Succeeds_With_Proper_Claims_For_ReadAction(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
+        public void GivenAClaimWithRoleWithPermissionForReadAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
         {
             var authPolicyClient = new AuthorizationPolicyClient(Options.Create(roleConfiguration));
             Assert.True(authPolicyClient.HasPermissionAsync(claimsPrincipal, ResourceAction.Read).Result);
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         [Theory]
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.Write)]
-        public void HasPermissionAsync_Succeeds_With_Proper_Claims_For_WriteAction(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
+        public void GivenAClaimWithRoleWithPermissionForWriteAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
         {
             var authPolicyClient = new AuthorizationPolicyClient(Options.Create(roleConfiguration));
             Assert.True(authPolicyClient.HasPermissionAsync(claimsPrincipal, ResourceAction.Write).Result);
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         [Theory]
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.HardDelete)]
-        public void HasPermissionAsync_Succeeds_With_Proper_Claims_For_HardDeleteAction(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
+        public void GivenAClaimWithRoleWithPermissionForHardDeleteAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
         {
             var authPolicyClient = new AuthorizationPolicyClient(Options.Create(roleConfiguration));
             Assert.True(authPolicyClient.HasPermissionAsync(claimsPrincipal, ResourceAction.HardDelete).Result);
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         [Theory]
         [MemberData(nameof(GetInCompatibleRoleDataForAction), ResourceAction.Read)]
-        public void HasPermissionAsync_Fails_With_Proper_Claims_For_ReadAction(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
+        public void GivenAClaimWithRoleWithoutPermissionForReadAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
         {
             var authPolicyClient = new AuthorizationPolicyClient(Options.Create(roleConfiguration));
             Assert.False(authPolicyClient.HasPermissionAsync(claimsPrincipal, ResourceAction.Read).Result);
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         [Theory]
         [MemberData(nameof(GetInCompatibleRoleDataForAction), ResourceAction.Write)]
-        public void HasPermissionAsync_Fails_With_Proper_Claims_For_WriteAction(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
+        public void GivenAClaimWithRoleWithoutPermissionForWriteAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
         {
             var authPolicyClient = new AuthorizationPolicyClient(Options.Create(roleConfiguration));
             Assert.False(authPolicyClient.HasPermissionAsync(claimsPrincipal, ResourceAction.Write).Result);
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         [Theory]
         [MemberData(nameof(GetInCompatibleRoleDataForAction), ResourceAction.HardDelete)]
-        public void HasPermissionAsync_Fails_With_Proper_Claims_For_HardDeleteAction(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
+        public void GivenAClaimWithRoleWithoutPermissionForHardDeleteAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, RoleConfiguration roleConfiguration)
         {
             var authPolicyClient = new AuthorizationPolicyClient(Options.Create(roleConfiguration));
             Assert.False(authPolicyClient.HasPermissionAsync(claimsPrincipal, ResourceAction.HardDelete).Result);

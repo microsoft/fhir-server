@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<FhirController> _logger;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
+        private readonly IAuthorizationService _authorizationService;
         private readonly FeatureConfiguration _featureConfiguration;
 
         /// <summary>
@@ -63,12 +64,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="fhirRequestContextAccessor">The FHIR request context accessor.</param>
         /// <param name="urlResolver">The urlResolver.</param>
         /// <param name="uiConfiguration">The UI configuration.</param>
+        /// <param name="authorizationService">The authorization service.</param>
         public FhirController(
             IMediator mediator,
             ILogger<FhirController> logger,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IUrlResolver urlResolver,
-            IOptions<FeatureConfiguration> uiConfiguration)
+            IOptions<FeatureConfiguration> uiConfiguration,
+            IAuthorizationService authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -76,11 +79,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(uiConfiguration, nameof(uiConfiguration));
             EnsureArg.IsNotNull(uiConfiguration.Value, nameof(uiConfiguration));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
 
             _mediator = mediator;
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
+            _authorizationService = authorizationService;
             _featureConfiguration = uiConfiguration.Value;
         }
 
@@ -321,9 +326,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventSubType(AuditEventSubType.Delete)]
-        [Authorize(PolicyNames.HardDeletePolicy)]
         public async Task<IActionResult> Delete(string type, string id, [FromQuery]bool hardDelete)
         {
+            string policy = PolicyNames.WritePolicy;
+            if (hardDelete)
+            {
+                policy = PolicyNames.HardDeletePolicy;
+            }
+
+            AuthorizationResult authorizationResult = await _authorizationService.AuthorizeAsync(User, policy);
+            if (!authorizationResult.Succeeded)
+            {
+                Forbid();
+            }
+
             DeleteResourceResponse response = await _mediator.Send(new DeleteResourceRequest(type, id, hardDelete), HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
@@ -357,7 +373,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ResourceTypeSearch, Name = RouteNames.SearchResourcesPost)]
         [AuditEventSubType(AuditEventSubType.SearchType)]
-        [Authorize(PolicyNames.WritePolicy)]
+        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchPost(string type)
         {
             var queries = new List<Tuple<string, string>>();

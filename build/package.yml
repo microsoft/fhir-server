@@ -65,3 +65,10 @@ steps:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
+      
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish appsettings to Integration Tests'
+    inputs:
+      pathToPublish: './src/Microsoft.Health.Fhir.Web/appsettings.json'
+      artifactName: 'deploy'
+      artifactType: 'container'

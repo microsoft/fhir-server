@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         private readonly AuthorizationHandlerContext _authorizationHandlerContext = new AuthorizationHandlerContext(new List<IAuthorizationRequirement> { _resourceActionRequirement }, new ClaimsPrincipal(), null);
 
         [Fact]
-        public void ResourceActionHandler_UnAuthorized_When_Not_Permitted()
+        public void GivenAReadResourceRequest_WhenUnauthorized_ThenTheAuthorizationHandlerReturnsFalse()
         {
             _authorizationPolicy.HasPermissionAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<ResourceAction>()).ReturnsForAnyArgs(false);
             var resourceActionHandler = new ResourceActionHandler(_authorizationPolicy);
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         }
 
         [Fact]
-        public void ResourceActionHandler_Authorized_When_Permitted()
+        public void GivenAReadResourceRequest_WhenAuthorized_ThenTheAuthorizationHandlerReturnsTrue()
         {
             _authorizationPolicy.HasPermissionAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<ResourceAction>()).ReturnsForAnyArgs(true);
             var resourceActionHandler = new ResourceActionHandler(_authorizationPolicy);

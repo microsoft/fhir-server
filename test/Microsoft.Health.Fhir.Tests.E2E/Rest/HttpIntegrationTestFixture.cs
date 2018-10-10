@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public HttpClient HttpClient { get; }
 
-        public FhirClient FhirClient { get; set; }
+        public FhirClient FhirClient { get; }
 
         public Lazy<FhirClient> FhirXmlClient { get; set; }
 

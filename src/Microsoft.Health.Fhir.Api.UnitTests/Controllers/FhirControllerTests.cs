@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly IFhirRequestContextAccessor _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
         private readonly FeatureConfiguration _featureConfiguration = new FeatureConfiguration();
-
+        private readonly IAuthorizationService _authorizationService = Substitute.For<IAuthorizationService>();
         private readonly FhirController _controller;
 
         public FhirControllerTests()
@@ -34,7 +35,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _logger,
                 _contextAccessor,
                 _urlResolver,
-                Options.Create(_featureConfiguration));
+                Options.Create(_featureConfiguration),
+                _authorizationService);
         }
 
         [Fact]
