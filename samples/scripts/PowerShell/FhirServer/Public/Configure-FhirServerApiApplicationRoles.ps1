@@ -34,33 +34,30 @@ function Configure-FhirServerApiApplicationRoles {
 
     if($RoleConfiguration)
     {
-        if ($RoleConfiguration) 
+        foreach ($role in $RoleConfiguration) 
         {
-            foreach ($role in $RoleConfiguration) 
-            {
-                $desiredAppRoles += @{
-                    AllowedMemberTypes = @("User", "Application")
-                    Description = $role.name
-                    DisplayName = $role.name
-                    Id = New-Guid
-                    IsEnabled = $true
-                    Value = $role.name
-                }
+            $desiredAppRoles += @{
+                AllowedMemberTypes = @("User", "Application")
+                Description = $role.name
+                DisplayName = $role.name
+                Id = New-Guid
+                IsEnabled = "true"
+                Value = $role.name
             }
+        }
 
-            if (!($azureAdApplication.PsObject.Properties.Name -eq "AppRoles")) {
-                $appRolesToEnable = $true
-            }
-            else {
-                foreach ($diff in Compare-Object -ReferenceObject $desiredAppRoles -DifferenceObject $azureAdApplication.AppRoles -Property "Id") {
-                    switch ($diff.SideIndicator) {
-                        "<=" {
-                            $appRolesToEnable = $true
-                        }
-                        "=>" {
-                            ($azureAdApplication.AppRoles | Where-Object Id -eq $diff.Id).IsEnabled = $false
-                            $appRolesToDisable = $true
-                        }
+        if (!($azureAdApplication.PsObject.Properties.Name -eq "AppRoles")) {
+            $appRolesToEnable = $true
+        }
+        else {
+            foreach ($diff in Compare-Object -ReferenceObject $desiredAppRoles -DifferenceObject $azureAdApplication.AppRoles -Property "Id") {
+                switch ($diff.SideIndicator) {
+                    "<=" {
+                        $appRolesToEnable = $true
+                    }
+                    "=>" {
+                        ($azureAdApplication.AppRoles | Where-Object Id -eq $diff.Id).IsEnabled = $false
+                        $appRolesToDisable = $true
                     }
                 }
             }

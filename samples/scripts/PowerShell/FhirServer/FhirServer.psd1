@@ -9,7 +9,7 @@
     CompanyName = 'https://microsoft.com'
     Description = 'PowerShell Module for managing Azure Active Directory registrations and users for Microsoft FHIR Server.'
     PowerShellVersion = '3.0'
-    FunctionsToExport = 'Remove-FhirServerApplicationRegistration', 'New-FhirServerClientApplicationRegistration', 'New-FhirServerApiApplicationRegistration', 'Configure-FhirServerApiApplicationRoles'
+    FunctionsToExport = 'Remove-FhirServerApplicationRegistration', 'New-FhirServerClientApplicationRegistration', 'New-FhirServerApiApplicationRegistration', 'Configure-FhirServerApiApplicationRoles', 'Configure-FhirServerApiUsers'
     CmdletsToExport = @()
     AliasesToExport = @()    
 }
