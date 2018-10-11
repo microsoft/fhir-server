@@ -28,6 +28,8 @@ namespace Microsoft.Health.Fhir.Web
                         var keyVaultClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(azureServiceTokenProvider.KeyVaultTokenCallback));
                         builder.AddAzureKeyVault(keyVaultEndpoint, keyVaultClient, new DefaultKeyVaultSecretManager());
                     }
+
+                    builder.Add(new DevelopmentAuthEnvironmentConfigurationSource(builtConfig["TestAuthEnvironment:FilePath"]));
                 })
                 .UseStartup<Startup>()
                 .Build();

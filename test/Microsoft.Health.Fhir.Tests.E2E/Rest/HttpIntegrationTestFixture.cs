@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
@@ -79,6 +80,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
+                .ConfigureAppConfiguration(configurationBuilder =>
+                {
+                    configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource("testauthenvironment.json"));
+                })
                 .UseStartup(typeof(TStartup))
                 .ConfigureServices(serviceCollection =>
                 {

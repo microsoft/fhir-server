@@ -7,12 +7,10 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public class DevelopmentIdentityProviderConfiguration
+    public class DevelopmentIdentityProviderApplicationConfiguration
     {
-        public const string Audience = "fhir-api";
+        public string Id { get; set; }
 
-        public bool Enabled { get; set; }
-
-        public IList<DevelopmentIdentityProviderApplicationConfiguration> ClientApplications { get; set; } = new List<DevelopmentIdentityProviderApplicationConfiguration>();
+        public IList<string> Roles { get; set; } = new List<string>();
     }
 }

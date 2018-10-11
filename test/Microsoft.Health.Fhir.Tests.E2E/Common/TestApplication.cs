@@ -4,17 +4,25 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
-    public static class AuthenticationSettings
+    public class TestApplication
     {
-        public static string Scope => GetEnvironmentVariableWithDefault("Scope", DevelopmentIdentityProviderConfiguration.Audience);
+        private readonly string _id;
 
-        public static string Resource => GetEnvironmentVariableWithDefault("Resource", DevelopmentIdentityProviderConfiguration.Audience);
+        public TestApplication(string id)
+        {
+            _id = id;
+        }
 
-        private static string GetEnvironmentVariableWithDefault(string environmentVariableName, string defaultValue)
+        public string ClientId => GetEnvironmentVariableWithDefault($"app_{_id}_id", _id);
+
+        public string ClientSecret => GetEnvironmentVariableWithDefault($"app_{_id}_secret", _id);
+
+        public string GrantType => GetEnvironmentVariableWithDefault($"app_{_id}_grant_type", "client_credentials");
+
+        private string GetEnvironmentVariableWithDefault(string environmentVariableName, string defaultValue)
         {
             var environmentVariable = Environment.GetEnvironmentVariable(environmentVariableName);
 

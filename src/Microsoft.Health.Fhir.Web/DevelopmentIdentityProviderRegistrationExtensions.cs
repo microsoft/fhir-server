@@ -4,18 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using EnsureThat;
 using IdentityServer4.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.Health.Fhir.Web
 {
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
         /// <summary>
-        /// Adds an in-process identity provider.
+        /// Adds an in-process identity provider if enabled in configuration.
         /// </summary>
         /// <param name="services">The services collection.</param>
         /// <param name="configuration">The configuration root. The "DevelopmentIdentityProvider" section will be used to populate configuration values.</param>
@@ -27,46 +30,54 @@ namespace Microsoft.Health.Fhir.Web
 
             var identityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
             configuration.GetSection("DevelopmentIdentityProvider").Bind(identityProviderConfiguration);
+            services.AddSingleton(Options.Create(identityProviderConfiguration));
 
-            services.AddIdentityServer()
-                .AddDeveloperSigningCredential()
-                .AddInMemoryApiResources(new List<ApiResource>
-                {
-                    new ApiResource(identityProviderConfiguration.Audience),
-                })
-                .AddInMemoryClients(new List<Client>
-                {
-                    new Client
+            if (identityProviderConfiguration.Enabled)
+            {
+                services.AddIdentityServer()
+                    .AddDeveloperSigningCredential()
+                    .AddInMemoryApiResources(new List<ApiResource>
                     {
-                        ClientId = identityProviderConfiguration.ClientId,
+                        new ApiResource(DevelopmentIdentityProviderConfiguration.Audience),
+                    })
+                    .AddInMemoryClients(
+                        identityProviderConfiguration.ClientApplications.Select(
+                            applicationConfiguration =>
+                                new Client
+                                {
+                                    ClientId = applicationConfiguration.Id,
 
-                        // no interactive user, use the clientid/secret for authentication
-                        AllowedGrantTypes = GrantTypes.ClientCredentials,
+                                    // no interactive user, use the clientid/secret for authentication
+                                    AllowedGrantTypes = GrantTypes.ClientCredentials,
 
-                        // secret for authentication
-                        ClientSecrets =
-                        {
-                            new Secret(identityProviderConfiguration.ClientSecret.Sha256()),
-                        },
+                                    // secret for authentication
+                                    ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
 
-                        // scopes that client has access to
-                        AllowedScopes = { identityProviderConfiguration.Audience },
-                    },
-                });
+                                    // scopes that client has access to
+                                    AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience },
+
+                                    // app roles that the client app may have
+                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(ClaimTypes.Role, r)).ToList(),
+                                }));
+            }
 
             return services;
         }
 
         /// <summary>
-        /// Adds the in-process identity provider to the pipeline.
+        /// Adds the in-process identity provider to the pipeline if enabled in configuration.
         /// </summary>
         /// <param name="app">The application builder</param>
         /// <returns>The application builder.</returns>
         public static IApplicationBuilder UseDevelopmentIdentityProvider(this IApplicationBuilder app)
         {
             EnsureArg.IsNotNull(app, nameof(app));
+            if (app.ApplicationServices.GetService<IOptions<DevelopmentIdentityProviderConfiguration>>()?.Value?.Enabled == true)
+            {
+                app.UseIdentityServer();
+            }
 
-            return app.UseIdentityServer();
+            return app;
         }
     }
 }
