@@ -26,7 +26,10 @@ function New-FhirServerClientApplicationRegistration {
         [string]$ReplyUrl = "https://www.getpostman.com/oauth2/callback",
 
         [Parameter(Mandatory = $false)]
-        [string]$IdentifierUri = "https://${DisplayName}"
+        [string]$IdentifierUri = "https://${DisplayName}",
+
+        [Parameter(Mandatory = $false)]
+        [bool]$PublicClient = $false
     )
 
     # Get current AzureAd context
@@ -58,7 +61,14 @@ function New-FhirServerClientApplicationRegistration {
     # Just add the first scope (user impersonation)
     $reqApi.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $apiAppReg.Oauth2Permissions[0].id, "Scope"
 
-    $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris $IdentifierUri -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl
+    if($PublicClient)
+    {
+        $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl -PublicClient $PublicClient
+    }
+    else
+    {
+        $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris $IdentifierUri -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl
+    }
 
     # Create a client secret
     $clientAppPassword = New-AzureADApplicationPasswordCredential -ObjectId $clientAppReg.ObjectId

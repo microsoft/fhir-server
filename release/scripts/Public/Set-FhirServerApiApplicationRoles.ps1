@@ -1,4 +1,4 @@
-function Configure-FhirServerApiApplicationRoles {
+function Set-FhirServerApiApplicationRoles {
     <#
     .SYNOPSIS
     .DESCRIPTION
@@ -66,13 +66,12 @@ function Configure-FhirServerApiApplicationRoles {
         if ($appRolesToEnable -or $appRolesToDisable) {
             if ($appRolesToDisable) {
                 Write-Host "Disabling old appRoles"
-                Set-AzureADApplication -ObjectId $azureAdApplication.objectId -appRoles $azureAdApplication.AppRoles
+                Set-AzureADApplication -ObjectId $azureAdApplication.objectId -appRoles $azureAdApplication.AppRoles | Out-Null
             }
 
             # Update app roles 
             Write-Host "Updating appRoles"
-            Write-Host ($desiredAppRoles | Format-Table | Out-String)
-            Set-AzureADApplication -ObjectId $azureAdApplication.objectId -appRoles $desiredAppRoles
+            Set-AzureADApplication -ObjectId $azureAdApplication.objectId -appRoles $desiredAppRoles | Out-Null
         }
     }
 }

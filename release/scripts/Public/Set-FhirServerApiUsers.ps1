@@ -1,0 +1,96 @@
+function Set-FhirServerApiUsers {
+    <#
+    .SYNOPSIS
+    .DESCRIPTION
+    .PARAMETER UserConfiguration
+    Users to be persisted to AAD
+    #>
+    param(
+        [Parameter(Mandatory = $true )]
+        [string]$TenantId,
+
+        [Parameter(Mandatory = $true )]
+        [string]$ServicePrincipalObjectId,
+
+        [Parameter(Mandatory = $true )]
+        [object]$UserConfiguration,
+
+        [Parameter(Mandatory = $false )]
+        [string]$UserNamePrefix
+    )
+
+    # Get current AzureAd context
+    try {
+        Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
+    } 
+    catch {
+        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+    }
+
+    Write-Host "Persisting Users to AAD"
+    
+    if($UserConfiguration)
+    {
+        $servicePrincipal = Get-AzureADServicePrincipal -ObjectId $ServicePrincipalObjectId
+
+        foreach ($user in $UserConfiguration) 
+        {
+            $userId = $user.id
+            if($UserNamePrefix)
+            {
+                $userId = "${UserNamePrefix}-$($user.id)"
+            }
+            # See if the user exists
+            $aadUser = Get-AzureADUser -searchstring $userId
+
+            if($aadUser)
+            {
+                # Update if so
+                Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password (ConvertTo-SecureString -String "DK3ko2#%sa" -AsPlainText -Force) -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
+            }
+            else
+            {
+                $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
+                $PasswordProfile.Password = "DK3ko2#%sa"
+                $PasswordProfile.EnforceChangePasswordPolicy = $false
+                $PasswordProfile.ForceChangePasswordNextLogin = $false
+
+                $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName ($userId + "@" + $TenantId) -AccountEnabled $true -MailNickName $userId
+            }
+
+            # Get the collection of roles for the user
+            $existingRoleAssignments = Get-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId | Where-Object {$_.ResourceId -eq $servicePrincipal.ObjectId}
+
+            $expectedRoles = $()
+            $rolesToAdd = $()
+            $roleIdsToRemove = $()
+
+            foreach($role in $user.roles)
+            {
+                 $expectedRoles += @($servicePrincipal.AppRoles | Where-Object { $_.DisplayName -eq $role })
+            }
+
+            foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") 
+            {
+                switch ($diff.SideIndicator) {
+                    "<=" {
+                        $rolesToAdd += $diff.Id
+                    }
+                    "=>" {
+                        $rolesToRemove += $diff.Id
+                    }
+                }
+            }
+
+            foreach($role in $rolesToAdd)
+            {
+                New-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -PrincipalId $aadUser.ObjectId -ResourceId $servicePrincipal.ObjectId -Id $role | Out-Null
+            }
+
+            foreach($role in $rolesToRemove)
+            {
+                Remove-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -AppRoleAssignmentId ($existingRoleAssignments | Where-Object { $_.Id -eq $role }).ObjectId | Out-Null
+            }
+        }
+    }
+}
