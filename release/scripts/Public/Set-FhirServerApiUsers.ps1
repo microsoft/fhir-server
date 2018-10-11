@@ -16,7 +16,10 @@ function Set-FhirServerApiUsers {
         [object]$UserConfiguration,
 
         [Parameter(Mandatory = $false )]
-        [string]$UserNamePrefix
+        [string]$UserNamePrefix,
+
+        [Parameter(Mandatory = $true)]
+        [string]$KeyVaultName
     )
 
     # Get current AzureAd context
@@ -43,21 +46,26 @@ function Set-FhirServerApiUsers {
             # See if the user exists
             $aadUser = Get-AzureADUser -searchstring $userId
 
+            Add-Type -AssemblyName System.Web
+            $password = [System.Web.Security.Membership]::GeneratePassword(10, 5)
+            $passwordSecureString = ConvertTo-SecureString $password -AsPlainText -Force
+
             if($aadUser)
             {
-                # Update if so
-                Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password (ConvertTo-SecureString -String "DK3ko2#%sa" -AsPlainText -Force) -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
+                Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password $passwordSecureString -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
             }
             else
             {
                 $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
-                $PasswordProfile.Password = "DK3ko2#%sa"
+                $PasswordProfile.Password = $password
                 $PasswordProfile.EnforceChangePasswordPolicy = $false
                 $PasswordProfile.ForceChangePasswordNextLogin = $false
 
                 $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName ($userId + "@" + $TenantId) -AccountEnabled $true -MailNickName $userId
             }
 
+            Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${userId}-password" -SecretValue $passwordSecureString | Out-Null
+            
             # Get the collection of roles for the user
             $existingRoleAssignments = Get-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId | Where-Object {$_.ResourceId -eq $servicePrincipal.ObjectId}
 

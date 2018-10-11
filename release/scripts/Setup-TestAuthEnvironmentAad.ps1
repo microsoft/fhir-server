@@ -10,7 +10,10 @@ param
         [string]$TestAuthorizationEnvironmentPath,
 
         [Parameter(Mandatory = $true)]
-        [string]$EnvironmentName
+        [string]$EnvironmentName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$KeyVaultName
 )
 
 Import-Module (Resolve-Path('../../samples/scripts/PowerShell/FhirServer/FhirServer.psm1')) -Force
@@ -22,6 +25,14 @@ try {
 } 
 catch {
     throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+}
+
+# Get current AzureAd context
+try {
+    $existingContext = Get-AzureRmContext
+} 
+catch {
+    throw "Please log in to Azure RM with Login-AzureRmAccount cmdlet before proceeding"
 }
 
 Write-Host "Setting up Test Authorization Environment for AAD"
@@ -47,7 +58,7 @@ Set-FhirServerApiApplicationRoles -ObjectId $application.ObjectId -RoleConfigura
 $servicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$($application.AppId)'"
 
 Write-Host "Ensuring users and role assignments for API Application exist"
-Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantId $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthorizationEnvironment.Users | Out-Null
+Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantId $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthorizationEnvironment.Users -KeyVaultName $KeyVaultName | Out-Null
 
 Write-Host "Ensuring client application exists"
 foreach($clientApp in $testAuthorizationEnvironment.ClientApplications)
@@ -58,6 +69,9 @@ foreach($clientApp in $testAuthorizationEnvironment.ClientApplications)
     if(!$aadClientApplication)
     {
         $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient $true
+
+        $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
+        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${displayName}-secret" -SecretValue $secretSecureString | Out-Null
     }
 
     $aadClientServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$($aadClientApplication.AppId)'"
