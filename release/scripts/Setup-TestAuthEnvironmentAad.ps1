@@ -10,10 +10,7 @@ param
         [string]$TestAuthorizationEnvironmentPath,
 
         [Parameter(Mandatory = $true)]
-        [string]$EnvironmentName,
-
-        [Parameter(Mandatory = $true)]
-        [string]$KeyVaultName
+        [string]$EnvironmentName
 )
 
 Import-Module (Resolve-Path('../../samples/scripts/PowerShell/FhirServer/FhirServer.psm1')) -Force
@@ -39,6 +36,21 @@ Write-Host "Setting up Test Authorization Environment for AAD"
 
 $testAuthorizationEnvironment = Get-Content -Raw -Path $TestAuthorizationEnvironmentPath | ConvertFrom-Json
 
+$keyVaultName = "${EnvironmentName}-ts"
+
+$keyVault = Get-AzureRmKeyVault -VaultName $keyVaultName
+
+if(!$keyVault)
+{
+    New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName ${EnvironmentName} -Location 'East US' | Out-Null
+}
+
+# Make sure key vault exists and is ready
+while (!(Get-AzureRmKeyVault -VaultName $keyVaultName ))
+{
+   sleep 10
+}
+
 Write-Host "Ensuring API application exists"
 
 $fhirServiceAudience = "https://${EnvironmentName}.azurewebsites.net"
@@ -58,7 +70,7 @@ Set-FhirServerApiApplicationRoles -ObjectId $application.ObjectId -RoleConfigura
 $servicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$($application.AppId)'"
 
 Write-Host "Ensuring users and role assignments for API Application exist"
-Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantId $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthorizationEnvironment.Users -KeyVaultName $KeyVaultName | Out-Null
+Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantId $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthorizationEnvironment.Users -KeyVaultName $keyVaultName | Out-Null
 
 Write-Host "Ensuring client application exists"
 foreach($clientApp in $testAuthorizationEnvironment.ClientApplications)
@@ -71,8 +83,17 @@ foreach($clientApp in $testAuthorizationEnvironment.ClientApplications)
         $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient $true
 
         $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
-        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${displayName}-secret" -SecretValue $secretSecureString | Out-Null
     }
+    else
+    {
+        $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
+        Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId -KeyId $existingPassword.KeyId
+        $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
+        
+        $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force
+    }
+    
+    Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name "${displayName}-secret" -SecretValue $secretSecureString | Out-Null
 
     $aadClientServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$($aadClientApplication.AppId)'"
 
