@@ -61,7 +61,9 @@ namespace Microsoft.Health.Fhir.Web
                                     AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience },
 
                                     // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(ClaimTypes.Role, r)).ToList(),
+                                    Claims = applicationConfiguration.Roles.Select(r => new Claim("roles", r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
+
+                                    ClientClaimsPrefix = string.Empty,
                                 }));
             }
 
@@ -123,7 +125,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 var jsonConfigurationSource = new JsonConfigurationSource
                 {
-                    Path = string.IsNullOrEmpty(_filePath) ? null : Path.GetFullPath(_filePath),
+                    Path = _filePath,
                     Optional = true,
                 };
 
