@@ -44,14 +44,9 @@
     ],
     "clientApplications": [
         {
-            "id": "myadminclient",
+            "id": "serviceclient",
             "roles": [
                 "admin"
-            ]
-        },
-        {
-            "id": "myclient",
-            "roles": [
             ]
         }
     ]
