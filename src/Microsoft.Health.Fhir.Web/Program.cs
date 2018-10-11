@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Web
                         builder.AddAzureKeyVault(keyVaultEndpoint, keyVaultClient, new DefaultKeyVaultSecretManager());
                     }
 
-                    builder.Add(new DevelopmentAuthEnvironmentConfigurationSource(builtConfig["TestAuthEnvironment:FilePath"]));
+                    builder.AddDevelopmentAuthEnvironment(builtConfig["TestAuthEnvironment:FilePath"]);
                 })
                 .UseStartup<Startup>()
                 .Build();

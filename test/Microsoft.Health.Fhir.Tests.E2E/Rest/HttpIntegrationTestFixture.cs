@@ -80,10 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
-                .ConfigureAppConfiguration(configurationBuilder =>
-                {
-                    configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource("testauthenvironment.json"));
-                })
+                .ConfigureAppConfiguration(configurationBuilder => configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json"))
                 .UseStartup(typeof(TStartup))
                 .ConfigureServices(serviceCollection =>
                 {

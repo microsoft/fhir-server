@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public static class TestApplications
     {
-        public static TestApplication MyClient { get; } = new TestApplication("myclient");
+        public static TestApplication ServiceClient { get; } = new TestApplication("serviceclient");
     }
 }
