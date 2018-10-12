@@ -15,6 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\testauthenvironment.json" Link="testauthenvironment.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="2.1.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.2" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.0-beta008" />
