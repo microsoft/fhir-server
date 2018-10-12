@@ -12,15 +12,17 @@
       "commandName": "IISExpress",
       "launchBrowser": true,
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "development"
+        "ASPNETCORE_ENVIRONMENT": "development",
+        "TestAuthEnvironment:FilePath": "..\\..\\testauthenvironment.json"
       }
     },
     "Microsoft.Health.Fhir.Web": {
       "commandName": "Project",
       "launchBrowser": true,
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "development"
-      },
+        "environmentVariables": {
+            "ASPNETCORE_ENVIRONMENT": "development",
+            "TestAuthEnvironment:FilePath": "..\\..\\testauthenvironment.json"
+        },
       "applicationUrl": "https://localhost:44348/"
     }
   }

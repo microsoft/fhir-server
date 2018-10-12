@@ -3,14 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+
 namespace Microsoft.Health.Fhir.Web
 {
     public class DevelopmentIdentityProviderConfiguration
     {
-        public string Audience { get; set; }
+        public const string Audience = "fhir-api";
 
-        public string ClientId { get; set; }
+        public bool Enabled { get; set; }
 
-        public string ClientSecret { get; set; }
+        public IList<DevelopmentIdentityProviderApplicationConfiguration> ClientApplications { get; } = new List<DevelopmentIdentityProviderApplicationConfiguration>();
+
+        public IList<DevelopmentIdentityProviderUserConfiguration> Users { get; } = new List<DevelopmentIdentityProviderUserConfiguration>();
     }
 }
