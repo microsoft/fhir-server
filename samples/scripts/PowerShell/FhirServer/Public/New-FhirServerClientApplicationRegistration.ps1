@@ -14,6 +14,8 @@ function New-FhirServerClientApplicationRegistration {
     Reply URL for the client AAD Application registration
     .PARAMETER IdentifierUri
     Identifier URI for the client AAD Application registration
+    .PARAMETER PublicClient
+    Switch to indicate if the client application should be a public client (desktop/mobile applications)
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -29,7 +31,7 @@ function New-FhirServerClientApplicationRegistration {
         [string]$IdentifierUri = "https://${DisplayName}",
 
         [Parameter(Mandatory = $false)]
-        [bool]$PublicClient = $false
+        [switch]$PublicClient
     )
 
     # Get current AzureAd context
@@ -63,7 +65,7 @@ function New-FhirServerClientApplicationRegistration {
 
     if($PublicClient)
     {
-        $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl -PublicClient $PublicClient
+        $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl -PublicClient $true
     }
     else
     {

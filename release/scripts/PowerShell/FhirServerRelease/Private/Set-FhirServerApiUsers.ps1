@@ -56,7 +56,7 @@ function Set-FhirServerApiUsers {
             $aadUser = Get-AzureADUser -searchstring $userId
 
             Add-Type -AssemblyName System.Web
-            $password = [System.Web.Security.Membership]::GeneratePassword(10, 5)
+            $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
             $passwordSecureString = ConvertTo-SecureString $password -AsPlainText -Force
 
             if($aadUser)
