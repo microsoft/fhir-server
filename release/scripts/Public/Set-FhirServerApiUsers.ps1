@@ -1,9 +1,18 @@
 function Set-FhirServerApiUsers {
     <#
     .SYNOPSIS
+    Configures (create/update) the needed users for the test environment.
     .DESCRIPTION
+    .PARAMETER TenantDomain
+    The domain of the AAD tenant. 
+    .PARAMETER ServicePrincipalObjectId
+    The service principal for the AAD application that contains the roles to be assigned.
     .PARAMETER UserConfiguration
-    Users to be persisted to AAD
+    The collection of users from the testauthenvironment.json.
+    .PARAMETER UserNamePrefix
+    The prefix to use for the users to stop duplication/collision if multiple environments exist within the same AAD tenant.
+    .PARAMETER KeyVaultName
+    The name of the key vault to persist the user's passwords to.
     #>
     param(
         [Parameter(Mandatory = $true )]

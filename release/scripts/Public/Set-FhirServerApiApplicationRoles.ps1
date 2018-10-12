@@ -1,18 +1,18 @@
 function Set-FhirServerApiApplicationRoles {
     <#
     .SYNOPSIS
+    Configures (create/update) the roles on the API application for the test environment.
     .DESCRIPTION
     .PARAMETER ObjectId
-    ObjectId for the application
+    ObjectId for the API application
     .PARAMETER RoleConfiguration
-    Role configuration to be persisted to AAD
+    Role configuration to be persisted to AAD from the testauthenvironment.json
     #>
-    [CmdletBinding(DefaultParameterSetName='ByObjectId')]
     param(
-        [Parameter(Mandatory = $true, ParameterSetName = 'ByObjectId' )]
+        [Parameter(Mandatory = $true)]
         [string]$ObjectId,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'ByObjectId' )]
+        [Parameter(Mandatory = $true)]
         [object]$RoleConfiguration
     )
 

@@ -1,9 +1,12 @@
 <#
-    .SYNOPSIS
-    .DESCRIPTION
-    .PARAMETER TestAuthorizationEnvironmentPath
-    ObjectId for the application
-    #>
+.SYNOPSIS
+Setup the test environment for AAD.
+.DESCRIPTION
+.PARAMETER TestAuthorizationEnvironmentPath
+Path for the testauthorizationenvironment.json file
+.PARAMETER EnvironmentName
+Environment name used for the test environment. This is used throughout for making names unique.
+#>
 param
 (
         [Parameter(Mandatory = $true)]

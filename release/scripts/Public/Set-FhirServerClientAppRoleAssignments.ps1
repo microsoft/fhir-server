@@ -1,10 +1,14 @@
 function Set-FhirServerClientAppRoleAssignments {
     <#
     .SYNOPSIS
+    Set app role assignments for the given client application
     .DESCRIPTION
     .PARAMETER ObjectId
+    The objectId of the service principal for the client application
     .PARAMETER ApiObjectId
+    The objectId of the API application that has roles that need to be assigned
     .PARAMETER Roles
+    The collection of roles from the testauthenvironment.json for the client application
     #>
     param(
         [Parameter(Mandatory = $true )]

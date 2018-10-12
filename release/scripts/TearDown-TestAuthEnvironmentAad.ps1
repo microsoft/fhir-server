@@ -1,9 +1,12 @@
 <#
-    .SYNOPSIS
-    .DESCRIPTION
-    .PARAMETER TestAuthorizationEnvironmentPath
-    ObjectId for the application
-    #>
+.SYNOPSIS
+Tear down the test environment for AAD.
+.DESCRIPTION
+.PARAMETER TestAuthorizationEnvironmentPath
+Path for the testauthorizationenvironment.json file
+.PARAMETER EnvironmentName
+Environment name used for the test environment. This is used throughout for making names unique.
+#>
 param
 (
         [Parameter(Mandatory = $true)]
@@ -38,7 +41,7 @@ $testAuthorizationEnvironment = Get-Content -Raw -Path $TestAuthorizationEnviron
 
 $fhirServiceAudience = "https://${EnvironmentName}.azurewebsites.net"
 
-$application = Get-AzureAdApplication -Filter "DisplayName eq '${fhirServiceAudience}'"
+$application = Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '${fhirServiceAudience}')"
 
 if($application)
 {
