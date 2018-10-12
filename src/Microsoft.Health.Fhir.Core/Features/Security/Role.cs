@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             {
                 foreach (ResourcePermission permission in ResourcePermissions)
                 {
-                    if (permission.Actions == null || permission.Actions.Count == 0)
+                    if (permission.Actions.Count == 0)
                     {
                         yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
                     }

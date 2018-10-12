@@ -17,20 +17,13 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public void Validate()
         {
-            List<IssueComponent> issues = null;
+            var issues = new List<IssueComponent>();
 
             foreach (Role role in Roles)
             {
-                var validationErrors = role.Validate(new ValidationContext(role));
-
-                foreach (var validationError in validationErrors)
+                foreach (var validationError in role.Validate(new ValidationContext(role)))
                 {
-                    if (issues == null)
-                    {
-                        issues = new List<IssueComponent>();
-                    }
-
-                    issues.Add(new IssueComponent()
+                    issues.Add(new IssueComponent
                     {
                         Severity = IssueSeverity.Fatal,
                         Code = IssueType.Invalid,
@@ -39,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 }
             }
 
-            if (issues != null && issues.Count != 0)
+            if (issues.Count > 0)
             {
                 throw new InvalidDefinitionException(
                     Resources.AuthorizationPermissionDefinitionInvalid,

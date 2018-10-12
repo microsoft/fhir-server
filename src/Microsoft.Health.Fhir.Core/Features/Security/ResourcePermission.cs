@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class ResourcePermission
     {
-        public IReadOnlyList<ResourceAction> Actions { get; set; }
+        public IList<ResourceAction> Actions { get; } = new List<ResourceAction>();
     }
 }
