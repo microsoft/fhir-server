@@ -7,7 +7,7 @@ function Set-FhirServerApiUsers {
     #>
     param(
         [Parameter(Mandatory = $true )]
-        [string]$TenantId,
+        [string]$TenantDomain,
 
         [Parameter(Mandatory = $true )]
         [string]$ServicePrincipalObjectId,
@@ -61,7 +61,7 @@ function Set-FhirServerApiUsers {
                 $PasswordProfile.EnforceChangePasswordPolicy = $false
                 $PasswordProfile.ForceChangePasswordNextLogin = $false
 
-                $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName ($userId + "@" + $TenantId) -AccountEnabled $true -MailNickName $userId
+                $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName ($userId + "@" + $TenantDomain) -AccountEnabled $true -MailNickName $userId
             }
 
             Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${userId}-password" -SecretValue $passwordSecureString | Out-Null
@@ -69,8 +69,8 @@ function Set-FhirServerApiUsers {
             # Get the collection of roles for the user
             $existingRoleAssignments = Get-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId | Where-Object {$_.ResourceId -eq $servicePrincipal.ObjectId}
 
-            $expectedRoles = $()
-            $rolesToAdd = $()
+            $expectedRoles = New-Object System.Collections.ArrayList
+            $rolesToAdd = New-Object System.Collections.ArrayList
             $roleIdsToRemove = $()
 
             foreach($role in $user.roles)

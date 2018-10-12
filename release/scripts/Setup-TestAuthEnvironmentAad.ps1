@@ -24,7 +24,7 @@ catch {
     throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
 }
 
-# Get current AzureAd context
+# Get current AzureRm context
 try {
     $existingContext = Get-AzureRmContext
 } 
@@ -55,12 +55,13 @@ Write-Host "Ensuring API application exists"
 
 $fhirServiceAudience = "https://${EnvironmentName}.azurewebsites.net"
 
-$application = Get-AzureAdApplication -Filter "DisplayName eq '${fhirServiceAudience}'"
+$application = Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '${fhirServiceAudience}')"
 
 if(!$application)
 {
     $newApplication = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience
     
+    # Change to use applicationId returned
     $application = Get-AzureAdApplication -Filter "DisplayName eq '${fhirServiceAudience}'"
 }
 
@@ -70,7 +71,7 @@ Set-FhirServerApiApplicationRoles -ObjectId $application.ObjectId -RoleConfigura
 $servicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$($application.AppId)'"
 
 Write-Host "Ensuring users and role assignments for API Application exist"
-Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantId $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthorizationEnvironment.Users -KeyVaultName $keyVaultName | Out-Null
+Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthorizationEnvironment.Users -KeyVaultName $keyVaultName | Out-Null
 
 Write-Host "Ensuring client application exists"
 foreach($clientApp in $testAuthorizationEnvironment.ClientApplications)
@@ -80,14 +81,20 @@ foreach($clientApp in $testAuthorizationEnvironment.ClientApplications)
 
     if(!$aadClientApplication)
     {
-        $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient $true
+        $publicClient = $false
+
+        if(!$clientApp.Roles)
+        {
+            $publicClient = $true
+        }
+
+        $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient $publicClient
 
         $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
     }
     else
     {
-        $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
-        Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId -KeyId $existingPassword.KeyId
+        $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
         $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
         
         $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force

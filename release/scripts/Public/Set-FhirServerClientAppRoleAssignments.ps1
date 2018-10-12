@@ -28,7 +28,7 @@ function Set-FhirServerClientAppRoleAssignments {
     # Get the collection of roles for the user
     $apiApplication = Get-AzureAdServicePrincipal -Filter "appId eq '$ApiAppId'"
 
-    $existingRoleAssignments = Get-AzureADServiceAppRoleAssignment -ObjectId $ObjectId | Where-Object {$_.ResourceId -eq $($apiApplication.ObjectId)}
+    $existingRoleAssignments = Get-AzureADServiceAppRoleAssignment -ObjectId $apiApplication.ObjectId | Where-Object {$_.PrincipalId -eq $ObjectId} 
 
     $expectedRoles = $()
     $rolesToAdd = $()
@@ -53,7 +53,7 @@ function Set-FhirServerClientAppRoleAssignments {
 
     foreach($role in $rolesToAdd)
     {
-        New-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -PrincipalId $ObjectId -ResourceId $($apiApplication.ObjectId) -Id $role | Out-Null
+        New-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.ObjectId -Id $role | Out-Null
     }
 
     foreach($role in $rolesToRemove)
