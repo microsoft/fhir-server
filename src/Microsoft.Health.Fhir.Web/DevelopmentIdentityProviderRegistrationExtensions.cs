@@ -11,6 +11,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using IdentityServer4.Models;
+using IdentityServer4.Test;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
@@ -21,6 +22,8 @@ namespace Microsoft.Health.Fhir.Web
 {
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
+        private const string RolesClaim = "roles";
+
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
         /// </summary>
@@ -32,27 +35,31 @@ namespace Microsoft.Health.Fhir.Web
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            var identityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
-            configuration.GetSection("DevelopmentIdentityProvider").Bind(identityProviderConfiguration);
-            services.AddSingleton(Options.Create(identityProviderConfiguration));
+            var developmentIdentityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
+            configuration.GetSection("DevelopmentIdentityProvider").Bind(developmentIdentityProviderConfiguration);
+            services.AddSingleton(Options.Create(developmentIdentityProviderConfiguration));
 
-            if (identityProviderConfiguration.Enabled)
+            if (developmentIdentityProviderConfiguration.Enabled)
             {
                 services.AddIdentityServer()
                     .AddDeveloperSigningCredential()
-                    .AddInMemoryApiResources(new List<ApiResource>
-                    {
-                        new ApiResource(DevelopmentIdentityProviderConfiguration.Audience),
-                    })
+                    .AddInMemoryApiResources(new[] { new ApiResource(DevelopmentIdentityProviderConfiguration.Audience), })
+                    .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select(user =>
+                        new TestUser
+                        {
+                            Username = user.Id,
+                            Password = user.Id,
+                            Claims = user.Roles.Select(r => new Claim(RolesClaim, r)).ToList(),
+                        }).ToList())
                     .AddInMemoryClients(
-                        identityProviderConfiguration.ClientApplications.Select(
+                        developmentIdentityProviderConfiguration.ClientApplications.Select(
                             applicationConfiguration =>
                                 new Client
                                 {
                                     ClientId = applicationConfiguration.Id,
 
-                                    // no interactive user, use the clientid/secret for authentication
-                                    AllowedGrantTypes = GrantTypes.ClientCredentials,
+                                    // client credentials and ROPC for testing
+                                    AllowedGrantTypes = GrantTypes.ResourceOwnerPasswordAndClientCredentials,
 
                                     // secret for authentication
                                     ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
@@ -61,7 +68,9 @@ namespace Microsoft.Health.Fhir.Web
                                     AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience },
 
                                     // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(ClaimTypes.Role, r)).ToList(),
+                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
+
+                                    ClientClaimsPrefix = string.Empty,
                                 }));
             }
 
@@ -123,7 +132,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 var jsonConfigurationSource = new JsonConfigurationSource
                 {
-                    Path = string.IsNullOrEmpty(_filePath) ? null : Path.GetFullPath(_filePath),
+                    Path = _filePath,
                     Optional = true,
                 };
 
@@ -150,14 +159,12 @@ namespace Microsoft.Health.Fhir.Web
                     base.Load();
 
                     // remap the entries
-
                     Data = Data.ToDictionary(
                         p => Mappings.Aggregate(p.Key, (acc, mapping) => Regex.Replace(acc, mapping.Key, mapping.Value, RegexOptions.IgnoreCase)),
                         p => p.Value,
                         StringComparer.OrdinalIgnoreCase);
 
                     // add properties related to the development identity provider.
-
                     Data["DevelopmentIdentityProvider:Enabled"] = bool.TrueString;
                     Data["FhirServer:Security:Authentication:Audience"] = DevelopmentIdentityProviderConfiguration.Audience;
                 }

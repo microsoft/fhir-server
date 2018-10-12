@@ -22,7 +22,6 @@ function Remove-FhirServerApplicationRegistration {
     } 
     catch {
         throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
-        Break
     }
 
     $appReg = $null
@@ -31,14 +30,14 @@ function Remove-FhirServerApplicationRegistration {
         $appReg = Get-AzureADApplication -Filter "AppId eq '${AppId}'"
         if (!$appReg) {
             Write-Host "Application with AppId = ${AppId} was not found."
-            Break
+            return
         }
     }
     else {
         $appReg = Get-AzureADApplication -Filter "identifierUris/any(uri:uri eq '${IdentifierUri}')"
         if (!$appReg) {
             Write-Host "Application with IdentifierUri = ${IdentifierUri} was not found."
-            Break
+            return
         }
     }
 
