@@ -3,11 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-<<<<<<< HEAD
-using System;
-=======
 using static Microsoft.Health.Fhir.Tests.Common.EnvironmentVariables;
->>>>>>> origin/master
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
@@ -25,15 +21,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public string ClientSecret => GetEnvironmentVariableWithDefault($"app_{_id}_secret", _id);
 
         public string GrantType => GetEnvironmentVariableWithDefault($"app_{_id}_grant_type", "client_credentials");
-<<<<<<< HEAD
-
-        private string GetEnvironmentVariableWithDefault(string environmentVariableName, string defaultValue)
-        {
-            var environmentVariable = Environment.GetEnvironmentVariable(environmentVariableName);
-
-            return string.IsNullOrWhiteSpace(environmentVariable) ? defaultValue : environmentVariable;
-        }
-=======
->>>>>>> origin/master
     }
 }
