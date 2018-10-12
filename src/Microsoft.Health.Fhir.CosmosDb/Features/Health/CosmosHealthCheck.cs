@@ -61,13 +61,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 
                 await _testProvider.PerformTest(_documentClient.Value, _configuration);
 
-                return HealthCheckResult.Healthy("Successfully connected to data store.");
+                return HealthCheckResult.Healthy("Successfully connected to the data store.");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to connect to data store.");
+                _logger.LogWarning(ex, "Failed to connect to the data store.");
 
-                return HealthCheckResult.Unhealthy("Failed to connect to data store.");
+                return HealthCheckResult.Unhealthy("Failed to connect to the data store.");
             }
         }
     }
