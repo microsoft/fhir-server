@@ -13,11 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class RoleConfiguration
     {
-        public RoleConfiguration()
-        {
-        }
-
-        public virtual IReadOnlyList<Role> Roles { get; set; }
+        public IList<Role> Roles { get; } = new List<Role>();
 
         public void Validate()
         {
@@ -27,37 +23,27 @@ namespace Microsoft.Health.Fhir.Core.Configs
             {
                 var validationErrors = role.Validate(new ValidationContext(role));
 
-                if (validationErrors != null)
+                foreach (var validationError in validationErrors)
                 {
                     if (issues == null)
                     {
                         issues = new List<IssueComponent>();
                     }
 
-                    foreach (var validationError in validationErrors)
+                    issues.Add(new IssueComponent()
                     {
-                        AddIssue(validationError.ErrorMessage);
-                    }
+                        Severity = IssueSeverity.Fatal,
+                        Code = IssueType.Invalid,
+                        Diagnostics = validationError.ErrorMessage,
+                    });
                 }
             }
 
-            if (issues.Count != 0)
+            if (issues != null && issues.Count != 0)
             {
                 throw new InvalidDefinitionException(
-                    Core.Resources.AuthorizationPermissionDefinitionInvalid,
+                    Resources.AuthorizationPermissionDefinitionInvalid,
                     issues.ToArray());
-            }
-
-            return;
-
-            void AddIssue(string message)
-            {
-                issues.Add(new IssueComponent()
-                {
-                    Severity = IssueSeverity.Fatal,
-                    Code = IssueType.Invalid,
-                    Diagnostics = message,
-                });
             }
         }
     }
