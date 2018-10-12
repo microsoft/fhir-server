@@ -53,6 +53,20 @@ steps:
       artifactType: 'container'
 
   - task: PublishBuildArtifacts@1
+    displayName: 'publish testauthenvironment.json'
+    inputs:
+      pathToPublish: './testauthenvironment.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish release directory'
+    inputs:
+      pathToPublish: './release/'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
     displayName: 'publish nuget artifacts'
     inputs:
       pathtoPublish: '$(build.artifactStagingDirectory)/nupkgs'

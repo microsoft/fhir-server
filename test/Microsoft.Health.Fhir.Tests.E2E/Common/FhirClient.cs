@@ -259,9 +259,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             {
                 var formContent = new FormUrlEncodedContent(new[]
                 {
-                    new KeyValuePair<string, string>("client_id", AuthenticationSettings.ClientId),
-                    new KeyValuePair<string, string>("client_secret", AuthenticationSettings.ClientSecret),
-                    new KeyValuePair<string, string>("grant_type", AuthenticationSettings.GrantType),
+                    new KeyValuePair<string, string>("client_id", TestApplications.ServiceClient.ClientId),
+                    new KeyValuePair<string, string>("client_secret", TestApplications.ServiceClient.ClientSecret),
+                    new KeyValuePair<string, string>("grant_type", TestApplications.ServiceClient.GrantType),
                     new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
                     new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
                     new KeyValuePair<string, string>("username", _userName),
