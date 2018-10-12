@@ -6,28 +6,16 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class Role : IValidatableObject
     {
-        public Role()
-        {
-        }
-
-        [JsonConstructor]
-        public Role(string name, IReadOnlyList<ResourcePermission> resourcePermissions)
-        {
-            Name = name;
-            ResourcePermissions = resourcePermissions;
-        }
-
         public string Name { get; set; }
 
         public virtual string Version { get; set; }
 
-        public IReadOnlyList<ResourcePermission> ResourcePermissions { get; set; }
+        public IList<ResourcePermission> ResourcePermissions { get; } = new List<ResourcePermission>();
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
@@ -36,16 +24,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                 yield return new ValidationResult(Core.Resources.RoleNameEmpty);
             }
 
-            if (ResourcePermissions == null || ResourcePermissions.Count == 0)
+            if (ResourcePermissions.Count == 0)
             {
                 yield return new ValidationResult(Core.Resources.ResourcePermissionEmpty);
             }
-
-            foreach (ResourcePermission permission in ResourcePermissions)
+            else
             {
-                if (permission.Actions == null || permission.Actions.Count == 0)
+                foreach (ResourcePermission permission in ResourcePermissions)
                 {
-                    yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
+                    if (permission.Actions.Count == 0)
+                    {
+                        yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
+                    }
                 }
             }
         }
