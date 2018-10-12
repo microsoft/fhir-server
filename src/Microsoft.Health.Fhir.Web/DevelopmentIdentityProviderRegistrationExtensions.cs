@@ -11,6 +11,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using IdentityServer4.Models;
+using IdentityServer4.Test;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
@@ -21,6 +22,8 @@ namespace Microsoft.Health.Fhir.Web
 {
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
+        private const string RolesClaim = "roles";
+
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
         /// </summary>
@@ -40,10 +43,14 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.AddIdentityServer()
                     .AddDeveloperSigningCredential()
-                    .AddInMemoryApiResources(new List<ApiResource>
-                    {
-                        new ApiResource(DevelopmentIdentityProviderConfiguration.Audience),
-                    })
+                    .AddInMemoryApiResources(new[] { new ApiResource(DevelopmentIdentityProviderConfiguration.Audience), })
+                    .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select(user =>
+                        new TestUser
+                        {
+                            Username = user.Id,
+                            Password = user.Id,
+                            Claims = user.Roles.Select(r => new Claim(RolesClaim, r)).ToList(),
+                        }).ToList())
                     .AddInMemoryClients(
                         developmentIdentityProviderConfiguration.ClientApplications.Select(
                             applicationConfiguration =>
@@ -51,8 +58,8 @@ namespace Microsoft.Health.Fhir.Web
                                 {
                                     ClientId = applicationConfiguration.Id,
 
-                                    // no interactive user, use the clientid/secret for authentication
-                                    AllowedGrantTypes = GrantTypes.ClientCredentials,
+                                    // client credentials and ROPC for testing
+                                    AllowedGrantTypes = GrantTypes.ResourceOwnerPasswordAndClientCredentials,
 
                                     // secret for authentication
                                     ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
@@ -61,7 +68,7 @@ namespace Microsoft.Health.Fhir.Web
                                     AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience },
 
                                     // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(r => new Claim("roles", r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
+                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
                                 }));
