@@ -32,11 +32,11 @@ namespace Microsoft.Health.Fhir.Web
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            var identityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
-            configuration.GetSection("DevelopmentIdentityProvider").Bind(identityProviderConfiguration);
-            services.AddSingleton(Options.Create(identityProviderConfiguration));
+            var developmentIdentityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
+            configuration.GetSection("DevelopmentIdentityProvider").Bind(developmentIdentityProviderConfiguration);
+            services.AddSingleton(Options.Create(developmentIdentityProviderConfiguration));
 
-            if (identityProviderConfiguration.Enabled)
+            if (developmentIdentityProviderConfiguration.Enabled)
             {
                 services.AddIdentityServer()
                     .AddDeveloperSigningCredential()
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Web
                         new ApiResource(DevelopmentIdentityProviderConfiguration.Audience),
                     })
                     .AddInMemoryClients(
-                        identityProviderConfiguration.ClientApplications.Select(
+                        developmentIdentityProviderConfiguration.ClientApplications.Select(
                             applicationConfiguration =>
                                 new Client
                                 {
@@ -152,14 +152,12 @@ namespace Microsoft.Health.Fhir.Web
                     base.Load();
 
                     // remap the entries
-
                     Data = Data.ToDictionary(
                         p => Mappings.Aggregate(p.Key, (acc, mapping) => Regex.Replace(acc, mapping.Key, mapping.Value, RegexOptions.IgnoreCase)),
                         p => p.Value,
                         StringComparer.OrdinalIgnoreCase);
 
                     // add properties related to the development identity provider.
-
                     Data["DevelopmentIdentityProvider:Enabled"] = bool.TrueString;
                     Data["FhirServer:Security:Authentication:Audience"] = DevelopmentIdentityProviderConfiguration.Audience;
                 }
