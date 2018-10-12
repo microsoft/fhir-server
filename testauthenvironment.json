@@ -1,0 +1,53 @@
+{
+    "roles": [
+        {
+            "name": "clinician",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Read",
+                        "Write"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "researcher",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Read"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "admin",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Read",
+                        "Write",
+                        "HardDelete"
+                    ]
+                }
+            ]
+        }
+    ],
+    "users": [
+        {
+            "id": "john",
+            "roles": [
+                "researcher"
+            ]
+        }
+    ],
+    "clientApplications": [
+        {
+            "id": "serviceclient",
+            "roles": [
+                "admin"
+            ]
+        }
+    ]
+}
