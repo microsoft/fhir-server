@@ -11,6 +11,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using IdentityServer4.Models;
+using IdentityServer4.Test;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
@@ -44,6 +45,7 @@ namespace Microsoft.Health.Fhir.Web
                     {
                         new ApiResource(DevelopmentIdentityProviderConfiguration.Audience),
                     })
+                    .AddTestUsers(GetTestUsers(identityProviderConfiguration.Users))
                     .AddInMemoryClients(
                         identityProviderConfiguration.ClientApplications.Select(
                             applicationConfiguration =>
@@ -68,6 +70,16 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             return services;
+        }
+
+        private static List<TestUser> GetTestUsers(IList<DevelopmentIdentityProviderUserConfiguration> configUsers)
+        {
+            return configUsers?.Select(user => new TestUser
+            {
+                Username = user.Id,
+                Password = user.Id,
+                Claims = user.Roles.Select(r => new Claim(ClaimTypes.Role, r)).ToList(),
+            }).ToList();
         }
 
         /// <summary>

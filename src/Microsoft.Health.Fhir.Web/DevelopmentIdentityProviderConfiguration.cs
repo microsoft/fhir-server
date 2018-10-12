@@ -14,5 +14,7 @@ namespace Microsoft.Health.Fhir.Web
         public bool Enabled { get; set; }
 
         public IList<DevelopmentIdentityProviderApplicationConfiguration> ClientApplications { get; set; } = new List<DevelopmentIdentityProviderApplicationConfiguration>();
+
+        public IList<DevelopmentIdentityProviderUserConfiguration> Users { get; set; } = new List<DevelopmentIdentityProviderUserConfiguration>();
     }
 }
