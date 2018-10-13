@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class AuthorizationConfiguration
     {
+        public const string RolesClaim = "roles";
+
         public bool Enabled { get; set; }
 
         public RoleConfiguration RoleConfiguration { get; set; } = new RoleConfiguration();

@@ -33,7 +33,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenAResource_TheServerShouldRespondSuccessfully()
         {
-            await Client.UpdateCredentials("NGale", "nurse");
             FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation());
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);

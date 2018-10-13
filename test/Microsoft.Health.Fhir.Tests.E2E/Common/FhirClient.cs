@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
@@ -24,8 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
     public class FhirClient
     {
         private readonly ResourceFormat _format;
-        private string _userName;
-        private string _password;
+        private readonly Dictionary<string, string> _bearerTokens = new Dictionary<string, string>();
         private readonly string _contentType;
 
         private readonly BaseFhirSerializer _serializer;
@@ -35,12 +35,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         private Func<string, Resource> _deserialize;
         private MediaTypeWithQualityHeaderValue _mediaType;
 
-        public FhirClient(HttpClient httpClient, ResourceFormat format, string userName = "Admin", string password = "admin")
+        public FhirClient(HttpClient httpClient, ResourceFormat format)
         {
             HttpClient = httpClient;
             _format = format;
-            _userName = userName;
-            _password = password;
 
             if (format == ResourceFormat.Json)
             {
@@ -76,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
 
             _mediaType = MediaTypeWithQualityHeaderValue.Parse(_contentType);
-            SetupAuthenticationAsync().GetAwaiter().GetResult();
+            SetupAuthenticationAsync(TestApplications.ServiceClient).GetAwaiter().GetResult();
         }
 
         public ResourceFormat Format => _format;
@@ -85,11 +83,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public HttpClient HttpClient { get; }
 
-        public async Task UpdateCredentials(string userName, string password)
+        public async Task RunAsUser(string user, TestApplication clientApplication)
         {
-            _userName = userName;
-            _password = password;
-            await SetupAuthenticationAsync();
+            EnsureArg.IsNotNullOrWhiteSpace(user, nameof(user));
+            EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
+            await SetupAuthenticationAsync(clientApplication, user);
+        }
+
+        public async Task RunAsClientApplication(TestApplication clientApplication)
+        {
+            EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
+            await SetupAuthenticationAsync(clientApplication);
         }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource)
@@ -251,30 +255,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private async Task SetupAuthenticationAsync()
+        private async Task SetupAuthenticationAsync(TestApplication clientApplication, string username = null)
         {
             await GetSecuritySettings("metadata");
 
             if (SecuritySettings.SecurityEnabled)
             {
-                var formContent = new FormUrlEncodedContent(new[]
+                string tokenKey = $"{clientApplication.Id}:{username ?? string.Empty}";
+                if (_bearerTokens.TryGetValue(tokenKey, out var token))
                 {
-                    new KeyValuePair<string, string>("client_id", TestApplications.ServiceClient.ClientId),
-                    new KeyValuePair<string, string>("client_secret", TestApplications.ServiceClient.ClientSecret),
-                    new KeyValuePair<string, string>("grant_type", TestApplications.ServiceClient.GrantType),
+                    HttpClient.SetBearerToken(token);
+                    return;
+                }
+
+                string bearerToken = await GetBearerToken(clientApplication, string.IsNullOrWhiteSpace(username) ? null : new TestUser(username));
+                HttpClient.SetBearerToken(bearerToken);
+                _bearerTokens[tokenKey] = bearerToken;
+            }
+        }
+
+        private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
+        {
+            var formContent = new FormUrlEncodedContent(new[]
+            {
+                    new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
+                    new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
+                    new KeyValuePair<string, string>("grant_type", user == null ? clientApplication.GrantType : user.GrantType),
                     new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
                     new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
-                    new KeyValuePair<string, string>("username", _userName),
-                    new KeyValuePair<string, string>("password", _password),
+                    new KeyValuePair<string, string>("username", user?.Id),
+                    new KeyValuePair<string, string>("password", user?.Password),
                 });
-                HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
+            HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
-                var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
+            var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
 
-                var bearerToken = tokenJson["access_token"].Value<string>();
-
-                HttpClient.SetBearerToken(bearerToken);
-            }
+            var bearerToken = tokenJson["access_token"].Value<string>();
+            return bearerToken;
         }
 
         private async Task GetSecuritySettings(string fhirServerMetadataUrl)

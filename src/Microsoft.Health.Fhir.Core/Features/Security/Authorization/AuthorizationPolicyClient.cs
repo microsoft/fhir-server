@@ -44,10 +44,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         private async Task<(IEnumerable<Role>, IEnumerable<ResourceAction>)> GetRolesAndActions(ClaimsPrincipal user)
         {
             var roles = user.Claims
-                .Where(claim => claim.Type == ClaimTypes.Role && _roles.ContainsKey(claim.Value))
+                .Where(claim => (claim.Type == ClaimTypes.Role || claim.Type == AuthorizationConfiguration.RolesClaim) && _roles.ContainsKey(claim.Value))
                 .Select(claim => _roles[claim.Value]);
 
-            var actions = roles?.Select(r => _roleNameToResourceActions[r.Name]).SelectMany(x => x);
+            var actions = roles?.Select(r => _roleNameToResourceActions[r.Name]).SelectMany(x => x).Distinct();
 
             return await Task.FromResult((roles, actions));
         }
