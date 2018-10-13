@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             var roleConfiguration = new RoleConfiguration();
             List<ResourcePermission> permissions = new List<ResourcePermission>();
 
-            var roles = roleNames.Select(ra => new Role(ra, new List<ResourcePermission> { new ResourcePermission { Actions = resourceActions }, }));
+            var roles = roleNames.Select(ra => new Role() { Name = ra, ResourcePermissions = new List<ResourcePermission> { new ResourcePermission { Actions = resourceActions }, } });
             roleConfiguration.Roles = roles.ToList();
             return roleConfiguration;
         }

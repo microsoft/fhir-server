@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class RoleConfiguration
     {
-        public IList<Role> Roles { get; } = new List<Role>();
+        public IList<Role> Roles { get; internal set; } = new List<Role>();
 
         public void Validate()
         {

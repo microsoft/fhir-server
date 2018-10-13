@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
         public virtual string Version { get; set; }
 
-        public IList<ResourcePermission> ResourcePermissions { get; } = new List<ResourcePermission>();
+        public IList<ResourcePermission> ResourcePermissions { get; internal set; } = new List<ResourcePermission>();
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

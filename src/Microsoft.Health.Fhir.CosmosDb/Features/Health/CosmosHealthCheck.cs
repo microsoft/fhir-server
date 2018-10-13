@@ -57,17 +57,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         {
             try
             {
-                // Make a non-invasive query to CosmosDB to make sure we can reach the database.
+                // Make a non-invasive query to make sure we can reach the data store.
 
                 await _testProvider.PerformTest(_documentClient.Value, _configuration);
 
-                return HealthCheckResult.Healthy("Successfully connected to CosmosDB.");
+                return HealthCheckResult.Healthy("Successfully connected to the data store.");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to connect to CosmosDB.");
+                _logger.LogWarning(ex, "Failed to connect to the data store.");
 
-                return HealthCheckResult.Unhealthy("Failed to connect to CosmosDB.");
+                return HealthCheckResult.Unhealthy("Failed to connect to the data store.");
             }
         }
     }

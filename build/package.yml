@@ -1,7 +1,3 @@
-parameters:
-  # Default values
-  publishNugets: true
-
 steps:
 
   # Package web
@@ -32,10 +28,6 @@ steps:
     inputs:
       command: pack
       configuration: '$(buildConfiguration)'
-      projects: |
-       **/*.csproj
-       !**/*UnitTest*.csproj
-       !**/*Integration.csproj
       packDirectory: '$(build.artifactStagingDirectory)/nupkgs'
       versioningScheme: 'byEnvVar'
       versionEnvVar: 'nuget_version'
@@ -54,9 +46,23 @@ steps:
       artifactType: 'container'
 
   - task: PublishBuildArtifacts@1
-    displayName: 'publish web arm template'
+    displayName: 'publish samples'
     inputs:
-      pathToPublish: './BaseARMTemplate.json'
+      pathToPublish: './samples/'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish testauthenvironment.json'
+    inputs:
+      pathToPublish: './testauthenvironment.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish release directory'
+    inputs:
+      pathToPublish: './release/'
       artifactName: 'deploy'
       artifactType: 'container'
 
@@ -73,14 +79,3 @@ steps:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
-
-  # Push nugets
-
-  - ${{ if eq(parameters.publishNugets, 'true') }}:
-    - task: NuGetCommand@2
-      displayName: 'push to internal feed'
-      inputs:
-        command: 'push'
-        nuGetFeedType: 'internal'
-        packagesToPush: '$(build.artifactStagingDirectory)/nupkgs/*.nupkg'
-        publishVstsFeed: 'InternalBuilds'
