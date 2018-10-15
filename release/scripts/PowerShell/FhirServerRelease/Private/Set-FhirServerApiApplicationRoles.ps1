@@ -10,9 +10,11 @@ function Set-FhirServerApiApplicationRoles {
     #>
     param(
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$ObjectId,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
         [object]$RoleConfiguration
     )
 

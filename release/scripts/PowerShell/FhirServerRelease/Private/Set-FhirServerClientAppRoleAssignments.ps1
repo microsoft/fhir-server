@@ -12,12 +12,15 @@ function Set-FhirServerClientAppRoleAssignments {
     #>
     param(
         [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
         [string]$ObjectId,
 
         [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
         [string]$ApiAppId,
 
         [Parameter(Mandatory = $true )]
+        [ValidateNotNull()]
         [object]$Roles
     )
 

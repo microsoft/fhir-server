@@ -1,6 +1,7 @@
 function Get-AzureAdApplicationByDisplayName {
     param (
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$DisplayName
     )
 
@@ -10,6 +11,7 @@ function Get-AzureAdApplicationByDisplayName {
 function Get-AzureAdApplicationByIdentifierUri {
     param (
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience
     )
 
@@ -19,6 +21,7 @@ function Get-AzureAdApplicationByIdentifierUri {
 function Get-AzureAdServicePrincipalByAppId {
     param (
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$AppId
     )
 
@@ -28,6 +31,7 @@ function Get-AzureAdServicePrincipalByAppId {
 function Get-ServiceAudience {
     param (
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$EnvironmentName
     )
  
@@ -40,6 +44,7 @@ function Get-UserId {
         [string]$EnvironmentName,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$UserId
     )
 
@@ -57,9 +62,11 @@ function Get-UserUpn {
         [string]$EnvironmentName,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$UserId,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$TenantDomain
     )
 

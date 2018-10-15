@@ -16,18 +16,22 @@ function Set-FhirServerApiUsers {
     #>
     param(
         [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
         [string]$TenantDomain,
 
         [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
         [string]$ServicePrincipalObjectId,
 
         [Parameter(Mandatory = $true )]
+        [ValidateNotNull()]
         [object]$UserConfiguration,
 
         [Parameter(Mandatory = $false )]
         [string]$UserNamePrefix,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$KeyVaultName
     )
 

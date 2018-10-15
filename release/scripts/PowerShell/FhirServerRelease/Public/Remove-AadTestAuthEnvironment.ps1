@@ -11,9 +11,11 @@ function Remove-AadTestAuthEnvironment {
     param
     (
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$TestAuthEnvironmentPath,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$EnvironmentName
     )
 
