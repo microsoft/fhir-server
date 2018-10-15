@@ -30,7 +30,7 @@ function Set-FhirServerClientAppRoleAssignments {
     }
 
     # Get the collection of roles for the user
-    $apiApplication = Get-AzureAdServicePrincipal -Filter "appId eq '$ApiAppId'"
+    $apiApplication = Get-AzureAdServicePrincipalByAppId $ApiAppId
 
     $existingRoleAssignments = Get-AzureADServiceAppRoleAssignment -ObjectId $apiApplication.ObjectId | Where-Object {$_.PrincipalId -eq $ObjectId} 
 

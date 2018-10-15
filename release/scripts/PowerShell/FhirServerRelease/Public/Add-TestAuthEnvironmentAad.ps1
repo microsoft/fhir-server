@@ -59,21 +59,21 @@ function Add-TestAuthEnvironmentAad {
 
     Write-Host "Ensuring API application exists"
 
-    $fhirServiceAudience = "https://${EnvironmentName}.azurewebsites.net"
+    $fhirServiceAudience = Get-ServiceAudience $EnvironmentName
 
-    $application = Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '${fhirServiceAudience}')"
+    $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 
     if (!$application) {
         $newApplication = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience
         
         # Change to use applicationId returned
-        $application = Get-AzureAdApplication -Filter "DisplayName eq '${fhirServiceAudience}'"
+        $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
     }
 
     Write-Host "Setting roles on API Application"
     Set-FhirServerApiApplicationRoles -ObjectId $application.ObjectId -RoleConfiguration $TestAuthEnvironment.Roles | Out-Null
 
-    $servicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$($application.AppId)'"
+    $servicePrincipal = Get-AzureAdServicePrincipalByAppId $application.AppId
 
     Write-Host "Ensuring users and role assignments for API Application exist"
     Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $TestAuthEnvironment.Users -KeyVaultName $keyVaultName | Out-Null
@@ -81,7 +81,7 @@ function Add-TestAuthEnvironmentAad {
     Write-Host "Ensuring client application exists"
     foreach ($clientApp in $TestAuthEnvironment.ClientApplications) {
         $displayName = "${EnvironmentName}-$($clientApp.Id)"
-        $aadClientApplication = Get-AzureAdApplication -Filter "DisplayName eq '$displayName'"
+        $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
 
         if (!$aadClientApplication) {
             $publicClient = $false
@@ -103,7 +103,7 @@ function Add-TestAuthEnvironmentAad {
         
         Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name "${displayName}-secret" -SecretValue $secretSecureString | Out-Null
 
-        $aadClientServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$($aadClientApplication.AppId)'"
+        $aadClientServicePrincipal = Get-AzureAdServicePrincipalByAppId $aadClientApplication.AppId
 
         Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -ObjectId $aadClientServicePrincipal.ObjectId -Roles $clientApp.Roles | Out-Null
     }

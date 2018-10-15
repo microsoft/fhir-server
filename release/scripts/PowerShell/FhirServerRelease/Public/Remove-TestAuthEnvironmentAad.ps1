@@ -37,9 +37,9 @@ function Remove-TestAuthEnvironmentAad {
 
     $TestAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $fhirServiceAudience = "https://${EnvironmentName}.azurewebsites.net"
+    $fhirServiceAudience = Get-ServiceAudience $EnvironmentName
 
-    $application = Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '${fhirServiceAudience}')"
+    $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 
     if ($application) {
         Write-Host "Removing API application ${fhirServiceAudience}"
@@ -47,7 +47,7 @@ function Remove-TestAuthEnvironmentAad {
     }
 
     foreach ($user in $TestAuthEnvironment.Users) {
-        $upn = "${EnvironmentName}-$($user.id)@$($tenantInfo.TenantDomain)"
+        $upn = Get-UserUpn -EnvironmentName $EnvironmentName -UserId $user.Id -TenantDomain $tenantInfo.TenantDomain
         $aadUser = Get-AzureAdUser -Filter "userPrincipalName eq '${upn}'"
 
         if ($aadUser) {
@@ -58,7 +58,7 @@ function Remove-TestAuthEnvironmentAad {
 
     foreach ($clientApp in $TestAuthEnvironment.ClientApplications) {
         $displayName = "${EnvironmentName}-$($clientApp.Id)"
-        $aadClientApplication = Get-AzureAdApplication -Filter "DisplayName eq '${displayName}'"
+        $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
         
         if ($aadClientApplication) {
             Write-Host "Removing application ${displayName}"
