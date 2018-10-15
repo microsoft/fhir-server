@@ -76,8 +76,8 @@ function Set-FhirServerApiUsers {
             Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${userId}-password" -SecretValue $passwordSecureString | Out-Null
 
             $environmentUsers += @{
-                upn    = $userUpn;
-                userId = $userId;
+                upn    = $userUpn
+                userId = $userId
             }
             
             # Get the collection of roles for the user

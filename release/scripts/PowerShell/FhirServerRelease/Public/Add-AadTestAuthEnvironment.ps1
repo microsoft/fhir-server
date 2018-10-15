@@ -104,8 +104,8 @@ function Add-AadTestAuthEnvironment {
         }
 
         $environmentClientApplications += @{
-            displayName = $displayName;
-            appId       = $aadClientApplication.AppId;
+            displayName = $displayName
+            appId       = $aadClientApplication.AppId
         }
         
         Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name "${displayName}-secret" -SecretValue $secretSecureString | Out-Null
@@ -116,8 +116,8 @@ function Add-AadTestAuthEnvironment {
     }
 
     @{
-        keyVaultName                  = $keyVaultName;
-        environmentUsers              = $environmentUsers;
-        environmentClientApplications = $environmentClientApplications;
+        keyVaultName                  = $keyVaultName
+        environmentUsers              = $environmentUsers
+        environmentClientApplications = $environmentClientApplications
     }
 }
