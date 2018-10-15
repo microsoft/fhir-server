@@ -35,7 +35,7 @@ function Get-ServiceAudience {
         [string]$EnvironmentName
     )
  
-    return "https://${EnvironmentName}.azurewebsites.net"
+    return "https://${EnvironmentName}.azurewebsites.net/"
 }
 
 function Get-UserId { 
