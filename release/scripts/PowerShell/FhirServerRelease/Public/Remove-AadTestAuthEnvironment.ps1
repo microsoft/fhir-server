@@ -1,4 +1,4 @@
-function Remove-TestAuthEnvironmentAad {
+function Remove-AadTestAuthEnvironment {
     <#
     .SYNOPSIS
     Removes the AAD components for the test environment in AAD.
@@ -27,7 +27,7 @@ function Remove-TestAuthEnvironmentAad {
 
     # Get current AzureAd context
     try {
-        $existingContext = Get-AzureRmContext
+        Get-AzureRmContext | Out-Null
     } 
     catch {
         throw "Please log in to Azure RM with Login-AzureRmAccount cmdlet before proceeding"

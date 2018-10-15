@@ -1,4 +1,4 @@
-function Add-TestAuthEnvironmentAad {
+function Add-AadTestAuthEnvironment {
     <#
     .SYNOPSIS
     Adds all the required components for the test environment in AAD.
@@ -27,7 +27,7 @@ function Add-TestAuthEnvironmentAad {
 
     # Get current AzureRm context
     try {
-        $existingContext = Get-AzureRmContext
+        Get-AzureRmContext | Out-Null
     } 
     catch {
         throw "Please log in to Azure RM with Login-AzureRmAccount cmdlet before proceeding"
