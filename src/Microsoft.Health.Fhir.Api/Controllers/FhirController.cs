@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             AuthorizationResult authorizationResult = await _authorizationService.AuthorizeAsync(User, policy);
             if (!authorizationResult.Succeeded)
             {
-                Forbid();
+                return Forbid();
             }
 
             DeleteResourceResponse response = await _mediator.Send(new DeleteResourceRequest(type, id, hardDelete), HttpContext.RequestAborted);

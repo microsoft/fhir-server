@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
@@ -15,18 +16,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
     internal class ResourceActionHandler : AuthorizationHandler<ResourceActionRequirement>
     {
         private readonly IAuthorizationPolicy _authorizationPolicy;
+        private readonly Dictionary<string, ResourceAction> _resourceActionLookup = new Dictionary<string, ResourceAction>(StringComparer.OrdinalIgnoreCase);
 
         public ResourceActionHandler(IAuthorizationPolicy authorizationPolicy)
         {
             EnsureArg.IsNotNull(authorizationPolicy, nameof(authorizationPolicy));
             _authorizationPolicy = authorizationPolicy;
+
+            foreach (var resourceActionValue in Enum.GetValues(typeof(ResourceAction)))
+            {
+                _resourceActionLookup.Add(resourceActionValue.ToString(), Enum.Parse<ResourceAction>(resourceActionValue.ToString()));
+            }
         }
 
         protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ResourceActionRequirement requirement)
         {
-            if (Enum.TryParse<ResourceAction>(requirement.PolicyName, out var resourceAction) && await _authorizationPolicy.HasPermissionAsync(context.User, resourceAction))
+            if (_resourceActionLookup.ContainsKey(requirement.PolicyName) && await _authorizationPolicy.HasPermissionAsync(context.User, _resourceActionLookup[requirement.PolicyName]))
             {
                 context.Succeed(requirement);
+            }
+            else
+            {
+                context.Fail();
             }
         }
     }
