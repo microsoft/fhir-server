@@ -27,7 +27,7 @@ function Add-AadTestAuthEnvironment {
 
     # Get current AzureRm context
     try {
-        Get-AzureRmContext | Out-Null
+        $azureRmContext = Get-AzureRmContext
     } 
     catch {
         throw "Please log in to Azure RM with Login-AzureRmAccount cmdlet before proceeding"
@@ -43,6 +43,17 @@ function Add-AadTestAuthEnvironment {
 
     if (!$keyVault) {
         New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName ${EnvironmentName} -Location 'East US' | Out-Null
+    }
+    
+    if ($ctx.Account.Type -eq "User") {
+        $currentObjectId = (Get-AzureRmADUser -UserPrincipalName $azureRmContext.Account.Id).Id
+    }
+    elseif ($currentContext.Account.Type -eq 'ServicePrincipal') {
+        $currentObjectId = (Get-AzureRmADServicePrincipal -ServicePrincipalName $azureRmContext.Account.Id).Id
+    }
+
+    if ($currentObjectId) {
+        Set-AzureRmKeyVaultAccessPolicy -VaultName $keyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get, Set
     }
 
     $retryCount = 0
