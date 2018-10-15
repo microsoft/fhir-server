@@ -41,14 +41,19 @@ function Set-FhirServerApiUsers {
 
     Write-Host "Persisting Users to AAD"
     
+    $environmentUsers = @()
+
     if ($UserConfiguration) {
         $servicePrincipal = Get-AzureADServicePrincipal -ObjectId $ServicePrincipalObjectId
 
         foreach ($user in $UserConfiguration) {
             $userId = $user.id
             if ($UserNamePrefix) {
-                $userId = "${UserNamePrefix}-$($user.id)"
+                $userId = Get-UserId -EnvironmentName $UserNamePrefix -UserId $user.Id
             }
+
+            $userUpn = Get-UserUpn -UserId $userId -TenantDomain $TenantDomain
+
             # See if the user exists
             $aadUser = Get-AzureADUser -searchstring $userId
 
@@ -65,17 +70,22 @@ function Set-FhirServerApiUsers {
                 $PasswordProfile.EnforceChangePasswordPolicy = $false
                 $PasswordProfile.ForceChangePasswordNextLogin = $false
 
-                $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName ($userId + "@" + $TenantDomain) -AccountEnabled $true -MailNickName $userId
+                $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
             }
 
             Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${userId}-password" -SecretValue $passwordSecureString | Out-Null
+
+            $environmentUsers += @{
+                upn    = $userUpn;
+                userId = $userId;
+            }
             
             # Get the collection of roles for the user
             $existingRoleAssignments = Get-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId | Where-Object {$_.ResourceId -eq $servicePrincipal.ObjectId}
 
             $expectedRoles = New-Object System.Collections.ArrayList
             $rolesToAdd = New-Object System.Collections.ArrayList
-            $roleIdsToRemove = $()
+            $rolesToRemove = New-Object System.Collections.ArrayList
 
             foreach ($role in $user.roles) {
                 $expectedRoles += @($servicePrincipal.AppRoles | Where-Object { $_.DisplayName -eq $role })
@@ -101,4 +111,6 @@ function Set-FhirServerApiUsers {
             }
         }
     }
+
+    return $environmentUsers
 }

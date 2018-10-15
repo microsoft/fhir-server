@@ -76,7 +76,9 @@ function Add-AadTestAuthEnvironment {
     $servicePrincipal = Get-AzureAdServicePrincipalByAppId $application.AppId
 
     Write-Host "Ensuring users and role assignments for API Application exist"
-    Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $TestAuthEnvironment.Users -KeyVaultName $keyVaultName | Out-Null
+    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $TestAuthEnvironment.Users -KeyVaultName $keyVaultName
+
+    $environmentClientApplications = @()
 
     Write-Host "Ensuring client application exists"
     foreach ($clientApp in $TestAuthEnvironment.ClientApplications) {
@@ -100,11 +102,22 @@ function Add-AadTestAuthEnvironment {
             
             $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force
         }
+
+        $environmentClientApplications += @{
+            displayName = $displayName;
+            appId       = $aadClientApplication.AppId;
+        }
         
         Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name "${displayName}-secret" -SecretValue $secretSecureString | Out-Null
 
         $aadClientServicePrincipal = Get-AzureAdServicePrincipalByAppId $aadClientApplication.AppId
 
         Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -ObjectId $aadClientServicePrincipal.ObjectId -Roles $clientApp.Roles | Out-Null
+    }
+
+    @{
+        keyVaultName                  = $keyVaultName;
+        environmentUsers              = $environmentUsers;
+        environmentClientApplications = $environmentClientApplications;
     }
 }

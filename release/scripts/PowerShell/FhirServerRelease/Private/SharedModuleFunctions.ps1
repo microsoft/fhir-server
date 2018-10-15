@@ -34,9 +34,26 @@ function Get-ServiceAudience {
     return "https://${EnvironmentName}.azurewebsites.net"
 }
 
+function Get-UserId { 
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$EnvironmentName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$UserId
+    )
+
+    if (!$EnvironmentName) {
+        return $UserId
+    }
+    else {
+        return "${EnvironmentName}-${UserId}"
+    }
+}
+
 function Get-UserUpn {
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [string]$EnvironmentName,
 
         [Parameter(Mandatory = $true)]
@@ -46,5 +63,5 @@ function Get-UserUpn {
         [string]$TenantDomain
     )
 
-    return "${EnvironmentName}-${UserId}@${TenantDomain}"
+    return "$(Get-UserId -EnvironmentName $EnvironmentName -UserId $UserId)@${TenantDomain}"
 }
