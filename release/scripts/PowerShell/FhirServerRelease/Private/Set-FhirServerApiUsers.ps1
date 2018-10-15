@@ -41,15 +41,12 @@ function Set-FhirServerApiUsers {
 
     Write-Host "Persisting Users to AAD"
     
-    if($UserConfiguration)
-    {
+    if ($UserConfiguration) {
         $servicePrincipal = Get-AzureADServicePrincipal -ObjectId $ServicePrincipalObjectId
 
-        foreach ($user in $UserConfiguration) 
-        {
+        foreach ($user in $UserConfiguration) {
             $userId = $user.id
-            if($UserNamePrefix)
-            {
+            if ($UserNamePrefix) {
                 $userId = "${UserNamePrefix}-$($user.id)"
             }
             # See if the user exists
@@ -59,12 +56,10 @@ function Set-FhirServerApiUsers {
             $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
             $passwordSecureString = ConvertTo-SecureString $password -AsPlainText -Force
 
-            if($aadUser)
-            {
+            if ($aadUser) {
                 Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password $passwordSecureString -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
             }
-            else
-            {
+            else {
                 $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
                 $PasswordProfile.Password = $password
                 $PasswordProfile.EnforceChangePasswordPolicy = $false
@@ -82,13 +77,11 @@ function Set-FhirServerApiUsers {
             $rolesToAdd = New-Object System.Collections.ArrayList
             $roleIdsToRemove = $()
 
-            foreach($role in $user.roles)
-            {
-                 $expectedRoles += @($servicePrincipal.AppRoles | Where-Object { $_.DisplayName -eq $role })
+            foreach ($role in $user.roles) {
+                $expectedRoles += @($servicePrincipal.AppRoles | Where-Object { $_.DisplayName -eq $role })
             }
 
-            foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") 
-            {
+            foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") {
                 switch ($diff.SideIndicator) {
                     "<=" {
                         $rolesToAdd += $diff.Id
@@ -99,13 +92,11 @@ function Set-FhirServerApiUsers {
                 }
             }
 
-            foreach($role in $rolesToAdd)
-            {
+            foreach ($role in $rolesToAdd) {
                 New-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -PrincipalId $aadUser.ObjectId -ResourceId $servicePrincipal.ObjectId -Id $role | Out-Null
             }
 
-            foreach($role in $rolesToRemove)
-            {
+            foreach ($role in $rolesToRemove) {
                 Remove-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -AppRoleAssignmentId ($existingRoleAssignments | Where-Object { $_.Id -eq $role }).ObjectId | Out-Null
             }
         }

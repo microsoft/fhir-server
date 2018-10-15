@@ -32,24 +32,21 @@ function Set-FhirServerApiApplicationRoles {
     $appRolesToEnable = $false
     $desiredAppRoles = @()
 
-    if($RoleConfiguration)
-    {
-        foreach ($role in $RoleConfiguration) 
-        {
+    if ($RoleConfiguration) {
+        foreach ($role in $RoleConfiguration) {
             $id = ($azureAdApplication.AppRoles | Where-Object Value -eq $role.name).Id
 
-            if(!$id)
-            {
+            if (!$id) {
                 $id = New-Guid
             }
 
             $desiredAppRoles += @{
                 AllowedMemberTypes = @("User", "Application")
-                Description = $role.name
-                DisplayName = $role.name
-                Id = $id
-                IsEnabled = "true"
-                Value = $role.name
+                Description        = $role.name
+                DisplayName        = $role.name
+                Id                 = $id
+                IsEnabled          = "true"
+                Value              = $role.name
             }
         }
 

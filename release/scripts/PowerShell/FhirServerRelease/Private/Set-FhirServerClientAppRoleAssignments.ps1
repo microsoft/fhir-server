@@ -38,13 +38,11 @@ function Set-FhirServerClientAppRoleAssignments {
     $rolesToAdd = $()
     $roleIdsToRemove = $()
 
-    foreach($role in $Roles)
-    {
+    foreach ($role in $Roles) {
         $expectedRoles += @($apiApplication.AppRoles | Where-Object { $_.DisplayName -eq $role })
     }
 
-    foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") 
-    {
+    foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") {
         switch ($diff.SideIndicator) {
             "<=" {
                 $rolesToAdd += $diff.Id
@@ -55,13 +53,11 @@ function Set-FhirServerClientAppRoleAssignments {
         }
     }
 
-    foreach($role in $rolesToAdd)
-    {
+    foreach ($role in $rolesToAdd) {
         New-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.ObjectId -Id $role | Out-Null
     }
 
-    foreach($role in $rolesToRemove)
-    {
+    foreach ($role in $rolesToRemove) {
         Remove-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -AppRoleAssignmentId ($existingRoleAssignments | Where-Object { $_.Id -eq $role }).ObjectId | Out-Null
     }
 }
