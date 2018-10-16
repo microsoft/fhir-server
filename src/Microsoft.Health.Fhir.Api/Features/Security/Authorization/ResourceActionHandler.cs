@@ -23,15 +23,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
             EnsureArg.IsNotNull(authorizationPolicy, nameof(authorizationPolicy));
             _authorizationPolicy = authorizationPolicy;
 
-            foreach (var resourceActionValue in Enum.GetValues(typeof(ResourceAction)))
+            foreach (ResourceAction resourceActionValue in Enum.GetValues(typeof(ResourceAction)))
             {
-                _resourceActionLookup.Add(resourceActionValue.ToString(), Enum.Parse<ResourceAction>(resourceActionValue.ToString()));
+                _resourceActionLookup.Add(resourceActionValue.ToString(), resourceActionValue);
             }
         }
 
         protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ResourceActionRequirement requirement)
         {
-            if (_resourceActionLookup.ContainsKey(requirement.PolicyName) && await _authorizationPolicy.HasPermissionAsync(context.User, _resourceActionLookup[requirement.PolicyName]))
+            if (_resourceActionLookup.TryGetValue(requirement.PolicyName, out ResourceAction resourceAction) && await _authorizationPolicy.HasPermissionAsync(context.User, resourceAction))
             {
                 context.Succeed(requirement);
             }

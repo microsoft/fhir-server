@@ -17,8 +17,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         public void GivenAValidRoleConfiguration_WhenDeserailized_ThenReturnsExpectedRoleInformation()
         {
             var roleConfig = Samples.GetJsonSample<RoleConfiguration>("AuthConfigWithValidRoles");
-            roleConfig.Validate();
             Assert.NotNull(roleConfig);
+            roleConfig.Validate();
             Assert.NotNull(roleConfig.Roles);
             Assert.Equal(3, roleConfig.Roles.Count());
             return;
@@ -27,17 +27,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [Fact]
         public void GivenAnInvalidRoleConfigurationForRoleWithNoActions_WhenValidated_ThrowAppropriateValidationException()
         {
-            InvalidDefinitionException validationException = null;
-            RoleConfiguration invalidJson1 = Samples.GetJsonSample<RoleConfiguration>("AuthConfigWIthInvalidEntries");
-
-            try
-            {
-                invalidJson1.Validate();
-            }
-            catch (InvalidDefinitionException ex)
-            {
-                validationException = ex;
-            }
+            RoleConfiguration invalidJson1 = Samples.GetJsonSample<RoleConfiguration>("AuthConfigWithInvalidEntries");
+            InvalidDefinitionException validationException = Assert.Throws<InvalidDefinitionException>(() => invalidJson1.Validate());
 
             Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role 'Nurse' does not have any Actions.")));
         }

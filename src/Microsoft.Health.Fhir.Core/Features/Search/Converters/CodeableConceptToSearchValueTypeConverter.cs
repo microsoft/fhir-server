@@ -30,11 +30,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             foreach (Coding coding in value.Coding)
             {
-                if (!string.IsNullOrWhiteSpace(coding.System) ||
-                    !string.IsNullOrWhiteSpace(coding.Code) ||
-                    !string.IsNullOrWhiteSpace(coding.Display))
+                if (coding == null)
                 {
-                    yield return new TokenSearchValue(coding.System, coding.Code, coding.Display);
+                    continue;
+                }
+
+                TokenSearchValue searchValue = coding.ToTokenSearchValue();
+
+                if (searchValue != null)
+                {
+                    yield return searchValue;
                 }
             }
         }

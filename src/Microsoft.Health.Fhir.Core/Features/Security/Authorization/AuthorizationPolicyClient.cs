@@ -9,21 +9,20 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
     public class AuthorizationPolicyClient : IAuthorizationPolicy
     {
-        private readonly RoleConfiguration _roleConfiguration;
+        private readonly IRoleConfiguration _roleConfiguration;
         private readonly Dictionary<string, Role> _roles;
         private readonly Dictionary<string, IEnumerable<ResourceAction>> _roleNameToResourceActions;
 
-        public AuthorizationPolicyClient(IOptions<RoleConfiguration> roleConfiguration)
+        public AuthorizationPolicyClient(IRoleConfiguration roleConfiguration)
         {
-            EnsureArg.IsNotNull(roleConfiguration?.Value, nameof(roleConfiguration));
-            _roleConfiguration = roleConfiguration.Value;
+            EnsureArg.IsNotNull(roleConfiguration, nameof(roleConfiguration));
+            _roleConfiguration = roleConfiguration;
             _roles = _roleConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.InvariantCultureIgnoreCase);
             _roleNameToResourceActions = _roles.Select(kvp => KeyValuePair.Create(kvp.Key, kvp.Value.ResourcePermissions.Select(rp => rp.Actions).SelectMany(x => x))).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         }
@@ -31,25 +30,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         public async Task<bool> HasPermissionAsync(ClaimsPrincipal user, ResourceAction action)
         {
             EnsureArg.IsNotNull(user, nameof(user));
-            (IEnumerable<Role> roles, IEnumerable<ResourceAction> actions) = await GetRolesAndActions(user);
+            (IEnumerable<Role> roles, IEnumerable<ResourceAction> actions) = GetRolesAndActions(user);
 
             if (actions == null)
             {
                 return false;
             }
 
-            return actions.Contains(action);
+            return await Task.FromResult(actions.Contains(action));
         }
 
-        private async Task<(IEnumerable<Role>, IEnumerable<ResourceAction>)> GetRolesAndActions(ClaimsPrincipal user)
+        private (IEnumerable<Role>, IEnumerable<ResourceAction>) GetRolesAndActions(ClaimsPrincipal user)
         {
             var roles = user.Claims
                 .Where(claim => (claim.Type == ClaimTypes.Role || claim.Type == AuthorizationConfiguration.RolesClaim) && _roles.ContainsKey(claim.Value))
                 .Select(claim => _roles[claim.Value]);
 
-            var actions = roles?.Select(r => _roleNameToResourceActions[r.Name]).SelectMany(x => x).Distinct();
+            var actions = roles.Select(r => _roleNameToResourceActions[r.Name]).SelectMany(x => x).Distinct();
 
-            return await Task.FromResult((roles, actions));
+            return (roles, actions);
         }
     }
 }

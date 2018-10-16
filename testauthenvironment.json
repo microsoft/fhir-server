@@ -12,11 +12,31 @@
             ]
         },
         {
+            "name": "OfficeAssistant",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Write"
+                    ]
+                }
+            ]
+        },
+        {
             "name": "researcher",
             "resourcePermissions": [
                 {
                     "actions": [
                         "Read"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "director",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "HardDelete"
                     ]
                 }
             ]
@@ -39,6 +59,30 @@
             "id": "john",
             "roles": [
                 "researcher"
+            ]
+        },
+        {
+            "id": "sam",
+            "roles": [
+                "officeassistant"
+            ]
+        },
+        {
+            "id": "frank",
+            "roles": [
+                "clinician"
+            ]
+        },
+        {
+            "id": "doug",
+            "roles": [
+                "director"
+            ]
+        },
+        {
+            "id": "itguy",
+            "roles": [
+                "admin"
             ]
         }
     ],

@@ -14,6 +14,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
             PolicyName = policyName;
         }
 
-        public string PolicyName { get; private set; }
+        public string PolicyName { get; }
     }
 }

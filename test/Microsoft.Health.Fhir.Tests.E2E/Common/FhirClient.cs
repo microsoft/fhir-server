@@ -83,11 +83,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public HttpClient HttpClient { get; }
 
-        public async Task RunAsUser(string user, TestApplication clientApplication)
+        public async Task RunAsUser(TestUser user, TestApplication clientApplication)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(user, nameof(user));
+            EnsureArg.IsNotNull(user, nameof(user));
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication, user);
+            await SetupAuthenticationAsync(clientApplication, user.Id);
         }
 
         public async Task RunAsClientApplication(TestApplication clientApplication)
@@ -261,37 +261,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             if (SecuritySettings.SecurityEnabled)
             {
-                string tokenKey = $"{clientApplication.Id}:{username ?? string.Empty}";
-                if (_bearerTokens.TryGetValue(tokenKey, out var token))
+                string tokenKey = $"{clientApplication.Id}:{(string.IsNullOrWhiteSpace(username) ? string.Empty : username)}";
+                string bearerToken;
+                if (!_bearerTokens.TryGetValue(tokenKey, out bearerToken))
                 {
-                    HttpClient.SetBearerToken(token);
-                    return;
+                    bearerToken = await GetBearerToken(clientApplication, string.IsNullOrWhiteSpace(username) ? null : new TestUser(username));
+                    _bearerTokens[tokenKey] = bearerToken;
                 }
 
-                string bearerToken = await GetBearerToken(clientApplication, string.IsNullOrWhiteSpace(username) ? null : new TestUser(username));
                 HttpClient.SetBearerToken(bearerToken);
-                _bearerTokens[tokenKey] = bearerToken;
             }
         }
 
         private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
         {
-            var formContent = new FormUrlEncodedContent(new[]
-            {
-                    new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
-                    new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
-                    new KeyValuePair<string, string>("grant_type", user == null ? clientApplication.GrantType : user.GrantType),
-                    new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
-                    new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
-                    new KeyValuePair<string, string>("username", user?.Id),
-                    new KeyValuePair<string, string>("password", user?.Password),
-                });
+            var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
             HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
             var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
 
             var bearerToken = tokenJson["access_token"].Value<string>();
             return bearerToken;
+        }
+
+        private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)
+        {
+            return new List<KeyValuePair<string, string>>
+            {
+                    new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
+                    new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
+                    new KeyValuePair<string, string>("grant_type", clientApplication.GrantType),
+                    new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
+                    new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
+            };
+        }
+
+        private List<KeyValuePair<string, string>> GetUserSecuritySettings(TestApplication clientApplication, TestUser user)
+        {
+            return new List<KeyValuePair<string, string>>
+            {
+                    new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
+                    new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
+                    new KeyValuePair<string, string>("grant_type", user.GrantType),
+                    new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
+                    new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
+                    new KeyValuePair<string, string>("username", user.Id),
+                    new KeyValuePair<string, string>("password", user.Password),
+            };
         }
 
         private async Task GetSecuritySettings(string fhirServerMetadataUrl)

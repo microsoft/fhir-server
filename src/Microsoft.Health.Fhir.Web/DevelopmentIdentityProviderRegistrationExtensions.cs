@@ -46,7 +46,10 @@ namespace Microsoft.Health.Fhir.Web
                     {
                         new ApiResource(
                         DevelopmentIdentityProviderConfiguration.Audience,
-                        claimTypes: new List<string>() { ClaimTypes.Role, ClaimTypes.Name, ClaimTypes.NameIdentifier }) { UserClaims = { AuthorizationConfiguration.RolesClaim } },
+                        claimTypes: new List<string>() { ClaimTypes.Role, ClaimTypes.Name, ClaimTypes.NameIdentifier })
+                        {
+                            UserClaims = { AuthorizationConfiguration.RolesClaim },
+                        },
                     })
                     .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select(user =>
                         new TestUser

@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 cc =>
                 {
                     cc.Coding.Add(new Coding(null, null, null));
+                    cc.Coding.Add(null);
                     cc.Coding.Add(new Coding(system, null, text));
                 },
                 ValidateToken,

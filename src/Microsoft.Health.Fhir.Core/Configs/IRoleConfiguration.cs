@@ -4,11 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
-namespace Microsoft.Health.Fhir.Core.Features.Security
+namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class ResourcePermission
+    public interface IRoleConfiguration
     {
-        public IList<ResourceAction> Actions { get; } = new List<ResourceAction>();
+        IList<Role> Roles { get; }
+
+        void Validate();
     }
 }

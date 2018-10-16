@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Security.Claims;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -57,6 +59,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IActionResult result = _controller.Fhir();
 
             Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async void GivenHardDeleteActionNotAuthorized_WhenRequestingHardDeleteAction_ThenForbiddenResultShouldBeReturned()
+        {
+            _authorizationService.AuthorizeAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<object>(), policyName: "HardDelete").Returns(Task.FromResult(AuthorizationResult.Failed()));
+            var result = await _controller.Delete("typea", "ida", true);
+            Assert.IsType<ForbidResult>(result);
         }
     }
 }
