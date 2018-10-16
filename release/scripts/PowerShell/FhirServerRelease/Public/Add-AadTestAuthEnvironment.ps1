@@ -60,10 +60,10 @@ function Add-AadTestAuthEnvironment {
         sleep 10
     }
     
-    if ($ctx.Account.Type -eq "User") {
+    if ($azureRmContext.Account.Type -eq "User") {
         $currentObjectId = (Get-AzureRmADUser -UserPrincipalName $azureRmContext.Account.Id).Id
     }
-    elseif ($currentContext.Account.Type -eq 'ServicePrincipal') {
+    elseif ($azureRmContext.Account.Type -eq 'ServicePrincipal') {
         $currentObjectId = (Get-AzureRmADServicePrincipal -ServicePrincipalName $azureRmContext.Account.Id).Id
     }
 
