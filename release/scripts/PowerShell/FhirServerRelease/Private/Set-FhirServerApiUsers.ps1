@@ -47,73 +47,71 @@ function Set-FhirServerApiUsers {
     
     $environmentUsers = @()
 
-    if ($UserConfiguration) {
-        $servicePrincipal = Get-AzureADServicePrincipal -ObjectId $ServicePrincipalObjectId
+    $servicePrincipal = Get-AzureADServicePrincipal -ObjectId $ServicePrincipalObjectId
 
-        foreach ($user in $UserConfiguration) {
-            $userId = $user.id
-            if ($UserNamePrefix) {
-                $userId = Get-UserId -EnvironmentName $UserNamePrefix -UserId $user.Id
-            }
+    foreach ($user in $UserConfiguration) {
+        $userId = $user.id
+        if ($UserNamePrefix) {
+            $userId = Get-UserId -EnvironmentName $UserNamePrefix -UserId $user.Id
+        }
 
-            $userUpn = Get-UserUpn -UserId $userId -TenantDomain $TenantDomain
+        $userUpn = Get-UserUpn -UserId $userId -TenantDomain $TenantDomain
 
-            # See if the user exists
-            $aadUser = Get-AzureADUser -searchstring $userId
+        # See if the user exists
+        $aadUser = Get-AzureADUser -searchstring $userId
 
-            Add-Type -AssemblyName System.Web
-            $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
-            $passwordSecureString = ConvertTo-SecureString $password -AsPlainText -Force
+        Add-Type -AssemblyName System.Web
+        $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
+        $passwordSecureString = ConvertTo-SecureString $password -AsPlainText -Force
 
-            if ($aadUser) {
-                Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password $passwordSecureString -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
-            }
-            else {
-                $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
-                $PasswordProfile.Password = $password
-                $PasswordProfile.EnforceChangePasswordPolicy = $false
-                $PasswordProfile.ForceChangePasswordNextLogin = $false
+        if ($aadUser) {
+            Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password $passwordSecureString -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
+        }
+        else {
+            $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
+            $PasswordProfile.Password = $password
+            $PasswordProfile.EnforceChangePasswordPolicy = $false
+            $PasswordProfile.ForceChangePasswordNextLogin = $false
 
-                $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
-            }
+            $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
+        }
 
-            Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${userId}-password" -SecretValue $passwordSecureString | Out-Null
+        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${userId}-password" -SecretValue $passwordSecureString | Out-Null
 
-            $environmentUsers += @{
-                upn           = $userUpn
-                environmentId = $userId
-                id            = $user.id
-            }
+        $environmentUsers += @{
+            upn           = $userUpn
+            environmentId = $userId
+            id            = $user.id
+        }
             
-            # Get the collection of roles for the user
-            $existingRoleAssignments = Get-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId | Where-Object {$_.ResourceId -eq $servicePrincipal.ObjectId}
+        # Get the collection of roles for the user
+        $existingRoleAssignments = Get-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId | Where-Object {$_.ResourceId -eq $servicePrincipal.ObjectId}
 
-            $expectedRoles = New-Object System.Collections.ArrayList
-            $rolesToAdd = New-Object System.Collections.ArrayList
-            $rolesToRemove = New-Object System.Collections.ArrayList
+        $expectedRoles = New-Object System.Collections.ArrayList
+        $rolesToAdd = New-Object System.Collections.ArrayList
+        $rolesToRemove = New-Object System.Collections.ArrayList
 
-            foreach ($role in $user.roles) {
-                $expectedRoles += @($servicePrincipal.AppRoles | Where-Object { $_.DisplayName -eq $role })
-            }
+        foreach ($role in $user.roles) {
+            $expectedRoles += @($servicePrincipal.AppRoles | Where-Object { $_.DisplayName -eq $role })
+        }
 
-            foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") {
-                switch ($diff.SideIndicator) {
-                    "<=" {
-                        $rolesToAdd += $diff.Id
-                    }
-                    "=>" {
-                        $rolesToRemove += $diff.Id
-                    }
+        foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") {
+            switch ($diff.SideIndicator) {
+                "<=" {
+                    $rolesToAdd += $diff.Id
+                }
+                "=>" {
+                    $rolesToRemove += $diff.Id
                 }
             }
+        }
 
-            foreach ($role in $rolesToAdd) {
-                New-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -PrincipalId $aadUser.ObjectId -ResourceId $servicePrincipal.ObjectId -Id $role | Out-Null
-            }
+        foreach ($role in $rolesToAdd) {
+            New-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -PrincipalId $aadUser.ObjectId -ResourceId $servicePrincipal.ObjectId -Id $role | Out-Null
+        }
 
-            foreach ($role in $rolesToRemove) {
-                Remove-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -AppRoleAssignmentId ($existingRoleAssignments | Where-Object { $_.Id -eq $role }).ObjectId | Out-Null
-            }
+        foreach ($role in $rolesToRemove) {
+            Remove-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -AppRoleAssignmentId ($existingRoleAssignments | Where-Object { $_.Id -eq $role }).ObjectId | Out-Null
         }
     }
 

@@ -37,7 +37,7 @@ function Add-AadTestAuthEnvironment {
 
     Write-Host "Setting up Test Authorization Environment for AAD"
 
-    $TestAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
+    $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
     $keyVaultName = "${EnvironmentName}-ts"
 
@@ -92,17 +92,17 @@ function Add-AadTestAuthEnvironment {
     }
 
     Write-Host "Setting roles on API Application"
-    Set-FhirServerApiApplicationRoles -ObjectId $application.ObjectId -RoleConfiguration $TestAuthEnvironment.Roles | Out-Null
+    Set-FhirServerApiApplicationRoles -ObjectId $application.ObjectId -RoleConfiguration $testAuthEnvironment.Roles | Out-Null
 
     $servicePrincipal = Get-AzureAdServicePrincipalByAppId $application.AppId
 
     Write-Host "Ensuring users and role assignments for API Application exist"
-    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $TestAuthEnvironment.Users -KeyVaultName $keyVaultName
+    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $keyVaultName
 
     $environmentClientApplications = @()
 
     Write-Host "Ensuring client application exists"
-    foreach ($clientApp in $TestAuthEnvironment.ClientApplications) {
+    foreach ($clientApp in $testAuthEnvironment.ClientApplications) {
         $displayName = "${EnvironmentName}-$($clientApp.Id)"
         $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
 

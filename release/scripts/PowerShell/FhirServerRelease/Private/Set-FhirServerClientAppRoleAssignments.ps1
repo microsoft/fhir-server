@@ -57,10 +57,38 @@ function Set-FhirServerClientAppRoleAssignments {
     }
 
     foreach ($role in $rolesToAdd) {
-        New-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.ObjectId -Id $role | Out-Null
+        # This is know to report failure in certain scenarios, but will actually apply the permissions
+        try {
+            New-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.ObjectId -Id $role | Out-Null
+        }
     }
 
     foreach ($role in $rolesToRemove) {
         Remove-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -AppRoleAssignmentId ($existingRoleAssignments | Where-Object { $_.Id -eq $role }).ObjectId | Out-Null
+    }
+
+    $finalRolesAssignments = Get-AzureADServiceAppRoleAssignment -ObjectId $apiApplication.ObjectId | Where-Object {$_.PrincipalId -eq $ObjectId} 
+    $rolesNotAdded = $()
+    $rolesNotRemoved = $()
+    foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($finalRolesAssignments | Select-Object) -Property "Id") {
+        switch ($diff.SideIndicator) {
+            "<=" {
+                $rolesNotAdded += $diff.Id
+            }
+            "=>" {
+                $rolesNotRemoved += $diff.Id
+            }
+        }
+    }
+
+    if($rolesNotAdded -or $rolesNotRemoved) {
+        if($rolesNotAdded) {
+            Write-Host "The following roles were not added: $rolesNotAdded"
+        }
+    
+        if($rolesNotRemoved) {
+            Write-Host "The following roles were not removed: $rolesNotRemoved"
+        }
+        throw "There was an issue with adding or removing app role assignments"
     }
 }

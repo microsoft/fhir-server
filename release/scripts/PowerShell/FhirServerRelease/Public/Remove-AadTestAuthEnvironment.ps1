@@ -37,7 +37,7 @@ function Remove-AadTestAuthEnvironment {
 
     Write-Host "Tearing down test authorization environment for AAD"
 
-    $TestAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
+    $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
     $fhirServiceAudience = Get-ServiceAudience $EnvironmentName
 
@@ -48,7 +48,7 @@ function Remove-AadTestAuthEnvironment {
         Remove-AzureAdApplication -ObjectId $application.ObjectId | Out-Null
     }
 
-    foreach ($user in $TestAuthEnvironment.Users) {
+    foreach ($user in $testAuthEnvironment.Users) {
         $upn = Get-UserUpn -EnvironmentName $EnvironmentName -UserId $user.Id -TenantDomain $tenantInfo.TenantDomain
         $aadUser = Get-AzureAdUser -Filter "userPrincipalName eq '${upn}'"
 
@@ -58,7 +58,7 @@ function Remove-AadTestAuthEnvironment {
         }
     }
 
-    foreach ($clientApp in $TestAuthEnvironment.ClientApplications) {
+    foreach ($clientApp in $testAuthEnvironment.ClientApplications) {
         $displayName = "${EnvironmentName}-$($clientApp.Id)"
         $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
         
