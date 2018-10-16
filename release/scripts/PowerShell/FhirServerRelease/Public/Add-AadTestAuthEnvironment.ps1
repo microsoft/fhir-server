@@ -61,10 +61,16 @@ function Add-AadTestAuthEnvironment {
     }
     
     if ($azureRmContext.Account.Type -eq "User") {
+        Write-Host "Current context is user: $($azureRmContext.Account.Id)"
         $currentObjectId = (Get-AzureRmADUser -UserPrincipalName $azureRmContext.Account.Id).Id
     }
-    elseif ($azureRmContext.Account.Type -eq 'ServicePrincipal') {
+    elseif ($azureRmContext.Account.Type -eq "ServicePrincipal") {
+        Write-Host "Current context is service principal: $($azureRmContext.Account.Id)"
         $currentObjectId = (Get-AzureRmADServicePrincipal -ServicePrincipalName $azureRmContext.Account.Id).Id
+    }
+    else {
+        Write-Host "Current context is account of type '$($azureRmContext.Account.Type)' with id of '$($azureRmContext.Account.Id)"
+        throw "Running as an unsupported account type. Please use either a 'User' or 'Service Principal' to run this command"
     }
 
     if ($currentObjectId) {
