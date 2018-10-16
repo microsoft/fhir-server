@@ -44,18 +44,8 @@ function Add-AadTestAuthEnvironment {
     $keyVault = Get-AzureRmKeyVault -VaultName $keyVaultName
 
     if (!$keyVault) {
+        Write-Host "Creating keyvault with the name ${keyVaultName}"
         New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName ${EnvironmentName} -Location 'East US' | Out-Null
-    }
-    
-    if ($ctx.Account.Type -eq "User") {
-        $currentObjectId = (Get-AzureRmADUser -UserPrincipalName $azureRmContext.Account.Id).Id
-    }
-    elseif ($currentContext.Account.Type -eq 'ServicePrincipal') {
-        $currentObjectId = (Get-AzureRmADServicePrincipal -ServicePrincipalName $azureRmContext.Account.Id).Id
-    }
-
-    if ($currentObjectId) {
-        Set-AzureRmKeyVaultAccessPolicy -VaultName $keyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get, Set
     }
 
     $retryCount = 0
@@ -68,6 +58,18 @@ function Add-AadTestAuthEnvironment {
         }
 
         sleep 10
+    }
+    
+    if ($ctx.Account.Type -eq "User") {
+        $currentObjectId = (Get-AzureRmADUser -UserPrincipalName $azureRmContext.Account.Id).Id
+    }
+    elseif ($currentContext.Account.Type -eq 'ServicePrincipal') {
+        $currentObjectId = (Get-AzureRmADServicePrincipal -ServicePrincipalName $azureRmContext.Account.Id).Id
+    }
+
+    if ($currentObjectId) {
+        Write-Host "Adding permission to keyvault for ${currentObjectId}"
+        Set-AzureRmKeyVaultAccessPolicy -VaultName $keyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get, Set
     }
 
     Write-Host "Ensuring API application exists"
