@@ -29,14 +29,6 @@ function Remove-AadTestAuthEnvironment {
         throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
     }
 
-    # Get current AzureAd context
-    try {
-        Get-AzureRmContext | Out-Null
-    } 
-    catch {
-        throw "Please log in to Azure RM with Login-AzureRmAccount cmdlet before proceeding"
-    }
-
     Write-Host "Tearing down test authorization environment for AAD"
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
