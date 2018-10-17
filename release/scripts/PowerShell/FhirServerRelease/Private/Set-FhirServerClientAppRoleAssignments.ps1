@@ -92,6 +92,5 @@ function Set-FhirServerClientAppRoleAssignments {
         if($rolesNotRemoved) {
             Write-Host "The following roles were not removed: $rolesNotRemoved"
         }
-        throw "There was an issue with adding or removing app role assignments"
     }
 }
