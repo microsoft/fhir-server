@@ -78,7 +78,7 @@ function Set-FhirServerApiUsers {
             $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
         }
 
-        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "${userId}-password" -SecretValue $passwordSecureString | Out-Null
+        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "$userId-password" -SecretValue $passwordSecureString | Out-Null
 
         $environmentUsers += @{
             upn           = $userUpn

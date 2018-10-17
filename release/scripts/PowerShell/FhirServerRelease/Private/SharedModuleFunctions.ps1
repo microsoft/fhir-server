@@ -12,7 +12,7 @@ function Get-ApplicationDisplayName {
         return $AppId
     }
     else {
-        return "${EnvironmentName}-${AppId}"
+        return "$EnvironmentName-$AppId"
     }
 }
 
@@ -23,7 +23,7 @@ function Get-AzureAdApplicationByDisplayName {
         [string]$DisplayName
     )
 
-    Get-AzureAdApplication -Filter "DisplayName eq '${DisplayName}'"
+    Get-AzureAdApplication -Filter "DisplayName eq '$DisplayName'"
 }
 
 function Get-AzureAdApplicationByIdentifierUri {
@@ -33,7 +33,7 @@ function Get-AzureAdApplicationByIdentifierUri {
         [string]$FhirServiceAudience
     )
 
-    return Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '${FhirServiceAudience}')"
+    return Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
 }
 
 function Get-AzureAdServicePrincipalByAppId {
@@ -43,7 +43,7 @@ function Get-AzureAdServicePrincipalByAppId {
         [string]$AppId
     )
 
-    return Get-AzureAdServicePrincipal -Filter "appId eq '${AppId}'"
+    return Get-AzureAdServicePrincipal -Filter "appId eq '$AppId'"
 }
 
 function Get-ServiceAudience {
@@ -53,7 +53,7 @@ function Get-ServiceAudience {
         [string]$EnvironmentName
     )
  
-    return "https://${EnvironmentName}.azurewebsites.net/"
+    return "https://$EnvironmentName.azurewebsites.net/"
 }
 
 function Get-UserId { 
@@ -70,7 +70,7 @@ function Get-UserId {
         return $UserId
     }
     else {
-        return "${EnvironmentName}-${UserId}"
+        return "$EnvironmentName-$UserId"
     }
 }
 
@@ -88,5 +88,5 @@ function Get-UserUpn {
         [string]$TenantDomain
     )
 
-    return "$(Get-UserId -EnvironmentName $EnvironmentName -UserId $UserId)@${TenantDomain}"
+    return "$(Get-UserId -EnvironmentName $EnvironmentName -UserId $UserId)@$TenantDomain"
 }

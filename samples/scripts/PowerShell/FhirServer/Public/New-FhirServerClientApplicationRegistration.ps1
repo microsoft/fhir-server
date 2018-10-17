@@ -28,7 +28,7 @@ function New-FhirServerClientApplicationRegistration {
         [string]$ReplyUrl = "https://www.getpostman.com/oauth2/callback",
 
         [Parameter(Mandatory = $false)]
-        [string]$IdentifierUri = "https://${DisplayName}",
+        [string]$IdentifierUri = "https://$DisplayName",
 
         [Parameter(Mandatory = $false)]
         [switch]$PublicClient
@@ -44,7 +44,7 @@ function New-FhirServerClientApplicationRegistration {
         throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
     }
 
-    $apiAppReg = Get-AzureADApplication -Filter "AppId eq '${ApiAppId}'"
+    $apiAppReg = Get-AzureADApplication -Filter "AppId eq '$ApiAppId'"
 
     # Some GUID values for Azure Active Directory
     # https://blogs.msdn.microsoft.com/aaddevsup/2018/06/06/guid-table-for-windows-azure-active-directory-permissions/
@@ -83,13 +83,13 @@ function New-FhirServerClientApplicationRegistration {
     $securityAuthenticationAudience = $apiAppReg.IdentifierUris[0]
     $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
     $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
-    $securityAuthenticationAuthority = "${aadEndpoint}${aadTenantId}"
+    $securityAuthenticationAuthority = "$aadEndpoint$aadTenantId"
 
     @{
         AppId     = $clientAppReg.AppId;
         AppSecret = $clientAppPassword.Value;
         ReplyUrl  = $clientAppReg.ReplyUrls[0]
-        AuthUrl   = "${securityAuthenticationAuthority}/oauth2/authorize?resource=${securityAuthenticationAudience}"
-        TokenUrl  = "${securityAuthenticationAuthority}/oauth2/token"
+        AuthUrl   = "$securityAuthenticationAuthority/oauth2/authorize?resource=$securityAuthenticationAudience"
+        TokenUrl  = "$securityAuthenticationAuthority/oauth2/token"
     }
 }

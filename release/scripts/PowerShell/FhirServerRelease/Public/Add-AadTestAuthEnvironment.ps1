@@ -41,13 +41,13 @@ function Add-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $keyVaultName = "${EnvironmentName}-ts"
+    $keyVaultName = "$EnvironmentName-ts"
 
     $keyVault = Get-AzureRmKeyVault -VaultName $keyVaultName
 
     if (!$keyVault) {
-        Write-Host "Creating keyvault with the name ${keyVaultName}"
-        New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName ${EnvironmentName} -Location 'East US' | Out-Null
+        Write-Host "Creating keyvault with the name $keyVaultName"
+        New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName $EnvironmentName -Location 'East US' | Out-Null
     }
 
     $retryCount = 0
@@ -56,7 +56,7 @@ function Add-AadTestAuthEnvironment {
         $retryCout += 1
 
         if ($retry -gt 7) {
-            throw "Could not connect to the vault ${keyVaultName}"
+            throw "Could not connect to the vault $keyVaultName"
         }
 
         sleep 10
@@ -76,7 +76,7 @@ function Add-AadTestAuthEnvironment {
     }
 
     if ($currentObjectId) {
-        Write-Host "Adding permission to keyvault for ${currentObjectId}"
+        Write-Host "Adding permission to keyvault for $currentObjectId"
         Set-AzureRmKeyVaultAccessPolicy -VaultName $keyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get, Set
     }
 
@@ -132,7 +132,7 @@ function Add-AadTestAuthEnvironment {
             appId       = $aadClientApplication.AppId
         }
         
-        Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name "${displayName}-secret" -SecretValue $secretSecureString | Out-Null
+        Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name "$displayName-secret" -SecretValue $secretSecureString | Out-Null
 
         $aadClientServicePrincipal = Get-AzureAdServicePrincipalByAppId $aadClientApplication.AppId
 

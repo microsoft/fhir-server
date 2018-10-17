@@ -29,16 +29,16 @@ function Remove-FhirServerApplicationRegistration {
     $appReg = $null
 
     if ($AppId) {
-        $appReg = Get-AzureADApplication -Filter "AppId eq '${AppId}'"
+        $appReg = Get-AzureADApplication -Filter "AppId eq '$AppId'"
         if (!$appReg) {
-            Write-Host "Application with AppId = ${AppId} was not found."
+            Write-Host "Application with AppId = $AppId was not found."
             return
         }
     }
     else {
-        $appReg = Get-AzureADApplication -Filter "identifierUris/any(uri:uri eq '${IdentifierUri}')"
+        $appReg = Get-AzureADApplication -Filter "identifierUris/any(uri:uri eq '$IdentifierUri')"
         if (!$appReg) {
-            Write-Host "Application with IdentifierUri = ${IdentifierUri} was not found."
+            Write-Host "Application with IdentifierUri = $IdentifierUri was not found."
             return
         }
     }
