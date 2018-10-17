@@ -10,9 +10,11 @@ function Remove-FhirServerApplicationRegistration {
     [CmdletBinding(DefaultParameterSetName='ByIdentifierUri')]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByAppId' )]
+        [ValidateNotNullOrEmpty()]
         [string]$AppId,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByIdentifierUri' )]
+        [ValidateNotNullOrEmpty()]
         [string]$IdentifierUri
     )
 

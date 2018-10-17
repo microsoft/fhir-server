@@ -20,9 +20,11 @@ function New-FhirServerApiApplicationRegistration {
     [CmdletBinding(DefaultParameterSetName='ByFhirServiceName')]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByFhirServiceName' )]
+        [ValidateNotNullOrEmpty()]
         [string]$FhirServiceName,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByFhirServiceAudience' )]
+        [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience,
 
         [Parameter(Mandatory = $false, ParameterSetName = 'ByFhirServiceName' )]

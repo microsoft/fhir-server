@@ -19,9 +19,11 @@ function New-FhirServerClientApplicationRegistration {
     #>
     param(
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$ApiAppId,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$DisplayName,
 
         [Parameter(Mandatory = $false)]
