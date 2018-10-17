@@ -18,6 +18,8 @@ function Add-AadTestAuthEnvironment {
         [ValidateNotNullOrEmpty()]
         [string]$EnvironmentName
     )
+    
+    Set-StrictMode -Version Latest
 
     # Get current AzureAd context
     try {

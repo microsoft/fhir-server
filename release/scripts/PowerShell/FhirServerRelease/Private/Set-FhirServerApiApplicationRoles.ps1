@@ -18,6 +18,8 @@ function Set-FhirServerApiApplicationRoles {
         [object]$RoleConfiguration
     )
 
+    Set-StrictMode -Version Latest
+    
     # Get current AzureAd context
     try {
         Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null

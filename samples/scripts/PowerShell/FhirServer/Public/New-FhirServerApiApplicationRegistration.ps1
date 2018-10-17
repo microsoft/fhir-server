@@ -29,6 +29,8 @@ function New-FhirServerApiApplicationRegistration {
         [String]$WebAppSuffix = "azurewebsites.net"
     )
 
+    Set-StrictMode -Version Latest
+    
     # Get current AzureAd context
     try {
         Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null

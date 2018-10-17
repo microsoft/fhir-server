@@ -34,6 +34,8 @@ function New-FhirServerClientApplicationRegistration {
         [switch]$PublicClient
     )
 
+    Set-StrictMode -Version Latest
+    
     # Get current AzureAd context
     try {
         Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null

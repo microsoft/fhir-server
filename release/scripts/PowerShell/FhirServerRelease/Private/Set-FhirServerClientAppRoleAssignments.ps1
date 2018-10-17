@@ -24,6 +24,8 @@ function Set-FhirServerClientAppRoleAssignments {
         [object]$Roles
     )
 
+    Set-StrictMode -Version Latest
+
     # Get current AzureAd context
     try {
         Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
@@ -39,7 +41,7 @@ function Set-FhirServerClientAppRoleAssignments {
 
     $expectedRoles = $()
     $rolesToAdd = $()
-    $roleIdsToRemove = $()
+    $rolesToRemove = $()
 
     foreach ($role in $Roles) {
         $expectedRoles += @($apiApplication.AppRoles | Where-Object { $_.DisplayName -eq $role })

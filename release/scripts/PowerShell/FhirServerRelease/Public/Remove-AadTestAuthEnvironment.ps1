@@ -19,6 +19,8 @@ function Remove-AadTestAuthEnvironment {
         [string]$EnvironmentName
     )
 
+    Set-StrictMode -Version Latest
+    
     # Get current AzureAd context
     try {
         $tenantInfo = Get-AzureADCurrentSessionInfo -ErrorAction Stop

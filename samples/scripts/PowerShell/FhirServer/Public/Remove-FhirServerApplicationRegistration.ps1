@@ -16,6 +16,8 @@ function Remove-FhirServerApplicationRegistration {
         [string]$IdentifierUri
     )
 
+    Set-StrictMode -Version Latest
+    
     # Get current AzureAd context
     try {
         $session = Get-AzureADCurrentSessionInfo -ErrorAction Stop
