@@ -61,7 +61,7 @@ function Remove-AadTestAuthEnvironment {
     }
 
     foreach ($clientApp in $testAuthEnvironment.ClientApplications) {
-        $displayName = "${EnvironmentName}-$($clientApp.Id)"
+        $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
         $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
         
         if ($aadClientApplication) {

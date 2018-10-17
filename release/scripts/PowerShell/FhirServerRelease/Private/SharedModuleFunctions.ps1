@@ -1,3 +1,21 @@
+function Get-ApplicationDisplayName { 
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$EnvironmentName,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$AppId
+    )
+
+    if (!$EnvironmentName) {
+        return $AppId
+    }
+    else {
+        return "${EnvironmentName}-${AppId}"
+    }
+}
+
 function Get-AzureAdApplicationByDisplayName {
     param (
         [Parameter(Mandatory = $true)]

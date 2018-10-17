@@ -105,7 +105,7 @@ function Add-AadTestAuthEnvironment {
 
     Write-Host "Ensuring client application exists"
     foreach ($clientApp in $testAuthEnvironment.ClientApplications) {
-        $displayName = "${EnvironmentName}-$($clientApp.Id)"
+        $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
         $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
 
         if (!$aadClientApplication) {
