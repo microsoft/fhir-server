@@ -16,7 +16,10 @@ function Add-AadTestAuthEnvironment {
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [string]$EnvironmentName
+        [string]$EnvironmentName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$EnvironmentLocation = "West US"
     )
     
     Set-StrictMode -Version Latest
@@ -47,7 +50,7 @@ function Add-AadTestAuthEnvironment {
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $keyVaultName"
-        New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName $EnvironmentName -Location 'East US' | Out-Null
+        New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName $EnvironmentName -Location $EnvironmentLocation | Out-Null
     }
 
     $retryCount = 0
