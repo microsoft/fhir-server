@@ -64,6 +64,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                  .Select(path => PathSegment.Parse(path))
                  .ToArray();
 
+            if (paths?.Length == 0)
+            {
+                throw new SearchParameterNotSupportedException(resourceType, key);
+            }
+
             return Parse(resourceType, paths, currentIndex: 0, value: value);
         }
 
