@@ -14,21 +14,30 @@ function New-FhirServerClientApplicationRegistration {
     Reply URL for the client AAD Application registration
     .PARAMETER IdentifierUri
     Identifier URI for the client AAD Application registration
+    .PARAMETER PublicClient
+    Switch to indicate if the client application should be a public client (desktop/mobile applications)
     #>
     param(
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$ApiAppId,
 
         [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]$DisplayName,
 
         [Parameter(Mandatory = $false)]
         [string]$ReplyUrl = "https://www.getpostman.com/oauth2/callback",
 
         [Parameter(Mandatory = $false)]
-        [string]$IdentifierUri = "https://${DisplayName}"
+        [string]$IdentifierUri = "https://$DisplayName",
+
+        [Parameter(Mandatory = $false)]
+        [switch]$PublicClient
     )
 
+    Set-StrictMode -Version Latest
+    
     # Get current AzureAd context
     try {
         Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
@@ -37,7 +46,7 @@ function New-FhirServerClientApplicationRegistration {
         throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
     }
 
-    $apiAppReg = Get-AzureADApplication -Filter "AppId eq '${ApiAppId}'"
+    $apiAppReg = Get-AzureADApplication -Filter "AppId eq '$ApiAppId'"
 
     # Some GUID values for Azure Active Directory
     # https://blogs.msdn.microsoft.com/aaddevsup/2018/06/06/guid-table-for-windows-azure-active-directory-permissions/
@@ -58,7 +67,14 @@ function New-FhirServerClientApplicationRegistration {
     # Just add the first scope (user impersonation)
     $reqApi.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $apiAppReg.Oauth2Permissions[0].id, "Scope"
 
-    $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris $IdentifierUri -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl
+    if($PublicClient)
+    {
+        $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl -PublicClient $true
+    }
+    else
+    {
+        $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris $IdentifierUri -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl
+    }
 
     # Create a client secret
     $clientAppPassword = New-AzureADApplicationPasswordCredential -ObjectId $clientAppReg.ObjectId
@@ -69,13 +85,13 @@ function New-FhirServerClientApplicationRegistration {
     $securityAuthenticationAudience = $apiAppReg.IdentifierUris[0]
     $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
     $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
-    $securityAuthenticationAuthority = "${aadEndpoint}${aadTenantId}"
+    $securityAuthenticationAuthority = "$aadEndpoint$aadTenantId"
 
     @{
         AppId     = $clientAppReg.AppId;
         AppSecret = $clientAppPassword.Value;
         ReplyUrl  = $clientAppReg.ReplyUrls[0]
-        AuthUrl   = "${securityAuthenticationAuthority}/oauth2/authorize?resource=${securityAuthenticationAudience}"
-        TokenUrl  = "${securityAuthenticationAuthority}/oauth2/token"
+        AuthUrl   = "$securityAuthenticationAuthority/oauth2/authorize?resource=$securityAuthenticationAudience"
+        TokenUrl  = "$securityAuthenticationAuthority/oauth2/token"
     }
 }

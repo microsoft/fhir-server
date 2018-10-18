@@ -20,15 +20,19 @@ function New-FhirServerApiApplicationRegistration {
     [CmdletBinding(DefaultParameterSetName='ByFhirServiceName')]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByFhirServiceName' )]
+        [ValidateNotNullOrEmpty()]
         [string]$FhirServiceName,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByFhirServiceAudience' )]
+        [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience,
 
         [Parameter(Mandatory = $false, ParameterSetName = 'ByFhirServiceName' )]
         [String]$WebAppSuffix = "azurewebsites.net"
     )
 
+    Set-StrictMode -Version Latest
+    
     # Get current AzureAd context
     try {
         Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
@@ -38,7 +42,7 @@ function New-FhirServerApiApplicationRegistration {
     }
 
     if ([string]::IsNullOrEmpty($FhirServiceAudience)) {
-        $FhirServiceAudience = "https://${FhirServiceName}.${WebAppSuffix}"
+        $FhirServiceAudience = "https://$FhirServiceName.$WebAppSuffix}"
     }
 
     # Create the App Registration
@@ -52,7 +56,7 @@ function New-FhirServerApiApplicationRegistration {
     @{
         AppId     = $apiAppReg.AppId;
         TenantId  = $aadTenantId;
-        Authority = "${aadEndpoint}${aadTenantId}";
+        Authority = "$aadEndpoint$aadTenantId";
         Audience  = $FhirServiceAudience;
     }
 }
