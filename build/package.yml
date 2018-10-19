@@ -6,18 +6,16 @@ steps:
     displayName: 'dotnet publish web'
     inputs:
       command: publish
-      configuration: '$(buildConfiguration)'
       projects: '**/Microsoft.Health.Fhir.Web.csproj'
-      arguments: '--output $(build.artifactStagingDirectory)/web'
+      arguments: '--output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --no-build'
       publishWebProjects: false
 
   - task: DotNetCoreCLI@2
     displayName: 'dotnet publish Integration Tests'
     inputs:
       command: publish
-      configuration: '$(buildConfiguration)'
       projects: 'test/**/*.csproj'
-      arguments: '--version-suffix $(build.buildnumber) -o "$(build.binariesdirectory)/IntegrationTests"'
+      arguments: '--version-suffix $(build.buildnumber) -o "$(build.binariesdirectory)/IntegrationTests" --configuration $(buildConfiguration) --no-build'
       publishWebProjects: false
       zipAfterPublish: false
 
