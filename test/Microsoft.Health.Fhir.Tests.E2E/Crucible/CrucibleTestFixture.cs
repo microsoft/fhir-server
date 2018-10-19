@@ -211,8 +211,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "search001/SE22P",
             "search001/SE23G",
             "search001/SE23P",
-            "search001/SE25G",
-            "search001/SE25P",
             "searchtest_account/SE01G_Account",
             "searchtest_account/SE01P_Account",
             "searchtest_activitydefinition/SE01G_ActivityDefinition",
@@ -476,7 +474,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/02-UpdatePatient",
             "connectathon-15-patient-fhirserver-99-all-server-id-json/07-PatientDelete",
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/07-PatientDelete",
-            "search001/SE01G",
         };
 
         private readonly CrucibleDataSource _dataSource;
