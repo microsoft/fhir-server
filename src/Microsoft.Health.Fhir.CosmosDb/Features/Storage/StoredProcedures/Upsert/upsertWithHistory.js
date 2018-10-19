@@ -168,7 +168,6 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
         }
 
         theDoc.isHistory = true;
-        theDoc.searchIndices = theDoc.searchIndices.filter(x => x.p === "_id" || x.p === "_lastUpdated");
         theDoc.id = `${theDoc.resourceId}_${theDoc.version}`;
         
         return theDoc;

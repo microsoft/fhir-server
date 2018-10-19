@@ -153,19 +153,17 @@ function Add-AadTestAuthEnvironment {
     }
 }
 
-Function Grant-OAuth2PermissionsToApp{
-    Param(
-        [Parameter(Mandatory=$true)]$azureClientApp,
-        [Parameter(Mandatory=$true)]$context
-    )
+function Grant-OAuth2PermissionsToApp($azureClientApp, $context)
+{
     $refreshToken = $context.TokenCache.ReadItems().RefreshToken
     $body = "grant_type=refresh_token&refresh_token=$($refreshToken)&resource=74658136-14ec-4630-ad9b-26e160ff0fc6"
-    $apiToken = Invoke-RestMethod "$azureClientApp.TokenUrl" -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
+    $apiToken = Invoke-RestMethod "$($azureClientApp.TokenUrl)" -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
     $header = @{
     'Authorization' = 'Bearer ' + $apiToken.access_token
     'X-Requested-With'= 'XMLHttpRequest'
     'x-ms-client-request-id'= [guid]::NewGuid()
     'x-ms-correlation-id' = [guid]::NewGuid()}
-    $url = "$azureClientApp.AuthUrl&client_id=$azureClientApp.AppId&response_type=code&redirect_uri=$azureClientApp.ReplyUrl&prompt=admin_consent"
-    Invoke-RestMethod –Uri $url –Headers $header –Method POST -ErrorAction Stop
+    $url = "$($azureClientApp.AuthUrl)&client_id=$($azureClientApp.AppId)&response_type=code&redirect_uri=$($azureClientApp.ReplyUrl)&prompt=admin_consent"
+	Write-Host "Url for consent is $url"
+    Invoke-RestMethod -Uri $url -Headers $header -Method POST -ErrorAction Stop
 }
