@@ -42,7 +42,7 @@ function New-FhirServerApiApplicationRegistration {
     }
 
     if ([string]::IsNullOrEmpty($FhirServiceAudience)) {
-        $FhirServiceAudience = "https://$FhirServiceName.$WebAppSuffix}"
+        $FhirServiceAudience = "https://$FhirServiceName.$WebAppSuffix"
     }
 
     # Create the App Registration
