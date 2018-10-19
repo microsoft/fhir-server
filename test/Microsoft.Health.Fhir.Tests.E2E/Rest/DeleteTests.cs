@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             versionIds.Add(observation.Meta.VersionId);
 
             // Update the observation.
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 50; i++)
             {
                 response = await Client.UpdateAsync(observation);
 
