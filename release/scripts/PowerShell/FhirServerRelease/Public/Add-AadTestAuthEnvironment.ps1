@@ -121,6 +121,10 @@ function Add-AadTestAuthEnvironment {
             $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
             $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
+            
+            if ($publicClient) {
+                Grant-OAuth2PermissionsToApp $aadClientApplication $azureRmContext
+            }
         }
         else {
             $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
@@ -147,4 +151,21 @@ function Add-AadTestAuthEnvironment {
         environmentUsers              = $environmentUsers
         environmentClientApplications = $environmentClientApplications
     }
+}
+
+Function Grant-OAuth2PermissionsToApp{
+    Param(
+        [Parameter(Mandatory=$true)]$azureClientApp,
+        [Parameter(Mandatory=$true)]$context
+    )
+    $refreshToken = $context.TokenCache.ReadItems().RefreshToken
+    $body = "grant_type=refresh_token&refresh_token=$($refreshToken)&resource=74658136-14ec-4630-ad9b-26e160ff0fc6"
+    $apiToken = Invoke-RestMethod "$azureClientApp.TokenUrl" -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
+    $header = @{
+    'Authorization' = 'Bearer ' + $apiToken.access_token
+    'X-Requested-With'= 'XMLHttpRequest'
+    'x-ms-client-request-id'= [guid]::NewGuid()
+    'x-ms-correlation-id' = [guid]::NewGuid()}
+    $url = "$azureClientApp.AuthUrl&client_id=$azureClientApp.AppId&response_type=code&redirect_uri=$azureClientApp.ReplyUrl&prompt=admin_consent"
+    Invoke-RestMethod –Uri $url –Headers $header –Method POST -ErrorAction Stop
 }
