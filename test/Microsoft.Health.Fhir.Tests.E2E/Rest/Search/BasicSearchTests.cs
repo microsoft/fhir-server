@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -133,6 +134,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             ValidateBundle(results, patients);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourceWithHistory_WhenSearchedWithParams_ThenOnlyCurrentVersionShouldBeReturned()
+        {
+            // Create a coding that can be used to limit search to only the items within this test
+            var testCoding = new Coding("https://testSystem", Guid.NewGuid().ToString());
+
+            // Add the coding and set the observation status
+            var originalObservation = Samples.GetDefaultObservation();
+            originalObservation.Status = ObservationStatus.Preliminary;
+            originalObservation.Code.Coding.Add(testCoding);
+
+            // Create the original resource
+            var createdResource = await Client.CreateAsync(originalObservation);
+
+            // Update the status and submit the update to the server
+            var resourceToUpdate = createdResource.Resource;
+            resourceToUpdate.Status = ObservationStatus.Corrected;
+            var updatedResource = await Client.UpdateAsync(resourceToUpdate);
+
+            // Search for the given coding
+            Bundle bundle = await Client.SearchAsync($"Observation?code={testCoding.System}|{testCoding.Code}");
+
+            // The only thing returned should be the updated resource
+            ValidateBundle(bundle, updatedResource);
         }
     }
 }
