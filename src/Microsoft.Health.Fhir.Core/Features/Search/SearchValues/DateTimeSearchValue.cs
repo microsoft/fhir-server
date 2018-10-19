@@ -87,6 +87,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// </summary>
         public DateTimeOffset End { get; }
 
+        /// <inheritdoc />
+        public bool IsValidAsCompositeComponent { get; } = true;
+
         /// <summary>
         /// Parses the string value to an instance of <see cref="DateTimeSearchValue"/>.
         /// </summary>

@@ -48,6 +48,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// </summary>
         public string Text { get; }
 
+        /// <inheritdoc />
+        public bool IsValidAsCompositeComponent =>
+            !string.IsNullOrWhiteSpace(System) || !string.IsNullOrWhiteSpace(Code);
+
         /// <summary>
         /// Parses the string value to an instance of <see cref="TokenSearchValue"/>.
         /// </summary>

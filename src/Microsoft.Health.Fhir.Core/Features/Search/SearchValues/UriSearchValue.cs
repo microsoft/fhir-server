@@ -30,6 +30,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1056:URI properties should not be strings", Justification = "Value is passed in from user")]
         public string Uri { get; }
 
+        /// <inheritdoc />
+        public bool IsValidAsCompositeComponent { get; } = true;
+
         /// <summary>
         /// Parses the string value to an instance of <see cref="UriSearchValue"/>.
         /// </summary>

@@ -45,6 +45,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues
         /// </summary>
         public ISearchValue Value { get; }
 
+        /// <inheritdoc />
+        public bool IsValidAsCompositeComponent { get; } = false;
+
         /// <summary>
         /// Parses the string value to an instance of <see cref="CompositeSearchValue"/>.
         /// </summary>

@@ -26,7 +26,9 @@
     <None Remove="TestFiles\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\BloodGlucose.json" />
     <None Remove="TestFiles\BloodPressure.json" />
+    <None Remove="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
+    <None Remove="TestFiles\ObservationWithBloodPressure.json" />
     <None Remove="TestFiles\ObservationWithEyeColor.json" />
     <None Remove="TestFiles\ObservationWithInvalidStatus.json" />
     <None Remove="TestFiles\ObservationWithInvalidStatus.xml" />
@@ -59,7 +61,9 @@
     <EmbeddedResource Include="TestFiles\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\ObservationWith20MinuteApgarScore.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWithBloodPressure.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithEyeColor.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithTemperature.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithTPMTDiplotype.json" />

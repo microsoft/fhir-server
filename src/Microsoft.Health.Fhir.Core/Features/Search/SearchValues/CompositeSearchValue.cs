@@ -31,6 +31,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public IReadOnlyList<ISearchValue> Components { get; }
 
         /// <inheritdoc />
+        public bool IsValidAsCompositeComponent { get; } = false;
+
+        /// <inheritdoc />
         public void AcceptVisitor(ISearchValueVisitor visitor)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));

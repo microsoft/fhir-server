@@ -13,25 +13,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public class CompositeSearchTests : SearchTestsBase<CompositeSearchTestFixture>
     {
+        private const string ObservationWith1MinuteApgarScore = "ObservationWith1MinuteApgarScore";
+        private const string ObservationWith20MinuteApgarScore = "ObservationWith20MinuteApgarScore";
+        private const string ObservationWithTemperature = "ObservationWithTemperature";
+        private const string ObservationWithTPMTDiplotype = "ObservationWithTPMTDiplotype";
+        private const string ObservationWithTPMTHaplotypeOne = "ObservationWithTPMTHaplotypeOne";
+        private const string ObservationWithBloodPressure = "ObservationWithBloodPressure";
+
         public CompositeSearchTests(CompositeSearchTestFixture fixture)
             : base(fixture)
         {
         }
 
         [Theory]
-        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$10|http://unitsofmeasure.org|{score}", "ObservationWith20MinuteApgarScore")]
-        [InlineData("code-value-quantity=443849008$10|http://unitsofmeasure.org|{score}", "ObservationWith20MinuteApgarScore")]
-        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$10", "ObservationWith20MinuteApgarScore")]
-        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$10||{score}", "ObservationWith20MinuteApgarScore")]
-        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$eq10|http://unitsofmeasure.org|{score}", "ObservationWith20MinuteApgarScore")]
+        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$10|http://unitsofmeasure.org|{score}", ObservationWith20MinuteApgarScore)]
+        [InlineData("code-value-quantity=443849008$10|http://unitsofmeasure.org|{score}", ObservationWith20MinuteApgarScore)]
+        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$10", ObservationWith20MinuteApgarScore)]
+        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$10||{score}", ObservationWith20MinuteApgarScore)]
+        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$eq10|http://unitsofmeasure.org|{score}", ObservationWith20MinuteApgarScore)]
         [InlineData("code-value-quantity=http://snomed.info/sct|443849008$ne10|http://unitsofmeasure.org|{score}")]
         [InlineData("code-value-quantity=http://snomed.info/sct|443849008$lt10|http://unitsofmeasure.org|{score}")]
-        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$le10|http://unitsofmeasure.org|{score}", "ObservationWith20MinuteApgarScore")]
+        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$le10|http://unitsofmeasure.org|{score}", ObservationWith20MinuteApgarScore)]
         [InlineData("code-value-quantity=http://snomed.info/sct|443849008$gt10|http://unitsofmeasure.org|{score}")]
-        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$ge10|http://unitsofmeasure.org|{score}", "ObservationWith20MinuteApgarScore")]
-        [InlineData("code-value-quantity=http://loinc.org|8310-5$39|http://unitsofmeasure.org|Cel", "ObservationWithTemperature")]
-        [InlineData("code-value-quantity=http://loinc.org|8331-1$39|http://unitsofmeasure.org|Cel", "ObservationWithTemperature")]
-        [InlineData("code-value-quantity=http://snomed.info/sct|56342008$39|http://unitsofmeasure.org|Cel", "ObservationWithTemperature")]
+        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$ge10|http://unitsofmeasure.org|{score}", ObservationWith20MinuteApgarScore)]
+        [InlineData("code-value-quantity=http://loinc.org|8310-5$39|http://unitsofmeasure.org|Cel", ObservationWithTemperature)]
+        [InlineData("code-value-quantity=http://loinc.org|8331-1$39|http://unitsofmeasure.org|Cel", ObservationWithTemperature)]
+        [InlineData("code-value-quantity=http://snomed.info/sct|56342008$39|http://unitsofmeasure.org|Cel", ObservationWithTemperature)]
+        [InlineData("combo-code-value-quantity=http://loinc.org|9272-6$0|http://unitsofmeasure.org|{score}", ObservationWith1MinuteApgarScore)] // Match: Observation.code against Observation.valueQuantity
+        [InlineData("combo-code-value-quantity=http://snomed.info/sct|169895004$0|http://unitsofmeasure.org|{score}", ObservationWith1MinuteApgarScore)] // Match: Observation.code against Observation.valueQuantity
+        [InlineData("combo-code-value-quantity=85354-9$107")] // Not match: Observation.code against Observation.component[0].valueQuantity
+        [InlineData("combo-code-value-quantity=8480-6$107", ObservationWithBloodPressure)] // Match: Observation.component[0].code against Observation.component[0].valueQuantity
+        [InlineData("combo-code-value-quantity=8480-6$60")] // Not match: Observation.component[0].code against Observation.component[1].valueQuantity
         public async Task GivenACompositeSearchParameterWithTokenAndQuantity_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
             await SearchAndValidate(queryValue, expectedObservationNames);
@@ -48,10 +60,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
-        [InlineData("related=Observation/example-TPMT-haplotype-one$http://hl7.org/fhir/observation-relationshiptypes|derived-from", "ObservationWithTPMTDiplotype")]
-        [InlineData("related=Observation/example-TPMT-haplotype-one$derived-from", "ObservationWithTPMTDiplotype")]
-        [InlineData("related=Sequence/example-TPMT-one$derived-from", "ObservationWithTPMTHaplotypeOne")]
-        [InlineData("related=Observation/example-TPMT-haplotype-one,Sequence/example-TPMT-one$derived-from", "ObservationWithTPMTDiplotype", "ObservationWithTPMTHaplotypeOne")]
+        [InlineData("related=Observation/example-TPMT-haplotype-one$http://hl7.org/fhir/observation-relationshiptypes|derived-from", ObservationWithTPMTDiplotype)]
+        [InlineData("related=Observation/example-TPMT-haplotype-one$derived-from", ObservationWithTPMTDiplotype)]
+        [InlineData("related=Sequence/example-TPMT-one$derived-from", ObservationWithTPMTHaplotypeOne)]
+        [InlineData("related=Observation/example-TPMT-haplotype-one,Sequence/example-TPMT-one$derived-from", ObservationWithTPMTDiplotype, ObservationWithTPMTHaplotypeOne)]
         [InlineData("related=Observation/example-TPMT-haplotype-three$derived-from")]
         [InlineData("related=Observation/example-TPMT-haplotype-one$sequel-to")]
         public async Task GivenACompositeSearchParameterWithTokenAndReference_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
@@ -60,18 +72,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
-        [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$http://loinc.org/la|LA6724-4", "ObservationWith20MinuteApgarScore")] // Match: Observation.code against Observation.component[0].valueCodeableConcept.coding[0]
-        [InlineData("combo-code-value-concept=443849008$http://loinc.org/la|LA6724-4", "ObservationWith20MinuteApgarScore")] // Match: Observation.code (without system) against Observation.component[0].valueCodeableConcept.coding[0]
-        [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$LA6724-4", "ObservationWith20MinuteApgarScore")] // Match: Observation.code against Observation.component[0].valueCodeableConcept.coding[0] (without system)
-        [InlineData("combo-code-value-concept=443849008$LA6724-4", "ObservationWith20MinuteApgarScore")] // Match: Observation.code (without system) against Observation.component[0].valueCodeableConcept.coding[0] (without system)
+        [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$http://loinc.org/la|LA6724-4")] // Not match: Observation.code against Observation.component[0].valueCodeableConcept.coding[0]
+        [InlineData("combo-code-value-concept=443849008$http://loinc.org/la|LA6724-4")] // Not match: Observation.code (without system) against Observation.component[0].valueCodeableConcept.coding[0]
+        [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$LA6724-4")] // Not match: Observation.code against Observation.component[0].valueCodeableConcept.coding[0] (without system)
+        [InlineData("combo-code-value-concept=443849008$LA6724-4")] // Not match: Observation.code (without system) against Observation.component[0].valueCodeableConcept.coding[0] (without system)
         [InlineData("combo-code-value-concept=|443849008$http://loinc.org/la|LA6724-4")] // Not match: Observation.code (with explicit no system) against Observation.component[0].valueCodeableConcept
         [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$|LA6724-4")] // Not match: Observation.code against Observation.component[0].valueCodeableConcept.coding[0] (with explicit no system)
         [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$http://snomed.info/sct|443849008")] // Not match: Observation.code against Observation.code
         [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$http://snomed.info/sct|249227004")] // Not match: Observation.code against Observation.component[0].code
-        [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$http:/acme.ped/apgarcolor|2", "ObservationWith20MinuteApgarScore")] // Match: Observation.code against Observation.component[0].valueCodeableConcept.coding[1]
-        [InlineData("combo-code-value-concept=http://snomed.info/sct|249227004$http://loinc.org/la|LA6724-4", "ObservationWith20MinuteApgarScore")] // Match: Observation.component[0].code against Observation.component[0].valueCodeableConcept.coding[0]
-        [InlineData("combo-code-value-concept=http://snomed.info/sct|249227004$http:/acme.ped/apgarcolor|2", "ObservationWith20MinuteApgarScore")] // Match: Observation.component[1].code against Observation.component[0].valueCodeableConcept.coding[1]
+        [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$http:/acme.ped/apgarcolor|2")] // Not match: Observation.code against Observation.component[0].valueCodeableConcept.coding[1]
+        [InlineData("combo-code-value-concept=http://snomed.info/sct|249227004$http://loinc.org/la|LA6724-4", ObservationWith20MinuteApgarScore)] // Match: Observation.component[0].code against Observation.component[0].valueCodeableConcept.coding[0]
+        [InlineData("combo-code-value-concept=http://snomed.info/sct|249227004$http:/acme.ped/apgarcolor|2", ObservationWith20MinuteApgarScore)] // Match: Observation.component[1].code against Observation.component[0].valueCodeableConcept.coding[1]
         [InlineData("combo-code-value-concept=http://loinc.org/la|LA6724-4$http:/acme.ped/apgarcolor|2")] // Not match: Observation.component[0].valueCodeableConcept.coding[0] against Observation.component[0].valueCodeableConcept.coding[1]
+        [InlineData("combo-code-value-concept=169895004$http://loinc.org/la|LA6725-1")] // Not match: Observation.code[1] against Observation.component[4].valueCodeableConcept.coding[0]
         public async Task GivenACompositeSearchParameterWithTokenAndToken_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
             await SearchAndValidate(queryValue, expectedObservationNames);
