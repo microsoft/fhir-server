@@ -117,22 +117,24 @@ function Add-AadTestAuthEnvironment {
         $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
         $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
 
+        $publicClient = -not $clientApp.Roles
+
         if (!$aadClientApplication) {
-            $publicClient = -not $clientApp.Roles
 
             $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
             $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
-            
-            if ($publicClient) {
-                Grant-ClientAppAdminConsent -AppId $aadClientApplication.AppId -TokenUrl $aadClientApplication.TokenUrl -TenantAdminCredential $TenantAdminCredential
-            }
+
         }
         else {
             $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
             $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
             
             $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force
+        }
+            
+        if ($publicClient) {
+            Grant-ClientAppAdminConsent -AppId $aadClientApplication.AppId -TenantAdminCredential $TenantAdminCredential
         }
 
         $environmentClientApplications += @{

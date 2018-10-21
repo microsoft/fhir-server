@@ -5,8 +5,6 @@ function Grant-ClientAppAdminConsent {
     not required to consent to the app calling the FHIR apli app on their behalf.
     .PARAMETER AppId
     The client application app ID.
-    .PARAMETER TokenUrl 
-    The authority's token endpoint URL
     .PARAMETER TenantAdminCredential
     Credentials for a tenant admin user
     #>
@@ -14,10 +12,6 @@ function Grant-ClientAppAdminConsent {
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [string]$AppId,
-
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$TokenUrl,
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
@@ -31,6 +25,7 @@ function Grant-ClientAppAdminConsent {
     # There currently is no documented or supported way of programatically
     # granting admin consent. So for now we resort to a hack. 
     # We call an API that is used from the portal. An admin *user* is required for this, a service principal will not work.
+    # Also, the call can fail when the app has just been created, so we include a retry loop. 
 
     $body = @{
         grant_type = "password"
@@ -40,7 +35,7 @@ function Grant-ClientAppAdminConsent {
         client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
     }
     
-    $tokenResponse = Invoke-RestMethod $TokenUrl -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
+    $tokenResponse = Invoke-RestMethod (Get-AzureADTokenEndpoint) -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
     
     $header = @{
         'Authorization'          = 'Bearer ' + $tokenResponse.access_token
@@ -49,5 +44,22 @@ function Grant-ClientAppAdminConsent {
 
     $url = "https://main.iam.ad.ext.azure.com/api/RegisteredApplications/$AppId/Consent?onBehalfOfAll=true"
 
-    Invoke-RestMethod -Uri $url -Headers $header -Method POST | Out-Null
+    $retryCount = 0
+
+    while ($true) {
+        try {
+            Invoke-RestMethod -Uri $url -Headers $header -Method POST | Out-Null
+            return
+        }
+        catch {
+            if ($retryCount -lt 6) {
+                $retryCount++
+                Write-Warning "Received failure when posting to $url. Will retry in 10 seconds."
+                Start-Sleep -Seconds 10
+            }
+            else {
+                throw
+            }    
+        }
+    }
 }
