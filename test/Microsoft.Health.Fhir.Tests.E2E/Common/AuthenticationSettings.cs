@@ -8,6 +8,9 @@ using static Microsoft.Health.Fhir.Tests.Common.EnvironmentVariables;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
+    /// <summary>
+    /// Authentication Settings
+    /// </summary>
     public static class AuthenticationSettings
     {
         public static string Scope => GetEnvironmentVariableWithDefault("TestEnvironmentUrl", DevelopmentIdentityProviderConfiguration.Audience);
