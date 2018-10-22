@@ -50,7 +50,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 wrapper.IsDeleted,
                 true,
                 null,
-                null);
+                null,
+                1);
 
             Assert.Equal($"{id}_{historyRecord.Version}", historyRecord.Id);
             Assert.Equal(lastModified, historyRecord.LastModified);

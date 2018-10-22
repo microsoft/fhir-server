@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
@@ -16,6 +17,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning.DataMigrations;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -38,9 +40,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
             };
 
+            var migrations = Enumerable.Empty<Migration>();
+
             var updaters = new ICollectionUpdater[]
             {
-                new CollectionSettingsUpdater(NullLogger<CollectionSettingsUpdater>.Instance, _cosmosDataStoreConfiguration),
+                new CollectionSettingsUpdater(NullLogger<CollectionSettingsUpdater>.Instance, _cosmosDataStoreConfiguration, migrations),
                 new StoredProcedureInstaller(),
             };
 
@@ -54,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration).GetAwaiter().GetResult();
 
             var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(NullCosmosDocumentQueryLogger.Instance);
-            _dataStore = new CosmosDataStore(new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, cosmosDocumentQueryFactory, NullLogger<CosmosDataStore>.Instance);
+            _dataStore = new CosmosDataStore(new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, cosmosDocumentQueryFactory, migrations, NullLogger<CosmosDataStore>.Instance);
         }
 
         public void Dispose()

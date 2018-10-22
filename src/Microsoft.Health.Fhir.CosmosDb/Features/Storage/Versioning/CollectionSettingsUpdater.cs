@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,9 +13,11 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning.DataMigrations;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -26,16 +29,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         private readonly ILogger<CollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
         private static readonly RangeIndex DefaultStringRangeIndex = new RangeIndex(DataType.String, -1);
+        private int _dataVersion;
 
         private const int CollectionSettingsVersion = 1;
 
-        public CollectionSettingsUpdater(ILogger<CollectionSettingsUpdater> logger, CosmosDataStoreConfiguration configuration)
+        public CollectionSettingsUpdater(
+            ILogger<CollectionSettingsUpdater> logger,
+            CosmosDataStoreConfiguration configuration,
+            IEnumerable<Migration> migrations)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(migrations, nameof(migrations));
 
             _logger = logger;
             _configuration = configuration;
+            _dataVersion = migrations.Select(x => x.Version).LastOrDefault();
         }
 
         public async Task ExecuteAsync(IDocumentClient client, DocumentCollection collection, Uri relativeCollectionUri)
@@ -45,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
             var thisVersion = await GetLatestCollectionVersion(client, collection);
 
-            if (thisVersion.Version < CollectionSettingsVersion)
+            if (thisVersion.SettingsVersion < CollectionSettingsVersion)
             {
                 _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}", _configuration.AbsoluteCollectionUri);
 
@@ -89,9 +98,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
                 await client.ReplaceDocumentCollectionAsync(collection);
 
-                thisVersion.Version = CollectionSettingsVersion;
-                await client.UpsertDocumentAsync(relativeCollectionUri, thisVersion);
+                thisVersion.SettingsVersion = CollectionSettingsVersion;
             }
+
+            if (thisVersion.DataVersion < _dataVersion)
+            {
+                thisVersion.DataVersion = _dataVersion;
+            }
+            else if (thisVersion.DataVersion > _dataVersion)
+            {
+                // Database has been upgraded, this service should not start
+                throw new ServiceUnavailableException(string.Format(Core.Resources.ServiceUnavailableServiceUpgraded, _dataVersion, thisVersion.DataVersion));
+            }
+
+            await client.UpsertDocumentAsync(relativeCollectionUri, thisVersion);
         }
 
         private static async Task<CollectionVersion> GetLatestCollectionVersion(IDocumentClient documentClient, DocumentCollection collection)

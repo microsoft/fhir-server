@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     internal class CosmosResourceWrapper : ResourceWrapper, ISupportSearchIndices
     {
-        public CosmosResourceWrapper(ResourceWrapper resource)
+        public CosmosResourceWrapper(ResourceWrapper resource, int dataVersion)
             : this(
                   IsNotNull(resource).ResourceId,
                   resource.Version,
@@ -26,7 +26,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                   resource.IsDeleted,
                   resource.IsHistory,
                   (resource as ISupportSearchIndices)?.SearchIndices,
-                  resource.LastModifiedClaims)
+                  resource.LastModifiedClaims,
+                  dataVersion)
         {
         }
 
@@ -40,10 +41,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool deleted,
             bool history,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            int dataVersion)
             : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, lastModifiedClaims)
         {
             IsHistory = history;
+            DataVersion = dataVersion;
             SearchIndices = searchIndices ?? Array.Empty<SearchIndexEntry>();
         }
 
@@ -82,6 +85,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [JsonProperty("partitionKey")]
         public string PartitionKey => ToResourceKey().ToPartitionKey();
 
+        [JsonProperty(KnownResourceWrapperProperties.DataVersion)]
+        public int DataVersion { get; protected set; }
+
         internal string GetETagOrVersion()
         {
             // An ETag is used as the Version when the Version property is not specified
@@ -92,6 +98,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return base.Version;
+        }
+
+        internal void UpdateDataVersion(int version)
+        {
+            DataVersion = version;
         }
 
         private static ResourceWrapper IsNotNull(ResourceWrapper resource)

@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning.DataMigrations;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly Uri _collectionUri;
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
+        private int _dataVersion;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosDataStore"/> class.
@@ -48,22 +50,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration</param>
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
+        /// <param name="migrations">Data migrations</param>
         /// <param name="logger">The logger instance.</param>
         public CosmosDataStore(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
+            IEnumerable<Migration> migrations,
             ILogger<CosmosDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
+            EnsureArg.IsNotNull(migrations, nameof(migrations));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _logger = logger;
             _documentClient = documentClient;
             _collectionUri = cosmosDataStoreConfiguration.RelativeCollectionUri;
+            _dataVersion = migrations.Select(x => x.Version).LastOrDefault();
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
         }
@@ -77,7 +83,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            var cosmosWrapper = new CosmosResourceWrapper(resource);
+            var cosmosWrapper = new CosmosResourceWrapper(resource, _dataVersion);
 
             try
             {

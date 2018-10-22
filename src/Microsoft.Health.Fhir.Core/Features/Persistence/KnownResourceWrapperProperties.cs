@@ -25,6 +25,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public const string Version = "version";
 
+        public const string DataVersion = "dataVersion";
+
         public const string SearchIndices = "searchIndices";
 
         public const string IsSystem = "isSystem";
