@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string bearerToken;
                 if (!_bearerTokens.TryGetValue(tokenKey, out bearerToken))
                 {
-                    bearerToken = await GetBearerToken(clientApplication, user == null ? null : user);
+                    bearerToken = await GetBearerToken(clientApplication, user);
                     _bearerTokens[tokenKey] = bearerToken;
                 }
 

@@ -13,13 +13,13 @@ using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
-    public class AuthorizationPolicyClient : IAuthorizationPolicy
+    public class RoleBasedAuthorizationPolicy : IAuthorizationPolicy
     {
         private readonly IRoleConfiguration _roleConfiguration;
         private readonly Dictionary<string, Role> _roles;
         private readonly Dictionary<string, IEnumerable<ResourceAction>> _roleNameToResourceActions;
 
-        public AuthorizationPolicyClient(IRoleConfiguration roleConfiguration)
+        public RoleBasedAuthorizationPolicy(IRoleConfiguration roleConfiguration)
         {
             EnsureArg.IsNotNull(roleConfiguration, nameof(roleConfiguration));
             _roleConfiguration = roleConfiguration;
