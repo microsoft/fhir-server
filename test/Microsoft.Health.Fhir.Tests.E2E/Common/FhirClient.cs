@@ -277,15 +277,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         {
             var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
 
-            using (HttpClient client = new HttpClient())
-            {
-                HttpResponseMessage tokenResponse = await client.PostAsync(SecuritySettings.TokenUrl, formContent);
+            HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
-                var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
+            var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
 
-                var bearerToken = tokenJson["access_token"].Value<string>();
-                return bearerToken;
-            }
+            var bearerToken = tokenJson["access_token"].Value<string>();
+            return bearerToken;
         }
 
         private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)

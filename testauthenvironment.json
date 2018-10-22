@@ -12,7 +12,7 @@
             ]
         },
         {
-            "name": "OfficeAssistant",
+            "name": "officeassistant",
             "resourcePermissions": [
                 {
                     "actions": [
