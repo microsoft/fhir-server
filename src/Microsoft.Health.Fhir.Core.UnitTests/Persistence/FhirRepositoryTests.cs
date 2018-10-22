@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -25,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         private readonly IConformanceProvider _conformanceProvider;
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirRepository _repository;
         private readonly CapabilityStatement _conformanceStatement;
 
@@ -32,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         {
             _dataStore = Substitute.For<IDataStore>();
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
+            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
@@ -55,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             patientResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
             _conformanceProvider.GetCapabilityStatementAsync().Returns(_conformanceStatement);
-            _repository = new FhirRepository(_dataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory);
+            _repository = new FhirRepository(_dataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _fhirRequestContextAccessor);
         }
 
         [Fact]

@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         [Fact]
         public async void GivenAReadResourceRequest_WhenUnauthorized_ThenTheAuthorizationHandlerReturnsFalse()
         {
-            _authorizationPolicy.HasPermissionAsync(Arg.Any<ClaimsPrincipal>(), ResourceAction.Read).ReturnsForAnyArgs(false);
+            _authorizationPolicy.HasPermission(Arg.Any<ClaimsPrincipal>(), ResourceAction.Read).ReturnsForAnyArgs(false);
             await _resourceActionHandler.HandleAsync(_authorizationHandlerContext);
             Assert.False(_authorizationHandlerContext.HasSucceeded);
         }
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         [Fact]
         public async void GivenAReadResourceRequest_WhenAuthorized_ThenTheAuthorizationHandlerReturnsTrue()
         {
-            _authorizationPolicy.HasPermissionAsync(Arg.Any<ClaimsPrincipal>(), ResourceAction.Read).ReturnsForAnyArgs(true);
+            _authorizationPolicy.HasPermission(Arg.Any<ClaimsPrincipal>(), ResourceAction.Read).ReturnsForAnyArgs(true);
             await _resourceActionHandler.HandleAsync(_authorizationHandlerContext);
             Assert.True(_authorizationHandlerContext.HasSucceeded);
         }

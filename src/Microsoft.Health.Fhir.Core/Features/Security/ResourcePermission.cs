@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class ResourcePermission
     {
+        public string Filter { get; set; }
+
         public IList<ResourceAction> Actions { get; } = new List<ResourceAction>();
     }
 }

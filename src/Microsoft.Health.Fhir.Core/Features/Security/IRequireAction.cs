@@ -3,14 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
+using System.Collections.Generic;
+
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public class AuthorizationConfiguration
+    public interface IRequireAction
     {
-        public const string RolesClaim = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
-
-        public bool Enabled { get; set; }
-
-        public RoleConfiguration RoleConfiguration { get; set; } = new RoleConfiguration();
+        IEnumerable<ResourceAction> RequiredActions();
     }
 }

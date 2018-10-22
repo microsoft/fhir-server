@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Configs;
 
@@ -27,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             _roleNameToResourceActions = _roles.Select(kvp => KeyValuePair.Create(kvp.Key, kvp.Value.ResourcePermissions.Select(rp => rp.Actions).SelectMany(x => x))).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         }
 
-        public async Task<bool> HasPermissionAsync(ClaimsPrincipal user, ResourceAction action)
+        public bool HasPermission(ClaimsPrincipal user, ResourceAction action)
         {
             EnsureArg.IsNotNull(user, nameof(user));
             (IEnumerable<Role> roles, IEnumerable<ResourceAction> actions) = GetRolesAndActions(user);
@@ -37,7 +36,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
                 return false;
             }
 
-            return await Task.FromResult(actions.Contains(action));
+            return actions.Contains(action);
+        }
+
+        public IEnumerable<ResourcePermission> GetApplicableResourcePermissions(ClaimsPrincipal user, ResourceAction action)
+        {
+            EnsureArg.IsNotNull(user, nameof(user));
+            (IEnumerable<Role> roles, IEnumerable<ResourceAction> actions) = GetRolesAndActions(user);
+
+            return roles.SelectMany(x => x.ResourcePermissions.Where(y => y.Actions.Contains(action)));
         }
 
         private (IEnumerable<Role>, IEnumerable<ResourceAction>) GetRolesAndActions(ClaimsPrincipal user)

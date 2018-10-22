@@ -13,6 +13,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
@@ -25,6 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
     {
         private readonly CapabilityStatement _conformance;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
         public FhirStorageTestsBase(IDataStore dataStore)
         {
@@ -57,7 +59,9 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
                     return new ResourceWrapper(resource, rawResourceFactory.Create(resource), new ResourceRequest("http://fhir", HttpMethod.Post), x.ArgAt<bool>(1), null);
                 });
 
-            FhirRepository = new FhirRepository(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory);
+            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+
+            FhirRepository = new FhirRepository(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory, _fhirRequestContextAccessor);
         }
 
         protected IFhirRepository FhirRepository { get; }

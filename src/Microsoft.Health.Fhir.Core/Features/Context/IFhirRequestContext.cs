@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -32,5 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         IDictionary<string, StringValues> RequestHeaders { get; }
 
         IDictionary<string, StringValues> ResponseHeaders { get; }
+
+        IEnumerable<ResourcePermission> ApplicableResourcePermissions { get; set; }
     }
 }
