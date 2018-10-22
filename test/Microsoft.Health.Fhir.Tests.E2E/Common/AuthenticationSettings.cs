@@ -10,8 +10,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public static class AuthenticationSettings
     {
-        public static string Scope => GetEnvironmentVariableWithDefault("Scope", DevelopmentIdentityProviderConfiguration.Audience);
+        public static string Scope => GetEnvironmentVariableWithDefault("TestEnvironmentUrl", DevelopmentIdentityProviderConfiguration.Audience);
 
-        public static string Resource => GetEnvironmentVariableWithDefault("Resource", DevelopmentIdentityProviderConfiguration.Audience);
+        public static string Resource => GetEnvironmentVariableWithDefault("TestEnvironmentUrl", DevelopmentIdentityProviderConfiguration.Audience);
     }
 }
