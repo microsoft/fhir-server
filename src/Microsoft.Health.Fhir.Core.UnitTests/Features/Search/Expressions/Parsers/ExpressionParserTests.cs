@@ -324,6 +324,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(resourceType, "param1:param2:param3", "Error"));
         }
 
+        [Fact]
+        public void GivenAnInvalidParameterName_WhenParsing_ThenSearchParaemterNotSupportedExceptionShouldBeThrown()
+        {
+            ResourceType resourceType = ResourceType.Location;
+            string invalidParameterName = "...";
+
+            Assert.Throws<SearchParameterNotSupportedException>(() => _expressionParser.Parse(resourceType, invalidParameterName, "value"));
+        }
+
         private SearchParameter SetupSearchParameter(ResourceType resourceType, string paramName)
         {
             SearchParameter searchParameter = new SearchParameter()
