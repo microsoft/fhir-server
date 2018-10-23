@@ -21,21 +21,19 @@ The current authentication settings exposed in configuration are the following:
 |Authentication:Authority|The issuer of the jwt token.|
 
 ## Development Identity Provider
-For the F5 experience and test environments, an in-process identity provider is included and enabled to act as the authentication provider for the FHIR API. 
+For the F5 experience and test environments, an in-process identity provider is included that can act as the authentication provider for the FHIR API. 
 
-### TestAuthEnvironment.json
-The `testauthenvironment.json` file located in the root directory holds the configuration used for the server. The items represented in this file include roles available on API, as well as, users and client applications that have access to the API. During F5 and local testing the password/secret for both users and client applications is the same as the id of the item. 
+### Enabling DevelopmentIdentityProvider
+To enable the development identity provider, add the following code to your app configuration:
 
-### DevelopmentIdentityProvider Settings
-```json
-"DevelopmentIdentityProvider": {
-    "Enabled": true
-}
+```csharp
+builder.AddDevelopmentAuthEnvironment("path/to/testAuthEnvironment.json");
 ```
 
-|Element|Description|
-|---|---|
-|Enabled|Setting for whether to make use of the development identity server or not. |
+The code above, along with the `TestAuthEnvironment.json` file will configure and start the identity provider for use by the FHIR API.
+
+### TestAuthEnvironment.json
+The `testauthenvironment.json` file located in the root directory holds the configuration used for the server. **This file is meant only for local and test environments.** The items represented in this file include the roles available for the API as well as users and client applications that have access to the API. During the F5 experience and local testing, the password/secret for both users and client applications is the same as the id of the item. 
 
 ### Authenticating using built in IdentityServer
 To obtain a token issue the following command.
