@@ -11,7 +11,7 @@ using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class RoleConfiguration
+    public class RoleConfiguration : IRoleConfiguration
     {
         public IList<Role> Roles { get; } = new List<Role>();
 

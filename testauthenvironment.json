@@ -12,11 +12,31 @@
             ]
         },
         {
+            "name": "officeassistant",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Write"
+                    ]
+                }
+            ]
+        },
+        {
             "name": "researcher",
             "resourcePermissions": [
                 {
                     "actions": [
                         "Read"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "director",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "HardDelete"
                     ]
                 }
             ]
@@ -40,6 +60,30 @@
             "roles": [
                 "researcher"
             ]
+        },
+        {
+            "id": "sam",
+            "roles": [
+                "officeassistant"
+            ]
+        },
+        {
+            "id": "frank",
+            "roles": [
+                "clinician"
+            ]
+        },
+        {
+            "id": "doug",
+            "roles": [
+                "director"
+            ]
+        },
+        {
+            "id": "itguy",
+            "roles": [
+                "admin"
+            ]
         }
     ],
     "clientApplications": [
@@ -48,6 +92,10 @@
             "roles": [
                 "admin"
             ]
+        },
+        {
+            "id": "nativeclient",
+            "roles": []
         }
     ]
 }

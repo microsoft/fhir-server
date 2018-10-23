@@ -5,10 +5,16 @@
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
-    public static class TestApplications
+    public static class TestUsers
     {
-        public static TestApplication ServiceClient { get; } = new TestApplication("serviceclient");
+        public static TestUser ReadOnlyUser { get; } = new TestUser("john");
 
-        public static TestApplication NativeClient { get; } = new TestApplication("nativeclient");
+        public static TestUser WriteOnlyUser { get; } = new TestUser("sam");
+
+        public static TestUser ReadWriteUser { get; } = new TestUser("frank");
+
+        public static TestUser HardDeleteUser { get; } = new TestUser("doug");
+
+        public static TestUser AdminUser { get; } = new TestUser("itguy");
     }
 }

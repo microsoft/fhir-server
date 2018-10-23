@@ -3,12 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
-{
-    public static class TestApplications
-    {
-        public static TestApplication ServiceClient { get; } = new TestApplication("serviceclient");
+using Microsoft.AspNetCore.Authorization;
 
-        public static TestApplication NativeClient { get; } = new TestApplication("nativeclient");
+namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
+{
+    internal class ResourceActionRequirement : IAuthorizationRequirement
+    {
+        public ResourceActionRequirement(string policyName)
+        {
+            PolicyName = policyName;
+        }
+
+        public string PolicyName { get; }
     }
 }

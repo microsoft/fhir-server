@@ -90,3 +90,17 @@ function Get-UserUpn {
 
     return "$(Get-UserId -EnvironmentName $EnvironmentName -UserId $UserId)@$TenantDomain"
 }
+
+function Get-AzureADAuthorityUri {
+    $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
+    $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
+    "$aadEndpoint$aadTenantId"
+}
+
+function Get-AzureADOpenIdConfiguration {
+    Invoke-WebRequest "$(Get-AzureADAuthorityUri)/.well-known/openid-configuration" | ConvertFrom-Json
+}
+
+function Get-AzureADTokenEndpoint {
+    (Get-AzureADOpenIdConfiguration).token_endpoint
+}

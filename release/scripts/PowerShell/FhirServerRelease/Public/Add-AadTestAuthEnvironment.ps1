@@ -7,6 +7,8 @@ function Add-AadTestAuthEnvironment {
     Path for the testauthenvironment.json file
     .PARAMETER EnvironmentName
     Environment name used for the test environment. This is used throughout for making names unique.
+    .PARAMETER TenantAdminCredential
+    Credentials for a tenant admin user. Needed to grant admin consent to client apps.
     #>
     param
     (
@@ -19,7 +21,11 @@ function Add-AadTestAuthEnvironment {
         [string]$EnvironmentName,
 
         [Parameter(Mandatory = $false)]
-        [string]$EnvironmentLocation = "West US"
+        [string]$EnvironmentLocation = "West US",
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
+        [pscredential]$TenantAdminCredential
     )
     
     Set-StrictMode -Version Latest
@@ -111,22 +117,24 @@ function Add-AadTestAuthEnvironment {
         $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
         $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
 
-        if (!$aadClientApplication) {
-            $publicClient = $false
+        $publicClient = -not $clientApp.Roles
 
-            if (!$clientApp.Roles) {
-                $publicClient = $true
-            }
+        if (!$aadClientApplication) {
 
             $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
             $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
+
         }
         else {
             $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
             $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
             
             $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force
+        }
+            
+        if ($publicClient) {
+            Grant-ClientAppAdminConsent -AppId $aadClientApplication.AppId -TenantAdminCredential $TenantAdminCredential
         }
 
         $environmentClientApplications += @{

@@ -3,12 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
-{
-    public static class TestApplications
-    {
-        public static TestApplication ServiceClient { get; } = new TestApplication("serviceclient");
+using System.Security.Claims;
+using System.Threading.Tasks;
 
-        public static TestApplication NativeClient { get; } = new TestApplication("nativeclient");
+namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
+{
+    public interface IAuthorizationPolicy
+    {
+        Task<bool> HasPermissionAsync(ClaimsPrincipal user, ResourceAction action);
     }
 }

@@ -13,37 +13,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 {
     public class AuthPermissionConfigTests
     {
-        private InvalidDefinitionException _validationException;
-
-        public AuthPermissionConfigTests()
-        {
-            var invalidJson1 = Samples.GetJsonSample<RoleConfiguration>("AuthConfigWIthInvalidEntries");
-
-            try
-            {
-                invalidJson1.Validate();
-            }
-            catch (InvalidDefinitionException ex)
-            {
-                _validationException = ex;
-            }
-        }
-
         [Fact]
-        public void NoError_On_Valid_AuthPermission()
+        public void GivenAValidRoleConfiguration_WhenDeserailized_ThenReturnsExpectedRoleInformation()
         {
             var roleConfig = Samples.GetJsonSample<RoleConfiguration>("AuthConfigWithValidRoles");
-            roleConfig.Validate();
             Assert.NotNull(roleConfig);
+            roleConfig.Validate();
             Assert.NotNull(roleConfig.Roles);
             Assert.Equal(3, roleConfig.Roles.Count());
             return;
         }
 
         [Fact]
-        public void Invalid_Actions_OnNurseRole()
+        public void GivenAnInvalidRoleConfigurationForRoleWithNoActions_WhenValidated_ThrowAppropriateValidationException()
         {
-            Assert.NotNull(_validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role 'Nurse' does not have any Actions.")));
+            RoleConfiguration invalidJson1 = Samples.GetJsonSample<RoleConfiguration>("AuthConfigWithInvalidEntries");
+            InvalidDefinitionException validationException = Assert.Throws<InvalidDefinitionException>(() => invalidJson1.Validate());
+
+            Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role 'Nurse' does not have any Actions.")));
         }
     }
 }

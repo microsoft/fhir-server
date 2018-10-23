@@ -17,13 +17,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Web
 {
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
-        private const string RolesClaim = "roles";
-
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
         /// </summary>
@@ -43,13 +42,23 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.AddIdentityServer()
                     .AddDeveloperSigningCredential()
-                    .AddInMemoryApiResources(new[] { new ApiResource(DevelopmentIdentityProviderConfiguration.Audience), })
+                    .AddInMemoryApiResources(new[]
+                    {
+                        new ApiResource(
+                        DevelopmentIdentityProviderConfiguration.Audience,
+                        claimTypes: new List<string>() { ClaimTypes.Role, ClaimTypes.Name, ClaimTypes.NameIdentifier })
+                        {
+                            UserClaims = { AuthorizationConfiguration.RolesClaim },
+                        },
+                    })
                     .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select(user =>
                         new TestUser
                         {
                             Username = user.Id,
                             Password = user.Id,
-                            Claims = user.Roles.Select(r => new Claim(RolesClaim, r)).ToList(),
+                            IsActive = true,
+                            SubjectId = user.Id,
+                            Claims = user.Roles.Select(r => new Claim(AuthorizationConfiguration.RolesClaim, r)).ToList(),
                         }).ToList())
                     .AddInMemoryClients(
                         developmentIdentityProviderConfiguration.ClientApplications.Select(
@@ -68,7 +77,7 @@ namespace Microsoft.Health.Fhir.Web
                                     AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience },
 
                                     // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
+                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(AuthorizationConfiguration.RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
                                 }));

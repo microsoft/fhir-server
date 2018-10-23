@@ -72,7 +72,7 @@
     <EmbeddedResource Include="TestFiles\Patient.json" />
     <EmbeddedResource Include="TestFiles\Patient.xml" />
     <EmbeddedResource Include="TestFiles\ResourceWrapperNoVersion.json" />
-    <EmbeddedResource Include="TestFiles\AuthConfigWIthInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\AuthConfigWithInvalidEntries.json" />
     <EmbeddedResource Include="TestFiles\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\Weight.json" />
     <EmbeddedResource Include="TestFiles\WeightInGrams.json" />
