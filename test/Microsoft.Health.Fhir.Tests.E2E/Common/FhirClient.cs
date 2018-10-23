@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         {
             EnsureArg.IsNotNull(user, nameof(user));
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication, user.Id);
+            await SetupAuthenticationAsync(clientApplication, user);
         }
 
         public async Task RunAsClientApplication(TestApplication clientApplication)
@@ -255,17 +255,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private async Task SetupAuthenticationAsync(TestApplication clientApplication, string username = null)
+        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
         {
             await GetSecuritySettings("metadata");
 
             if (SecuritySettings.SecurityEnabled)
             {
-                string tokenKey = $"{clientApplication.Id}:{(string.IsNullOrWhiteSpace(username) ? string.Empty : username)}";
+                string tokenKey = $"{clientApplication.Id}:{(user == null ? string.Empty : user.Id)}";
                 string bearerToken;
                 if (!_bearerTokens.TryGetValue(tokenKey, out bearerToken))
                 {
-                    bearerToken = await GetBearerToken(clientApplication, string.IsNullOrWhiteSpace(username) ? null : new TestUser(username));
+                    bearerToken = await GetBearerToken(clientApplication, user);
                     _bearerTokens[tokenKey] = bearerToken;
                 }
 
@@ -276,6 +276,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
         {
             var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
+
             HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
             var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());

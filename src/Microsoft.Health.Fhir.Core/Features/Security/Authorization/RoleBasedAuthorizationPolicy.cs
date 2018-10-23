@@ -12,18 +12,26 @@ using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
-    public class AuthorizationPolicyClient : IAuthorizationPolicy
+    public class RoleBasedAuthorizationPolicy : IAuthorizationPolicy
     {
         private readonly IRoleConfiguration _roleConfiguration;
         private readonly Dictionary<string, Role> _roles;
         private readonly Dictionary<string, IEnumerable<ResourceAction>> _roleNameToResourceActions;
 
-        public AuthorizationPolicyClient(IRoleConfiguration roleConfiguration)
+        public RoleBasedAuthorizationPolicy(IRoleConfiguration roleConfiguration)
         {
             EnsureArg.IsNotNull(roleConfiguration, nameof(roleConfiguration));
             _roleConfiguration = roleConfiguration;
             _roles = _roleConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.InvariantCultureIgnoreCase);
             _roleNameToResourceActions = _roles.Select(kvp => KeyValuePair.Create(kvp.Key, kvp.Value.ResourcePermissions.Select(rp => rp.Actions).SelectMany(x => x))).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        }
+
+        public IEnumerable<ResourcePermission> GetApplicableResourcePermissions(ClaimsPrincipal user, ResourceAction action)
+        {
+            EnsureArg.IsNotNull(user, nameof(user));
+            (IEnumerable<Role> roles, IEnumerable<ResourceAction> actions) = GetRolesAndActions(user);
+
+            return roles.SelectMany(x => x.ResourcePermissions.Where(y => y.Actions.Contains(action)));
         }
 
         public bool HasPermission(ClaimsPrincipal user, ResourceAction action)
@@ -37,14 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             }
 
             return actions.Contains(action);
-        }
-
-        public IEnumerable<ResourcePermission> GetApplicableResourcePermissions(ClaimsPrincipal user, ResourceAction action)
-        {
-            EnsureArg.IsNotNull(user, nameof(user));
-            (IEnumerable<Role> roles, IEnumerable<ResourceAction> actions) = GetRolesAndActions(user);
-
-            return roles.SelectMany(x => x.ResourcePermissions.Where(y => y.Actions.Contains(action)));
         }
 
         private (IEnumerable<Role>, IEnumerable<ResourceAction>) GetRolesAndActions(ClaimsPrincipal user)

@@ -10,8 +10,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
     public interface IAuthorizationPolicy
     {
-        bool HasPermission(ClaimsPrincipal user, ResourceAction action);
-
         IEnumerable<ResourcePermission> GetApplicableResourcePermissions(ClaimsPrincipal user, ResourceAction action);
+
+        bool HasPermission(ClaimsPrincipal user, ResourceAction action);
     }
 }

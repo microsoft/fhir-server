@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class AuthorizationConfiguration
     {
-        public const string RolesClaim = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+        public const string RolesClaim = "roles";
 
         public bool Enabled { get; set; }
 
