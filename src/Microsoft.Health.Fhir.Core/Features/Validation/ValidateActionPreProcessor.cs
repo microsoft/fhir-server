@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,17 +32,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             if (request is IRequireAction provider)
             {
-                foreach (var action in provider.RequiredActions())
-                {
-                    var applicablePermission = _authorizationPolicyClient.GetApplicableResourcePermissions(_fhirRquestContextAccessor.FhirRequestContext.Principal, action);
+                var applicableResourcePermissions = _authorizationPolicyClient.GetApplicableResourcePermissions(_fhirRquestContextAccessor.FhirRequestContext.Principal, provider.RequiredAction());
 
-                    if (applicablePermission == null || !applicablePermission.Any())
-                    {
-                        throw new Exception("Forbidden");
-                    }
-
-                    _fhirRquestContextAccessor.FhirRequestContext.ApplicableResourcePermissions = _fhirRquestContextAccessor.FhirRequestContext.ApplicableResourcePermissions.Concat(applicablePermission);
-                }
+                _fhirRquestContextAccessor.FhirRequestContext.ApplicableResourcePermissions = _fhirRquestContextAccessor.FhirRequestContext.ApplicableResourcePermissions.Concat(applicableResourcePermissions);
             }
 
             return Task.CompletedTask;

@@ -45,9 +45,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
             }
         }
 
-        public IEnumerable<ResourceAction> RequiredActions()
+        public ResourceAction RequiredAction()
         {
-            yield return ResourceAction.Read;
+            return ResourceAction.Read;
         }
     }
 }

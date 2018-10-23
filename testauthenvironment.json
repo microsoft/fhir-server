@@ -102,7 +102,8 @@
         {
             "id": "serviceclient",
             "roles": [
-                "write"
+                "researcher",
+                "clinician"
             ]
         },
         {

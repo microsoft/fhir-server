@@ -3,12 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public interface IRequireAction
     {
-        IEnumerable<ResourceAction> RequiredActions();
+        ResourceAction RequiredAction();
     }
 }
