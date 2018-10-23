@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
     {
         private readonly CapabilityStatement _conformance;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
         public FhirStorageTestsBase(IDataStore dataStore)
         {
@@ -59,9 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
                     return new ResourceWrapper(resource, rawResourceFactory.Create(resource), new ResourceRequest("http://fhir", HttpMethod.Post), x.ArgAt<bool>(1), null);
                 });
 
-            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-
-            FhirRepository = new FhirRepository(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory, _fhirRequestContextAccessor);
+            FhirRepository = new FhirRepository(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory);
         }
 
         protected IFhirRepository FhirRepository { get; }

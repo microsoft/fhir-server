@@ -41,10 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     {
                         throw new Exception("Forbidden");
                     }
-                    else
-                    {
-                        _fhirRquestContextAccessor.FhirRequestContext.ApplicableResourcePermissions = _fhirRquestContextAccessor.FhirRequestContext.ApplicableResourcePermissions.Concat(applicablePermission);
-                    }
+
+                    _fhirRquestContextAccessor.FhirRequestContext.ApplicableResourcePermissions = _fhirRquestContextAccessor.FhirRequestContext.ApplicableResourcePermissions.Concat(applicablePermission);
                 }
             }
 

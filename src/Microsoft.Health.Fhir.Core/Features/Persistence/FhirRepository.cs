@@ -10,7 +10,6 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -19,22 +18,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IDataStore _dataStore;
         private readonly Lazy<IConformanceProvider> _conformanceProvider;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
         public FhirRepository(
             IDataStore dataStore,
             Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory,
-            IFhirRequestContextAccessor fhirRequestContextAccessor)
+            IResourceWrapperFactory resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(dataStore, nameof(dataStore));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _dataStore = dataStore;
             _conformanceProvider = conformanceProvider;
             _resourceWrapperFactory = resourceWrapperFactory;
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         public async Task<Resource> CreateAsync(Resource resource, CancellationToken cancellationToken = default(CancellationToken))
