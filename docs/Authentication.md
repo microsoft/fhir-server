@@ -21,22 +21,19 @@ The current authentication settings exposed in configuration are the following:
 |Authentication:Authority|The issuer of the jwt token.|
 
 ## Development Identity Provider
-For the F5 experience and test environments, an in-process identity provider is included and enabled to act as the authentication provider for the FHIR API. 
+For the F5 experience and test environments, an in-process identity provider is included that can act as the authentication provider for the FHIR API. 
 
-### DevelopmentIdentityProvider Settings
-```json
-"DevelopmentIdentityProvider": {
-    "Audience": "fhir-api",
-    "ClientId": "known-client-id",
-    "ClientSecret": "known-client-secret" 
-}
+### Enabling DevelopmentIdentityProvider
+To enable the development identity provider, add the following code to your app configuration:
+
+```csharp
+builder.AddDevelopmentAuthEnvironment("path/to/testAuthEnvironment.json");
 ```
 
-|Element|Description|
-|---|---|
-|Audience|The audience that will be returned with a jwt token.|
-|ClientId|The expected clientId that will be requesting the jwt token.|
-|ClientSecret|The secret for the clientId for it to be authenticated.|
+The code above, along with the `TestAuthEnvironment.json` file will configure and start the identity provider for use by the FHIR API.
+
+### TestAuthEnvironment.json
+The `testauthenvironment.json` file located in the root directory holds the configuration used for the server. **This file is meant only for local and test environments.** The items represented in this file include the roles available for the API as well as users and client applications that have access to the API. During the F5 experience and local testing, the password/secret for both users and client applications is the same as the id of the item. 
 
 ### Authenticating using built in IdentityServer
 To obtain a token issue the following command.
@@ -45,7 +42,7 @@ POST /connect/token HTTP/1.1
 Host: https://localhost:44348
 Content-Type: application/x-www-form-urlencoded
 
-client_id=known-client-id&client_secret=known-client-secret&grant_type=client_credentials&scope=fhir-api
+client_id=serviceclient&client_secret=serviceclient&grant_type=client_credentials&scope=fhir-api
 ```
 
 To authenticate with the FHIR API take the `access_token` from the previous command and attach it as an `Authorization` header with the sytax: `Bearer {access_token}`.
