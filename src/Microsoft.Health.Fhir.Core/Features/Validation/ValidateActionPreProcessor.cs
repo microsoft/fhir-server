@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR.Pipeline;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -18,19 +20,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     {
         private readonly IAuthorizationPolicy _authorizationPolicyClient;
         private readonly IFhirRequestContextAccessor _fhirRquestContextAccessor;
+        private readonly SecurityConfiguration _securityConfiguration;
 
-        public ValidateActionPreProcessor(IAuthorizationPolicy authorizationPolicyClient, IFhirRequestContextAccessor fhirRquestContextAccessor)
+        public ValidateActionPreProcessor(IAuthorizationPolicy authorizationPolicyClient, IFhirRequestContextAccessor fhirRquestContextAccessor, IOptions<SecurityConfiguration> securityConfiguration)
         {
             EnsureArg.IsNotNull(authorizationPolicyClient, nameof(authorizationPolicyClient));
             EnsureArg.IsNotNull(fhirRquestContextAccessor, nameof(fhirRquestContextAccessor));
+            EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
 
             _authorizationPolicyClient = authorizationPolicyClient;
             _fhirRquestContextAccessor = fhirRquestContextAccessor;
+            _securityConfiguration = securityConfiguration.Value;
         }
 
         public Task Process(TRequest request, CancellationToken cancellationToken)
         {
-            if (request is IRequireAction provider)
+            if (request is IRequireAction provider && _securityConfiguration.Authorization.Enabled)
             {
                 var applicableResourcePermissions = _authorizationPolicyClient.GetApplicableResourcePermissions(_fhirRquestContextAccessor.FhirRequestContext.Principal, provider.RequiredAction());
 
