@@ -1,21 +1,24 @@
 function Set-FhirServerApiApplicationRoles {
     <#
     .SYNOPSIS
-    Configures (create/update) the roles on the API application for the test environment.
+    Configures (create/update) the roles on the API application.
     .DESCRIPTION
-    .PARAMETER ObjectId
-    ObjectId for the API application
-    .PARAMETER RoleConfiguration
-    Role configuration to be persisted to AAD from the testauthenvironment.json
+    Configures (create/update) the roles of the API Application registration, specifically, it populates the AppRoles field of the application manifest.
+    .EXAMPLE
+    Set-FhirServerApiApplicationRoles -AppId <ID of API App> -AppRoles admin,nurse,patient
+    .PARAMETER ApiAppId
+    ApiId for the API application
+    .PARAMETER AppRole
+    List of roles to be defined on the API App
     #>
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [string]$ObjectId,
+        [string]$ApiAppId,
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
-        [object]$RoleConfiguration
+        [string[]]$AppRoles
     )
 
     Set-StrictMode -Version Latest
@@ -29,15 +32,15 @@ function Set-FhirServerApiApplicationRoles {
     }
 
     Write-Host "Persisting Roles to AAD application"
-    
-    $azureAdApplication = Get-AzureADApplication -ObjectId $ObjectId
+
+    $azureAdApplication = Get-AzureADApplication -Filter "AppId eq '$ApiAppId'"
 
     $appRolesToDisable = $false
     $appRolesToEnable = $false
     $desiredAppRoles = @()
 
-    foreach ($role in $RoleConfiguration) {
-        $existingAppRole = $azureAdApplication.AppRoles | Where-Object Value -eq $role.name
+    foreach ($role in $AppRoles) {
+        $existingAppRole = $azureAdApplication.AppRoles | Where-Object Value -eq $role
         
         if($existingAppRole) {
             $id = $existingAppRole.Id
@@ -48,11 +51,11 @@ function Set-FhirServerApiApplicationRoles {
 
         $desiredAppRoles += @{
             AllowedMemberTypes = @("User", "Application")
-            Description        = $role.name
-            DisplayName        = $role.name
+            Description        = $role
+            DisplayName        = $role
             Id                 = $id
             IsEnabled          = "true"
-            Value              = $role.name
+            Value              = $role
         }
     }
 
