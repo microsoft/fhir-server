@@ -14,56 +14,48 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 {
-    public class AuthorizationPolicyClientUnitTests
+    public class RoleBasedAuthorizationPolicyUnitTests
     {
         private ClaimsPrincipal _claimsPrincipal = new ClaimsPrincipal();
 
         [Theory]
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.Read)]
-        public void GivenAClaimWithRoleWithPermissionForReadAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration)
-        {
-            var authPolicyClient = new RoleBasedAuthorizationPolicy(roleConfiguration);
-            Assert.True(authPolicyClient.HasPermission(claimsPrincipal, ResourceAction.Read));
-        }
-
-        [Theory]
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.Write)]
-        public void GivenAClaimWithRoleWithPermissionForWriteAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration)
-        {
-            var authPolicyClient = new RoleBasedAuthorizationPolicy(roleConfiguration);
-            Assert.True(authPolicyClient.HasPermission(claimsPrincipal, ResourceAction.Write));
-        }
-
-        [Theory]
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.HardDelete)]
-        public void GivenAClaimWithRoleWithPermissionForHardDeleteAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration)
+        public void GivenAClaimWithRoleWithCompatibleAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration, ResourceAction action)
         {
-            var authPolicyClient = new RoleBasedAuthorizationPolicy(roleConfiguration);
-            Assert.True(authPolicyClient.HasPermission(claimsPrincipal, ResourceAction.HardDelete));
+            var roleBasedAuthorizationPolicy = new RoleBasedAuthorizationPolicy(roleConfiguration);
+            Assert.True(roleBasedAuthorizationPolicy.HasPermission(claimsPrincipal, action));
         }
 
         [Theory]
         [MemberData(nameof(GetIncompatibleRoleDataForAction), ResourceAction.Read)]
-        public void GivenAClaimWithRoleWithoutPermissionForReadAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration)
-        {
-            var authPolicyClient = new RoleBasedAuthorizationPolicy(roleConfiguration);
-            Assert.False(authPolicyClient.HasPermission(claimsPrincipal, ResourceAction.Read));
-        }
-
-        [Theory]
         [MemberData(nameof(GetIncompatibleRoleDataForAction), ResourceAction.Write)]
-        public void GivenAClaimWithRoleWithoutPermissionForWriteAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration)
+        [MemberData(nameof(GetIncompatibleRoleDataForAction), ResourceAction.HardDelete)]
+        public void GivenAClaimWithRoleWithoutCompatibleAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration, ResourceAction action)
         {
-            var authPolicyClient = new RoleBasedAuthorizationPolicy(roleConfiguration);
-            Assert.False(authPolicyClient.HasPermission(claimsPrincipal, ResourceAction.Write));
+            var roleBasedAuthorizationPolicy = new RoleBasedAuthorizationPolicy(roleConfiguration);
+            Assert.False(roleBasedAuthorizationPolicy.HasPermission(claimsPrincipal, action));
         }
 
         [Theory]
-        [MemberData(nameof(GetIncompatibleRoleDataForAction), ResourceAction.HardDelete)]
-        public void GivenAClaimWithRoleWithoutPermissionForHardDeleteAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration)
+        [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.Read)]
+        public void GivenAClaimWithCompatibleAction_WhenGettingApplicablePermissions_ReturnsPermission(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration, ResourceAction action)
         {
-            var authPolicyClient = new RoleBasedAuthorizationPolicy(roleConfiguration);
-            Assert.False(authPolicyClient.HasPermission(claimsPrincipal, ResourceAction.HardDelete));
+            var roleBasedAuthorizationPolicy = new RoleBasedAuthorizationPolicy(roleConfiguration);
+            var applicableResourcePermissions = roleBasedAuthorizationPolicy.GetApplicableResourcePermissions(claimsPrincipal, action);
+
+            Assert.NotEmpty(applicableResourcePermissions);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetIncompatibleRoleDataForAction), ResourceAction.Read)]
+        public void GivenAClaimWithIncompatibleAction_WhenGettingApplicablePermissions_ReturnsNoPermissions(ClaimsPrincipal claimsPrincipal, IRoleConfiguration roleConfiguration, ResourceAction action)
+        {
+            var roleBasedAuthorizationPolicy = new RoleBasedAuthorizationPolicy(roleConfiguration);
+            var applicableResourcePermissions = roleBasedAuthorizationPolicy.GetApplicableResourcePermissions(claimsPrincipal, action);
+
+            Assert.Empty(applicableResourcePermissions);
         }
 
         public static IEnumerable<object[]> GetCompatibleRoleDataForAction(ResourceAction action)
@@ -71,33 +63,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             var testData = new List<object>();
             testData.Add(GetClaimsPrincipalForRoles("role1", "role2"));
             testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action }, "role1"));
+            testData.Add(action);
             yield return testData.ToArray();
             testData.Add(GetClaimsPrincipalForRoles("role2"));
             testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action, ResourceAction.Write }, "role2"));
-            yield return testData.TakeLast(2).ToArray();
+            testData.Add(action);
+            yield return testData.TakeLast(3).ToArray();
             testData.Add(GetClaimsPrincipalForRoles("role1", "role2"));
             testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action, ResourceAction.HardDelete }, "role1", "role2"));
-            yield return testData.TakeLast(2).ToArray();
+            testData.Add(action);
+            yield return testData.TakeLast(3).ToArray();
             testData.Add(GetClaimsPrincipalForRoles("role3"));
             testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action }, "role1", "role2", "role3"));
-            yield return testData.TakeLast(2).ToArray();
+            testData.Add(action);
+            yield return testData.TakeLast(3).ToArray();
         }
 
         public static IEnumerable<object[]> GetIncompatibleRoleDataForAction(ResourceAction action)
         {
+            ResourceAction incompatibleAction = ResourceAction.Read;
+            switch (action)
+            {
+                case ResourceAction.Read:
+                    incompatibleAction = ResourceAction.Write;
+                    break;
+                case ResourceAction.Write:
+                    incompatibleAction = ResourceAction.HardDelete;
+                    break;
+                case ResourceAction.HardDelete:
+                    incompatibleAction = ResourceAction.Read;
+                    break;
+            }
+
             var testData = new List<object>();
-            testData.Add(GetClaimsPrincipalForRoles("role1", "role2"));
-            testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action }, "role3"));
+            testData.Add(GetClaimsPrincipalForRoles("role1"));
+            testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { incompatibleAction }, "role1"));
+            testData.Add(action);
             yield return testData.ToArray();
             testData.Add(GetClaimsPrincipalForRoles("role2"));
-            testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action, ResourceAction.Write }, "role6"));
-            yield return testData.TakeLast(2).ToArray();
-            testData.Add(GetClaimsPrincipalForRoles("role1", "role2"));
-            testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action, ResourceAction.HardDelete }, "role3", "role4"));
-            yield return testData.TakeLast(2).ToArray();
-            testData.Add(GetClaimsPrincipalForRoles("role3"));
-            testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action }, "role1", "role2", "role5"));
-            yield return testData.TakeLast(2).ToArray();
+            testData.Add(GetRoleConfigurationForRoles(new List<ResourceAction> { action }, "role3"));
+            testData.Add(action);
+            yield return testData.TakeLast(3).ToArray();
         }
 
         private static ClaimsPrincipal GetClaimsPrincipalForRoles(params string[] roles)
