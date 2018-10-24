@@ -37,8 +37,10 @@ function Set-FhirServerApiApplicationRoles {
     $desiredAppRoles = @()
 
     foreach ($role in $RoleConfiguration) {
-        if($azureAdApplication.AppRoles) {
-            $id = ($azureAdApplication.AppRoles | Where-Object Value -eq $role.name).Id
+        $existingAppRole = $azureAdApplication.AppRoles | Where-Object Value -eq $role.name
+        
+        if($existingAppRole) {
+            $id = $existingAppRole.Id
         }
         else {
             $id = New-Guid
