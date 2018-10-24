@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public string Uri { get; }
 
         /// <inheritdoc />
-        public bool IsValidAsCompositeComponent { get; } = true;
+        public bool IsValidAsCompositeComponent => true;
 
         /// <summary>
         /// Parses the string value to an instance of <see cref="UriSearchValue"/>.
