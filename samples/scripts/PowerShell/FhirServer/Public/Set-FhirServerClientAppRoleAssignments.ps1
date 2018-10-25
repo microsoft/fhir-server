@@ -23,7 +23,7 @@ function Set-FhirServerClientAppRoleAssignments {
         [string]$ApiAppId,
 
         [Parameter(Mandatory = $true )]
-        [ValidateNotNull()]
+        [AllowEmptyCollection()]
         [string[]]$AppRoles
     )
 
