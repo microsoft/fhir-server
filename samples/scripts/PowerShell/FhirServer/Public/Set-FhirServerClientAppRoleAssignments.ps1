@@ -69,7 +69,11 @@ function Set-FhirServerClientAppRoleAssignments {
             New-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.ObjectId -Id $role | Out-Null
         }
         catch {
-            Write-Host "Powershell reported failure adding app role assignment for service principal."
+            #The role may have been assigned. Check:
+            $roleAssigned = Get-AzureADServiceAppRoleAssignment -ObjectId $apiApplication.ObjectId | Where-Object {$_.PrincipalId -eq $ObjectId -and $_.Id -eq $role}
+            if (!$roleAssigned) {
+                throw "Failure adding app role assignment for service principal."
+            }
         }
     }
 
