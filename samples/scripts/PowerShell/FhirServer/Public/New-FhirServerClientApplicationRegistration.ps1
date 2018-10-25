@@ -35,7 +35,7 @@ function New-FhirServerClientApplicationRegistration {
         [string]$IdentifierUri = "https://$DisplayName",
 
         [Parameter(Mandatory = $false)]
-        [switch]$PublicClient,
+        [switch]$PublicClient
     )
 
     Set-StrictMode -Version Latest

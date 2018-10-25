@@ -85,6 +85,8 @@ New-AzureRmResourceGroupDeployment `
 -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
 
+The default deployment will have a single role (`admin`) defined. To define more roles when deploying the server, see [details on specifying roles](Roles.md).
+
 You can use [Postman to test the FHIR server](PostmanTesting.md). 
 
 ## Clean up Azure AD App Registrations
