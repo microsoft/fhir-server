@@ -54,6 +54,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Fact]
+        public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
+        {
+            var value = new UriSearchValue("http://uri");
+
+            Assert.True(value.IsValidAsCompositeComponent);
+        }
+
+        [Fact]
         public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
             string expected = "http://uri3";

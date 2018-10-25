@@ -4,10 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Globalization;
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search.Legacy;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
@@ -27,14 +25,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         {
             get;
             private set;
-        }
-
-        public void Visit(LegacyCompositeSearchValue composite)
-        {
-            AddProperty(LegacySearchValueConstants.CompositeSystemName, composite.System);
-            AddProperty(LegacySearchValueConstants.CompositeCodeName, composite.Code);
-
-            composite.Value.AcceptVisitor(this);
         }
 
         public void Visit(CompositeSearchValue composite)
@@ -84,9 +74,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         public void Visit(ReferenceSearchValue reference)
         {
-            // TODO: Remove
-            AddPropertyIfNotNull(SearchValueConstants.ReferenceName, reference.Reference);
-
             AddPropertyIfNotNull(SearchValueConstants.ReferenceBaseUriName, reference.BaseUri?.ToString());
             AddPropertyIfNotNull(SearchValueConstants.ReferenceResourceTypeName, reference.ResourceType?.ToString());
             AddProperty(SearchValueConstants.ReferenceResourceIdName, reference.ResourceId);

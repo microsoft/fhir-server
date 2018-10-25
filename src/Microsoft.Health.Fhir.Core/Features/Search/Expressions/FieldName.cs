@@ -11,9 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1720:Identifier contains type name", Justification = "Respresents a search parameter types for FHIR")]
     public enum FieldName
     {
-        // TODO: Remove the following two when removing legacy search implementation.
-        CompositeCode,
-        CompositeSystem,
         DateTimeStart,
         DateTimeEnd,
         Number,
@@ -21,7 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         QuantityCode,
         QuantitySystem,
         Quantity,
-        Reference,
         ReferenceBaseUri,
         ReferenceResourceType,
         ReferenceResourceId,

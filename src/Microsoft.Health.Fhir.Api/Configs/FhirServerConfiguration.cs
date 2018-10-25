@@ -13,8 +13,6 @@ namespace Microsoft.Health.Fhir.Api.Configs
 
         public ConformanceConfiguration Conformance { get; } = new ConformanceConfiguration();
 
-        public SearchConfiguration Search { get; } = new SearchConfiguration();
-
         public SecurityConfiguration Security { get; } = new SecurityConfiguration();
     }
 }
