@@ -111,6 +111,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Theory]
+        [InlineData(null, null, false)]
+        [InlineData(null, "code", true)]
+        [InlineData("system", null, true)]
+        [InlineData("system", "code", true)]
+        public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenCorrectValueShouldBeReturned(string system, string code, bool expected)
+        {
+            var value = new TokenSearchValue(system, code, "test");
+
+            Assert.Equal(expected, value.IsValidAsCompositeComponent);
+        }
+
+        [Theory]
         [InlineData(@"system", "code", "system|code")]
         [InlineData(@"sys\|tem", @"\$code", @"sys\\\|tem|\\\$code")]
         [InlineData(null, "code", "code")]

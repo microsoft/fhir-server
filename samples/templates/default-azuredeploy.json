@@ -98,7 +98,12 @@
         },
         "additionalFhirServerConfigProperties": {
             "type": "object",
-            "defaultValue": {},
+            "defaultValue": {
+                "FhirServer:Security:Authorization:RoleConfiguration:Roles:0:name": "admin",
+                "FhirServer:Security:Authorization:RoleConfiguration:Roles:0:resourcePermissions:0:actions:0": "Read",
+                "FhirServer:Security:Authorization:RoleConfiguration:Roles:0:resourcePermissions:0:actions:1": "Write",
+                "FhirServer:Security:Authorization:RoleConfiguration:Roles:0:resourcePermissions:0:actions:2": "HardDelete"
+            },
             "metadata": {
                 "description": "Additional configuration properties for the FHIR server. In the form {\"path1\":\"value1\",\"path2\":\"value2\"}"
             }

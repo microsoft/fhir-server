@@ -105,6 +105,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.ToString());
         }
 
+        [Fact]
+        public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
+        {
+            var value = new QuantitySearchValue("system", "code", 1);
+
+            Assert.True(value.IsValidAsCompositeComponent);
+        }
+
         [Theory]
         [InlineData(12, "system", "code", "12|system|code")]
         [InlineData(3.3, @"sy|ste\|m", @"c$o,\de", @"3.3|sy\|ste\\\|m|c\$o\,\\de")]
