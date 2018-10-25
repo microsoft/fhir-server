@@ -29,9 +29,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
             }
         }
 
-        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ResourceActionRequirement requirement)
+        protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, ResourceActionRequirement requirement)
         {
-            if (_resourceActionLookup.TryGetValue(requirement.PolicyName, out ResourceAction resourceAction) && await _authorizationPolicy.HasPermissionAsync(context.User, resourceAction))
+            if (_resourceActionLookup.TryGetValue(requirement.PolicyName, out ResourceAction resourceAction) && _authorizationPolicy.HasPermission(context.User, resourceAction))
             {
                 context.Succeed(requirement);
             }
@@ -39,6 +39,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
             {
                 context.Fail();
             }
+
+            return Task.CompletedTask;
         }
     }
 }
