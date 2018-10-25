@@ -20,7 +20,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         {
             Options.ErrorMessageSource = new StaticStringSource(Core.Resources.IdRequirements);
         }
-
-        public IdValidator Validator { get; set; }
     }
 }
