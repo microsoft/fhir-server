@@ -10,25 +10,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an expression that indicates the search parameter should be missing.
     /// </summary>
-    public class MissingParamExpression : Expression
+    public class MissingSearchParameterExpression : SearchParameterExpressionBase
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="MissingParamExpression"/> class.
+        /// Initializes a new instance of the <see cref="MissingSearchParameterExpression"/> class.
         /// </summary>
-        /// <param name="paramName">The search parameter name.</param>
+        /// <param name="parameterName">THe search parameter name</param>
         /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
-        public MissingParamExpression(string paramName, bool isMissing)
+        public MissingSearchParameterExpression(string parameterName, bool isMissing)
+            : base(parameterName)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(paramName, nameof(paramName));
-
-            ParamName = paramName;
             IsMissing = isMissing;
         }
-
-        /// <summary>
-        /// Gets the search parameter name.
-        /// </summary>
-        public string ParamName { get; }
 
         /// <summary>
         /// Gets a value indicating whether the parameter should be missing or not.

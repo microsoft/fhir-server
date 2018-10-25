@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
     /// <summary>
     /// A builder used to build expression from the search value.
     /// </summary>
-    public class SearchValueExpressionBuilder : ISearchValueExpressionBuilder
+    public class SearchParameterExpressionParser : ISearchParameterExpressionParser
     {
         private static readonly Tuple<string, SearchComparator>[] SearchParamComparators = Enum.GetValues(typeof(SearchComparator))
             .Cast<SearchComparator>()
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
 
-        public SearchValueExpressionBuilder(
+        public SearchParameterExpressionParser(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IReferenceSearchValueParser referenceSearchValueParser)
         {
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             };
         }
 
-        public Expression Build(
+        public SearchParameterExpressionBase Parse(
             SearchParameter searchParameter,
             SearchModifierCode? modifier,
             string value)
@@ -78,9 +78,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     throw new InvalidSearchOperationException(Core.Resources.InvalidValueTypeForMissingModifier);
                 }
 
-                return Expression.Missing(searchParameter.Name, isMissing);
+                return Expression.MissingSearchParameter(searchParameter.Name, isMissing);
             }
-            else if (modifier == SearchModifierCode.Text)
+
+            if (modifier == SearchModifierCode.Text)
             {
                 // We have to handle :text modifier specially because if :text modifier is supplied for token search param,
                 // then we want to search the display text using the specified text, and therefore
@@ -135,20 +136,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 else
                 {
                     outputExpressions = Build(
-                        searchParameter,
-                        modifier,
-                        componentIndex: null,
-                        value: value)
+                            searchParameter,
+                            modifier,
+                            componentIndex: null,
+                            value: value)
                         .AsEnumerable();
                 }
             }
 
-            // Add the parameter name matching expression which is common to all search values.
-            outputExpressions = Expression.Equals(FieldName.ParamName, null, searchParameter.Name).AsEnumerable().Concat(
-                outputExpressions);
-
-            return Expression.And(
-                outputExpressions.ToArray());
+            return Expression.SearchParameter(searchParameter.Name, outputExpressions.ToArray());
         }
 
         private Expression Build(

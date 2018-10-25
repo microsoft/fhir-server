@@ -31,19 +31,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger = logger;
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
-        {
-            return Create(new SearchOptions(resourceType), queryParameters);
-        }
-
         public SearchOptions Create(IReadOnlyList<Tuple<string, string>> queryParameters)
         {
-            return Create(new SearchOptions(), queryParameters);
+            return Create(null, queryParameters);
         }
 
-        private SearchOptions Create(SearchOptions options, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
-            EnsureArg.IsNotNull(options, nameof(options));
+            var options = new SearchOptions();
 
             string continuationToken = null;
 
@@ -102,23 +97,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // If the resource type is not specified, then the common
             // search parameters should be used.
-            ResourceType resourceType = ResourceType.DomainResource;
+            ResourceType parsedResourceType = ResourceType.DomainResource;
 
-            if (options.ResourceType != null &&
-                !Enum.TryParse(options.ResourceType, out resourceType))
+            if (!string.IsNullOrWhiteSpace(resourceType) &&
+                !Enum.TryParse(resourceType, out parsedResourceType))
             {
-                throw new ResourceNotSupportedException(options.ResourceType);
+                throw new ResourceNotSupportedException(resourceType);
             }
 
-            if (searchParams.Parameters.Any())
+            var searchExpressions = new List<Expression>();
+
+            if (!string.IsNullOrWhiteSpace(resourceType))
             {
-                // Convert the search parameter into expressions.
-                Expression[] searchExpressions = searchParams.Parameters.Select(
+                searchExpressions.Add(Expression.SearchParameter(KnownQueryParameterNames.ResourceType, Expression.Equals(FieldName.TokenCode, null, resourceType)));
+            }
+
+            searchExpressions.AddRange(searchParams.Parameters.Select(
                     q =>
                     {
                         try
                         {
-                            return _expressionParser.Parse(resourceType, q.Item1, q.Item2);
+                            return _expressionParser.Parse(parsedResourceType, q.Item1, q.Item2);
                         }
                         catch (SearchParameterNotSupportedException)
                         {
@@ -127,15 +126,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             return null;
                         }
                     })
-                    .Where(item => item != null)
-                    .ToArray();
+                .Where(item => item != null));
 
-                if (searchExpressions.Any())
-                {
-                    MultiaryExpression expression = Expression.And(searchExpressions);
-
-                    options.Expression = expression;
-                }
+            if (searchExpressions.Count == 1)
+            {
+                options.Expression = searchExpressions[0];
+            }
+            else if (searchExpressions.Count > 1)
+            {
+                options.Expression = Expression.And(searchExpressions.ToArray());
             }
 
             if (unsupportedSearchParameters.Any())

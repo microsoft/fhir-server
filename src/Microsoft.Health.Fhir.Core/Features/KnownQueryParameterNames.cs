@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string At = "_at";
 
+        public const string ResourceType = "_type";
+
         /// <summary>
         /// The continuation token parameter.
         /// </summary>

@@ -19,9 +19,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
         }
 
-        public SqlQuerySpec GenerateHistorySql(string resourceType, SearchOptions searchOptions)
+        public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
         {
-            return new QueryBuilderHelper().GenerateHistorySql(resourceType, searchOptions);
+            return new QueryBuilderHelper().GenerateHistorySql(searchOptions);
         }
 
         private class QueryBuilderHelper
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendSystemDataFilter("WHERE");
 
-                MultiaryExpression expression = searchOptions.Expression;
+                Expression expression = searchOptions.Expression;
 
                 if (expression != null)
                 {
@@ -58,17 +58,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         _queryBuilder,
                         _queryParameterManager);
 
-                    for (int i = 0; i < expression.Expressions.Count; i++)
-                    {
-                        _queryBuilder.Append("AND ");
-
-                        expressionQueryBuilder.AppendSubquery(expression.Expressions[i]);
-                    }
+                    expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
                 AppendFilterCondition(
                     "AND",
-                    (KnownResourceWrapperProperties.ResourceTypeName, searchOptions.ResourceType),
                     (KnownResourceWrapperProperties.IsHistory, false),
                     (KnownResourceWrapperProperties.IsDeleted, false));
 
@@ -79,7 +73,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 return query;
             }
 
-            public SqlQuerySpec GenerateHistorySql(string resourceType, SearchOptions searchOptions)
+            public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
@@ -87,7 +81,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendSystemDataFilter("WHERE");
 
-                MultiaryExpression expression = searchOptions.Expression;
+                Expression expression = searchOptions.Expression;
 
                 if (expression != null)
                 {
@@ -95,19 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         _queryBuilder,
                         _queryParameterManager);
 
-                    for (int i = 0; i < expression.Expressions.Count; i++)
-                    {
-                        _queryBuilder.Append("AND ");
-
-                        expressionQueryBuilder.AppendSubquery(expression.Expressions[i]);
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(resourceType))
-                {
-                    AppendFilterCondition(
-                        "AND",
-                        (KnownResourceWrapperProperties.ResourceTypeName, searchOptions.ResourceType));
+                    expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
                 _queryBuilder

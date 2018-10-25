@@ -37,19 +37,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Legacy
             _logger = logger;
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
-        {
-            return Create(new SearchOptions(resourceType), queryParameters);
-        }
-
         public SearchOptions Create(IReadOnlyList<Tuple<string, string>> queryParameters)
         {
-            return Create(new SearchOptions(), queryParameters);
+            return Create(null, queryParameters);
         }
 
-        private SearchOptions Create(SearchOptions options, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
-            EnsureArg.IsNotNull(options, nameof(options));
+            var options = new SearchOptions();
 
             var searchQueries = new List<Tuple<string, string>>();
 
@@ -110,9 +105,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Legacy
 
             ResourceTypeManifest resourceTypeManifest = _resourceTypeManifestManager.GetGenericManifest();
 
-            if (!string.IsNullOrEmpty(options.ResourceType))
+            if (!string.IsNullOrEmpty(resourceType))
             {
-                Type validatedResourceType = ModelInfo.GetTypeForFhirType(options.ResourceType);
+                Type validatedResourceType = ModelInfo.GetTypeForFhirType(resourceType);
 
                 // The resource type should have been validated by the time it reaches here.
                 Debug.Assert(validatedResourceType != null, "The resource type is not supported.");

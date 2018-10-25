@@ -13,7 +13,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     public abstract class Expression
     {
         /// <summary>
-        /// Creates a <see cref="MultiaryExpression"/> that represents logical AND opeation over <paramref name="expressions"/>.
+        /// Creates a <see cref="SearchParameterExpression"/> that represents a set of ANDed expressions over a search parameter.
+        /// </summary>
+        /// <param name="parameterName">The search parameter name</param>
+        /// <param name="expressions">The expressions.</param>
+        /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
+        public static SearchParameterExpression SearchParameter(string parameterName, params Expression[] expressions)
+        {
+            return new SearchParameterExpression(parameterName, expressions);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="MissingSearchParameterExpression"/> that represents a search parameter being present or not in a resource.
+        /// </summary>
+        /// <param name="parameterName">The search parameter name</param>
+        /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
+        /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
+        public static MissingSearchParameterExpression MissingSearchParameter(string parameterName, bool isMissing)
+        {
+            return new MissingSearchParameterExpression(parameterName, isMissing);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical AND operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of AND on all <paramref name="expressions"/>.</returns>
@@ -102,17 +124,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public static MissingFieldExpression Missing(FieldName fieldName, int? componentIndex)
         {
             return new MissingFieldExpression(fieldName, componentIndex);
-        }
-
-        /// <summary>
-        /// Creates a <see cref="MissingParamExpression"/> that represents a missing parameter.
-        /// </summary>
-        /// <param name="paramName">The search parameter name.</param>
-        /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
-        /// <returns>A <see cref="MissingParamExpression"/> that represents a missing parameter.</returns>
-        public static MissingParamExpression Missing(string paramName, bool isMissing)
-        {
-            return new MissingParamExpression(paramName, isMissing);
         }
 
         /// <summary>

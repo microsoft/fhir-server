@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Legacy.Expressions
                     throw new InvalidSearchOperationException(Core.Resources.InvalidValueTypeForMissingModifier);
                 }
 
-                return Expression.Missing(searchParam.ParamName, isMissing);
+                return Expression.MissingSearchParameter(searchParam.ParamName, isMissing);
             }
             else if (modifier == SearchModifierCode.Text)
             {

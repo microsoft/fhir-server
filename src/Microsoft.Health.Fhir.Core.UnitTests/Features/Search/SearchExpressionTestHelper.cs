@@ -17,18 +17,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         public static void ValidateParamAndValue(Expression expression, string paramName, params Action<Expression>[] valueValidators)
         {
-            MultiaryExpression andExpression = Assert.IsType<MultiaryExpression>(expression);
-
-            Assert.Equal(MultiaryOperator.And, andExpression.MultiaryOperation);
-
-            var validators = new List<Action<Expression>>(valueValidators);
-
-            // Parameter name validation always comes first.
-            validators.Insert(0, e => ValidateEqualsExpression(e, FieldName.ParamName, paramName));
+            SearchParameterExpression parameterExpression = Assert.IsType<SearchParameterExpression>(expression);
+            Assert.Equal(paramName, parameterExpression.SearchParameterName);
 
             Assert.Collection(
-                andExpression.Expressions,
-                validators.ToArray());
+                parameterExpression.Expressions,
+                valueValidators);
         }
 
         public static void ValidateChainedExpression(
@@ -128,10 +122,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string expectedParamName,
             bool expectedIsMissing)
         {
-            MissingParamExpression mpExpression = Assert.IsType<MissingParamExpression>(expression);
+            MissingSearchParameterExpression spExpression = Assert.IsType<MissingSearchParameterExpression>(expression);
 
-            Assert.Equal(expectedParamName, mpExpression.ParamName);
-            Assert.Equal(expectedIsMissing, mpExpression.IsMissing);
+            Assert.Equal(expectedParamName, spExpression.SearchParameterName);
+            Assert.Equal(expectedIsMissing, spExpression.IsMissing);
         }
 
         public static void ValidateMissingFieldExpression(

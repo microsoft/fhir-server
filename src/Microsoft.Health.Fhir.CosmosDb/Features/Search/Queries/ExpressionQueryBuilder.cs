@@ -71,6 +71,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             _queryParameterManager = queryParameterManager;
         }
 
+        public void Visit(SearchParameterExpression expression)
+        {
+            throw new NotImplementedException();
+        }
+
         public void AppendSubquery(Expression expression)
         {
             _queryBuilder.Append("EXISTS (SELECT VALUE ")
@@ -114,7 +119,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .Append(")");
         }
 
-        public void Visit(MissingParamExpression expression)
+        public void Visit(MissingSearchParameterExpression expression)
         {
             // TODO: This will be removed once it's impelmented.
             throw new SearchOperationNotSupportedException("MissingParamExpression is not supported.");

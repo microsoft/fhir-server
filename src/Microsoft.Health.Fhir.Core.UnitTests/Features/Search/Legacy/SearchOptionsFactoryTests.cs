@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Legacy
             SearchOptions options = CreateSearchOptions(queryParameters: null);
 
             Assert.NotNull(options);
-            Assert.Equal(DefaultResourceType, options.ResourceType);
             Assert.Null(options.ContinuationToken);
             Assert.Equal(10, options.MaxItemCount);
             Assert.Null(options.Expression);

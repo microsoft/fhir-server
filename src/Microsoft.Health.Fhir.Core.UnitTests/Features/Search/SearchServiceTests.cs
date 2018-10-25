@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _dataStore = Substitute.For<IDataStore>();
 
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
-                .Returns(x => new SearchOptions(x.ArgAt<string>(0)));
+                .Returns(x => new SearchOptions());
 
             _searchService = new TestSearchService(_searchOptionsFactory, _bundleFactory, _dataStore);
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());

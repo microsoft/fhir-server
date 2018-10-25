@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -38,10 +39,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(queryParameters: null);
 
             Assert.NotNull(options);
-            Assert.Equal(DefaultResourceType, options.ResourceType);
             Assert.Null(options.ContinuationToken);
             Assert.Equal(10, options.MaxItemCount);
-            Assert.Null(options.Expression);
+            Assert.Equal(KnownQueryParameterNames.ResourceType, Assert.IsType<SearchParameterExpression>(options.Expression).SearchParameterName);
         }
 
         [Fact]
@@ -88,7 +88,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options);
             Assert.NotNull(options.Expression);
 
-            ValidateMultiaryExpression(options.Expression, MultiaryOperator.And, e => Assert.Equal(expression, e));
+            ValidateMultiaryExpression(
+                options.Expression,
+                MultiaryOperator.And,
+                e => Assert.Equal(KnownQueryParameterNames.ResourceType, Assert.IsType<SearchParameterExpression>(e).SearchParameterName),
+                e => Assert.Equal(expression, e));
         }
 
         [Fact]
@@ -122,6 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ValidateMultiaryExpression(
                 options.Expression,
                 MultiaryOperator.And,
+                e => Assert.Equal(KnownQueryParameterNames.ResourceType, Assert.IsType<SearchParameterExpression>(e).SearchParameterName),
                 e => Assert.Equal(expression1, e),
                 e => Assert.Equal(expression2, e));
         }
@@ -137,8 +142,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string value2 = "Test";
             const string value3 = "WA";
 
-            Expression expression1 = Substitute.For<Expression>();
-            Expression expression3 = Substitute.For<Expression>();
+            Expression expression1 = new SearchParameterExpression(paramName1, new[] { Substitute.For<Expression>() });
+            Expression expression3 = new SearchParameterExpression(paramName3, new[] { Substitute.For<Expression>() });
 
             _expressionParser.Parse(resourceType, paramName1, value1).Returns(expression1);
             _expressionParser.Parse(resourceType, paramName2, value2)
@@ -162,6 +167,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ValidateMultiaryExpression(
                 options.Expression,
                 MultiaryOperator.And,
+                e => Assert.Equal(KnownQueryParameterNames.ResourceType, Assert.IsType<SearchParameterExpression>(e).SearchParameterName),
                 e => Assert.Equal(expression1, e),
                 e => Assert.Equal(expression3, e));
         }
@@ -186,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 queryParameters: queryParameters);
 
             Assert.NotNull(options);
-            Assert.Null(options.Expression);
+            Assert.Equal(KnownQueryParameterNames.ResourceType, Assert.IsType<SearchParameterExpression>(options.Expression).SearchParameterName);
         }
 
         [Theory]

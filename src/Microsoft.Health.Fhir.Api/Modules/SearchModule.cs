@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     .AsService<IFhirElementToSearchValueTypeConverterManager>();
 
                 services.AddSingleton<ISearchIndexer, SearchIndexer>();
-                services.AddSingleton<ISearchValueExpressionBuilder, SearchValueExpressionBuilder>();
+                services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
                 services.AddSingleton<IExpressionParser, ExpressionParser>();
                 services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();
             }

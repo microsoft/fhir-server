@@ -29,22 +29,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             StringComparer.Ordinal);
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly ISearchValueExpressionBuilder _searchValueExpressionBuilder;
+        private readonly ISearchParameterExpressionParser _searchParameterExpressionParser;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExpressionParser"/> class.
         /// </summary>
         /// <param name="searchParameterDefinitionManager">The search parameter definition manager.</param>
-        /// <param name="searchValueExpressionBuilder">The builder used to build search expression from the search value.</param>
+        /// <param name="searchParameterExpressionParser">The builder used to build search expression from the search value.</param>
         public ExpressionParser(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            ISearchValueExpressionBuilder searchValueExpressionBuilder)
+            ISearchParameterExpressionParser searchParameterExpressionParser)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(searchValueExpressionBuilder, nameof(searchValueExpressionBuilder));
+            EnsureArg.IsNotNull(searchParameterExpressionParser, nameof(searchParameterExpressionParser));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _searchValueExpressionBuilder = searchValueExpressionBuilder;
+            _searchParameterExpressionParser = searchParameterExpressionParser;
         }
 
         /// <summary>
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         {
             SearchModifierCode? parsedModifier = ParseSearchParamModifier();
 
-            return _searchValueExpressionBuilder.Build(searchParameter, parsedModifier, value);
+            return _searchParameterExpressionParser.Parse(searchParameter, parsedModifier, value);
 
             SearchModifierCode? ParseSearchParamModifier()
             {
