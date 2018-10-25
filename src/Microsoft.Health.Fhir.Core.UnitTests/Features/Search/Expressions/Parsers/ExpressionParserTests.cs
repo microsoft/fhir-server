@@ -9,6 +9,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
@@ -321,6 +322,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             // Parse the expression.
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(resourceType, "param1:param2:param3", "Error"));
+        }
+
+        [Fact]
+        public void GivenAnInvalidParameterName_WhenParsing_ThenSearchParaemterNotSupportedExceptionShouldBeThrown()
+        {
+            ResourceType resourceType = ResourceType.Location;
+            string invalidParameterName = "...";
+
+            Assert.Throws<SearchParameterNotSupportedException>(() => _expressionParser.Parse(resourceType, invalidParameterName, "value"));
         }
 
         private SearchParameter SetupSearchParameter(ResourceType resourceType, string paramName)

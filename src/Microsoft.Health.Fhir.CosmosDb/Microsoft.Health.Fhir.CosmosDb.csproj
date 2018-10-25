@@ -9,6 +9,10 @@
     <DebugType>Full</DebugType>
     <LangVersion>latest</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
+    <GeneratorProjectPath>..\..\tools\Microsoft.Health.Extensions.BuildTimeCodeGenerator\Microsoft.Health.Extensions.BuildTimeCodeGenerator.csproj</GeneratorProjectPath>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,15 +28,17 @@
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="4.1.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.1" />
     <PackageReference Include="Microsoft.CodeCoverage" Version="1.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="2.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="2.1.1" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.0-beta008" />
     <PackageReference Include="Hl7.Fhir.STU3" Version="0.96.0" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.1.1" />
     <PackageReference Include="System.Net.Security" Version="4.3.2" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="$(GeneratorProjectPath)" />
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
   </ItemGroup>
@@ -51,5 +57,24 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+
+  <ItemGroup>
+    <Generated Include="Features/Consistency/DocumentClientWithConsistencyLevelFromContext.Generated.cs">
+      <Generator>DocumentClientWithConsistencyLevelFromContextGenerator</Generator>
+      <Namespace>Microsoft.Health.Fhir.CosmosDb.Features.Consistency</Namespace>
+    </Generated>
+  </ItemGroup>
+
+  <Target Name="GetGeneratorPath" BeforeTargets="GenerateFiles">
+    <PropertyGroup>
+      <GeneratorPath Condition="'%(OriginalItemSpec)' == '$(GeneratorProjectPath)'">@(_ResolvedProjectReferencePaths)</GeneratorPath>
+    </PropertyGroup>
+  </Target>
+  <Target Name="GenerateFiles" BeforeTargets="CoreCompile" Inputs="$(GeneratorPath)" Outputs="@(Generated)">
+    <ItemGroup>
+      <Compile Include="@(Generated)" Condition="!Exists('@(Generated)')" />
+    </ItemGroup>
+    <Exec Command="dotnet $(GeneratorPath) %(Generated.Generator) %(Generated.FullPath) %(Generated.Namespace)" />
+  </Target>
 
 </Project>

@@ -10,6 +10,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public interface ICosmosDbDistributedLockFactory
     {
+        ICosmosDbDistributedLock Create(Uri collectionUri, string lockId);
+
         ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId);
     }
 }

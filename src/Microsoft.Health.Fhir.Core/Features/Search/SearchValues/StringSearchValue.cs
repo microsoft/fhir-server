@@ -29,6 +29,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1720:Identifier contains type name", Justification = "Respresents a FHIR search parameter of type string")]
         public string String { get; }
 
+        /// <inheritdoc />
+        public bool IsValidAsCompositeComponent => true;
+
         /// <summary>
         /// Parses the string value to an instance of <see cref="StringSearchValue"/>.
         /// </summary>

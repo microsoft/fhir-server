@@ -17,15 +17,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class BundleFactory : IBundleFactory
     {
         private readonly IUrlResolver _urlResolver;
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
-        public BundleFactory(IUrlResolver urlResolver, IFhirContextAccessor fhirContextAccessor)
+        public BundleFactory(IUrlResolver urlResolver, IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _urlResolver = urlResolver;
-            _fhirContextAccessor = fhirContextAccessor;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         public Bundle CreateSearchBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result)
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Add the self link to indicate which search parameters were used.
             bundle.SelfLink = _urlResolver.ResolveSearchUrl(unsupportedSearchParams);
 
-            bundle.Id = _fhirContextAccessor.FhirContext.CorrelationId;
+            bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.Searchset;
             bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta
@@ -110,16 +110,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (result.ContinuationToken != null)
                 {
                     bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                        _fhirContextAccessor.FhirContext.RouteName,
+                        _fhirRequestContextAccessor.FhirRequestContext.RouteName,
                         unsupportedSearchParams,
                         result.ContinuationToken);
                 }
             }
 
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(_fhirContextAccessor.FhirContext.RouteName, unsupportedSearchParams);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(_fhirRequestContextAccessor.FhirRequestContext.RouteName, unsupportedSearchParams);
 
-            bundle.Id = _fhirContextAccessor.FhirContext.CorrelationId;
+            bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.History;
             bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta

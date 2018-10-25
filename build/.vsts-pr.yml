@@ -11,10 +11,9 @@ phases:
     name: Windows
     queue: 'Hosted VS2017'
     packageArtifacts: true
-    publishNugets: false
 
-#- template: build.yml
-#  parameters:
-#    name: Linux
-#    queue: 'Hosted Ubuntu 1604'
-#    packageArtifacts: false
+- template: build.yml
+  parameters:
+    name: Linux
+    queue: 'Hosted Ubuntu 1604'
+    packageArtifacts: false

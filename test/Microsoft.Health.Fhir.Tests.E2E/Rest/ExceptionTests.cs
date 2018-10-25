@@ -3,9 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Validation;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
@@ -15,10 +21,13 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    public class ExceptionTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class ExceptionTests : IClassFixture<HttpIntegrationTestFixture<ExceptionTests.StartupWithThrowingMiddleware>>
     {
-        public ExceptionTests(HttpIntegrationTestFixture<Startup> fixture)
+        private readonly HttpIntegrationTestFixture<StartupWithThrowingMiddleware> _fixture;
+
+        public ExceptionTests(HttpIntegrationTestFixture<StartupWithThrowingMiddleware> fixture)
         {
+            _fixture = fixture;
             Client = fixture.FhirClient;
         }
 
@@ -26,9 +35,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [Trait(Traits.Category, Categories.ExceptionMiddleware)] // relies on ExceptionThrowerMiddleware, which is not enabled in Production
         public async Task WhenPostingToHttp_GivenAnInternalThrowQuerystring_TheServerShouldReturnAnOperationOutcome()
         {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // this test only works with the in-proc server with customized middleware pipeline
+                return;
+            }
+
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<OperationOutcome>("?throw=internal"));
 
             Assert.Equal(HttpStatusCode.InternalServerError, fhirException.StatusCode);
@@ -46,9 +60,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [Trait(Traits.Category, Categories.ExceptionMiddleware)] // relies on ExceptionThrowerMiddleware, which is not enabled in Production
         public async Task WhenPostingToHttp_GivenAMiddlewareThrowQuerystring_TheServerShouldReturnAnOperationOutcome()
         {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // this test only works with the in-proc server with customized middleware pipeline
+                return;
+            }
+
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<OperationOutcome>("?throw=middleware"));
 
             Assert.Equal(HttpStatusCode.InternalServerError, fhirException.StatusCode);
@@ -81,6 +100,47 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertSecurityHeaders(fhirException.Headers);
 
             DotNetAttributeValidation.Validate(operationOutcome, true);
+        }
+
+        public class StartupWithThrowingMiddleware : Startup
+        {
+            public StartupWithThrowingMiddleware(IConfiguration configuration)
+                : base(configuration)
+            {
+            }
+
+            public override void Configure(IApplicationBuilder app)
+            {
+                app.Use(async (context, next) =>
+                {
+                    const string internalExceptionThrown = "internalExceptionThrown";
+
+                    var throwValue = context.Request.Query["throw"];
+
+                    switch (throwValue)
+                    {
+                        // Internal is used to cause the ExceptionHandlerMiddleware logic to execute
+                        case "internal":
+                            // Only throw the error the first time that this path is executed.
+                            // This allows the ExceptionHandlerMiddleware to continue to the error page on the second execution of this path.
+                            if (!context.Items.ContainsKey(internalExceptionThrown))
+                            {
+                                context.Items[internalExceptionThrown] = true;
+                                throw new Exception("internal exception");
+                            }
+
+                            break;
+
+                        // Middleware is used to cause the BaseExceptionMiddleware logic to execute
+                        case "middleware":
+                            throw new Exception("middleware exception");
+                    }
+
+                    await next();
+                });
+
+                base.Configure(app);
+            }
         }
     }
 }

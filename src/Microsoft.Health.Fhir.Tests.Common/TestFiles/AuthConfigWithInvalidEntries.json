@@ -1,0 +1,40 @@
+﻿{
+    "Roles": [
+        {
+            "name": "clinician",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Read",
+                        "Write"
+                    ]
+                },
+                {
+                    "actions": [
+                        "Write"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Nurse",
+            "resourcePermissions": [
+                {
+                    "actions": []
+                }
+            ]
+        },
+        {
+            "name": "admin",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Read",
+                        "Write",
+                        "HardDelete"
+                    ]
+                }
+            ]
+        }
+    ]
+}

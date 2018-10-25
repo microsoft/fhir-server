@@ -2,13 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    
     <IsPackable>true</IsPackable>
     <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <LangVersion>latest</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,11 +20,15 @@
     <None Remove="DefinitionFiles\SearchParametersWithInvalidEntries.json" />
     <None Remove="DefinitionFiles\SearchParametersWithInvalidType.json" />
     <None Remove="DefinitionFiles\SearchParametersWithNullEntry.json" />
+    <None Remove="TestFiles\AuthConfigWIthInvalidEntries.json" />
+    <None Remove="TestFiles\AuthConfigWithValidRoles.json" />
     <None Remove="TestFiles\BasicExampleNarrative.json" />
     <None Remove="TestFiles\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\BloodGlucose.json" />
     <None Remove="TestFiles\BloodPressure.json" />
+    <None Remove="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
+    <None Remove="TestFiles\ObservationWithBloodPressure.json" />
     <None Remove="TestFiles\ObservationWithEyeColor.json" />
     <None Remove="TestFiles\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\ObservationWithInvalidStatus.json" />
@@ -57,7 +63,9 @@
     <EmbeddedResource Include="TestFiles\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\ObservationWith20MinuteApgarScore.json" />
+    <EmbeddedResource Include="TestFiles\ObservationWithBloodPressure.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithEyeColor.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithTemperature.json" />
     <EmbeddedResource Include="TestFiles\ObservationWithTPMTDiplotype.json" />
@@ -71,6 +79,8 @@
     <EmbeddedResource Include="TestFiles\Patient.json" />
     <EmbeddedResource Include="TestFiles\Patient.xml" />
     <EmbeddedResource Include="TestFiles\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\AuthConfigWithInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\ValidCompartmentDefinition.json">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
@@ -80,9 +90,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.2" />
     <PackageReference Include="Hl7.Fhir.STU3" Version="0.96.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02" />
     <PackageReference Include="NSubstitute" Version="3.1.0" />
     <PackageReference Include="xunit" Version="2.3.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />
   </ItemGroup>
 
   <ItemGroup>

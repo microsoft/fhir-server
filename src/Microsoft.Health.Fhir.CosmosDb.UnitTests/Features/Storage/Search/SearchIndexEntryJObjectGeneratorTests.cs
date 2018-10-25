@@ -6,7 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
@@ -20,36 +20,46 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         private const string SystemName = "s";
         private const string CodeName = "c";
         private const string TextName = "n_t";
+        private const string ReferenceResourceTypeName = "rt";
+        private const string ReferenceResourceIdName = "ri";
 
         private SearchIndexEntryJObjectGenerator _generator = new SearchIndexEntryJObjectGenerator();
 
         [Fact]
         public void GivenACompositeSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
-            const string compositeSystem = "compositeSystem";
-            const string compositeCode = "compositeCode";
-            const string system = "system";
-            const string code = "code";
-            const string text = "TEXT";
+            const string system1 = "s1";
+            const string code1 = "s2";
+            const string text1 = "t1";
+            const string system2 = "s2";
+            const string code2 = "c2";
+            const string text2 = "T2";
+            const decimal quantity = 123.5m;
+            const string system3 = "s3";
+            const string code3 = "c3";
 
-            LegacyCompositeSearchValue value = new LegacyCompositeSearchValue(
-                compositeSystem,
-                compositeCode,
-                new TokenSearchValue(system, code, text));
+            var value = new CompositeSearchValue(new ISearchValue[]
+            {
+                new TokenSearchValue(system1, code1, text1),
+                new TokenSearchValue(system2, code2, text2),
+                new QuantitySearchValue(system3, code3, quantity),
+            });
 
             TestAndValidateOutput(
                 value,
-                CreateTuple("cs", compositeSystem),
-                CreateTuple("cc", compositeCode),
-                CreateTuple(SystemName, system),
-                CreateTuple(CodeName, code),
-                CreateTuple(TextName, text.ToUpperInvariant()));
+                CreateTuple("s_0", system1),
+                CreateTuple("c_0", code1),
+                CreateTuple("s_1", system2),
+                CreateTuple("c_1", code2),
+                CreateTuple("s_2", system3),
+                CreateTuple("c_2", code3),
+                CreateTuple("q_2", quantity));
         }
 
         [Fact]
         public void GivenADateTimeSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
-            DateTimeSearchValue value = new DateTimeSearchValue(
+            var value = new DateTimeSearchValue(
                 new PartialDateTime(2000),
                 new PartialDateTime(2001));
 
@@ -64,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         {
             const decimal number = 1.25m;
 
-            NumberSearchValue value = new NumberSearchValue(number);
+            var value = new NumberSearchValue(number);
 
             TestAndValidateOutput(
                 value,
@@ -78,7 +88,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             const string code = "code";
             const decimal quantity = 3.0m;
 
-            QuantitySearchValue value = new QuantitySearchValue(
+            var value = new QuantitySearchValue(
                 system,
                 code,
                 quantity);
@@ -91,15 +101,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         }
 
         [Fact]
-        public void GivenAReferenceSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        public void GivenAReferenceSearchValueWithRelativeReference_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
-            const string reference = "Patient/123";
+            const string resourceId = "xyz";
 
-            ReferenceSearchValue value = new ReferenceSearchValue(reference);
+            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, ResourceType.Immunization, resourceId);
 
             TestAndValidateOutput(
                 value,
-                CreateTuple("r", reference));
+                CreateTuple(ReferenceResourceTypeName, "Immunization"),
+                CreateTuple(ReferenceResourceIdName, resourceId));
+        }
+
+        [Fact]
+        public void GivenAReferenceSearchValueWithAbsoluteReference_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        {
+            var baseUri = new Uri("https://localhost/stu3/");
+            const string resourceId = "123";
+
+            var value = new ReferenceSearchValue(ReferenceKind.Internal, baseUri, ResourceType.Account, resourceId);
+
+            TestAndValidateOutput(
+                value,
+                CreateTuple("rb", baseUri.ToString()),
+                CreateTuple(ReferenceResourceTypeName, "Account"),
+                CreateTuple(ReferenceResourceIdName, resourceId));
         }
 
         [Fact]
@@ -121,7 +147,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             const string code = "code";
             const string text = "TEXT";
 
-            TokenSearchValue value = new TokenSearchValue(null, code, text);
+            var value = new TokenSearchValue(null, code, text);
 
             TestAndValidateOutput(
                 value,
@@ -135,7 +161,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             const string system = "system";
             const string text = "TEXT";
 
-            TokenSearchValue value = new TokenSearchValue(system, null, text);
+            var value = new TokenSearchValue(system, null, text);
 
             TestAndValidateOutput(
                 value,
@@ -149,7 +175,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             const string system = "system";
             const string code = "code";
 
-            TokenSearchValue value = new TokenSearchValue(system, code, null);
+            var value = new TokenSearchValue(system, code, null);
 
             TestAndValidateOutput(
                 value,
@@ -164,7 +190,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             const string code = "code";
             const string text = "MixedCaseText";
 
-            TokenSearchValue value = new TokenSearchValue(system, code, text);
+            var value = new TokenSearchValue(system, code, text);
 
             TestAndValidateOutput(
                 value,
@@ -178,7 +204,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         {
             const string uri = "http://uri";
 
-            UriSearchValue value = new UriSearchValue(uri);
+            var value = new UriSearchValue(uri);
 
             TestAndValidateOutput(
                 value,

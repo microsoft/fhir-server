@@ -85,10 +85,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return statement;
         }
 
-        public static ListedCapabilityStatement AddOAuthSecurityService(this ListedCapabilityStatement statement, string authority, ILogger logger)
+        public static ListedCapabilityStatement AddOAuthSecurityService(this ListedCapabilityStatement statement, string authority, IHttpClientFactory httpClientFactory, ILogger logger)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(authority, nameof(authority));
+            EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
 
             var restComponent = statement.GetListedRestComponent();
             var security = restComponent.Security ?? new CapabilityStatement.SecurityComponent();
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             var openIdConfigurationUrl = $"{authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;
-            using (var httpClient = new HttpClient())
+            using (var httpClient = httpClientFactory.CreateClient())
             {
                 try
                 {

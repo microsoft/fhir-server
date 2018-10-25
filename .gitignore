@@ -13,10 +13,6 @@
 *.userprefs
 
 # Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
 x64/
 x86/
 bld/
@@ -28,6 +24,9 @@ bld/
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
+
+#Visual Studio Code
+.vscode/
 
 # MSTest test Results
 [Tt]est[Rr]esult*/

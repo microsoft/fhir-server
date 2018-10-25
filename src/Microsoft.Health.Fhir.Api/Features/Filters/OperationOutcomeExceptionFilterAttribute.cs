@@ -22,13 +22,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Class)]
     internal class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
     {
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
-        public OperationOutcomeExceptionFilterAttribute(IFhirContextAccessor fhirContextAccessor)
+        public OperationOutcomeExceptionFilterAttribute(IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
-            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
-            _fhirContextAccessor = fhirContextAccessor;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         public override void OnActionExecuted(ActionExecutedContext context)
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 FhirResult fhirResult = FhirResult.Create(
                     new OperationOutcome
                     {
-                        Id = _fhirContextAccessor.FhirContext.CorrelationId,
+                        Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
                         Issue = fhirException.Issues.ToList(),
                     }, HttpStatusCode.BadRequest);
 

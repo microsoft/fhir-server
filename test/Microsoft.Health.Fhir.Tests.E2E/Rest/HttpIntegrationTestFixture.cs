@@ -4,19 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.ApplicationParts;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.AspNetCore.Mvc.ViewComponents;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
@@ -32,6 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private TestServer _server;
         private string _environmentUrl;
+        private HttpMessageHandler _messageHandler;
 
         public HttpIntegrationTestFixture()
             : this(Path.Combine("src"))
@@ -50,18 +52,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 StartInMemoryServer(targetProjectParentDirectory);
 
-                HttpClient = _server.CreateClient();
+                _messageHandler = _server.CreateHandler();
+                IsUsingInProcTestServer = true;
             }
             else
             {
-                HttpClient = new HttpClient();
+                _messageHandler = new HttpClientHandler();
             }
 
-            HttpClient.BaseAddress = new Uri(_environmentUrl);
+            HttpClient = new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
             FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
             FhirXmlClient = new Lazy<FhirClient>(() => new FhirClient(HttpClient, ResourceFormat.Xml));
         }
+
+        public bool IsUsingInProcTestServer { get; }
 
         public HttpClient HttpClient { get; }
 
@@ -71,21 +76,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void StartInMemoryServer(string targetProjectParentDirectory)
         {
-            var startupAssembly = typeof(TStartup).GetTypeInfo().Assembly;
-            var contentRoot = GetProjectPath(targetProjectParentDirectory, startupAssembly);
+            var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
-                .ConfigureAppConfiguration((hostContext, configBuilder) =>
+                .ConfigureAppConfiguration(configurationBuilder => configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json"))
+                .UseStartup(typeof(TStartup))
+                .ConfigureServices(serviceCollection =>
                 {
-                    var securityConfig = new List<KeyValuePair<string, string>>
-                    {
-                        new KeyValuePair<string, string>("Security:Enabled", "false"),
-                    };
+                    // ensure that HttpClients
+                    // use a message handler for the test server
+                    serviceCollection
+                        .AddHttpClient(Options.DefaultName)
+                        .ConfigurePrimaryHttpMessageHandler(() => _messageHandler);
 
-                    configBuilder.AddInMemoryCollection(securityConfig);
-                })
-                .UseStartup(typeof(TStartup));
+                    serviceCollection.PostConfigure<JwtBearerOptions>(
+                        JwtBearerDefaults.AuthenticationScheme,
+                        options => options.BackchannelHttpHandler = _messageHandler);
+                });
 
             _server = new TestServer(builder);
         }
@@ -125,20 +133,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _server?.Dispose();
         }
 
-        protected virtual void InitializeServices(IServiceCollection services)
-        {
-            var startupAssembly = typeof(TStartup).GetTypeInfo().Assembly;
-
-            // Inject a custom application part manager.
-            // Overrides AddMvcCore() because it uses TryAdd().
-            var manager = new ApplicationPartManager();
-            manager.ApplicationParts.Add(new AssemblyPart(startupAssembly));
-            manager.FeatureProviders.Add(new ControllerFeatureProvider());
-            manager.FeatureProviders.Add(new ViewComponentFeatureProvider());
-
-            services.AddSingleton(manager);
-        }
-
         /// <summary>
         /// Gets the full path to the target project that we wish to test
         /// </summary>
@@ -146,35 +140,70 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// The parent directory of the target project.
         /// e.g. src, samples, test, or test/Websites
         /// </param>
-        /// <param name="startupAssembly">The target project's assembly.</param>
+        /// <param name="startupType">The startup type</param>
         /// <returns>The full path to the target project.</returns>
-        private static string GetProjectPath(string projectRelativePath, Assembly startupAssembly)
+        private static string GetProjectPath(string projectRelativePath, Type startupType)
         {
-            // Get name of the target project which we want to test
-            var projectName = startupAssembly.GetName().Name;
-
-            // Get currently executing test project path
-            var applicationBasePath = System.AppContext.BaseDirectory;
-
-            // Find the path to the target project
-            var directoryInfo = new DirectoryInfo(applicationBasePath);
-            do
+            for (Type type = startupType; type != null; type = type.BaseType)
             {
-                directoryInfo = directoryInfo.Parent;
+                // Get name of the target project which we want to test
+                var projectName = type.GetTypeInfo().Assembly.GetName().Name;
 
-                var projectDirectoryInfo = new DirectoryInfo(Path.Combine(directoryInfo.FullName, projectRelativePath));
-                if (projectDirectoryInfo.Exists)
+                // Get currently executing test project path
+                var applicationBasePath = System.AppContext.BaseDirectory;
+
+                // Find the path to the target project
+                var directoryInfo = new DirectoryInfo(applicationBasePath);
+                do
                 {
-                    var projectFileInfo = new FileInfo(Path.Combine(projectDirectoryInfo.FullName, projectName, $"{projectName}.csproj"));
-                    if (projectFileInfo.Exists)
+                    directoryInfo = directoryInfo.Parent;
+
+                    var projectDirectoryInfo = new DirectoryInfo(Path.Combine(directoryInfo.FullName, projectRelativePath));
+                    if (projectDirectoryInfo.Exists)
                     {
-                        return Path.Combine(projectDirectoryInfo.FullName, projectName);
+                        var projectFileInfo = new FileInfo(Path.Combine(projectDirectoryInfo.FullName, projectName, $"{projectName}.csproj"));
+                        if (projectFileInfo.Exists)
+                        {
+                            return Path.Combine(projectDirectoryInfo.FullName, projectName);
+                        }
                     }
                 }
+                while (directoryInfo.Parent != null);
             }
-            while (directoryInfo.Parent != null);
 
-            throw new Exception($"Project root could not be located using the application root {applicationBasePath}.");
+            throw new Exception($"Project root could not be located for startup type {startupType.FullName}");
+        }
+
+        /// <summary>
+        /// An <see cref="HttpMessageHandler"/> that maintains session consistency between requests.
+        /// </summary>
+        private class SessionMessageHandler : DelegatingHandler
+        {
+            private string _sessionToken;
+
+            public SessionMessageHandler(HttpMessageHandler innerHandler)
+                : base(innerHandler)
+            {
+            }
+
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                if (!string.IsNullOrEmpty(_sessionToken))
+                {
+                    request.Headers.TryAddWithoutValidation("x-ms-session-token", _sessionToken);
+                }
+
+                request.Headers.TryAddWithoutValidation("x-ms-consistency-level", "Session");
+
+                var response = await base.SendAsync(request, cancellationToken);
+
+                if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
+                {
+                    _sessionToken = tokens.SingleOrDefault();
+                }
+
+                return response;
+            }
         }
     }
 }

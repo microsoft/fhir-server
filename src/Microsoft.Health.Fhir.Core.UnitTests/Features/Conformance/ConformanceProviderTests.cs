@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                     .TryAddRestInteraction(ResourceType.Account, CapabilityStatement.TypeRestfulInteraction.Read)
                     .TryAddRestInteraction(ResourceType.Account, CapabilityStatement.TypeRestfulInteraction.Vread));
 
-            var owned = Substitute.For<IOwned<IEnumerable<IProvideCapability>>>();
+            var owned = Substitute.For<IScoped<IEnumerable<IProvideCapability>>>();
             owned.Value.Returns(new[] { createCapability });
 
             var systemCapabilities = new SystemConformanceProvider(() => owned);

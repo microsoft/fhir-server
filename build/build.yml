@@ -3,7 +3,6 @@ parameters:
   name: Windows
   queue: 'Hosted VS2017'
   packageArtifacts: true
-  publishNugets: true
 
 phases:
 - phase: ${{ parameters.name }}
@@ -18,7 +17,7 @@ phases:
 
   - task: NuGetToolInstaller@0
 
-  - script: dotnet build --configuration $(buildConfiguration) /warnaserror
+  - script: dotnet build --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) /warnaserror
     displayName: 'dotnet build $(buildConfiguration)'
 
   - task: DotNetCoreCLI@2
@@ -26,9 +25,7 @@ phases:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(BuildConfiguration)'
+      arguments: '--configuration $(buildConfiguration)'
 
   - ${{ if eq(parameters.packageArtifacts, 'true') }}:
     - template: package.yml
-      parameters:
-        publishNugets: ${{ parameters.publishNugets }}

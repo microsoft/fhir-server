@@ -173,6 +173,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Fact]
+        public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
+        {
+            var value = new DateTimeSearchValue(DateTimeOffset.Now);
+
+            Assert.True(value.IsValidAsCompositeComponent);
+        }
+
+        [Fact]
         public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
             DateTimeSearchValue value = DateTimeSearchValue.Parse("2017");

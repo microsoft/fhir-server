@@ -1,0 +1,101 @@
+{
+    "roles": [
+        {
+            "name": "clinician",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Read",
+                        "Write"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "officeassistant",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Write"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "researcher",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Read"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "director",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "HardDelete"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "admin",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Read",
+                        "Write",
+                        "HardDelete"
+                    ]
+                }
+            ]
+        }
+    ],
+    "users": [
+        {
+            "id": "john",
+            "roles": [
+                "researcher"
+            ]
+        },
+        {
+            "id": "sam",
+            "roles": [
+                "officeassistant"
+            ]
+        },
+        {
+            "id": "frank",
+            "roles": [
+                "clinician"
+            ]
+        },
+        {
+            "id": "doug",
+            "roles": [
+                "director"
+            ]
+        },
+        {
+            "id": "itguy",
+            "roles": [
+                "admin"
+            ]
+        }
+    ],
+    "clientApplications": [
+        {
+            "id": "serviceclient",
+            "roles": [
+                "admin"
+            ]
+        },
+        {
+            "id": "nativeclient",
+            "roles": []
+        }
+    ]
+}

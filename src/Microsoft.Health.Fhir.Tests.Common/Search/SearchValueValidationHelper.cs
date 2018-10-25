@@ -46,18 +46,6 @@ namespace Microsoft.Health.Fhir.Tests.Common.Search
             Assert.Equal(expectedEndDateTime, dtsv.End);
         }
 
-        public static void ValidateInstant(DateTimeOffset expectedDateTime, ISearchValue sv)
-        {
-            DateTimeSearchValue dtsv = Assert.IsType<DateTimeSearchValue>(sv);
-
-            DateTimeOffset expectedStartDateTime = expectedDateTime.AddMilliseconds(-expectedDateTime.Millisecond);
-
-            DateTimeOffset expectedEndDateTime = expectedDateTime.AddMilliseconds(-expectedDateTime.Millisecond - 1).AddSeconds(1).AddTicks(9999);
-
-            Assert.Equal(expectedStartDateTime, dtsv.Start);
-            Assert.Equal(expectedEndDateTime, dtsv.End);
-        }
-
         public static void ValidateNumber(decimal expected, ISearchValue sv)
         {
             NumberSearchValue nsv = Assert.IsType<NumberSearchValue>(sv);
@@ -74,25 +62,11 @@ namespace Microsoft.Health.Fhir.Tests.Common.Search
             Assert.Equal(expected.Value, qsv.Quantity);
         }
 
-        public static void ValidateReference(string expected, ISearchValue sv)
-        {
-            ReferenceSearchValue rsv = Assert.IsType<ReferenceSearchValue>(sv);
-
-            Assert.Equal(expected, rsv.Reference);
-        }
-
         public static void ValidateString(string expected, ISearchValue sv)
         {
             StringSearchValue ssv = Assert.IsType<StringSearchValue>(sv);
 
             Assert.Equal(expected, ssv.String);
-        }
-
-        public static void ValidateTokenString(string expected, ISearchValue sv)
-        {
-            TokenSearchValue tsv = Assert.IsType<TokenSearchValue>(sv);
-
-            ValidateToken(new Token(null, expected, null), tsv);
         }
 
         public static void ValidateToken(Token expected, ISearchValue sv)

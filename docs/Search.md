@@ -40,7 +40,39 @@ System and code will be stored as string values and quantity value will be store
 
 #### ReferenceSearchValue
 
-Reference value will be stored as is. We can also apply some normalization logic in here in the future. For example, if the reference is specified using external reference (e.g., full URL) and the domain matches the current server, we might choose to store the reference as normalized internal reference so that even if the domain name changes, the reference continues to work.
+The resource could contain a reference represented by a relative URL (e.g., Patient/123) or an absolute URL (e.g., <http://example.com/Patient/123>). An absolute URL could be either referencing a "external" resource (e.g., resource that exists on an external system) or referencing a "internal" resource (e.g., resource that exist within the current system). This can be determined by matching the service base URL.
+
+The reference can be searched in 3 ways: id, type/id, or url. The following examples illustrate how the search should behave based on the data stored and the search criteria.
+
+Assuming our service is running at http://xyz.com/ and we have the following references stored:
+
+1. Patient/123
+2. <http://xyz.com/Patient/123>
+3. <http://abc.com/Patient/123>
+4. Device/123
+
+_Theoretically, #1 and #2 are equivalent since they are both referencing the same internal resource. They are both valid references. The advantage/disadvantage is discussed [here](http://hl7.org/fhir/stu3/references.html#literal)._
+
+|Search value                |Matches   |Comment|
+|----------------------------|----------|-------|
+|abc                         |          |It does not match to anything.|
+|123                         |1, 2, 3, 4|The resource id needs to match.|
+|Patient/123                 |1, 2, 3   |The resource type and resource id need to match.
+|<http://xyz.com/Patient/123>|1, 2      |Since this is an absolute URL with the service base URL matching the current server, it will match internal reference both stored in relative URL format as well as absolute URL format.|
+|<http://abc.com/Patient/123>|3         |Since this is an absolute URL pointing to an external resource, it will only match that reference.|
+
+In order to support this, we need to parse the reference into multiple parts so that they can be searched efficiently. The parsing is using a modified regular expression based on the [published version](http://hl7.org/fhir/stu3/references.html#literal).
+
+Using the examples above:
+
+|Reference value             |Kind              |BaseUri          |ReferenceType|ResourceId|Comment|
+|----------------------------|------------------|-----------------|-------------|----------|-------|
+|Patient/123                 |InternalOrExternal|                 |Patient      |123       |       |
+|<http://xyz.com/Patient/123>|Internal          |                 |Patient      |123       |Because the service base URL matches the current server, the BaseUri will not be populated to indicate that this is an internal reference. The Kind will be Internal so that we don't match resources that exists on another server.|
+|<http://abc.com/Patient/123>|External          |<http://abc.com/>|Patient      |123       |       |
+|Device/123                  |InternalOrExternal|                 |Device       |123       |       |
+
+_One thing to note is that with this approach if the service base URL changes (e.g., change in the domain name) and there is an internal reference with absolute URL using the old domain name, then the search using the absolute URL with the new service base URL will find resources that contains the absolute URL with the old domain name._
 
 #### StringSearchValue
 
@@ -91,32 +123,32 @@ To convert from FHIR element to `ISearchValue` type, various converters have bee
 
 The current list of supported converters are:
 
-|FHIR element type|ISearchValue Type|
-|-----------------|-----------------|
-|Address|StringSearchValue|
-|CodeableConcept|TokenSearchValue|
-|Code&lt;T&gt;|TokenSearchValue|
-|Code|TokenSearchValue|
-|ContactPoint|TokenSearchValue|
-|Date|DateTimeSearchValue|
-|FhirBoolean|TokenSearchValue|
-|FhirDateTime|DateTimeSearchValue|
-|FhirDecimal|NumberSearchValue|
-|FhirString|StringSearchValue|
-|FhirUri|UriSearchValue|
-|HumanName|StringSearchValue|
-|Identifier|TokenSearchValue|
-|Id|TokenSearchValue|
-|Instant|DateTimeSearchValue|
-|Integer|NumberSearchValue|
-|Markdown|StringSearchValue|
-|Oid|TokenSearchValue|
-|Period|DateTimeSearchValue|
-|PositiveInt|TokenSearchValue|
-|Quantity|QuantitySearchValue|
+|FHIR element type|ISearchValue Type   |
+|-----------------|--------------------|
+|Address          |StringSearchValue   |
+|CodeableConcept  |TokenSearchValue    |
+|Code&lt;T&gt;    |TokenSearchValue    |
+|Code             |TokenSearchValue    |
+|ContactPoint     |TokenSearchValue    |
+|Date             |DateTimeSearchValue |
+|FhirBoolean      |TokenSearchValue    |
+|FhirDateTime     |DateTimeSearchValue |
+|FhirDecimal      |NumberSearchValue   |
+|FhirString       |StringSearchValue   |
+|FhirUri          |UriSearchValue      |
+|HumanName        |StringSearchValue   |
+|Identifier       |TokenSearchValue    |
+|Id               |TokenSearchValue    |
+|Instant          |DateTimeSearchValue |
+|Integer          |NumberSearchValue   |
+|Markdown         |StringSearchValue   |
+|Oid              |TokenSearchValue    |
+|Period           |DateTimeSearchValue |
+|PositiveInt      |TokenSearchValue    |
+|Quantity         |QuantitySearchValue |
 |ResourceReference|ReferenceSearchValue|
-|SimpleQuantity|QuantitySearchValue|
-|UnsignedInt|NumberSearchValue|
+|SimpleQuantity   |QuantitySearchValue |
+|UnsignedInt      |NumberSearchValue   |
 
 If the converter does not exist, the server will write a warning message instead of failing the request.
 
@@ -189,7 +221,7 @@ The following is an example of what is persisted in the Cosmos DB.
         "format": "Json"
     },
     "request": {
-        "url": "http://localhost:53727/Observation",
+        "url": "https://localhost:44348/Observation",
         "method": "POST"
     },
     "isDeleted": false,
@@ -258,7 +290,7 @@ The number field is `n`.
 
 #### Serializing QuantitySearchValue
 
-The system field is `s`, code field is `c`, and the quantity field is `q`.
+The system field is `s`, the code field is `c`, and the quantity field is `q`.
 
 ``` json
 {
@@ -271,12 +303,30 @@ The system field is `s`, code field is `c`, and the quantity field is `q`.
 
 #### Serializing ReferenceSearchValue
 
-The reference field is `r`.
+Reference can be searched in multiple ways:
+
+The base URI field is `rb`, the resource type field is `rt`, and the resource id is `ri`.
+
+The base URI is normalized so that it can be searched later.
+
+In the case of internal reference:
 
 ``` json
 {
     "p": "performer",
-    "r": "Practitioner/example"
+    "rt": "Practitioner",
+    "ri": "123"
+}
+```
+
+In the case of external reference:
+
+``` json
+{
+    "p": "performer",
+    "rb": "http://example.com/stu3/",
+    "rt": "Practitioner",
+    "ri": "123"
 }
 ```
 

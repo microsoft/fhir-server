@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net.Http;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Security
 {
@@ -16,21 +16,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
     {
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<SecurityConfiguration> _logger;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public SecurityProvider(IOptions<SecurityConfiguration> securityConfiguration, ILogger<SecurityConfiguration> logger)
+        public SecurityProvider(IOptions<SecurityConfiguration> securityConfiguration, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         public void Build(ListedCapabilityStatement statement)
         {
-            if (_securityConfiguration.Enabled && _securityConfiguration.Authentication?.Mode == AuthenticationMode.Jwt)
+            if (_securityConfiguration.Enabled)
             {
-                statement.AddOAuthSecurityService(_securityConfiguration.Authentication.Authority, _logger);
+                statement.AddOAuthSecurityService(_securityConfiguration.Authentication.Authority, _httpClientFactory, _logger);
             }
         }
     }

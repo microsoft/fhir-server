@@ -70,6 +70,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The authorization permission definition contains one or more invalid entries..
+        /// </summary>
+        internal static string AuthorizationPermissionDefinitionInvalid {
+            get {
+                return ResourceManager.GetString("AuthorizationPermissionDefinitionInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to CapabilityStatement must only have a single item in the &apos;Rest&apos; collection..
         /// </summary>
         internal static string CapabilityStatementSingleRestItem {
@@ -196,15 +205,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0}: {1}.
-        /// </summary>
-        internal static string IllegalHtmlDiagnostics {
-            get {
-                return ResourceManager.GetString("IllegalHtmlDiagnostics", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Illegal element name &apos;{0}&apos;.
         /// </summary>
         internal static string IllegalHtmlElement {
@@ -291,15 +291,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidValueTypeForMissingModifier {
             get {
                 return ResourceManager.GetString("InvalidValueTypeForMissingModifier", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The {0} returned null..
-        /// </summary>
-        internal static string MethodReturnedNull {
-            get {
-                return ResourceManager.GetString("MethodReturnedNull", resourceCulture);
             }
         }
         
@@ -430,11 +421,38 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &quot;Role does not have any ResourcePermission.&quot;.
+        /// </summary>
+        internal static string ResourcePermissionEmpty {
+            get {
+                return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The supplied version &apos;{0}&apos; did not match..
         /// </summary>
         internal static string ResourceVersionConflict {
             get {
                 return ResourceManager.GetString("ResourceVersionConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;Role name cannot be null or empty.&quot;.
+        /// </summary>
+        internal static string RoleNameEmpty {
+            get {
+                return ResourceManager.GetString("RoleNameEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ResourcePermission for Role &apos;{0}&apos; does not have any Actions..
+        /// </summary>
+        internal static string RoleResourcePermissionWithNoAction {
+            get {
+                return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
             }
         }
         
@@ -570,15 +588,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ServiceUnavailable {
             get {
                 return ResourceManager.GetString("ServiceUnavailable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The specified resource type &apos;{0}&apos; is not a reference type..
-        /// </summary>
-        internal static string SpecifiedResourceTypeIsNotReferenceType {
-            get {
-                return ResourceManager.GetString("SpecifiedResourceTypeIsNotReferenceType", resourceCulture);
             }
         }
         

@@ -16,11 +16,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     {
         private static readonly string[] TestFileNames = new string[]
         {
+            "ObservationWith1MinuteApgarScore",
             "ObservationWith20MinuteApgarScore",
             "ObservationWithEyeColor",
             "ObservationWithTemperature",
             "ObservationWithTPMTDiplotype",
             "ObservationWithTPMTHaplotypeOne",
+            "ObservationWithBloodPressure",
         };
 
         public CompositeSearchTestFixture()

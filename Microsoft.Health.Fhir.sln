@@ -33,6 +33,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions.DependencyInjection.UnitTests", "src\Microsoft.Health.Extensions.DependencyInjection.UnitTests\Microsoft.Health.Extensions.DependencyInjection.UnitTests.csproj", "{614DE061-52A0-4471-A3F1-50C9C907FFDB}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{B70945F4-01A6-4351-955B-C4A2943B5E3B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions.BuildTimeCodeGenerator", "tools\Microsoft.Health.Extensions.BuildTimeCodeGenerator\Microsoft.Health.Extensions.BuildTimeCodeGenerator.csproj", "{CA276939-8071-4734-9FE4-ADC825B72116}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{404C6C33-DB00-4182-BD90-F10A8B17C321}"
+	ProjectSection(SolutionItems) = preProject
+		testauthenvironment.json = testauthenvironment.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -91,6 +100,10 @@ Global
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA276939-8071-4734-9FE4-ADC825B72116}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA276939-8071-4734-9FE4-ADC825B72116}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA276939-8071-4734-9FE4-ADC825B72116}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA276939-8071-4734-9FE4-ADC825B72116}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -109,9 +122,10 @@ Global
 		{C015551C-0009-49CE-8C8D-B206BED0BB42} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{E2C2B117-32CD-449F-A4A8-4C8BA874D693} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
+		{CA276939-8071-4734-9FE4-ADC825B72116} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 EndGlobal

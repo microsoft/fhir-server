@@ -120,6 +120,9 @@
   <data name="AtAndSinceCannotBeBothSpecified" xml:space="preserve">
     <value>{0} and {1} cannot be both specified.</value>
   </data>
+  <data name="AuthorizationPermissionDefinitionInvalid" xml:space="preserve">
+    <value>The authorization permission definition contains one or more invalid entries.</value>
+  </data>
   <data name="CapabilityStatementSingleRestItem" xml:space="preserve">
     <value>CapabilityStatement must only have a single item in the 'Rest' collection.</value>
   </data>
@@ -163,10 +166,6 @@
   <data name="IllegalHtmlAttribute" xml:space="preserve">
     <value>Illegal attribute name '{0}' on element '{1}'</value>
   </data>
-  <data name="IllegalHtmlDiagnostics" xml:space="preserve">
-    <value>{0}: {1}</value>
-    <comment>{0}: Observation.text.div, {1}: Has illegal element 'Script'</comment>
-  </data>
   <data name="IllegalHtmlElement" xml:space="preserve">
     <value>Illegal element name '{0}'</value>
   </data>
@@ -196,9 +195,6 @@
   </data>
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>The value should be a boolean string if :missing modifier is specified.</value>
-  </data>
-  <data name="MethodReturnedNull" xml:space="preserve">
-    <value>The {0} returned null.</value>
   </data>
   <data name="ModifierNotSupported" xml:space="preserve">
     <value>The modifier '{0}' is not supported for search parameter '{1}'.</value>
@@ -242,9 +238,18 @@
   <data name="ResourceNotSupported" xml:space="preserve">
     <value>The resource type '{0}' is not supported.</value>
   </data>
+  <data name="ResourcePermissionEmpty" xml:space="preserve">
+    <value>"Role does not have any ResourcePermission."</value>
+  </data>
   <data name="ResourceVersionConflict" xml:space="preserve">
     <value>The supplied version '{0}' did not match.</value>
     <comment>{0}: ETag</comment>
+  </data>
+  <data name="RoleNameEmpty" xml:space="preserve">
+    <value>"Role name cannot be null or empty."</value>
+  </data>
+  <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
+    <value>ResourcePermission for Role '{0}' does not have any Actions.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>
@@ -290,9 +295,6 @@
   </data>
   <data name="ServiceUnavailable" xml:space="preserve">
     <value>The operation could not be completed because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support.</value>
-  </data>
-  <data name="SpecifiedResourceTypeIsNotReferenceType" xml:space="preserve">
-    <value>The specified resource type '{0}' is not a reference type.</value>
   </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported Configuration was selected</value>

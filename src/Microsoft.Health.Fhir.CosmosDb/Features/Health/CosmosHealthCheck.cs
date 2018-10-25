@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
     /// </summary>
     public class CosmosHealthCheck : IHealthCheck
     {
-        private readonly IDocumentClient _documentClient;
+        private readonly IScoped<IDocumentClient> _documentClient;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly ILogger<CosmosHealthCheck> _logger;
@@ -28,22 +29,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosHealthCheck"/> class.
         /// </summary>
-        /// <param name="documentClientFactory">The document client factory/</param>
+        /// <param name="documentClient">The document client factory/</param>
         /// <param name="configuration">The CosmosDB configuration.</param>
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
         public CosmosHealthCheck(
-            Func<IDocumentClient> documentClientFactory,
+            IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration configuration,
             IDocumentClientTestProvider testProvider,
             ILogger<CosmosHealthCheck> logger)
         {
-            EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
+            EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _documentClient = documentClientFactory.Invoke();
+            _documentClient = documentClient;
 
             EnsureArg.IsNotNull(_documentClient, optsFn: options => options.WithMessage("Factory returned null."));
 
@@ -56,17 +57,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         {
             try
             {
-                // Make a non-invasive query to CosmosDB to make sure we can reach the database.
+                // Make a non-invasive query to make sure we can reach the data store.
 
-                await _testProvider.PerformTest(_documentClient, _configuration);
+                await _testProvider.PerformTest(_documentClient.Value, _configuration);
 
-                return HealthCheckResult.Healthy("Successfully connected to CosmosDB.");
+                return HealthCheckResult.Healthy("Successfully connected to the data store.");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to connect to CosmosDB.");
+                _logger.LogWarning(ex, "Failed to connect to the data store.");
 
-                return HealthCheckResult.Unhealthy("Failed to connect to CosmosDB.");
+                return HealthCheckResult.Unhealthy("Failed to connect to the data store.");
             }
         }
     }

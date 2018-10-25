@@ -14,21 +14,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ClaimsIndexer : IClaimsIndexer
     {
-        private readonly IFhirContextAccessor _fhirContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly SecurityConfiguration _securityConfiguration;
 
-        public ClaimsIndexer(IFhirContextAccessor fhirContextAccessor, IOptions<SecurityConfiguration> securityConfiguration)
+        public ClaimsIndexer(IFhirRequestContextAccessor fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfiguration)
         {
-            EnsureArg.IsNotNull(fhirContextAccessor, nameof(fhirContextAccessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
 
-            _fhirContextAccessor = fhirContextAccessor;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _securityConfiguration = securityConfiguration.Value;
         }
 
         public IReadOnlyCollection<KeyValuePair<string, string>> Extract()
         {
-            return _fhirContextAccessor.FhirContext.Principal?.Claims?
+            return _fhirRequestContextAccessor.FhirRequestContext.Principal?.Claims?
                 .Where(c => _securityConfiguration.LastModifiedClaims?.Contains(c.Type) ?? false)
                 .Select(c => new KeyValuePair<string, string>(c.Type, c.Value))
                 .ToList();

@@ -29,8 +29,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     public class OperationOutcomeExceptionFilterTests
     {
         private readonly ActionExecutedContext _context;
-        private IFhirContextAccessor _fhirContextAccessor = Substitute.For<IFhirContextAccessor>();
-        private IFhirContext _fhirContext = Substitute.For<IFhirContext>();
+        private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
         private string _correlationId = Guid.NewGuid().ToString();
 
         public OperationOutcomeExceptionFilterTests()
@@ -40,14 +40,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 new List<IFilterMetadata>(),
                 FilterTestsHelper.CreateMockFhirController());
 
-            _fhirContext.CorrelationId.Returns(_correlationId);
-            _fhirContextAccessor.FhirContext.Returns(_fhirContext);
+            _fhirRequestContext.CorrelationId.Returns(_correlationId);
+            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
         }
 
         [Fact]
         public void GivenAFhirBasedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirContextAccessor);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
 
             _context.Exception = Substitute.For<FhirException>();
 
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenAResourceGoneExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirContextAccessor);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
 
             _context.Exception = new ResourceGoneException(new ResourceKey<Observation>("id1", "version2"));
 
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
         private OperationOutcome ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirContextAccessor);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
 
             _context.Exception = exception;
 

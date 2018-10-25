@@ -30,9 +30,9 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         // There is a difference between how the date should be parsed for storing and how the date should be parsed for searching.
         // For date that should be stored, the time zone information must be present if time is specified.
-        // "If hours and minutes are specified, a time zone SHALL be populated." from http://hl7.org/fhir/datatypes.html#datetime.
+        // From spec: http://hl7.org/fhir/STU3/datatypes.html#datetime, "If hours and minutes are specified, a time zone SHALL be populated."
         // However, if the date is being parsed for searching, then the time zone information is optional.
-        // "the minutes SHALL be present if an hour is present, and you SHOULD provide a time zone if the time part is present." from http://hl7.org/fhir/search.html#date.
+        // From spec: http://hl7.org/fhir/STU3/search.html#date, "the minutes SHALL be present if an hour is present, and you SHOULD provide a time zone if the time part is present."
         // This regular expression allows the time zone to be optional.
         private static readonly Regex DateTimeRegex = new Regex(
             $@"-?(?<{YearCapture}>[0-9]{{4}})(-(?<{MonthCapture}>0[1-9]|1[0-2])(-(?<{DayCapture}>0[0-9]|[1-2][0-9]|3[0-1])(T(?<{HourCapture}>[01][0-9]|2[0-3]):(?<{MinuteCapture}>[0-5][0-9])(:((?<{SecondCapture}>[0-5][0-9])(?<{FractionCapture}>\.[0-9]+)?))?(?<{TimeZoneCapture}>Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))?)?)?)?",

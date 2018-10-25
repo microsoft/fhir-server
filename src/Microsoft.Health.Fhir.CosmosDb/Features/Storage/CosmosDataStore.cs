@@ -16,6 +16,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class CosmosDataStore : IDataStore, IContinuationTokenCache, IProvideCapability
     {
-        private readonly IDocumentClient _documentClient;
+        private readonly IScoped<IDocumentClient> _documentClient;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly ILogger<CosmosDataStore> _logger;
         private readonly Uri _collectionUri;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosDataStore"/> class.
         /// </summary>
-        /// <param name="documentClientFactory">
+        /// <param name="documentClient">
         /// A function that returns an <see cref="IDocumentClient"/>.
         /// Note that this is a function so that the lifetime of the instance is not directly controlled by the IoC container.
         /// </param>
@@ -49,24 +50,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
         /// <param name="logger">The logger instance.</param>
         public CosmosDataStore(
-            Func<IDocumentClient> documentClientFactory,
+            IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             ILogger<CosmosDataStore> logger)
         {
-            EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
+            EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _documentClient = documentClientFactory.Invoke();
-            if (_documentClient == null)
-            {
-                throw new ArgumentException("null was returned by the factory", nameof(documentClientFactory));
-            }
-
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _logger = logger;
+            _documentClient = documentClient;
             _collectionUri = cosmosDataStoreConfiguration.RelativeCollectionUri;
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
@@ -89,7 +85,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 UpsertWithHistoryModel response = await RetryExceptionPolicy.CreateRetryPolicy().ExecuteAsync(
                     async () => await _upsertWithHistoryProc.Execute(
-                        _documentClient,
+                        _documentClient.Value,
                         _collectionUri,
                         cosmosWrapper,
                         weakETag?.VersionId,
@@ -166,7 +162,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 StoredProcedureResponse<IList<string>> response = await RetryExceptionPolicy.CreateRetryPolicy().ExecuteAsync(
                     async () => await _hardDelete.Execute(
-                        _documentClient,
+                        _documentClient.Value,
                         _collectionUri,
                         key),
                     cancellationToken);
@@ -195,7 +191,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             CosmosQueryContext context = new CosmosQueryContext(_collectionUri, sqlQuerySpec, feedOptions);
 
-            return _cosmosDocumentQueryFactory.Create<T>(context);
+            return _cosmosDocumentQueryFactory.Create<T>(_documentClient.Value, context);
         }
 
         public async Task<string> GetContinuationTokenAsync(string id, CancellationToken cancellationToken = default)
@@ -245,7 +241,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     PartitionKey = new PartitionKey(ContinuationToken.ContinuationTokenPartition),
                 };
 
-                var response = await _documentClient.UpsertDocumentAsync(
+                var response = await _documentClient.Value.UpsertDocumentAsync(
                     _collectionUri,
                     savedCt,
                     requestOptions,

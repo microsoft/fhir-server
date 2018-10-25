@@ -6,6 +6,7 @@
 using System.Buffers;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -39,11 +40,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             _configuration = new FormatterConfiguration(
                 Options.Create(_featureConfiguration),
                 Substitute.For<IConfiguredConformanceProvider>(),
-                _fhirJsonInputFormatter,
-                _fhirXmlInputFormatter,
-                _htmlOutputFormatter,
-                _fhirJsonOutputFormatter,
-                _fhirXmlOutputFormatter);
+                new TextInputFormatter[] { _fhirJsonInputFormatter, _fhirXmlInputFormatter },
+                new TextOutputFormatter[] { _htmlOutputFormatter, _fhirJsonOutputFormatter, _fhirXmlOutputFormatter });
 
             _options = new MvcOptions();
             _options.Filters.Add(new UnsupportedContentTypeFilter());
@@ -52,9 +50,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         [Fact]
         public void GivenSupportedFeatures_WhenConfigured_ThenCorrectOutputFormattersShouldBeAdded()
         {
-            _featureConfiguration.SupportsUI = true;
-            _featureConfiguration.SupportsXml = true;
-
             _configuration.PostConfigure("test", _options);
 
             Assert.Collection(
@@ -62,19 +57,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                 f => Assert.Equal(_htmlOutputFormatter, f),
                 f => Assert.Equal(_fhirJsonOutputFormatter, f),
                 f => Assert.Equal(_fhirXmlOutputFormatter, f));
-        }
-
-        [Fact]
-        public void GivenFeaturesAreNotSupported_WhenConfigured_ThenCorrectOutputFormattersShouldBeAdded()
-        {
-            _featureConfiguration.SupportsUI = false;
-            _featureConfiguration.SupportsXml = false;
-
-            _configuration.PostConfigure("test", _options);
-
-            Assert.Collection(
-                _options.OutputFormatters,
-                f => Assert.Equal(_fhirJsonOutputFormatter, f));
         }
 
         [Fact]

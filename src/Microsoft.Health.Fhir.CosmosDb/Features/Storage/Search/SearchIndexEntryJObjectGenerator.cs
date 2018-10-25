@@ -4,10 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Globalization;
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search.Legacy;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
@@ -27,14 +25,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         {
             get;
             private set;
-        }
-
-        public void Visit(LegacyCompositeSearchValue composite)
-        {
-            AddProperty(LegacySearchValueConstants.CompositeSystemName, composite.System);
-            AddProperty(LegacySearchValueConstants.CompositeCodeName, composite.Code);
-
-            composite.Value.AcceptVisitor(this);
         }
 
         public void Visit(CompositeSearchValue composite)
@@ -84,7 +74,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         public void Visit(ReferenceSearchValue reference)
         {
-            AddProperty(SearchValueConstants.ReferenceName, reference.Reference);
+            AddPropertyIfNotNull(SearchValueConstants.ReferenceBaseUriName, reference.BaseUri?.ToString());
+            AddPropertyIfNotNull(SearchValueConstants.ReferenceResourceTypeName, reference.ResourceType?.ToString());
+            AddProperty(SearchValueConstants.ReferenceResourceIdName, reference.ResourceId);
         }
 
         public void Visit(StringSearchValue s)
@@ -95,21 +87,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         public void Visit(TokenSearchValue token)
         {
-            AddIfNotNull(SearchValueConstants.SystemName, token.System);
-            AddIfNotNull(SearchValueConstants.CodeName, token.Code);
+            AddPropertyIfNotNull(SearchValueConstants.SystemName, token.System);
+            AddPropertyIfNotNull(SearchValueConstants.CodeName, token.Code);
 
             if (!ExcludeTokenText)
             {
                 // Since text is case-insensitive search, it will always be normalized.
-                AddIfNotNull(SearchValueConstants.NormalizedTextName, token.Text?.ToUpperInvariant());
-            }
-
-            void AddIfNotNull(string name, string value)
-            {
-                if (value != null)
-                {
-                    AddProperty(name, value);
-                }
+                AddPropertyIfNotNull(SearchValueConstants.NormalizedTextName, token.Text?.ToUpperInvariant());
             }
         }
 
@@ -131,6 +115,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             }
 
             Output.Add(new JProperty(name, value));
+        }
+
+        private void AddPropertyIfNotNull(string name, string value)
+        {
+            if (value != null)
+            {
+                AddProperty(name, value);
+            }
         }
     }
 }

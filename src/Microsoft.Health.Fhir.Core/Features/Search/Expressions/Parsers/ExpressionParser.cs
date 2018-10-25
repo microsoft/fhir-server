@@ -14,7 +14,7 @@ using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using static Hl7.Fhir.Model.SearchParameter;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
     /// <summary>
     /// Provides mechanism to parse the search expression.
@@ -63,6 +63,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             PathSegment[] paths = key.Split(new[] { SearchParams.SEARCH_CHAINSEPARATOR }, StringSplitOptions.RemoveEmptyEntries)
                  .Select(path => PathSegment.Parse(path))
                  .ToArray();
+
+            if (paths?.Length == 0)
+            {
+                throw new SearchParameterNotSupportedException(resourceType, key);
+            }
 
             return Parse(resourceType, paths, currentIndex: 0, value: value);
         }

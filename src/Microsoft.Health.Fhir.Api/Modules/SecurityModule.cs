@@ -5,25 +5,25 @@
 
 using EnsureThat;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Api.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
     public class SecurityModule : IStartupModule
     {
-        private readonly IConfiguration _configuration;
+        private readonly SecurityConfiguration _securityConfiguration;
 
-        public SecurityModule(IConfiguration configuration)
+        public SecurityModule(FhirServerConfiguration fhirServerConfiguration)
         {
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
-
-            _configuration = configuration;
+            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
+            _securityConfiguration = fhirServerConfiguration.Security;
         }
 
         /// <inheritdoc />
@@ -31,11 +31,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            SecurityConfiguration securityConfiguration = new SecurityConfiguration();
-            _configuration.GetSection("Security").Bind(securityConfiguration);
-            services.AddSingleton(Options.Create(securityConfiguration));
+            services.AddSingleton<IAuthorizationPolicyProvider, AuthorizationPolicyProvider>();
 
-            if (securityConfiguration.Enabled && securityConfiguration.Authentication?.Mode == AuthenticationMode.Jwt)
+            if (_securityConfiguration.Enabled)
             {
                 services.AddAuthentication(options =>
                     {
@@ -45,9 +43,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     })
                     .AddJwtBearer(options =>
                     {
-                        options.Authority = securityConfiguration.Authentication.Authority;
-                        options.Audience = securityConfiguration.Authentication.Audience;
-                        options.RequireHttpsMetadata = securityConfiguration.Authentication.RequireHttpsMetaData;
+                        options.Authority = _securityConfiguration.Authentication.Authority;
+                        options.Audience = _securityConfiguration.Authentication.Audience;
+                        options.RequireHttpsMetadata = true;
                     });
 
                 services.AddAuthorization(options => options.AddPolicy(PolicyNames.FhirPolicy, builder =>
@@ -55,11 +53,32 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     builder.RequireAuthenticatedUser();
                     builder.Requirements.Add(new FhirAccessRequirement());
                 }));
+
+                services.AddSingleton<IAuthorizationHandler, DefaultFhirAccessRequirementHandler>();
+
+                if (_securityConfiguration.Authorization.Enabled)
+                {
+                    _securityConfiguration.Authorization.RoleConfiguration.Validate();
+                    services.AddSingleton<IRoleConfiguration>(_securityConfiguration.Authorization.RoleConfiguration);
+                    services.AddSingleton<IAuthorizationPolicy, RoleBasedAuthorizationPolicy>();
+                    services.AddSingleton<IAuthorizationHandler, ResourceActionHandler>();
+                }
+                else
+                {
+                    services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy));
+                }
             }
             else
             {
-                services.AddAuthorization(options =>
-                    options.AddPolicy(PolicyNames.FhirPolicy, builder => builder.RequireAssertion(x => true)));
+                services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.FhirPolicy, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy));
+            }
+        }
+
+        private static void ConfigureDefaultPolicy(AuthorizationOptions options, params string[] policyNames)
+        {
+            foreach (var policyName in policyNames)
+            {
+                options.AddPolicy(policyName, builder => builder.RequireAssertion(x => true));
             }
         }
     }
