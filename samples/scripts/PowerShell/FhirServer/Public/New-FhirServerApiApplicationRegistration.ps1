@@ -16,7 +16,7 @@ function New-FhirServerApiApplicationRegistration {
     .PARAMETER WebAppSuffix
     Will be appended to FHIR service name to form the FhirServiceAudience if one is not supplied,
     e.g., azurewebsites.net or azurewebsites.us (for US Government cloud)
-    .PARAMETER AppRole
+    .PARAMETER AppRoles
     Names of AppRoles to be defined in the AAD Application registration
     #>
     [CmdletBinding(DefaultParameterSetName='ByFhirServiceName')]

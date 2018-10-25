@@ -16,8 +16,6 @@ function New-FhirServerClientApplicationRegistration {
     Identifier URI for the client AAD Application registration
     .PARAMETER PublicClient
     Switch to indicate if the client application should be a public client (desktop/mobile applications)
-    .PARAMETER Roles
-    List of application roles to grant the new client application
     #>
     param(
         [Parameter(Mandatory = $true)]
