@@ -20,9 +20,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning.DataMigrati
             var spec = new SqlQuerySpec($@"SELECT * FROM c WHERE 
                                            (NOT IS_DEFINED(c.{KnownResourceWrapperProperties.IsSystem}) OR c.{KnownResourceWrapperProperties.IsSystem} = false)
                                            AND
-                                           (NOT IS_DEFINED(c.{KnownResourceWrapperProperties.DataVersion}) OR c.{KnownResourceWrapperProperties.DataVersion} < @version)");
+                                           (c.{KnownResourceWrapperProperties.DataVersion} = @version)");
 
-            spec.Parameters.Add(new SqlParameter("@version", Version));
+            spec.Parameters.Add(new SqlParameter("@version", Version - 1));
 
             return spec;
         }

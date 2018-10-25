@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var migrationPair = migrations.First();
+            var migration = migrations.First();
 
             try
             {
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                     cancellationToken.ThrowIfCancellationRequested();
 
                     // Since every result item is to be modified, the query is re-created on each iteration
-                    documentsToMigrate = await CreateMigrationQuery(migrationPair, partitionRangeKey, cancellationToken);
+                    documentsToMigrate = await CreateMigrationQuery(migration, partitionRangeKey, cancellationToken);
 
                     foreach (Document item in documentsToMigrate)
                     {
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unable to complete data migration step {DataMigrationName}", migrationPair.Name);
+                _logger.LogError(ex, "Unable to complete data migration step {DataMigrationName}", migration.Name);
             }
         }
 

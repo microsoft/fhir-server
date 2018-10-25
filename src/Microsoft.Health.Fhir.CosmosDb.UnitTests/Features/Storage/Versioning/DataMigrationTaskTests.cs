@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         private readonly ICosmosDbDistributedLock _cosmosDbDistributedLock;
         private readonly CancellationTokenSource _stoppingSource;
         private readonly IDocumentClient _client;
-        private readonly V001AddsVersionPropertyToAllDocuments _migration = new V001AddsVersionPropertyToAllDocuments();
+        private readonly V001AddsVersionPropertyAndReindex _migration = new V001AddsVersionPropertyAndReindex(Substitute.For<ISearchIndexer>());
         private readonly ICosmosDocumentQueryFactory _queryFactory;
 
         public DataMigrationTaskTests()

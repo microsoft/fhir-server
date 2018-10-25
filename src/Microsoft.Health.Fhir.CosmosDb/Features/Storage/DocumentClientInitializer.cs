@@ -40,6 +40,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
+        public static JsonSerializerSettings JsonSerializerSettings
+        {
+            get
+            {
+                // Setting TypeNameHandling to any value other than 'None' will be flagged
+                // as causing potential security issues
+                var serializerSettings = new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore,
+                    DateFormatHandling = DateFormatHandling.IsoDateFormat,
+                    DateParseHandling = DateParseHandling.DateTimeOffset,
+                    DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind,
+                    TypeNameHandling = TypeNameHandling.None,
+                };
+
+                serializerSettings.Converters.Add(new StringEnumConverter());
+
+                // By default, the Json.NET serializer uses 'F' instead of 'f' for fractions.
+                // 'F' will omit the trailing digits if they are 0. You might end up getting something like '2018-02-07T20:04:49.97114+00:00'
+                // where the fraction is actually 971140. Because the ordering is done as string,
+                // if the values don't always have complete 7 digits, the comparison might not work properly.
+                serializerSettings.Converters.Add(new IsoDateTimeConverter { DateTimeFormat = "o" });
+                return serializerSettings;
+            }
+        }
+
         /// <summary>
         /// Creates am unopened <see cref="DocumentClient"/> based on the given <see cref="CosmosDataStoreConfiguration"/>.
         /// </summary>
@@ -67,27 +93,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
             }
 
-            // Setting TypeNameHandling to any value other than 'None' will be flagged
-            // as causing potential security issues
-            var serializerSettings = new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-                DateFormatHandling = DateFormatHandling.IsoDateFormat,
-                DateParseHandling = DateParseHandling.DateTimeOffset,
-                DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind,
-                TypeNameHandling = TypeNameHandling.None,
-            };
-
-            serializerSettings.Converters.Add(new StringEnumConverter());
-
-            // By default, the Json.NET serializer uses 'F' instead of 'f' for fractions.
-            // 'F' will omit the trailing digits if they are 0. You might end up getting something like '2018-02-07T20:04:49.97114+00:00'
-            // where the fraction is actually 971140. Because the ordering is done as string,
-            // if the values don't always have complete 7 digits, the comparison might not work properly.
-            serializerSettings.Converters.Add(new IsoDateTimeConverter { DateTimeFormat = "o" });
-
             return new DocumentClientWithConsistencyLevelFromContext(
-                new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
+                new DocumentClient(new Uri(configuration.Host), configuration.Key, JsonSerializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
                 _fhirRequestContextAccessor);
         }
 

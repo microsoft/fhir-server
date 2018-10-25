@@ -279,6 +279,8 @@
   </data>
   <data name="ServiceUnavailableServiceUpgraded" xml:space="preserve">
     <value>The operation could not be completed because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support. Reason: this instance expected data in v{0} format, but found v{1}.</value>
+    <comment>{0}: 1
+{1}: 2</comment>
   </data>
   <data name="SpecifiedResourceTypeIsNotReferenceType" xml:space="preserve">
     <value>The specified resource type '{0}' is not a reference type.</value>
