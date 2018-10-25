@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
     public interface ISearchParameterExpressionParser
     {
-        SearchParameterExpressionBase Parse(
+        Expression Parse(
             SearchParameter searchParameter,
             SearchModifierCode? modifier,
             string value);

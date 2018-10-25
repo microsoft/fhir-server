@@ -39,9 +39,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(queryParameters: null);
 
             Assert.NotNull(options);
+
             Assert.Null(options.ContinuationToken);
             Assert.Equal(10, options.MaxItemCount);
-            Assert.Equal(KnownQueryParameterNames.ResourceType, Assert.IsType<SearchParameterExpression>(options.Expression).SearchParameterName);
+            var searchParameterExpression = Assert.IsType<SearchParameterExpression>(options.Expression);
+            Assert.Equal(KnownQueryParameterNames.ResourceType, searchParameterExpression.SearchParameterName);
+            Assert.Equal(DefaultResourceType, Assert.IsType<BinaryExpression>(Assert.Single(searchParameterExpression.Expressions)).Value);
         }
 
         [Fact]
@@ -142,8 +145,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string value2 = "Test";
             const string value3 = "WA";
 
-            Expression expression1 = new SearchParameterExpression(paramName1, new[] { Substitute.For<Expression>() });
-            Expression expression3 = new SearchParameterExpression(paramName3, new[] { Substitute.For<Expression>() });
+            Expression expression1 = Substitute.For<Expression>();
+            Expression expression3 = Substitute.For<Expression>();
 
             _expressionParser.Parse(resourceType, paramName1, value1).Returns(expression1);
             _expressionParser.Parse(resourceType, paramName2, value2)

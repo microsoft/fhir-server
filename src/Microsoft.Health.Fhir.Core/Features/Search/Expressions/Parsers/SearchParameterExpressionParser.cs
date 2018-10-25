@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             };
         }
 
-        public SearchParameterExpressionBase Parse(
+        public Expression Parse(
             SearchParameter searchParameter,
             SearchModifierCode? modifier,
             string value)

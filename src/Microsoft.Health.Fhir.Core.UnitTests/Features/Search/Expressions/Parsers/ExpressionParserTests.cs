@@ -249,7 +249,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             SearchParameter searchParameter = SetupSearchParameter(resourceType, param1);
 
-            Expression expression = new SearchParameterExpression(searchParameter.Name, new[] { Substitute.For<Expression>() });
+            Expression expression = Substitute.For<Expression>();
 
             _searchParameterExpressionParser.Parse(searchParameter, SearchParameter.SearchModifierCode.Missing, value).Returns(expression);
 
@@ -359,7 +359,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
         private Expression SetupExpression(SearchParameter searchParameter, string value)
         {
-            Expression expectedExpression = new SearchParameterExpression(searchParameter.Name, new[] { Substitute.For<Expression>() });
+            Expression expectedExpression = Substitute.For<Expression>();
 
             _searchParameterExpressionParser.Parse(searchParameter, null, value).Returns(expectedExpression);
 
