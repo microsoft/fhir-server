@@ -8,7 +8,7 @@ function Set-FhirServerApiApplicationRoles {
     Set-FhirServerApiApplicationRoles -AppId <ID of API App> -AppRoles admin,nurse,patient
     .PARAMETER ApiAppId
     ApiId for the API application
-    .PARAMETER AppRole
+    .PARAMETER AppRoles
     List of roles to be defined on the API App
     #>
     param(

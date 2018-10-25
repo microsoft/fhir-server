@@ -36,9 +36,6 @@ function New-FhirServerClientApplicationRegistration {
 
         [Parameter(Mandatory = $false)]
         [switch]$PublicClient,
-
-        [Parameter(Mandatory = $false)]
-        [String[]]$Roles
     )
 
     Set-StrictMode -Version Latest
@@ -71,16 +68,6 @@ function New-FhirServerClientApplicationRegistration {
 
     # Just add the first scope (user impersonation)
     $reqApi.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $apiAppReg.Oauth2Permissions[0].id, "Scope"
-
-    # Grant any application roles to the client application
-    foreach ($role in $Roles)
-    {   
-        $targetRole = ($apiAppReg.AppRoles | Where-Object { $_.Value -eq $role })
-        if ($targetRole)
-        {
-            $reqApi.ResourceAccess += New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $targetRole.Id, "Role"
-        }
-    }
 
     if($PublicClient)
     {

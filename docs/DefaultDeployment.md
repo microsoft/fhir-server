@@ -27,13 +27,27 @@ Register an AAD Application for the FHIR server API:
 
 ```PowerShell
 $fhirServiceName = "myfhirservice"
-$apiAppReg = New-FhirServerApiApplicationRegistration -FhirServiceName $fhirServiceName
+$apiAppReg = New-FhirServerApiApplicationRegistration -FhirServiceName $fhirServiceName -AppRoles admin,nurse,patient
 ```
+
+The `-AppRoles` defines a set of roles that can be granted to users or service principals (service accounts) interacting with the FHIR server API. Configuration settings for the FHIR server will determine which privileges (Read, Write, etc.) that are assosiated with each role. 
 
 To access the FHIR server from a client, you will also need a client AAD Application registration with a client secret. This client AAD Application registration will need to have appropriate application permissions and reply URLs configured. Here is how to register a client AAD Application for use with [Postman](https://getpostman.com):
 
 ```PowerShell
 $clientAppReg = New-FhirServerClientApplicationRegistration -ApiAppId $apiAppReg.AppId -DisplayName "myfhirclient" -ReplyUrl "https://www.getpostman.com/oauth2/callback"
+```
+
+If you would like a client application to be able to act as a service account, you can assign roles to the client application:
+
+```PowerShell
+Set-FhirServerClientAppRoleAssignments -AppId $clientAppReg.AppId -ApiAppId $apiAppReg.AppId -AppRoles admin,patient
+```
+
+To assign roles to a specific user in Azure Active Directory:
+
+```PowerShell
+Set-FhirServerUserAppRoleAssignments -UserPrincipalName myuser@mydomain.com -ApiAppId $apiAppReg.AppId -AppRoles admin,nurse
 ```
 
 ## Deploying the FHIR Server Template

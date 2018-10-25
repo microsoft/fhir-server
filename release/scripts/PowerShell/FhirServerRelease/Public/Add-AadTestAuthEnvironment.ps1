@@ -103,12 +103,11 @@ function Add-AadTestAuthEnvironment {
     }
 
     Write-Host "Setting roles on API Application"
-    Set-FhirServerApiApplicationRoles -ObjectId $application.ObjectId -RoleConfiguration $testAuthEnvironment.Roles | Out-Null
-
-    $servicePrincipal = Get-AzureAdServicePrincipalByAppId $application.AppId
+    $appRoles = ($testAuthEnvironment.roles | Select -ExpandProperty name)
+    Set-FhirServerApiApplicationRoles -AppId $application.ObjectId -AppRoles $appRoles | Out-Null
 
     Write-Host "Ensuring users and role assignments for API Application exist"
-    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $keyVaultName
+    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $keyVaultName
 
     $environmentClientApplications = @()
 
