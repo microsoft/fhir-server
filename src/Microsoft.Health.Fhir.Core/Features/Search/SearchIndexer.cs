@@ -82,41 +82,56 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             Base[] rootObjects = resource.Select(searchParameter.Expression, context).ToArray();
 
-            var componentSearchValues = new List<IReadOnlyList<ISearchValue>>(searchParameter.Component.Count);
-
-            // For the composite search parameter, we will need to build each component.
-            for (int i = 0; i < searchParameter.Component.Count; i++)
+            foreach (Base rootObject in rootObjects)
             {
-                SearchParameter.ComponentComponent component = searchParameter.Component[i];
+                int numberOfComponents = searchParameter.Component.Count;
+                bool skip = false;
 
-                // First find the type of the component.
-                SearchParameter componentSearchParameterDefinition = _searchParameterDefinitionManager.GetSearchParameter(component.Definition.Url);
+                var componentValues = new IReadOnlyList<ISearchValue>[numberOfComponents];
 
-                IReadOnlyList<ISearchValue> extractedComponentValues = rootObjects
-                    .Select(rootObject => ExtractSearchValues(
+                // For each object extracted from the expression, we will need to evaluate each component.
+                for (int i = 0; i < numberOfComponents; i++)
+                {
+                    SearchParameter.ComponentComponent component = searchParameter.Component[i];
+
+                    // First find the type of the component.
+                    SearchParameter componentSearchParameterDefinition = _searchParameterDefinitionManager.GetSearchParameter(component.Definition.Url);
+
+                    IReadOnlyList<ISearchValue> extractedComponentValues = ExtractSearchValues(
                         componentSearchParameterDefinition.Url,
                         componentSearchParameterDefinition.Type.Value,
                         componentSearchParameterDefinition.Target,
                         rootObject,
                         component.Expression,
-                        context))
-                    .SelectMany(searchValue => searchValue)
-                    .ToArray();
+                        context);
 
-                if (!extractedComponentValues.Any())
-                {
-                    // One of the component didn't have any value, and therefore this component search parameter will not have any value.
-                    yield break;
+                    // Filter out any search value that's not valid as a composite component.
+                    extractedComponentValues = extractedComponentValues
+                        .Where(sv => sv.IsValidAsCompositeComponent)
+                        .ToArray();
+
+                    if (!extractedComponentValues.Any())
+                    {
+                        // One of the components didn't have any value and therefore it will not be indexed.
+                        skip = true;
+                        break;
+                    }
+
+                    componentValues[i] = extractedComponentValues;
                 }
 
-                componentSearchValues.Add(extractedComponentValues);
-            }
+                if (skip)
+                {
+                    continue;
+                }
 
-            foreach (IEnumerable<ISearchValue> compositeCombination in componentSearchValues.CartesianProduct())
-            {
-                yield return new SearchIndexEntry(
-                    searchParameter.Name,
-                    new CompositeSearchValue(compositeCombination.ToArray()));
+                // Create the list of searchable values.
+                foreach (IEnumerable<ISearchValue> compositeSearchValues in componentValues.CartesianProduct())
+                {
+                    yield return new SearchIndexEntry(
+                        searchParameter.Name,
+                        new CompositeSearchValue(compositeSearchValues.ToArray()));
+                }
             }
         }
 

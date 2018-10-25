@@ -11,6 +11,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     public interface ISearchValue
     {
         /// <summary>
+        /// Gets a flag indicating whether the search value is valid as a composite component or not.
+        /// </summary>
+        bool IsValidAsCompositeComponent { get; }
+
+        /// <summary>
         /// Accepts the visitor.
         /// </summary>
         /// <param name="visitor">The visitor.</param>

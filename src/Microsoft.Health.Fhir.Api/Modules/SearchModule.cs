@@ -7,18 +7,13 @@ using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy;
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy.Expressions;
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -28,14 +23,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public class SearchModule : IStartupModule
     {
-        private readonly SearchConfiguration _searchConfiguration;
-
-        public SearchModule(FhirServerConfiguration fhirServerConfiguration)
-        {
-            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
-            _searchConfiguration = fhirServerConfiguration.Search;
-        }
-
         /// <inheritdoc />
         public void Load(IServiceCollection services)
         {
@@ -44,48 +31,30 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IUrlResolver, UrlResolver>();
             services.AddSingleton<IBundleFactory, BundleFactory>();
 
-            if (_searchConfiguration.UseLegacySearch)
-            {
-                services.AddSingleton<ISearchParamDefinitionManager, SearchParamDefinitionManager>();
-                services.AddSingleton<ISearchParamFactory, SearchParamFactory>();
-                services.Add<ResourceTypeManifestManager>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<IResourceTypeManifestManager>()
-                    .AsService<IProvideCapability>();
-                services.AddSingleton<ISearchIndexer, LegacySearchIndexer>();
-                services.AddSingleton<ILegacySearchValueParser, LegacySearchValueParser>();
-                services.AddTransient<ILegacySearchValueExpressionBuilder, LegacySearchValueExpressionBuilder>();
-                services.AddSingleton<ILegacyExpressionParser, LegacyExpressionParser>();
-                services.AddSingleton<ISearchOptionsFactory, LegacySearchOptionsFactory>();
-            }
-            else
-            {
-                services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
+            services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 
-                services.Add<SearchParameterDefinitionManager>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<IStartable>()
-                    .AsService<IProvideCapability>()
-                    .AsService<ISearchParameterDefinitionManager>();
+            services.Add<SearchParameterDefinitionManager>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IStartable>()
+                .AsService<IProvideCapability>()
+                .AsService<ISearchParameterDefinitionManager>();
 
-                services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
-                    .AssignableTo<IFhirElementToSearchValueTypeConverter>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<IFhirElementToSearchValueTypeConverter>();
+            services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
+                .AssignableTo<IFhirElementToSearchValueTypeConverter>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IFhirElementToSearchValueTypeConverter>();
 
-                services.Add<FhirElementToSearchValueTypeConverterManager>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<IFhirElementToSearchValueTypeConverterManager>();
+            services.Add<FhirElementToSearchValueTypeConverterManager>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IFhirElementToSearchValueTypeConverterManager>();
 
-                services.AddSingleton<ISearchIndexer, SearchIndexer>();
-                services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
-                services.AddSingleton<IExpressionParser, ExpressionParser>();
-                services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();
-            }
+            services.AddSingleton<ISearchIndexer, SearchIndexer>();
+            services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
+            services.AddSingleton<IExpressionParser, ExpressionParser>();
+            services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();
 
             // TODO: Remove the following once bug 65143 is fixed.
             // All of the classes that implement IProvideCapability will be automatically be picked up and registered.
@@ -94,7 +63,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // at the logic for automatically registering types since different component could have different life time.
             // For now, just manually remove the registration.
             RemoveRegistration(typeof(IProvideCapability), typeof(SearchParameterDefinitionManager), ServiceLifetime.Transient);
-            RemoveRegistration(typeof(IProvideCapability), typeof(ResourceTypeManifestManager), ServiceLifetime.Transient);
 
             void RemoveRegistration(Type serviceType, Type implementationType, ServiceLifetime lifetime)
             {

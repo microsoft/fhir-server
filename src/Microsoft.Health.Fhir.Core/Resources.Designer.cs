@@ -151,15 +151,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0}: {1}.
-        /// </summary>
-        internal static string IllegalHtmlDiagnostics {
-            get {
-                return ResourceManager.GetString("IllegalHtmlDiagnostics", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Illegal element name &apos;{0}&apos;.
         /// </summary>
         internal static string IllegalHtmlElement {
@@ -246,15 +237,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidValueTypeForMissingModifier {
             get {
                 return ResourceManager.GetString("InvalidValueTypeForMissingModifier", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The {0} returned null..
-        /// </summary>
-        internal static string MethodReturnedNull {
-            get {
-                return ResourceManager.GetString("MethodReturnedNull", resourceCulture);
             }
         }
         
@@ -412,15 +394,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Role specified was not found.
-        /// </summary>
-        internal static string RoleNotFound {
-            get {
-                return ResourceManager.GetString("RoleNotFound", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to ResourcePermission for Role &apos;{0}&apos; does not have any Actions..
         /// </summary>
         internal static string RoleResourcePermissionWithNoAction {
@@ -561,15 +534,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ServiceUnavailable {
             get {
                 return ResourceManager.GetString("ServiceUnavailable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The specified resource type &apos;{0}&apos; is not a reference type..
-        /// </summary>
-        internal static string SpecifiedResourceTypeIsNotReferenceType {
-            get {
-                return ResourceManager.GetString("SpecifiedResourceTypeIsNotReferenceType", resourceCulture);
             }
         }
         

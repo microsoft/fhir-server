@@ -36,7 +36,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             { FieldName.Quantity, SearchValueConstants.QuantityName },
             { FieldName.QuantityCode, SearchValueConstants.CodeName },
             { FieldName.QuantitySystem, SearchValueConstants.SystemName },
-            { FieldName.Reference, SearchValueConstants.ReferenceName },
             { FieldName.ReferenceBaseUri, SearchValueConstants.ReferenceBaseUriName },
             { FieldName.ReferenceResourceId, SearchValueConstants.ReferenceResourceIdName },
             { FieldName.ReferenceResourceType, SearchValueConstants.ReferenceResourceTypeName },

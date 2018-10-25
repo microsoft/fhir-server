@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using static Hl7.Fhir.Model.SearchParameter;
 
@@ -49,13 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             searchValue.AcceptVisitor(this);
 
             return _outputExpression;
-        }
-
-        void ISearchValueVisitor.Visit(LegacyCompositeSearchValue composite)
-        {
-            // Composite search values will be break down into individual component
-            // and therefore this method should not be called.
-            throw new InvalidOperationException("The composite search value should have been breaked down into components and have handled individually.");
         }
 
         void ISearchValueVisitor.Visit(CompositeSearchValue composite)

@@ -14,13 +14,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// </summary>
     public class ReferenceSearchValue : ISearchValue
     {
-        public ReferenceSearchValue(string reference)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(reference, nameof(reference));
-
-            Reference = reference;
-        }
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ReferenceSearchValue"/> class.
         /// </summary>
@@ -43,9 +36,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             ResourceId = resourceId;
         }
 
-        // TODO: Keeping this for legacy search. Remove once the legacy search code is removed.
-        public string Reference { get; }
-
         /// <summary>
         /// Gets the kind of reference.
         /// </summary>
@@ -66,18 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// </summary>
         public string ResourceId { get; }
 
-        /// <summary>
-        /// Parses the string value to an instance of <see cref="ReferenceSearchValue"/>.
-        /// </summary>
-        /// <param name="s">The string to be parsed.</param>
-        /// <returns>An instance of <see cref="ReferenceSearchValue"/>.</returns>
-        // TODO: Keeping this for legacy search. Remove once the legacy search code is removed.
-        public static ReferenceSearchValue Parse(string s)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
-
-            return new ReferenceSearchValue(s);
-        }
+        /// <inheritdoc />
+        public bool IsValidAsCompositeComponent => true;
 
         /// <inheritdoc />
         public void AcceptVisitor(ISearchValueVisitor visitor)
