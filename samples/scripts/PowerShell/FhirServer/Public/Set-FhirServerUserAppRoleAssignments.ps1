@@ -9,7 +9,7 @@ function Set-FhirServerUserAppRoleAssignments {
     .PARAMETER UserPrincipalName
     The user principal name (e.g. myalias@contoso.com) of the of the user
     .PARAMETER ApiAppId
-    The objectId of the API application that has roles that need to be assigned
+    The AppId of the API application that has roles that need to be assigned
     .PARAMETER AppRoles
     The array of roles for the client application
     #>
