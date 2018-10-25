@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -59,6 +60,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         private readonly StringBuilder _queryBuilder;
         private readonly QueryParameterManager _queryParameterManager;
 
+        private string _instanceVariableName = SearchValueConstants.RootAliasName;
+        private string _fieldNameOverride;
+
         internal ExpressionQueryBuilder(
             StringBuilder queryBuilder,
             QueryParameterManager queryParameterManager)
@@ -72,7 +76,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public void Visit(SearchParameterExpression expression)
         {
-            throw new NotImplementedException();
+            if (expression.SearchParameterName == KnownQueryParameterNames.ResourceType)
+            {
+                try
+                {
+                    _fieldNameOverride = SearchValueConstants.RootResourceTypeName;
+                    Visit(Expression.And(expression.Expressions));
+                }
+                finally
+                {
+                    _fieldNameOverride = null;
+                }
+            }
+            else
+            {
+                var list = new List<Expression>(expression.Expressions.Count + 1) { Expression.Equals(FieldName.ParamName, null, expression.SearchParameterName) };
+                list.AddRange(expression.Expressions);
+                AppendSubquery(Expression.And(list));
+            }
         }
 
         public void AppendSubquery(Expression expression)
@@ -87,7 +108,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .Append(KnownResourceWrapperProperties.SearchIndices)
                 .Append(" WHERE ");
 
-            expression.AcceptVisitor(this);
+            try
+            {
+                _instanceVariableName = SearchValueConstants.SearchIndexAliasName;
+                expression.AcceptVisitor(this);
+            }
+            finally
+            {
+                _instanceVariableName = SearchValueConstants.RootAliasName;
+            }
 
             _queryBuilder.AppendLine(")");
         }
@@ -97,7 +126,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             string paramName = AddParameterMapping(expression.Value);
 
             _queryBuilder
-                .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(GetFieldName(expression))
+                .Append(_instanceVariableName).Append(".").Append(GetFieldName(expression))
                 .Append(" ")
                 .Append(GetMappedValue(BinaryOperatorMapping, expression.BinaryOperator))
                 .Append(" ")
@@ -114,7 +143,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             _queryBuilder
                 .Append("NOT IS_DEFINED(")
-                .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(GetFieldName(expression))
+                .Append(_instanceVariableName).Append(".").Append(GetFieldName(expression))
                 .Append(")");
         }
 
@@ -186,7 +215,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             if (expression.StringOperator == StringOperator.Equals)
             {
                 _queryBuilder
-                    .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(fieldName)
+                    .Append(_instanceVariableName).Append(".").Append(fieldName)
                     .Append(" = ")
                     .Append(AddParameterMapping(value));
             }
@@ -195,15 +224,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryBuilder
                     .Append(GetMappedValue(StringOperatorMapping, expression.StringOperator))
                     .Append("(")
-                    .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(fieldName)
+                    .Append(_instanceVariableName).Append(".").Append(fieldName)
                     .Append(", ")
                     .Append(AddParameterMapping(value))
                     .Append(")");
             }
         }
 
-        private static string GetFieldName(IFieldExpression fieldExpression)
+        private string GetFieldName(IFieldExpression fieldExpression)
         {
+            if (_fieldNameOverride != null)
+            {
+                return _fieldNameOverride;
+            }
+
             string fieldNameInString = GetMappedValue(FieldNameMapping, fieldExpression.FieldName);
 
             if (fieldExpression.ComponentIndex == null)

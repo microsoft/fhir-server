@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
@@ -40,6 +41,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of AND on all <paramref name="expressions"/>.</returns>
         public static MultiaryExpression And(params Expression[] expressions)
+        {
+            return new MultiaryExpression(MultiaryOperator.And, expressions);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical AND operation over <paramref name="expressions"/>.
+        /// </summary>
+        /// <param name="expressions">The expressions.</param>
+        /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of AND on all <paramref name="expressions"/>.</returns>
+        public static MultiaryExpression And(IReadOnlyList<Expression> expressions)
         {
             return new MultiaryExpression(MultiaryOperator.And, expressions);
         }
@@ -171,6 +182,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of OR on all <paramref name="expressions"/>.</returns>
         public static MultiaryExpression Or(params Expression[] expressions)
+        {
+            return new MultiaryExpression(MultiaryOperator.Or, expressions);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR opeation over <paramref name="expressions"/>.
+        /// </summary>
+        /// <param name="expressions">The expressions.</param>
+        /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of OR on all <paramref name="expressions"/>.</returns>
+        public static MultiaryExpression Or(IReadOnlyList<Expression> expressions)
         {
             return new MultiaryExpression(MultiaryOperator.Or, expressions);
         }

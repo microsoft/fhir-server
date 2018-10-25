@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
     {
         public const string RootAliasName = "r";
 
+        public const string RootResourceTypeName = "resourceTypeName";
+
         public const string SearchIndexAliasName = "si";
 
         public const string ParamName = "p";
