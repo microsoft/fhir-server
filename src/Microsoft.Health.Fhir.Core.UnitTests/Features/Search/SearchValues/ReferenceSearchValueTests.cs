@@ -12,35 +12,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 {
     public class ReferenceSearchValueTests
     {
-        private const string ParamNameReference = "reference";
-        private const string ParamNameS = "s";
+        private const string ParamNameResourceType = "resourceType";
+        private const string ParamNameResourceId = "resourceId";
+
+        private static readonly ReferenceKind DefaultReferenceKind = ReferenceKind.InternalOrExternal;
+        private static readonly Uri DefaultBaseUri = new Uri("http://localhost");
+        private static readonly ResourceType DefaultResourceType = ResourceType.Location;
+        private static readonly string DefaultResourceId = "123";
+
+        private readonly ReferenceSearchValueBuilder _builder = new ReferenceSearchValueBuilder();
 
         [Fact]
-        public void GivenANullReference_WhenInitializing_ThenExceptionShouldBeThrown()
+        public void GivenANonNullBaseUriAndNullResourceType_WhenInitializing_ThenArgumentNullExceptionShouldBeThrown()
         {
-            Assert.Throws<ArgumentNullException>(ParamNameReference, () => new ReferenceSearchValue(null));
+            _builder.ResourceType = null;
+
+            Assert.Throws<ArgumentNullException>(ParamNameResourceType, () => _builder.ToReferenceSearchValue());
+        }
+
+        [Fact]
+        public void GivenANullResourceId_WhenInitializing_ThenArgumentNullExceptionShouldBeThrown()
+        {
+            _builder.ResourceId = null;
+
+            Assert.Throws<ArgumentNullException>(ParamNameResourceId, () => _builder.ToReferenceSearchValue());
         }
 
         [Theory]
         [InlineData("")]
         [InlineData("    ")]
-        public void GivenAnInvalidReference_WhenInitializing_ThenExceptionShouldBeThrown(string s)
+        public void GivenAnInvalidResourceId_WhenInitializing_ThenArgumentExceptionShouldBeThrown(string resourceId)
         {
-            Assert.Throws<ArgumentException>(ParamNameReference, () => new ReferenceSearchValue(s));
+            _builder.ResourceId = resourceId;
+
+            Assert.Throws<ArgumentException>(ParamNameResourceId, () => _builder.ToReferenceSearchValue());
         }
 
         [Fact]
-        public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
+        public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
-            Assert.Throws<ArgumentNullException>(ParamNameS, () => ReferenceSearchValue.Parse(null));
-        }
+            var value = _builder.ToReferenceSearchValue();
 
-        [Theory]
-        [InlineData("")]
-        [InlineData("    ")]
-        public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
-        {
-            Assert.Throws<ArgumentException>(ParamNameS, () => ReferenceSearchValue.Parse(s));
+            Assert.True(value.IsValidAsCompositeComponent);
         }
 
         [Theory]
@@ -63,6 +76,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, uri, resourceType, resourceId);
 
             Assert.Equal(expected, value.ToString());
+        }
+
+        private class ReferenceSearchValueBuilder
+        {
+            public ReferenceSearchValueBuilder()
+            {
+                Kind = DefaultReferenceKind;
+                BaseUri = DefaultBaseUri;
+                ResourceType = DefaultResourceType;
+                ResourceId = DefaultResourceId;
+            }
+
+            public ReferenceKind Kind { get; set; }
+
+            public Uri BaseUri { get; set; }
+
+            public ResourceType? ResourceType { get; set; }
+
+            public string ResourceId { get; set; }
+
+            public ReferenceSearchValue ToReferenceSearchValue()
+            {
+                return new ReferenceSearchValue(Kind, BaseUri, ResourceType, ResourceId);
+            }
         }
     }
 }

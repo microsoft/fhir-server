@@ -3,18 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues;
-
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
     public interface ISearchValueVisitor
     {
-        /// <summary>
-        /// Visits the <see cref="LegacyCompositeSearchValue"/>.
-        /// </summary>
-        /// <param name="composite">The composite search value to visit.</param>
-        void Visit(LegacyCompositeSearchValue composite);
-
         /// <summary>
         /// Visits the <see cref="CompositeSearchValue"/>.
         /// </summary>

@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Search.Legacy.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
@@ -29,24 +28,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         [Fact]
         public void GivenACompositeSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
-            const string compositeSystem = "compositeSystem";
-            const string compositeCode = "compositeCode";
-            const string system = "system";
-            const string code = "code";
-            const string text = "TEXT";
+            const string system1 = "s1";
+            const string code1 = "s2";
+            const string text1 = "t1";
+            const string system2 = "s2";
+            const string code2 = "c2";
+            const string text2 = "T2";
+            const decimal quantity = 123.5m;
+            const string system3 = "s3";
+            const string code3 = "c3";
 
-            var value = new LegacyCompositeSearchValue(
-                compositeSystem,
-                compositeCode,
-                new TokenSearchValue(system, code, text));
+            var value = new CompositeSearchValue(new ISearchValue[]
+            {
+                new TokenSearchValue(system1, code1, text1),
+                new TokenSearchValue(system2, code2, text2),
+                new QuantitySearchValue(system3, code3, quantity),
+            });
 
             TestAndValidateOutput(
                 value,
-                CreateTuple("cs", compositeSystem),
-                CreateTuple("cc", compositeCode),
-                CreateTuple(SystemName, system),
-                CreateTuple(CodeName, code),
-                CreateTuple(TextName, text.ToUpperInvariant()));
+                CreateTuple("s_0", system1),
+                CreateTuple("c_0", code1),
+                CreateTuple("s_1", system2),
+                CreateTuple("c_1", code2),
+                CreateTuple("s_2", system3),
+                CreateTuple("c_2", code3),
+                CreateTuple("q_2", quantity));
         }
 
         [Fact]

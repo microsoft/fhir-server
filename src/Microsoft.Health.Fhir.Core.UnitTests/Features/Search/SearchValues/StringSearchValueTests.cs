@@ -52,6 +52,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.String);
         }
 
+        [Fact]
+        public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
+        {
+            var value = new StringSearchValue("test");
+
+            Assert.True(value.IsValidAsCompositeComponent);
+        }
+
         [Theory]
         [InlineData(@"testing", "testing")]
         [InlineData(@"t\e|s$t,i|\ng", @"t\\e\|s\$t\,i\|\\ng")]
