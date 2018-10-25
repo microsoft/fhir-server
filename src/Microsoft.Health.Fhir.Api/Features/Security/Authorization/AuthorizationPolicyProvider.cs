@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
             _options = options.Value;
         }
 
-        public async override Task<AuthorizationPolicy> GetPolicyAsync(string policyName)
+        public override async Task<AuthorizationPolicy> GetPolicyAsync(string policyName)
         {
             EnsureArg.IsNotNullOrWhiteSpace(policyName, nameof(policyName));
 
