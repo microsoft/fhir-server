@@ -3,17 +3,20 @@ function Set-FhirServerClientAppRoleAssignments {
     .SYNOPSIS
     Set app role assignments for the given client application
     .DESCRIPTION
-    .PARAMETER ObjectId
-    The objectId of the service principal for the client application
-    .PARAMETER ApiObjectId
+    Set AppRoles for a given client application. Requires Azure AD admin privileges.
+    .EXAMPLE
+    Set-FhirServerClientAppRoleAssignments -AppId <Client App Id> -ApiAppId <Resource Api Id> -AppRoles admin,nurse
+    .PARAMETER AppId
+    The AppId of the of the client application
+    .PARAMETER ApiAppId
     The objectId of the API application that has roles that need to be assigned
-    .PARAMETER Roles
+    .PARAMETER AppRoles
     The collection of roles from the testauthenvironment.json for the client application
     #>
     param(
         [Parameter(Mandatory = $true )]
         [ValidateNotNullOrEmpty()]
-        [string]$ObjectId,
+        [string]$AppId,
 
         [Parameter(Mandatory = $true )]
         [ValidateNotNullOrEmpty()]
@@ -21,7 +24,7 @@ function Set-FhirServerClientAppRoleAssignments {
 
         [Parameter(Mandatory = $true )]
         [ValidateNotNull()]
-        [object]$Roles
+        [string[]]$AppRoles
     )
 
     Set-StrictMode -Version Latest
@@ -35,7 +38,9 @@ function Set-FhirServerClientAppRoleAssignments {
     }
 
     # Get the collection of roles for the user
-    $apiApplication = Get-AzureAdServicePrincipalByAppId $ApiAppId
+    $apiApplication = Get-AzureAdServicePrincipal -Filter "appId eq '$ApiAppId'"
+    $aadClientServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$AppId'"
+    $ObjectId = $aadClientServicePrincipal.ObjectId
 
     $existingRoleAssignments = Get-AzureADServiceAppRoleAssignment -ObjectId $apiApplication.ObjectId | Where-Object {$_.PrincipalId -eq $ObjectId} 
 
@@ -43,8 +48,8 @@ function Set-FhirServerClientAppRoleAssignments {
     $rolesToAdd = $()
     $rolesToRemove = $()
 
-    foreach ($role in $Roles) {
-        $expectedRoles += @($apiApplication.AppRoles | Where-Object { $_.DisplayName -eq $role })
+    foreach ($role in $AppRoles) {
+        $expectedRoles += @($apiApplication.AppRoles | Where-Object { $_.Value -eq $role })
     }
 
     foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") {
