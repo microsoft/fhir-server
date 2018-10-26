@@ -3,15 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Security.Claims;
-
-namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public interface IAuthorizationPolicy
+    public interface IRequireAction
     {
-        bool HasActionPermission(ClaimsPrincipal user, ResourceAction action);
-
-        IEnumerable<ResourcePermission> GetApplicableResourcePermissions(ClaimsPrincipal user, ResourceAction action);
+        ResourceAction RequiredAction { get; }
     }
 }

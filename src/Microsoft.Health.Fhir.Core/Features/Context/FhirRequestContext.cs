@@ -9,6 +9,7 @@ using System.Security.Claims;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -65,6 +66,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public IDictionary<string, StringValues> RequestHeaders { get; }
 
-        public IDictionary<string, StringValues> ResponseHeaders { get;  }
+        public IDictionary<string, StringValues> ResponseHeaders { get; }
+
+        public Expression AuthorizationExpression { get; set; }
     }
 }

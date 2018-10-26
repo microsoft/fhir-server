@@ -3,50 +3,42 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using EnsureThat;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
     public class RoleBasedAuthorizationPolicy : IAuthorizationPolicy
     {
-        private readonly Dictionary<string, Role> _roles;
-        private readonly Dictionary<string, IEnumerable<ResourceAction>> _roleNameToResourceActions;
+        private readonly SecurityConfiguration _securityConfiguration;
 
-        public RoleBasedAuthorizationPolicy(AuthorizationConfiguration authorizationConfiguration)
+        public RoleBasedAuthorizationPolicy(IOptions<SecurityConfiguration> securityConfiguration)
         {
-            EnsureArg.IsNotNull(authorizationConfiguration, nameof(authorizationConfiguration));
+            EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
 
-            _roles = authorizationConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.InvariantCultureIgnoreCase);
-            _roleNameToResourceActions = _roles.Select(kvp => KeyValuePair.Create(kvp.Key, kvp.Value.ResourcePermissions.Select(rp => rp.Actions).SelectMany(x => x))).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            _securityConfiguration = securityConfiguration.Value;
         }
 
-        public bool HasPermission(ClaimsPrincipal user, ResourceAction action)
+        public IEnumerable<ResourcePermission> GetApplicableResourcePermissions(ClaimsPrincipal user, ResourceAction action)
         {
             EnsureArg.IsNotNull(user, nameof(user));
-            IEnumerable<ResourceAction> actions = GetRolesAndActions(user);
 
-            if (actions == null)
-            {
-                return false;
-            }
+            var roleClaims = user.Claims.Where(claim => claim.Type == ClaimTypes.Role || claim.Type == AuthorizationConfiguration.RolesClaim).Select(x => x.Value);
 
-            return actions.Contains(action);
+            return _securityConfiguration.Authorization.Roles.Where(x => roleClaims.Contains(x.Name)).SelectMany(x => x.ResourcePermissions.Where(y => y.Actions.Contains(action)));
         }
 
-        private IEnumerable<ResourceAction> GetRolesAndActions(ClaimsPrincipal user)
+        public bool HasActionPermission(ClaimsPrincipal user, ResourceAction action)
         {
-            var roles = user.Claims
-                .Where(claim => (claim.Type == ClaimTypes.Role || claim.Type == AuthorizationConfiguration.RolesClaim) && _roles.ContainsKey(claim.Value))
-                .Select(claim => _roles[claim.Value]);
+            EnsureArg.IsNotNull(user, nameof(user));
 
-            var actions = roles.Select(r => _roleNameToResourceActions[r.Name]).SelectMany(x => x).Distinct();
+            var roleClaims = user.Claims.Where(claim => claim.Type == ClaimTypes.Role || claim.Type == AuthorizationConfiguration.RolesClaim).Select(x => x.Value);
 
-            return actions;
+            return _securityConfiguration.Authorization.Roles.Any(x => roleClaims.Contains(x.Name) && x.ResourcePermissions.Any(y => y.Actions.Contains(action)));
         }
     }
 }

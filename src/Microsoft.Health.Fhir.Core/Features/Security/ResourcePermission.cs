@@ -11,14 +11,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
     {
         public ResourcePermission()
         {
-            Actions = new List<ResourceAction>();
+            Actions = new HashSet<ResourceAction>();
         }
 
-        public ResourcePermission(IList<ResourceAction> resourceActions)
+        public ResourcePermission(HashSet<ResourceAction> resourceActions)
         {
             Actions = resourceActions;
         }
 
-        public IList<ResourceAction> Actions { get; }
+        public HashSet<ResourceAction> Actions { get; }
+
+        public string Filter { get; set; }
     }
 }

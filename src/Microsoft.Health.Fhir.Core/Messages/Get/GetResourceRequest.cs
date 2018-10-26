@@ -8,10 +8,11 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Get
 {
-    public class GetResourceRequest : IRequest<GetResourceResponse>, IRequireCapability
+    public class GetResourceRequest : IRequest<GetResourceResponse>, IRequireCapability, IRequireAction
     {
         public GetResourceRequest(string type, string id)
         {
@@ -29,6 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
 
             ResourceKey = new ResourceKey(type, id, versionId);
         }
+
+        public ResourceAction RequiredAction => ResourceAction.Read;
 
         public ResourceKey ResourceKey { get; }
 

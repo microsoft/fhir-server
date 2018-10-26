@@ -4,6 +4,14 @@
             "name": "clinician",
             "resourcePermissions": [
                 {
+                    "filter": "/Patient",
+                    "actions": [
+                        "Read",
+                        "Write"
+                    ]
+                },
+                {
+                    "filter": "/Observation",
                     "actions": [
                         "Read",
                         "Write"
@@ -15,6 +23,7 @@
             "name": "officeassistant",
             "resourcePermissions": [
                 {
+                    "filter": "/Appointment",
                     "actions": [
                         "Write"
                     ]
@@ -25,6 +34,7 @@
             "name": "researcher",
             "resourcePermissions": [
                 {
+                    "filter": "/QuestionnaireResponse",
                     "actions": [
                         "Read"
                     ]
@@ -35,6 +45,7 @@
             "name": "director",
             "resourcePermissions": [
                 {
+                    "filter": "/Practitioner",
                     "actions": [
                         "HardDelete"
                     ]
@@ -45,6 +56,7 @@
             "name": "admin",
             "resourcePermissions": [
                 {
+                    "filter": "/",
                     "actions": [
                         "Read",
                         "Write",
@@ -91,6 +103,13 @@
             "id": "serviceclient",
             "roles": [
                 "admin"
+            ]
+        },
+        {
+            "id": "restrictedserviceclient",
+            "roles": [
+                "researcher",
+                "clinician"
             ]
         },
         {

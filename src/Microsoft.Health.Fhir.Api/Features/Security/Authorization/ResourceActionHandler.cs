@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
 
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, ResourceActionRequirement requirement)
         {
-            if (_resourceActionLookup.TryGetValue(requirement.PolicyName, out ResourceAction resourceAction) && _authorizationPolicy.HasPermission(context.User, resourceAction))
+            if (_resourceActionLookup.TryGetValue(requirement.PolicyName, out ResourceAction resourceAction) && _authorizationPolicy.HasActionPermission(context.User, resourceAction))
             {
                 context.Succeed(requirement);
             }
