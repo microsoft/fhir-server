@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -63,6 +64,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundle = await Client.SearchAsync("Patient");
 
             ValidateBundle(bundle, patients);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourcesWithVariousValues_WhenSearchedWithTheMissingModifer_ThenOnlyTheResourcesWithMissingOrPresentParametersAreReturned()
+        {
+            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p => p.Gender = AdministrativeGender.Female)).Single();
+            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p => { })).Single();
+
+            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "gender:missing=true"), unspecifiedPatient);
+            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "gender:missing=false"), femalePatient);
+
+            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "_type:missing=true"));
+            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "_type:missing=false"), femalePatient, unspecifiedPatient);
         }
 
         [Fact]
