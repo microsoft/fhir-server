@@ -28,7 +28,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.1.1" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.0-beta008" />
-    <PackageReference Include="System.Net.Http" Version="4.3.3" />
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
 
 </Project>
