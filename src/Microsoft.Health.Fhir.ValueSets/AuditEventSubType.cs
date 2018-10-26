@@ -32,6 +32,8 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string SearchType = "search-type";
 
+        public const string SearchSystem = "search-system";
+
         public const string Capabilities = "capabilities";
     }
 }

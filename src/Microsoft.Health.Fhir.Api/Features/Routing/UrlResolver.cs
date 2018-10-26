@@ -102,9 +102,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         }
 
         /// <inheritdoc />
-        public Uri ResolveSearchUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
+        public Uri ResolveSearchUrl(string resourceType, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
         {
-            return ResolveRouteUrl(RouteNames.SearchResources, unsupportedSearchParams, continuationToken);
+            return ResolveRouteUrl(string.IsNullOrEmpty(resourceType) ? RouteNames.SearchAllResources : RouteNames.SearchResources, unsupportedSearchParams, continuationToken);
         }
 
         public Uri ResolveRouteUrl(string routeName, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)

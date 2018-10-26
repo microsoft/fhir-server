@@ -15,6 +15,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         internal const string SearchResources = "SearchResources";
 
+        internal const string SearchAllResources = "SearchAllResources";
+
         internal const string History = "History";
 
         internal const string HistoryType = "HistoryType";
@@ -22,5 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string HistoryTypeId = "HistoryTypeId";
 
         internal const string SearchResourcesPost = "SearchResourcesPost";
+
+        internal const string SearchAllResourcesPost = "SearchAllResourcesPost";
     }
 }

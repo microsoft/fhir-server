@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -77,15 +76,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Bundle bundle = await Client.SearchAsync("?_type=Patient");
             ValidateBundle(bundle, patients);
-
-            bundle = await Client.SearchAsync("?_type=Observation");
-            ValidateBundle(bundle, observation);
+            bundle = await Client.SearchPostAsync(null, ("_type", "Patient"));
+            ValidateBundle(bundle, patients);
 
             bundle = await Client.SearchAsync("?_type=Observation,Patient");
-            ValidateBundle(bundle, patients.Concat(new Resource[] { observation }).ToArray());
+            Assert.True(bundle.Entry.Count > patients.Length);
+            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"));
+            Assert.True(bundle.Entry.Count > patients.Length);
 
-            bundle = await Client.SearchAsync("?");
-            ValidateBundle(bundle, patients.Concat(new Resource[] { observation, organization }).ToArray());
+            bundle = await Client.SearchAsync($"?_type=Observation,Patient&_id={observation.Id}");
+            ValidateBundle(bundle, observation);
+            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"), ("_id", observation.Id));
+            ValidateBundle(bundle, observation);
+
+            bundle = await Client.SearchAsync($"?_type=Observation,Patient&_id={organization.Id}");
+            ValidateBundle(bundle);
+            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"), ("_id", organization.Id));
+            ValidateBundle(bundle);
         }
 
         [Fact]

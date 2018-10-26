@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchService = new TestSearchService(_searchOptionsFactory, _bundleFactory, _dataStore);
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
 
-            _urlResolver.ResolveSearchUrl(Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(SearchUrl);
+            _urlResolver.ResolveSearchUrl(Arg.Any<string>(), Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(SearchUrl);
 
             _correlationId = Guid.NewGuid().ToString();
             _fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(_correlationId);
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
 
-            _urlResolver.ResolveSearchUrl(unsupportedSearchParams: null, continuationToken: null).Returns(SearchUrl);
+            _urlResolver.ResolveSearchUrl(resourceType: null, unsupportedSearchParams: null, continuationToken: null).Returns(SearchUrl);
 
             Bundle actual = await _searchService.SearchAsync(resourceType, null);
 
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], searchToken);
 
-            _urlResolver.ResolveSearchUrl(unsupportedSearchParams: null, continuationToken: searchToken).Returns(continuationLink);
+            _urlResolver.ResolveSearchUrl(resourceType, unsupportedSearchParams: null, continuationToken: searchToken).Returns(continuationLink);
 
             Bundle actual = await _searchService.SearchAsync(resourceType, null);
 
