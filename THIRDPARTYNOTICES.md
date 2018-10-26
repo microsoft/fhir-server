@@ -498,7 +498,7 @@ This file is based on or incorporates material from the projects listed below (T
   >    limitations under the License.
   > 
 
-## MediatR 4.1.0
+## MediatR 5.1.0
 * Component Source:   https://github.com/jbogard/MediatR
 * Component Copyright and License:
   > Apache License

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
@@ -11,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 {
-    public class UpsertResourceHandler : AsyncRequestHandler<UpsertResourceRequest, UpsertResourceResponse>
+    public class UpsertResourceHandler : IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>
     {
         private readonly IFhirRepository _repository;
 
@@ -22,11 +23,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             _repository = repository;
         }
 
-        protected override async Task<UpsertResourceResponse> HandleCore(UpsertResourceRequest message)
+        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest message, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            var outcome = await _repository.UpsertAsync(message.Resource, message.WeakETag);
+            var outcome = await _repository.UpsertAsync(message.Resource, message.WeakETag, cancellationToken);
+
             return new UpsertResourceResponse(outcome);
         }
     }
