@@ -44,7 +44,7 @@ This structure is passed to the FHIR server at startup and enforced using the `r
 
 When deploying the FHIR server into Azure using the provided [resource manager template](../samples/templates/default-azuredeploy.json) the array of roles can be passed in the `additionalFhirServerConfigProperties` parameter, which will add the roles to the [App Settings](https://docs.microsoft.com/en-us/azure/app-service/web-sites-configure) of the front end [Web App](https://azure.microsoft.com/en-us/services/app-service/web/) running the server. 
 
-In the app settings the nested array structure must be flattened and added to the `FhirServer:Security:Authorization:RoleConfiguration:Roles` section of the configuration. Specifically, a roles array like:
+In the app settings the nested array structure must be flattened and added to the `FhirServer:Security:Authorization:Roles` section of the configuration. Specifically, a roles array like:
 
 ```json
 [
@@ -67,10 +67,10 @@ would become:
 
 ```json
 {
-    "FhirServer:Security:Authorization:RoleConfiguration:Roles:0:name": "admin",
-    "FhirServer:Security:Authorization:RoleConfiguration:Roles:0:resourcePermissions:0:actions:0": "Read",
-    "FhirServer:Security:Authorization:RoleConfiguration:Roles:0:resourcePermissions:0:actions:1": "Write",
-    "FhirServer:Security:Authorization:RoleConfiguration:Roles:0:resourcePermissions:0:actions:2": "HardDelete"
+    "FhirServer:Security:Authorization:Roles:0:name": "admin",
+    "FhirServer:Security:Authorization:Roles:0:resourcePermissions:0:actions:0": "Read",
+    "FhirServer:Security:Authorization:Roles:0:resourcePermissions:0:actions:1": "Write",
+    "FhirServer:Security:Authorization:Roles:0:resourcePermissions:0:actions:2": "HardDelete"
 }
 ```
 
@@ -78,7 +78,7 @@ To avoid having to maintain the role definitions in the less readable flattened 
 
 ```PowerShell
 $roles = ConvertFrom-Json (Get-Content -Raw .\roles.json)
-$flattenedRoles = .\release\scripts\PowerShell\ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $roles -PathPrefix "FhirServer:Security:Authorization:RoleConfiguration:Roles"
+$flattenedRoles = .\release\scripts\PowerShell\ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $roles -PathPrefix "FhirServer:Security:Authorization:Roles"
 ```
 
 To pass the array of roles in when deploying the FHIR server (see [Deployment Instructions](DefaultDeployment.md) for details):

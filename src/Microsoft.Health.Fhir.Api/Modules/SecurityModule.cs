@@ -58,8 +58,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
                 if (_securityConfiguration.Authorization.Enabled)
                 {
-                    _securityConfiguration.Authorization.RoleConfiguration.Validate();
-                    services.AddSingleton<IRoleConfiguration>(_securityConfiguration.Authorization.RoleConfiguration);
+                    _securityConfiguration.Authorization.ValidateRoles();
+                    services.AddSingleton(_securityConfiguration.Authorization);
                     services.AddSingleton<IAuthorizationPolicy, RoleBasedAuthorizationPolicy>();
                     services.AddSingleton<IAuthorizationHandler, ResourceActionHandler>();
                 }
