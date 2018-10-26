@@ -63,21 +63,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 GetClaimsPrincipalForRoles("role2"),
                 GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.Write }, "role2"),
                 action,
-            }.ToArray();
+            };
 
             yield return new object[]
             {
                 GetClaimsPrincipalForRoles("role1", "role2"),
                 GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.HardDelete }, "role1", "role2"),
                 action,
-            }.ToArray();
+            };
 
             yield return new object[]
             {
                 GetClaimsPrincipalForRoles("role3"),
                 GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role1", "role2", "role3"),
                 action,
-            }.ToArray();
+            };
         }
 
         public static IEnumerable<object[]> GetIncompatibleRoleDataForAction(ResourceAction action)
@@ -111,21 +111,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 GetClaimsPrincipalForRoles("role2"),
                 GetAuthorizationConfigurationForRoles(incompatibleActions, "role2"),
                 action,
-            }.ToArray();
+            };
 
             yield return new object[]
             {
                 GetClaimsPrincipalForRoles("role1", "role2"),
                 GetAuthorizationConfigurationForRoles(incompatibleActions, "role1", "role1"),
                 action,
-            }.ToArray();
+            };
 
             yield return new object[]
             {
                 GetClaimsPrincipalForRoles("role3"),
                 GetAuthorizationConfigurationForRoles(incompatibleActions, "role1", "role2", "role3"),
                 action,
-            }.ToArray();
+            };
         }
 
         private static ClaimsPrincipal GetClaimsPrincipalForRoles(params string[] roles)
