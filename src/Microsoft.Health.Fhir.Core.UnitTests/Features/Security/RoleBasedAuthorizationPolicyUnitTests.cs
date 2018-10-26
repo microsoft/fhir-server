@@ -17,7 +17,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 {
     public class RoleBasedAuthorizationPolicyUnitTests
     {
-        private ClaimsPrincipal _claimsPrincipal = new ClaimsPrincipal();
         private readonly IOptions<SecurityConfiguration> _securityOptions = Substitute.For<IOptions<SecurityConfiguration>>();
         private readonly SecurityConfiguration _securityConfiguration = new SecurityConfiguration();
 
@@ -30,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.Read)]
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.Write)]
         [MemberData(nameof(GetCompatibleRoleDataForAction), ResourceAction.HardDelete)]
-        public void GivenAClaimWithRoleWithPermissionForCompatibleAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, AuthorizationConfiguration authorizationConfiguration, ResourceAction action)
+        public void GivenAClaimWithRoleWithPermissionForAction_WhenPermissionIsChecked_ReturnsTrue(ClaimsPrincipal claimsPrincipal, AuthorizationConfiguration authorizationConfiguration, ResourceAction action)
         {
             _securityConfiguration.Authorization = authorizationConfiguration;
             var authPolicyClient = new RoleBasedAuthorizationPolicy(_securityOptions);
@@ -42,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         [MemberData(nameof(GetIncompatibleRoleDataForAction), ResourceAction.Read)]
         [MemberData(nameof(GetIncompatibleRoleDataForAction), ResourceAction.Write)]
         [MemberData(nameof(GetIncompatibleRoleDataForAction), ResourceAction.HardDelete)]
-        public void GivenAClaimWithRoleWithoutPermissionForIncompatibleAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, AuthorizationConfiguration authorizationConfiguration, ResourceAction action)
+        public void GivenAClaimWithRoleWithoutPermissionForAction_WhenPermissionIsChecked_ReturnsFalse(ClaimsPrincipal claimsPrincipal, AuthorizationConfiguration authorizationConfiguration, ResourceAction action)
         {
             _securityConfiguration.Authorization = authorizationConfiguration;
             var authPolicyClient = new RoleBasedAuthorizationPolicy(_securityOptions);
@@ -83,31 +82,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         public static IEnumerable<object[]> GetIncompatibleRoleDataForAction(ResourceAction action)
         {
+            var incompatibleActions = new HashSet<ResourceAction>();
+            switch (action)
+            {
+                case ResourceAction.Read:
+                    incompatibleActions.Add(ResourceAction.Write);
+                    incompatibleActions.Add(ResourceAction.HardDelete);
+                    break;
+                case ResourceAction.Write:
+                    incompatibleActions.Add(ResourceAction.Read);
+                    incompatibleActions.Add(ResourceAction.HardDelete);
+                    break;
+                case ResourceAction.HardDelete:
+                    incompatibleActions.Add(ResourceAction.Read);
+                    incompatibleActions.Add(ResourceAction.Write);
+                    break;
+            }
+
             yield return new object[]
             {
                 GetClaimsPrincipalForRoles("role1", "role2"),
-                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role3"),
+                GetAuthorizationConfigurationForRoles(incompatibleActions, "role1"),
                 action,
             };
 
             yield return new object[]
             {
                 GetClaimsPrincipalForRoles("role2"),
-                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.Write }, "role6"),
+                GetAuthorizationConfigurationForRoles(incompatibleActions, "role2"),
                 action,
             }.ToArray();
 
             yield return new object[]
             {
                 GetClaimsPrincipalForRoles("role1", "role2"),
-                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.HardDelete }, "role3", "role4"),
+                GetAuthorizationConfigurationForRoles(incompatibleActions, "role1", "role1"),
                 action,
             }.ToArray();
 
             yield return new object[]
             {
                 GetClaimsPrincipalForRoles("role3"),
-                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role1", "role2", "role5"),
+                GetAuthorizationConfigurationForRoles(incompatibleActions, "role1", "role2", "role3"),
                 action,
             }.ToArray();
         }
@@ -125,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 new ResourcePermission(resourceActions),
             };
 
-            var roles = roleNames.Select(ra => new Role() { Name = ra, ResourcePermissions = permissions }).ToHashSet();
+            var roles = roleNames.Select(ra => new Role { Name = ra, ResourcePermissions = permissions }).ToHashSet();
 
             return new AuthorizationConfiguration
             {
