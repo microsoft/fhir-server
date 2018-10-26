@@ -42,12 +42,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             if (format == ResourceFormat.Json)
             {
-                FhirJsonSerializer jsonSerializer = new FhirJsonSerializer();
+                var jsonSerializer = new FhirJsonSerializer();
 
                 _serializer = jsonSerializer;
                 _serialize = jsonSerializer.SerializeToString;
 
-                FhirJsonParser jsonParser = new FhirJsonParser();
+                var jsonParser = new FhirJsonParser();
 
                 _parser = jsonParser;
                 _deserialize = jsonParser.Parse<Resource>;
@@ -56,12 +56,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
             else if (format == ResourceFormat.Xml)
             {
-                FhirXmlSerializer xmlSerializer = new FhirXmlSerializer();
+                var xmlSerializer = new FhirXmlSerializer();
 
                 _serializer = xmlSerializer;
                 _serialize = (resource, summary) => xmlSerializer.SerializeToString(resource, summary);
 
-                FhirXmlParser xmlParser = new FhirXmlParser();
+                var xmlParser = new FhirXmlParser();
 
                 _parser = xmlParser;
                 _deserialize = xmlParser.Parse<Resource>;
@@ -274,9 +274,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             if (SecuritySettings.SecurityEnabled)
             {
-                string tokenKey = $"{clientApplication.Id}:{(user == null ? string.Empty : user.Id)}";
-                string bearerToken;
-                if (!_bearerTokens.TryGetValue(tokenKey, out bearerToken))
+                var tokenKey = $"{clientApplication.ClientId}:{(user == null ? string.Empty : user.UserId)}";
+                if (!_bearerTokens.TryGetValue(tokenKey, out string bearerToken))
                 {
                     bearerToken = await GetBearerToken(clientApplication, user);
                     _bearerTokens[tokenKey] = bearerToken;
@@ -302,11 +301,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         {
             return new List<KeyValuePair<string, string>>
             {
-                    new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
-                    new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
-                    new KeyValuePair<string, string>("grant_type", clientApplication.GrantType),
-                    new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
-                    new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
+                new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
+                new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
+                new KeyValuePair<string, string>("grant_type", clientApplication.GrantType),
+                new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
+                new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
             };
         }
 
@@ -314,13 +313,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         {
             return new List<KeyValuePair<string, string>>
             {
-                    new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
-                    new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
-                    new KeyValuePair<string, string>("grant_type", user.GrantType),
-                    new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
-                    new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
-                    new KeyValuePair<string, string>("username", user.Id),
-                    new KeyValuePair<string, string>("password", user.Password),
+                new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
+                new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
+                new KeyValuePair<string, string>("grant_type", user.GrantType),
+                new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
+                new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
+                new KeyValuePair<string, string>("username", user.UserId),
+                new KeyValuePair<string, string>("password", user.Password),
             };
         }
 

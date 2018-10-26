@@ -5,8 +5,8 @@ function Set-FhirServerApiUsers {
     .DESCRIPTION
     .PARAMETER TenantDomain
     The domain of the AAD tenant. 
-    .PARAMETER ServicePrincipalObjectId
-    The service principal for the AAD application that contains the roles to be assigned.
+    .PARAMETER ApiAppId
+    The AppId for the AAD application that contains the roles to be assigned.
     .PARAMETER UserConfiguration
     The collection of users from the testauthenvironment.json.
     .PARAMETER UserNamePrefix
@@ -21,7 +21,7 @@ function Set-FhirServerApiUsers {
 
         [Parameter(Mandatory = $true )]
         [ValidateNotNullOrEmpty()]
-        [string]$ServicePrincipalObjectId,
+        [string]$ApiAppId,
 
         [Parameter(Mandatory = $true )]
         [ValidateNotNull()]
@@ -48,8 +48,6 @@ function Set-FhirServerApiUsers {
     Write-Host "Persisting Users to AAD"
     
     $environmentUsers = @()
-
-    $servicePrincipal = Get-AzureADServicePrincipal -ObjectId $ServicePrincipalObjectId
 
     foreach ($user in $UserConfiguration) {
         $userId = $user.id
@@ -86,35 +84,7 @@ function Set-FhirServerApiUsers {
             id            = $user.id
         }
             
-        # Get the collection of roles for the user
-        $existingRoleAssignments = Get-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId | Where-Object {$_.ResourceId -eq $servicePrincipal.ObjectId}
-
-        $expectedRoles = New-Object System.Collections.ArrayList
-        $rolesToAdd = New-Object System.Collections.ArrayList
-        $rolesToRemove = New-Object System.Collections.ArrayList
-
-        foreach ($role in $user.roles) {
-            $expectedRoles += @($servicePrincipal.AppRoles | Where-Object { $_.DisplayName -eq $role })
-        }
-
-        foreach ($diff in Compare-Object -ReferenceObject @($expectedRoles | Select-Object) -DifferenceObject @($existingRoleAssignments | Select-Object) -Property "Id") {
-            switch ($diff.SideIndicator) {
-                "<=" {
-                    $rolesToAdd += $diff.Id
-                }
-                "=>" {
-                    $rolesToRemove += $diff.Id
-                }
-            }
-        }
-
-        foreach ($role in $rolesToAdd) {
-            New-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -PrincipalId $aadUser.ObjectId -ResourceId $servicePrincipal.ObjectId -Id $role | Out-Null
-        }
-
-        foreach ($role in $rolesToRemove) {
-            Remove-AzureADUserAppRoleAssignment -ObjectId $aadUser.ObjectId -AppRoleAssignmentId ($existingRoleAssignments | Where-Object { $_.Id -eq $role }).ObjectId | Out-Null
-        }
+        Set-FhirServerUserAppRoleAssignments -ApiAppId $ApiAppId -UserPrincipalName $userUpn -AppRoles $user.roles
     }
 
     return $environmentUsers

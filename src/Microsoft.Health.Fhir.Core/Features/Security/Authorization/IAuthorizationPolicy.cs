@@ -4,12 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
     public interface IAuthorizationPolicy
     {
-        Task<bool> HasPermissionAsync(ClaimsPrincipal user, ResourceAction action);
+        bool HasPermission(ClaimsPrincipal user, ResourceAction action);
     }
 }

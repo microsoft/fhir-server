@@ -6,9 +6,9 @@ function New-FhirServerApiApplicationRegistration {
     Create a new AAD Application registration for a FHIR server instance. 
     A FhirServiceName or FhirServiceAudience must be supplied.
     .EXAMPLE
-    New-FhirServerApiApplicationRegistration -FhirServiceName "myfhiservice" 
+    New-FhirServerApiApplicationRegistration -FhirServiceName "myfhiservice" -AppRoles admin,nurse
     .EXAMPLE
-    New-FhirServerApiApplicationRegistration -FhirServiceAudience "https://myfhirservice.azurewebsites.net"
+    New-FhirServerApiApplicationRegistration -FhirServiceAudience "https://myfhirservice.azurewebsites.net" -AppRoles admin,nurse
     .PARAMETER FhirServiceName
     Name of the FHIR service instance. 
     .PARAMETER FhirServiceAudience
@@ -16,6 +16,8 @@ function New-FhirServerApiApplicationRegistration {
     .PARAMETER WebAppSuffix
     Will be appended to FHIR service name to form the FhirServiceAudience if one is not supplied,
     e.g., azurewebsites.net or azurewebsites.us (for US Government cloud)
+    .PARAMETER AppRoles
+    Names of AppRoles to be defined in the AAD Application registration
     #>
     [CmdletBinding(DefaultParameterSetName='ByFhirServiceName')]
     param(
@@ -28,7 +30,10 @@ function New-FhirServerApiApplicationRegistration {
         [string]$FhirServiceAudience,
 
         [Parameter(Mandatory = $false, ParameterSetName = 'ByFhirServiceName' )]
-        [String]$WebAppSuffix = "azurewebsites.net"
+        [String]$WebAppSuffix = "azurewebsites.net",
+
+        [Parameter(Mandatory = $false)]
+        [String[]]$AppRoles = "admin"
     )
 
     Set-StrictMode -Version Latest
@@ -45,8 +50,22 @@ function New-FhirServerApiApplicationRegistration {
         $FhirServiceAudience = "https://$FhirServiceName.$WebAppSuffix"
     }
 
+    $desiredAppRoles = @()
+    foreach ($role in $AppRoles) {
+        $id = New-Guid
+
+        $desiredAppRoles += @{
+            AllowedMemberTypes = @("User", "Application")
+            Description        = $role
+            DisplayName        = $role
+            Id                 = $id
+            IsEnabled          = "true"
+            Value              = $role
+        }
+    }
+
     # Create the App Registration
-    $apiAppReg = New-AzureADApplication -DisplayName $FhirServiceAudience -IdentifierUris $FhirServiceAudience
+    $apiAppReg = New-AzureADApplication -DisplayName $FhirServiceAudience -IdentifierUris $FhirServiceAudience -AppRoles $desiredAppRoles
     New-AzureAdServicePrincipal -AppId $apiAppReg.AppId | Out-Null
 
     $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]

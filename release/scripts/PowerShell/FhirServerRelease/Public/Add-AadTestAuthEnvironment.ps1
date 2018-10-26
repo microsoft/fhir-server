@@ -62,9 +62,9 @@ function Add-AadTestAuthEnvironment {
     $retryCount = 0
     # Make sure key vault exists and is ready
     while (!(Get-AzureRmKeyVault -VaultName $keyVaultName )) {
-        $retryCout += 1
+        $retryCount += 1
 
-        if ($retry -gt 7) {
+        if ($retryCount -gt 7) {
             throw "Could not connect to the vault $keyVaultName"
         }
 
@@ -103,21 +103,20 @@ function Add-AadTestAuthEnvironment {
     }
 
     Write-Host "Setting roles on API Application"
-    Set-FhirServerApiApplicationRoles -ObjectId $application.ObjectId -RoleConfiguration $testAuthEnvironment.Roles | Out-Null
-
-    $servicePrincipal = Get-AzureAdServicePrincipalByAppId $application.AppId
+    $appRoles = ($testAuthEnvironment.roles | Select -ExpandProperty name)
+    Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
 
     Write-Host "Ensuring users and role assignments for API Application exist"
-    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ServicePrincipalObjectId $servicePrincipal.ObjectId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $keyVaultName
+    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $keyVaultName
 
     $environmentClientApplications = @()
 
     Write-Host "Ensuring client application exists"
-    foreach ($clientApp in $testAuthEnvironment.ClientApplications) {
+    foreach ($clientApp in $testAuthEnvironment.clientApplications) {
         $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
         $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
 
-        $publicClient = -not $clientApp.Roles
+        $publicClient = -not $clientApp.roles
 
         if (!$aadClientApplication) {
 
@@ -145,9 +144,7 @@ function Add-AadTestAuthEnvironment {
         
         Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name "$displayName-secret" -SecretValue $secretSecureString | Out-Null
 
-        $aadClientServicePrincipal = Get-AzureAdServicePrincipalByAppId $aadClientApplication.AppId
-
-        Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -ObjectId $aadClientServicePrincipal.ObjectId -Roles $clientApp.Roles | Out-Null
+        Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -AppId $aadClientApplication.AppId -AppRoles $clientApp.roles | Out-Null
     }
 
     @{

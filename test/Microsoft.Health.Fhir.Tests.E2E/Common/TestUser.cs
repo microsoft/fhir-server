@@ -9,16 +9,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public class TestUser
     {
-        private string _userId;
-
         public TestUser(string id)
         {
-            _userId = id;
+            Id = id;
         }
 
-        public string Id => GetEnvironmentVariableWithDefault($"user_{_userId}_id", _userId);
+        private string Id { get; }
 
-        public string Password => GetEnvironmentVariableWithDefault($"user_{_userId}_secret", _userId);
+        public string UserId => GetEnvironmentVariableWithDefault($"user_{Id}_id", Id);
+
+        public string Password => GetEnvironmentVariableWithDefault($"user_{Id}_secret", Id);
 
         public string GrantType => "password";
     }
