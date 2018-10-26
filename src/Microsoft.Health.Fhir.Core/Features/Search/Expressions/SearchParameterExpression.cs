@@ -9,6 +9,9 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
+    /// <summary>
+    /// Represents a set of ANDed expressions over a search parameter.
+    /// </summary>
     public class SearchParameterExpression : SearchParameterExpressionBase
     {
         public SearchParameterExpression(string searchParameterName, IReadOnlyList<Expression> expressions)

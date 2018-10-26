@@ -7,6 +7,9 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
+    /// <summary>
+    /// Represents an expression over a search parameter.
+    /// </summary>
     public abstract class SearchParameterExpressionBase : Expression
     {
         protected SearchParameterExpressionBase(string searchParameterName)

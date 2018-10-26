@@ -122,10 +122,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string expectedParamName,
             bool expectedIsMissing)
         {
-            MissingSearchParameterExpression spExpression = Assert.IsType<MissingSearchParameterExpression>(expression);
+            MissingSearchParameterExpression mpExpression = Assert.IsType<MissingSearchParameterExpression>(expression);
 
-            Assert.Equal(expectedParamName, spExpression.SearchParameterName);
-            Assert.Equal(expectedIsMissing, spExpression.IsMissing);
+            Assert.Equal(expectedParamName, mpExpression.SearchParameterName);
+            Assert.Equal(expectedIsMissing, mpExpression.IsMissing);
         }
 
         public static void ValidateMissingFieldExpression(
