@@ -48,8 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
-
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
 
             // Execute the actual search.

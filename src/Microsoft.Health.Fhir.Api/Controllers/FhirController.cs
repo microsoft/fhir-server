@@ -95,9 +95,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         [Route("")]
         [AllowAnonymous]
-        public IActionResult Fhir()
+        public async Task<IActionResult> Fhir()
         {
-            _logger.LogInformation("Default route called.");
+            if (HttpContext.Request.QueryString.HasValue)
+            {
+                // treat this as a search across all resources
+                return await Search(null);
+            }
 
             if (_featureConfiguration.SupportsUI)
             {

@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             }
         }
 
-        public void AppendSubquery(Expression expression)
+        private void AppendSubquery(Expression expression)
         {
             _queryBuilder.Append("EXISTS (SELECT VALUE ")
                 .Append(SearchValueConstants.SearchIndexAliasName)

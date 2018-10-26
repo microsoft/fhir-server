@@ -159,7 +159,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             EnsureNoIssues();
 
-            var validatedSearchParameters = new List<(ResourceType ResourceType, SearchParameter SearchParameter)>();
+            var validatedSearchParameters = new List<(ResourceType ResourceType, SearchParameter SearchParameter)>
+            {
+                // _type is currently missing from the search params definition bundle, so we inject it in here.
+                (ResourceType.Resource, new SearchParameter { Name = "_type", Expression = "Resource.resourceType", Type = SearchParamType.Token }),
+            };
 
             // Do the second pass to make sure the definition is valid.
             for (int entryIndex = 0; entryIndex < bundle.Entry.Count; entryIndex++)
