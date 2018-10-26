@@ -52,44 +52,64 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         public static IEnumerable<object[]> GetCompatibleRoleDataForAction(ResourceAction action)
         {
-            var testData = new List<object>();
-            testData.Add(GetClaimsPrincipalForRoles("role1", "role2"));
-            testData.Add(GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role1"));
-            testData.Add(action);
-            yield return testData.ToArray();
-            testData.Add(GetClaimsPrincipalForRoles("role2"));
-            testData.Add(GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.Write }, "role2"));
-            testData.Add(action);
-            yield return testData.TakeLast(3).ToArray();
-            testData.Add(GetClaimsPrincipalForRoles("role1", "role2"));
-            testData.Add(GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.HardDelete }, "role1", "role2"));
-            testData.Add(action);
-            yield return testData.TakeLast(3).ToArray();
-            testData.Add(GetClaimsPrincipalForRoles("role3"));
-            testData.Add(GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role1", "role2", "role3"));
-            testData.Add(action);
-            yield return testData.TakeLast(3).ToArray();
+            yield return new object[]
+            {
+                GetClaimsPrincipalForRoles("role1", "role2"),
+                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role1"),
+                action,
+            };
+
+            yield return new object[]
+            {
+                GetClaimsPrincipalForRoles("role2"),
+                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.Write }, "role2"),
+                action,
+            }.ToArray();
+
+            yield return new object[]
+            {
+                GetClaimsPrincipalForRoles("role1", "role2"),
+                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.HardDelete }, "role1", "role2"),
+                action,
+            }.ToArray();
+
+            yield return new object[]
+            {
+                GetClaimsPrincipalForRoles("role3"),
+                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role1", "role2", "role3"),
+                action,
+            }.ToArray();
         }
 
         public static IEnumerable<object[]> GetIncompatibleRoleDataForAction(ResourceAction action)
         {
-            var testData = new List<object>();
-            testData.Add(GetClaimsPrincipalForRoles("role1", "role2"));
-            testData.Add(GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role3"));
-            testData.Add(action);
-            yield return testData.ToArray();
-            testData.Add(GetClaimsPrincipalForRoles("role2"));
-            testData.Add(GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.Write }, "role6"));
-            testData.Add(action);
-            yield return testData.TakeLast(3).ToArray();
-            testData.Add(GetClaimsPrincipalForRoles("role1", "role2"));
-            testData.Add(GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.HardDelete }, "role3", "role4"));
-            testData.Add(action);
-            yield return testData.TakeLast(3).ToArray();
-            testData.Add(GetClaimsPrincipalForRoles("role3"));
-            testData.Add(GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role1", "role2", "role5"));
-            testData.Add(action);
-            yield return testData.TakeLast(3).ToArray();
+            yield return new object[]
+            {
+                GetClaimsPrincipalForRoles("role1", "role2"),
+                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role3"),
+                action,
+            };
+
+            yield return new object[]
+            {
+                GetClaimsPrincipalForRoles("role2"),
+                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.Write }, "role6"),
+                action,
+            }.ToArray();
+
+            yield return new object[]
+            {
+                GetClaimsPrincipalForRoles("role1", "role2"),
+                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action, ResourceAction.HardDelete }, "role3", "role4"),
+                action,
+            }.ToArray();
+
+            yield return new object[]
+            {
+                GetClaimsPrincipalForRoles("role3"),
+                GetAuthorizationConfigurationForRoles(new HashSet<ResourceAction> { action }, "role1", "role2", "role5"),
+                action,
+            }.ToArray();
         }
 
         private static ClaimsPrincipal GetClaimsPrincipalForRoles(params string[] roles)
