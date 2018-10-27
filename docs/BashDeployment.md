@@ -42,6 +42,12 @@ The information required to use the application registration will be returned:
 }
 ```
 
+The Azure CLI tools provided in this repository lack some functionality for defining application [roles](Roles.md) that are used for access control. 
+
+To define API application roles, locate your application registration in the portal and [add any roles](https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps#declare-roles-for-an-application) you would like to define on your FHIR api. [Assign those roles to users](https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps#assign-users-and-groups-to-roles) in your Azure Active Directory.
+
+If you would like your client application registration to act as a service account, you can grant the application privileges (roles). Please consult the [documentation on application permissions](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-configure-app-access-web-apis).
+
 ## Deploying the FHIR Server Template
 
 Use the provided template to deploy the FHIR server:
