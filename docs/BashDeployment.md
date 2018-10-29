@@ -42,7 +42,7 @@ The information required to use the application registration will be returned:
 }
 ```
 
-The Azure CLI tools provided in this repository lack some functionality for defining application [roles](Roles.md) that are used for access control. 
+The Azure CLI based bash scripts provided in this repository lack some functionality for defining application [roles](Roles.md) that are used for access control. 
 
 To define API application roles, locate your application registration in the portal and [add any roles](https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps#declare-roles-for-an-application) you would like to define on your FHIR api. [Assign those roles to users](https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps#assign-users-and-groups-to-roles) in your Azure Active Directory.
 

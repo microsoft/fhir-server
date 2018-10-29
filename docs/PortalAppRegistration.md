@@ -4,7 +4,7 @@ The Microsoft FHIR Server for Azure uses Azure Active Directory (AAD) for OAuth 
 
 This document explains how to create these application registrations using the Azure Portal.
 
-# Application Registration for FHIR Server API
+## Application Registration for FHIR Server API
 
 Please consult the Azure Active Directory Documentation for details on the steps below:
 
@@ -13,11 +13,11 @@ Please consult the Azure Active Directory Documentation for details on the steps
 
 Make a note of the application id and/or the identifier URI of the of the API application. This will be used as the `audience` when deploying the FHIR server.  
 
-# Grant User API Roles
+## Grant User API Roles
 
 Now that you have defined API roles in your application registration, you can [assign those roles to specific users](https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps#assign-users-and-groups-to-roles).
 
-# Client Application Registration
+## Client Application Registration
 
 For each application that will access the FHIR API, create a client application registration:
 
