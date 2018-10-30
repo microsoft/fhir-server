@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         {
             EnsureArg.IsNotNull(user, nameof(user));
 
-            var roleClaims = user.Claims.Where(claim => claim.Type == ClaimTypes.Role || claim.Type == AuthorizationConfiguration.RolesClaim).Select(x => x.Value);
+            var roleClaims = GetRoleClaims(user);
 
             return _securityConfiguration.Authorization.Roles.Where(x => roleClaims.Contains(x.Name)).SelectMany(x => x.ResourcePermissions.Where(y => y.Actions.Contains(action)));
         }
@@ -36,9 +36,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         {
             EnsureArg.IsNotNull(user, nameof(user));
 
-            var roleClaims = user.Claims.Where(claim => claim.Type == ClaimTypes.Role || claim.Type == AuthorizationConfiguration.RolesClaim).Select(x => x.Value);
+            var roleClaims = GetRoleClaims(user);
 
             return _securityConfiguration.Authorization.Roles.Any(x => roleClaims.Contains(x.Name) && x.ResourcePermissions.Any(y => y.Actions.Contains(action)));
+        }
+
+        private static string[] GetRoleClaims(ClaimsPrincipal user)
+        {
+            return user.Claims.Where(claim => claim.Type == ClaimTypes.Role || claim.Type == AuthorizationConfiguration.RolesClaim).Select(x => x.Value).ToArray();
         }
     }
 }

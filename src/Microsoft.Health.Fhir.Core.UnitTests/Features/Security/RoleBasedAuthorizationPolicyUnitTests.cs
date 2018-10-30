@@ -136,12 +136,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         private static AuthorizationConfiguration GetAuthorizationConfigurationForRoles(HashSet<ResourceAction> resourceActions, params string[] roleNames)
         {
-            var permissions = new HashSet<ResourcePermission>
+            var permissions = new List<ResourcePermission>
             {
                 new ResourcePermission(resourceActions),
             };
 
-            var roles = roleNames.Select(ra => new Role { Name = ra, ResourcePermissions = permissions }).ToHashSet();
+            var roles = roleNames.Select(ra => new Role { Name = ra, ResourcePermissions = permissions }).ToList();
 
             return new AuthorizationConfiguration
             {

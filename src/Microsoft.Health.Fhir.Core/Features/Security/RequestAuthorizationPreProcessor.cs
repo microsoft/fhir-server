@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         {
             if (request is IRequireAction provider && _securityConfiguration.Authorization.Enabled)
             {
-                // Get teh applicable resource permissions
+                // Get the applicable resource permissions
                 var applicableResourcePermissions = _roleBasedAuthorizationPolicy.GetApplicableResourcePermissions(_fhirRquestContextAccessor.FhirRequestContext.Principal, provider.RequiredAction);
 
                 // Using the applicable resource permissions, we will evaluate them to retrieve an Expression, that will then be added to the FhirRequestContext
