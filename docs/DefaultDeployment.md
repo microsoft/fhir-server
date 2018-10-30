@@ -13,7 +13,7 @@ The FHIR server supports token based (JWT) authorization. If authorization is en
 
 To use the FHIR server with AAD authentication, two Azure Active Directory (AAD) Applications must be registered, one for the FHIR server itself and one for each client accessing the FHIR server. Please refer to the AAD documentation for details on the [Web application to Web API scenario](https://docs.microsoft.com/en-us/azure/active-directory/develop/authentication-scenarios#web-application-to-web-api).
 
-Both AAD Applications can be registered using the Azure Portal. Please refer to the [AAD Application registration documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-v1-integrate-apps-with-azure-ad).
+Both AAD Applications can be registered using the Azure Portal. Please refer to the [AAD Application registration documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-v1-integrate-apps-with-azure-ad) and the [portal application registration notes in this repository](PortalAppRegistrations.md).
 
 You can also register the AAD Applications using the [AzureAD PowerShell module](https://docs.microsoft.com/en-us/powershell/module/azuread/). This repository includes a PowerShell module with some wrapper functions that help with the AAD Application registration process.
 
