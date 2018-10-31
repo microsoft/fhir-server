@@ -66,11 +66,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
+            bool isCreate,
             bool allowCreate,
             bool keepHistory,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            return await _dataStore.UpsertAsync(resource, weakETag, allowCreate, keepHistory, cancellationToken);
+            return await _dataStore.UpsertAsync(resource, weakETag, isCreate, allowCreate, keepHistory, cancellationToken);
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))

@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             UpsertOutcome result = await _dataStore.UpsertAsync(
                 resourceWrapper,
                 weakETag: null,
+                isCreate: true,
                 allowCreate: true,
                 keepHistory: keepHistory,
                 cancellationToken: cancellationToken);
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
-            UpsertOutcome result = await _dataStore.UpsertAsync(resourceWrapper, weakETag, allowCreate, keepHistory, cancellationToken);
+            UpsertOutcome result = await _dataStore.UpsertAsync(resourceWrapper, weakETag, false, allowCreate, keepHistory, cancellationToken);
             resource.VersionId = result.Wrapper.Version;
 
             return new SaveOutcome(resource, result.OutcomeType);
@@ -142,6 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     UpsertOutcome result = await _dataStore.UpsertAsync(
                         deletedWrapper,
                         WeakETag.FromVersionId(existing.Version),
+                        false,
                         allowCreate: true,
                         keepHistory: keepHistory,
                         cancellationToken: cancellationToken);

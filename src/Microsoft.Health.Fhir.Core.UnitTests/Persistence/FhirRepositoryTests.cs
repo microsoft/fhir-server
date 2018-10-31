@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             resource.Id = "id1";
             var wrapper = CreateResourceWrapper(resource, false);
 
-            _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true).Returns(new UpsertOutcome(wrapper, SaveOutcomeType.Created));
+            _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, true).Returns(new UpsertOutcome(wrapper, SaveOutcomeType.Created));
 
             await _repository.CreateAsync(resource);
 
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var resource = Samples.GetDefaultObservation();
             resource.Id = null;
 
-            _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true)
+            _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), false, true, true)
                 .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
             await _repository.UpsertAsync(resource);
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
             {
-                _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true)
+                _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), false, true, true)
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
                 await _repository.UpsertAsync(resource);
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
                 return CreateResourceWrapper(newResource, false);
             }
 
-            _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true)
+            _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), false, true, true)
                 .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
 
             var outcome = await _repository.UpsertAsync(resource);
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
                 return CreateResourceWrapper(newResource, false);
             }
 
-            _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true)
+            _dataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), false, true, true)
                 .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Updated));
 
             var outcome = await _repository.UpsertAsync(resource, null);
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             ResourceKey resultKey = await _repository.DeleteAsync(new ResourceKey<Observation>("id1"), false);
 
-            await _dataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true);
+            await _dataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), false, true, true);
 
             Assert.Equal(observation.Id, resultKey.Id);
             Assert.Equal(observation.Meta.VersionId, resultKey.VersionId);
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             ResourceKey resultKey = await _repository.DeleteAsync(new ResourceKey<Observation>("id1"), false);
 
-            await _dataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true);
+            await _dataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), false, true, true);
 
             Assert.Equal(observation.Id, resultKey.Id);
             Assert.Null(resultKey.VersionId);

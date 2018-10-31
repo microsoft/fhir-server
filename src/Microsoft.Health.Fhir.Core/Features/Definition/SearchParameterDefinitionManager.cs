@@ -32,6 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _fhirJsonParser = fhirJsonParser;
         }
 
+        public IEnumerable<SearchParameter> AllSearchParameters => _urlLookup.Values;
+
         public void Start()
         {
             Type type = GetType();
