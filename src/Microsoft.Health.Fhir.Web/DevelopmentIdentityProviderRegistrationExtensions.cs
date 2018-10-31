@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 private static readonly Dictionary<string, string> Mappings = new Dictionary<string, string>
                 {
-                    { "^roles:", "FhirServer:Security:Authorization:RoleConfiguration:Roles:" },
+                    { "^roles:", "FhirServer:Security:Authorization:Roles:" },
                     { "^users:", "DevelopmentIdentityProvider:Users:" },
                     { "^clientApplications:", "DevelopmentIdentityProvider:ClientApplications:" },
                 };

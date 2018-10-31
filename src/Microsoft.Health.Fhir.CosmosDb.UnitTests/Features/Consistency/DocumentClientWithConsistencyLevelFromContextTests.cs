@@ -194,7 +194,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Consistency
                 null);
         }
 
-        private static object CreateInstance(Type type, params object[] args) => Activator.CreateInstance(type, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public, null, args, CultureInfo.InvariantCulture);
+        private static object CreateInstance(Type type, params object[] args)
+        {
+            return Activator.CreateInstance(type, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public, null, args, CultureInfo.InvariantCulture);
+        }
 
         private static FeedResponse<T> CreateFeedResponse<T>(IEnumerable<T> result, NameValueCollection responseHeaders)
         {
@@ -205,10 +208,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Consistency
                 CreateInstance( // public DictionaryNameValueCollection(NameValueCollection c)
                     typeof(IDocumentClient).Assembly.GetType("Microsoft.Azure.Documents.Collections.DictionaryNameValueCollection"),
                     responseHeaders),
-                false,
-                null,
-                null,
-                null);
+                1024 /* responseLengthBytes - required, but not used */);
         }
 
         #endregion

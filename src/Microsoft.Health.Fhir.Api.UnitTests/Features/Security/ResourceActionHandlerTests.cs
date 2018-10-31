@@ -17,29 +17,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
     public class ResourceActionHandlerTests
     {
         private readonly IAuthorizationPolicy _authorizationPolicy = Substitute.For<IAuthorizationPolicy>();
-        private static readonly ResourceActionRequirement _resourceActionRequirement = new ResourceActionRequirement("Read");
-        private readonly AuthorizationHandlerContext _authorizationHandlerContext = new AuthorizationHandlerContext(new List<IAuthorizationRequirement> { _resourceActionRequirement }, new ClaimsPrincipal(), null);
+        private readonly AuthorizationHandlerContext _authorizationHandlerContext = new AuthorizationHandlerContext(new List<IAuthorizationRequirement> { ResourceActionRequirement }, new ClaimsPrincipal(), null);
         private readonly ResourceActionHandler _resourceActionHandler;
+
+        private static readonly ResourceActionRequirement ResourceActionRequirement = new ResourceActionRequirement("Read");
 
         public ResourceActionHandlerTests()
         {
             _resourceActionHandler = new ResourceActionHandler(_authorizationPolicy);
         }
 
-        [Fact]
-        public async void GivenAReadResourceRequest_WhenUnauthorized_ThenTheAuthorizationHandlerReturnsFalse()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async void GivenAReadResourceRequest_WhenAuthorizationHandlerHandles_ThenTheAuthorizationHandlerAppropriateStatus(bool authorized)
         {
-            _authorizationPolicy.HasPermissionAsync(Arg.Any<ClaimsPrincipal>(), ResourceAction.Read).ReturnsForAnyArgs(false);
+            _authorizationPolicy.HasPermission(Arg.Any<ClaimsPrincipal>(), ResourceAction.Read).ReturnsForAnyArgs(authorized);
             await _resourceActionHandler.HandleAsync(_authorizationHandlerContext);
-            Assert.False(_authorizationHandlerContext.HasSucceeded);
-        }
-
-        [Fact]
-        public async void GivenAReadResourceRequest_WhenAuthorized_ThenTheAuthorizationHandlerReturnsTrue()
-        {
-            _authorizationPolicy.HasPermissionAsync(Arg.Any<ClaimsPrincipal>(), ResourceAction.Read).ReturnsForAnyArgs(true);
-            await _resourceActionHandler.HandleAsync(_authorizationHandlerContext);
-            Assert.True(_authorizationHandlerContext.HasSucceeded);
+            Assert.Equal(authorized, _authorizationHandlerContext.HasSucceeded);
         }
     }
 }

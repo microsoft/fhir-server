@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             Id = id;
         }
 
-        public string Id { get; }
+        private string Id { get; }
 
         public string ClientId => GetEnvironmentVariableWithDefault($"app_{Id}_id", Id);
 
