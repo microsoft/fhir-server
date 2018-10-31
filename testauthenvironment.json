@@ -108,7 +108,8 @@
         {
             "id": "restrictedserviceclient",
             "roles": [
-                "researcher"
+                "researcher",
+                "clinician"
             ]
         },
         {
