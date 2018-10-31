@@ -206,6 +206,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
         }
 
+        public void Visit(CompartmentSearchValue compartment)
+        {
+            return;
+        }
+
         void ISearchValueVisitor.Visit(StringSearchValue s)
         {
             EnsureArg.IsNotNull(s, nameof(s));

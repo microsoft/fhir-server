@@ -18,70 +18,52 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     internal class CompartmentDefinitionBuilder
     {
-        private readonly Bundle _bundle;
-
-        private Dictionary<CompartmentType, CompartmentDefinition> _compartmentTypeDictionary = new Dictionary<CompartmentType, CompartmentDefinition>();
-
-        // Given a fhir resource type, you can get the search params by compartment type.
-        // Example (Appointment (FhirResource), { Patient (CompartmentType), actor (searchparam) })
-        private Dictionary<ResourceType, Dictionary<CompartmentType, List<string>>> _resourceTypeParamsByCompartmentDictionary = new Dictionary<ResourceType, Dictionary<CompartmentType, List<string>>>();
-
-        private bool _initialized;
+        private Lazy<(Dictionary<CompartmentType, CompartmentDefinition>, Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>>)> _compartmentResources;
 
         internal CompartmentDefinitionBuilder(Bundle bundle)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
-            _bundle = bundle;
+            _compartmentResources = new Lazy<(Dictionary<CompartmentType, CompartmentDefinition>, Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>>)>(() => Build(bundle));
         }
 
-        internal IDictionary<ResourceType, IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>>> CompartmentSearchParams
+        /// <summary>
+        /// Given a fhir resource type, you can get the search params by compartment type.
+        /// Example (Appointment (FhirResource), { Patient (CompartmentType), actor (searchparam) })
+        /// </summary>
+        internal Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>> CompartmentSearchParams
         {
             get
             {
-                if (!_initialized)
-                {
-                    Build();
-                }
-
-                return _resourceTypeParamsByCompartmentDictionary as IDictionary<ResourceType, IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>>>;
+                return _compartmentResources.Value.ToTuple().Item2;
             }
         }
 
-        internal IDictionary<CompartmentType, CompartmentDefinition> CompartmentLookup
+        internal Dictionary<CompartmentType, CompartmentDefinition> CompartmentLookup
         {
             get
             {
-                if (!_initialized)
-                {
-                    Build();
-                }
-
-                return _compartmentTypeDictionary;
+                return _compartmentResources.Value.ToTuple().Item1;
             }
         }
 
-        internal void Build()
+        private (Dictionary<CompartmentType, CompartmentDefinition>, Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>>) Build(Bundle bundle)
         {
-            _compartmentTypeDictionary = ValidateAndGetCompartmentDict();
+            Dictionary<CompartmentType, CompartmentDefinition> compartmentTypeDictionary = ValidateAndGetCompartmentDict(bundle);
 
-            // Build the lookup for the compartment by resource type.
-            foreach (var entry in _compartmentTypeDictionary)
-            {
-                BuildResourceTypeLookup(entry.Value);
-            }
+            Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>> compartmentLookup = BuildResourceTypeLookup(compartmentTypeDictionary.Values.ToArray());
 
-            _initialized = true;
-        }
+            return (compartmentTypeDictionary, compartmentLookup);
+       }
 
-        private Dictionary<CompartmentType, CompartmentDefinition> ValidateAndGetCompartmentDict()
+        private Dictionary<CompartmentType, CompartmentDefinition> ValidateAndGetCompartmentDict(Bundle bundle)
         {
             var issues = new List<IssueComponent>();
             var validatedCompartments = new Dictionary<CompartmentType, CompartmentDefinition>();
 
-            for (int entryIndex = 0; entryIndex < _bundle.Entry.Count; entryIndex++)
+            for (int entryIndex = 0; entryIndex < bundle.Entry.Count; entryIndex++)
             {
                 // Make sure resources are not null and they are Compartment.
-                EntryComponent entry = _bundle.Entry[entryIndex];
+                EntryComponent entry = bundle.Entry[entryIndex];
 
                 var compartment = entry.Resource as CompartmentDefinition;
 
@@ -126,26 +108,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        private void BuildResourceTypeLookup(CompartmentDefinition compartment)
+        private static Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>> BuildResourceTypeLookup(CompartmentDefinition[] compartmentDefinitions)
         {
-            foreach (ResourceComponent resource in compartment.Resource)
+            var resourceTypeParamsByCompartmentDictionary = new Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>>();
+
+            foreach (CompartmentDefinition compartment in compartmentDefinitions)
             {
-                if (!_resourceTypeParamsByCompartmentDictionary.TryGetValue(resource.Code.Value, out var resourceTypeDict))
+                foreach (ResourceComponent resource in compartment.Resource)
                 {
-                    resourceTypeDict = new Dictionary<CompartmentType, List<string>>();
-                    _resourceTypeParamsByCompartmentDictionary.Add(resource.Code.Value, resourceTypeDict);
-                }
+                    if (!resourceTypeParamsByCompartmentDictionary.TryGetValue(resource.Code.Value, out var resourceTypeDict))
+                    {
+                        resourceTypeDict = new Dictionary<CompartmentType, HashSet<string>>();
+                        resourceTypeParamsByCompartmentDictionary.Add(resource.Code.Value, resourceTypeDict);
+                    }
 
-                if (resourceTypeDict.ContainsKey(compartment.Code.Value))
-                {
-                    // Already populated
-                    continue;
-                }
+                    if (resourceTypeDict.ContainsKey(compartment.Code.Value))
+                    {
+                        // Already populated
+                        continue;
+                    }
 
-                resourceTypeDict[compartment.Code.Value] = resource.Param?.ToList();
+                    resourceTypeDict[compartment.Code.Value] = resource.Param?.ToList().AsReadOnly().ToHashSet();
+                }
             }
 
-            return;
+            return resourceTypeParamsByCompartmentDictionary;
         }
     }
 }

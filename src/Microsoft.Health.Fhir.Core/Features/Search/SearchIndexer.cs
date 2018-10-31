@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class SearchIndexer : ISearchIndexer
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
         private readonly IFhirElementToSearchValueTypeConverterManager _fhirElementTypeConverterManager;
         private readonly ILogger<SearchIndexer> _logger;
 
@@ -34,18 +35,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Initializes a new instance of the <see cref="SearchIndexer"/> class.
         /// </summary>
         /// <param name="searchParameterDefinitionManager">The search parameter definition manager.</param>
+        /// <param name="compartmentDefinitionManager">The compartment definition manager.</param>
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
         /// <param name="logger">The logger.</param>
         public SearchIndexer(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ICompartmentDefinitionManager compartmentDefinitionManager,
             IFhirElementToSearchValueTypeConverterManager fhirElementTypeConverterManager,
             ILogger<SearchIndexer> logger)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(compartmentDefinitionManager, nameof(compartmentDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _compartmentDefinitionManager = compartmentDefinitionManager;
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
             _logger = logger;
         }
@@ -138,6 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private IEnumerable<SearchIndexEntry> ProcessNonCompositeSearchParameter(SearchParameter searchParameter, Resource resource, FhirEvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type != SearchParamType.Composite, "The search parameter must be non-composite.");
+            var compartmentTypeToReferenceSearchDict = new Dictionary<CompartmentType, List<SearchIndexEntry>>();
 
             foreach (ISearchValue searchValue in ExtractSearchValues(
                 searchParameter.Url,
@@ -147,8 +153,58 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.Expression,
                 context))
             {
-                yield return new SearchIndexEntry(searchParameter.Name, searchValue);
+                var searchIndexEntry = new SearchIndexEntry(searchParameter.Name, searchValue);
+                yield return searchIndexEntry;
+
+                var referenceSearchValue = searchValue as ReferenceSearchValue;
+
+                if (referenceSearchValue != null && referenceSearchValue.ResourceType.HasValue && CompartmentDefinitionManager.ResourceTypeToCompartmentType.TryGetValue(referenceSearchValue.ResourceType.Value, out CompartmentType compartmentType))
+                {
+                    if (!compartmentTypeToReferenceSearchDict.TryGetValue(compartmentType, out var entries))
+                    {
+                        entries = new List<SearchIndexEntry>();
+                        compartmentTypeToReferenceSearchDict[compartmentType] = entries;
+                    }
+
+                    entries.Add(searchIndexEntry);
+                }
             }
+
+            foreach (CompartmentSearchValue compartmentSearchValue in ExtractCompartmentSearchValue(resource, compartmentTypeToReferenceSearchDict))
+            {
+                yield return new SearchIndexEntry($"{compartmentSearchValue.CompartmentType.ToString()}_compartment", compartmentSearchValue);
+            }
+        }
+
+        private List<CompartmentSearchValue> ExtractCompartmentSearchValue(Resource resource, Dictionary<CompartmentType, List<SearchIndexEntry>> compartmentTypeToReferenceSearchDict)
+        {
+            var results = new List<CompartmentSearchValue>();
+
+            if (_compartmentDefinitionManager.TryGetCompartmentSearchParams(resource.ResourceType, out Dictionary<CompartmentType, HashSet<string>> compartmentSearchParamsByCType))
+            {
+                foreach (KeyValuePair<CompartmentType, List<SearchIndexEntry>> compartmentTypeSearchIndexKvp in compartmentTypeToReferenceSearchDict)
+                {
+                    var compartmentSearchParams = compartmentSearchParamsByCType[compartmentTypeSearchIndexKvp.Key];
+                    var resourceIds = new HashSet<string>();
+                    foreach (SearchIndexEntry entry in compartmentTypeSearchIndexKvp.Value)
+                    {
+                        var refValue = (ReferenceSearchValue)entry.Value;
+
+                        // TODO: Assumption is that a search param can belong to only one compartment. Verify the assumption.
+                        if (compartmentSearchParams.Contains(entry.ParamName) && refValue.ResourceType == CompartmentDefinitionManager.CompartmentTypeToResourceType[compartmentTypeSearchIndexKvp.Key])
+                        {
+                            resourceIds.Add(refValue.ResourceId);
+                        }
+                    }
+
+                    if (resourceIds.Any())
+                    {
+                        results.Add(new CompartmentSearchValue(compartmentTypeSearchIndexKvp.Key, resourceIds));
+                    }
+                }
+            }
+
+            return results;
         }
 
         private IReadOnlyList<ISearchValue> ExtractSearchValues(

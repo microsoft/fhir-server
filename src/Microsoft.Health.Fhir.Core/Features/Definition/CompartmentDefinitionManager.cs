@@ -20,13 +20,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public class CompartmentDefinitionManager : IStartable, ICompartmentDefinitionManager
     {
         private readonly FhirJsonParser _fhirJsonParser;
-        private IDictionary<ResourceType, IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>>> _compartmentSearchParams;
+        private CompartmentDefinitionBuilder _compartmentDefinitionBuilder;
 
         public CompartmentDefinitionManager(FhirJsonParser fhirJsonParser)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             _fhirJsonParser = fhirJsonParser;
         }
+
+        public static Dictionary<ResourceType, CompartmentType> ResourceTypeToCompartmentType { get; } = new Dictionary<ResourceType, CompartmentType>
+        {
+            { ResourceType.Patient, CompartmentType.Patient },
+            { ResourceType.Encounter, CompartmentType.Encounter },
+            { ResourceType.Practitioner, CompartmentType.Practitioner },
+            { ResourceType.RelatedPerson, CompartmentType.Practitioner },
+            { ResourceType.Device, CompartmentType.Device },
+        };
+
+        public static Dictionary<CompartmentType, ResourceType> CompartmentTypeToResourceType { get; } = new Dictionary<CompartmentType, ResourceType>
+        {
+            { CompartmentType.Patient, ResourceType.Patient },
+            { CompartmentType.Encounter, ResourceType.Encounter },
+            { CompartmentType.Practitioner, ResourceType.Practitioner },
+            { CompartmentType.RelatedPerson, ResourceType.Practitioner },
+            { CompartmentType.Device, ResourceType.Device },
+        };
 
         public void Start()
         {
@@ -39,16 +57,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             using (JsonReader jsonReader = new JsonTextReader(reader))
             {
                 var bundle = _fhirJsonParser.Parse<Bundle>(jsonReader);
-                var builder = new CompartmentDefinitionBuilder(bundle);
-
-                builder.Build();
-                _compartmentSearchParams = builder.CompartmentSearchParams;
+                _compartmentDefinitionBuilder = new CompartmentDefinitionBuilder(bundle);
             }
         }
 
-        public IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>> GetCompartmentSearchParams(ResourceType resourceType)
+        public Dictionary<CompartmentType, HashSet<string>> GetCompartmentSearchParams(ResourceType resourceType)
         {
-            if (_compartmentSearchParams.TryGetValue(resourceType, out var compartmentSearchParams))
+            if (_compartmentDefinitionBuilder.CompartmentSearchParams.TryGetValue(resourceType, out var compartmentSearchParams))
             {
                 return compartmentSearchParams;
             }
@@ -56,9 +71,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new ResourceNotSupportedException(resourceType.ToString());
         }
 
-        public bool TryGetCompartmentSearchParams(ResourceType resourceType, out IReadOnlyDictionary<CompartmentType, IReadOnlyList<string>> compartmentSearchParams)
+        public bool TryGetCompartmentSearchParams(ResourceType resourceType, out Dictionary<CompartmentType, HashSet<string>> compartmentSearchParams)
         {
-            return _compartmentSearchParams.TryGetValue(resourceType, out compartmentSearchParams);
+            return _compartmentDefinitionBuilder.CompartmentSearchParams.TryGetValue(resourceType, out compartmentSearchParams);
         }
     }
 }

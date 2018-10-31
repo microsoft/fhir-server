@@ -38,6 +38,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         void Visit(ReferenceSearchValue reference);
 
         /// <summary>
+        /// Visits the <see cref="CompartmentSearchValue"/>.
+        /// </summary>
+        /// <param name="compartment">The reference search value to visit.</param>
+        void Visit(CompartmentSearchValue compartment);
+
+        /// <summary>
         /// Visits the <see cref="StringSearchValue"/>.
         /// </summary>
         /// <param name="s">The string search value to visit.</param>
