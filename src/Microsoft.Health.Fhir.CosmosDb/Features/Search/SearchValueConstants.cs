@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string ReferenceResourceIdName = "ri";
 
+        public const string ReferenceResourceCompartmentType = "rc";
+
         public const string StringName = "s";
 
         public const string TextName = "t";

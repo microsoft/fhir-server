@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             var validCompartmentBundle = Samples.GetJsonSample<Bundle>("ValidCompartmentDefinition");
             _validBuiltCompartment = new CompartmentDefinitionBuilder(validCompartmentBundle);
-            _validBuiltCompartment.Build();
+            Assert.NotNull(_validBuiltCompartment.CompartmentLookup);
         }
 
         [Fact]
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.True(conditionDict.ContainsKey(CompartmentType.Patient));
             Assert.True(conditionDict.ContainsKey(CompartmentType.Encounter));
             var communicationDict = _validBuiltCompartment.CompartmentSearchParams[ResourceType.Communication];
-            Assert.Equal(1, communicationDict.Count);
+            Assert.Single(communicationDict);
             Assert.True(communicationDict.ContainsKey(CompartmentType.Patient));
         }
 
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             var invalidCompartmentBundle = Samples.GetJsonSample<Bundle>("InvalidCompartmentDefinition");
             var invalidBuiltCompartment = new CompartmentDefinitionBuilder(invalidCompartmentBundle);
-            var exception = Assert.Throws<InvalidDefinitionException>(() => invalidBuiltCompartment.Build());
+            var exception = Assert.Throws<InvalidDefinitionException>(() => invalidBuiltCompartment.CompartmentLookup);
             Assert.Contains("invalid entries", exception.Message);
             Assert.Equal(2, exception.Issues.Count);
             Assert.NotNull(exception.Issues.SingleOrDefault(ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal && ic.Code == OperationOutcome.IssueType.Invalid && ic.Diagnostics.Contains("not a CompartmentDefinition")));

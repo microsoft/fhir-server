@@ -79,6 +79,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             AddProperty(SearchValueConstants.ReferenceResourceIdName, reference.ResourceId);
         }
 
+        public void Visit(CompartmentSearchValue compartmentSearchValue)
+        {
+            AddProperty(SearchValueConstants.ReferenceResourceCompartmentType, compartmentSearchValue.CompartmentType.ToString());
+            AddProperty(SearchValueConstants.ReferenceResourceIdName, compartmentSearchValue.ResourceIds);
+        }
+
         public void Visit(StringSearchValue s)
         {
             AddProperty(SearchValueConstants.StringName, s.String);
