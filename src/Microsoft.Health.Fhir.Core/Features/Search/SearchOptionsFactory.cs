@@ -10,6 +10,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 
@@ -19,16 +20,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly IExpressionParser _expressionParser;
         private readonly ILogger _logger;
+        private readonly SearchParameter _resourceTypeSearchParameter;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
             _logger = logger;
+
+            _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource, SearchParameterNames.ResourceType);
         }
 
         public SearchOptions Create(IReadOnlyList<Tuple<string, string>> queryParameters)
@@ -109,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (!string.IsNullOrWhiteSpace(resourceType))
             {
-                searchExpressions.Add(Expression.SearchParameter(KnownQueryParameterNames.ResourceType, Expression.Equals(FieldName.TokenCode, null, resourceType)));
+                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, resourceType)));
             }
 
             searchExpressions.AddRange(searchParams.Parameters.Select(

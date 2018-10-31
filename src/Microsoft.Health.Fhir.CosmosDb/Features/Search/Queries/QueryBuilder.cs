@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 if (searchOptions.Expression != null)
                 {
                     _queryBuilder.Append("AND ");
-                    searchOptions.Expression?.AcceptVisitor(expressionQueryBuilder);
+                    searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
                 AppendFilterCondition(
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 if (searchOptions.Expression != null)
                 {
                     _queryBuilder.Append("AND ");
-                    searchOptions.Expression?.AcceptVisitor(expressionQueryBuilder);
+                    searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
                 _queryBuilder

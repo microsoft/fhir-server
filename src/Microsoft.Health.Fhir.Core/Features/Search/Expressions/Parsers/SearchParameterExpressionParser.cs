@@ -11,7 +11,6 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using static Hl7.Fhir.Model.SearchParameter;
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 "Invalid modifier.");
             EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
 
-            IEnumerable<Expression> outputExpressions = null;
+            Expression outputExpression;
 
             if (modifier == SearchModifierCode.Missing)
             {
@@ -78,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     throw new InvalidSearchOperationException(Core.Resources.InvalidValueTypeForMissingModifier);
                 }
 
-                return Expression.MissingSearchParameter(searchParameter.Name, isMissing);
+                return Expression.MissingSearchParameter(searchParameter, isMissing);
             }
 
             if (modifier == SearchModifierCode.Text)
@@ -92,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
                 }
 
-                outputExpressions = Expression.Contains(FieldName.TokenText, null, value, true).AsEnumerable();
+                outputExpression = Expression.Contains(FieldName.TokenText, null, value, true);
             }
             else
             {
@@ -131,20 +130,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                             value: componentValue);
                     }
 
-                    outputExpressions = compositeExpressions;
+                    outputExpression = Expression.And(compositeExpressions);
                 }
                 else
                 {
-                    outputExpressions = Build(
-                            searchParameter,
-                            modifier,
-                            componentIndex: null,
-                            value: value)
-                        .AsEnumerable();
+                    outputExpression = Build(
+                        searchParameter,
+                        modifier,
+                        componentIndex: null,
+                        value: value);
                 }
             }
 
-            return Expression.SearchParameter(searchParameter.Name, outputExpressions.ToArray());
+            return Expression.SearchParameter(searchParameter, outputExpression);
         }
 
         private Expression Build(

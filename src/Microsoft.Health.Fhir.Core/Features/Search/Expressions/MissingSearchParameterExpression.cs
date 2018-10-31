@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -15,10 +16,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Initializes a new instance of the <see cref="MissingSearchParameterExpression"/> class.
         /// </summary>
-        /// <param name="parameterName">THe search parameter name</param>
+        /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
-        public MissingSearchParameterExpression(string parameterName, bool isMissing)
-            : base(parameterName)
+        public MissingSearchParameterExpression(SearchParameter searchParameter, bool isMissing)
+            : base(searchParameter)
         {
             IsMissing = isMissing;
         }

@@ -9,7 +9,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -76,12 +75,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public void Visit(SearchParameterExpression expression)
         {
-            if (expression.SearchParameterName == KnownQueryParameterNames.ResourceType)
+            if (expression.Parameter.Name == SearchParameterNames.ResourceType)
             {
                 try
                 {
+                    // We do not currently support specifying the system for the _type parameter value.
+                    // We would need to add it to the document, but for now it seems pretty unlikely that it will 
+                    // be specified when searching.
                     _fieldNameOverride = SearchValueConstants.RootResourceTypeName;
-                    Visit(Expression.And(expression.Expressions));
+                    expression.Expression.AcceptVisitor(this);
                 }
                 finally
                 {
@@ -90,24 +92,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             }
             else
             {
-                AppendSubquery(expression.SearchParameterName, expression.Expressions);
+                AppendSubquery(expression.Parameter.Name, expression.Expression);
             }
+
+            _queryBuilder.AppendLine();
         }
 
         public void Visit(MissingSearchParameterExpression expression)
         {
-            if (expression.SearchParameterName == KnownQueryParameterNames.ResourceType)
+            if (expression.Parameter.Name == SearchParameterNames.ResourceType)
             {
                 // this will always be present
                 _queryBuilder.Append(expression.IsMissing ? "false" : "true");
             }
             else
             {
-                AppendSubquery(expression.SearchParameterName, Array.Empty<Expression>(), negate: expression.IsMissing);
+                AppendSubquery(expression.Parameter.Name, null, negate: expression.IsMissing);
             }
+
+            _queryBuilder.AppendLine();
         }
 
-        private void AppendSubquery(string parameterName, IReadOnlyList<Expression> expressions, bool negate = false)
+        private void AppendSubquery(string parameterName, Expression expression, bool negate = false)
         {
             if (negate)
             {
@@ -124,25 +130,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .Append(KnownResourceWrapperProperties.SearchIndices)
                 .Append(" WHERE ");
 
+            string originalInstanceVariableName = _instanceVariableName;
+
             try
             {
                 _instanceVariableName = SearchValueConstants.SearchIndexAliasName;
 
                 VisitBinary(GetMappedValue(FieldNameMapping, FieldName.ParamName), BinaryOperator.Equal, parameterName);
 
-                if (expressions.Count > 0)
+                if (expression != null)
                 {
                     _queryBuilder.Append(" AND ");
 
-                    VisitMultiary(MultiaryOperator.And, expressions);
+                    expression.AcceptVisitor(this);
                 }
             }
             finally
             {
-                _instanceVariableName = SearchValueConstants.RootAliasName;
+                _instanceVariableName = originalInstanceVariableName;
             }
 
-            _queryBuilder.AppendLine(")");
+            _queryBuilder.Append(")");
         }
 
         public void Visit(BinaryExpression expression)
@@ -166,7 +174,59 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public void Visit(MultiaryExpression expression)
         {
-            VisitMultiary(expression.MultiaryOperation, expression.Expressions);
+            MultiaryOperator op = expression.MultiaryOperation;
+            IReadOnlyList<Expression> expressions = expression.Expressions;
+            string operation;
+
+            switch (op)
+            {
+                case MultiaryOperator.And:
+                    operation = "AND";
+                    break;
+
+                case MultiaryOperator.Or:
+                    operation = "OR";
+                    break;
+
+                default:
+                {
+                    string message = string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.UnhandledEnumValue,
+                        nameof(MultiaryOperator),
+                        op);
+
+                    Debug.Fail(message);
+
+                    throw new InvalidOperationException(message);
+                }
+            }
+
+            if (op == MultiaryOperator.Or)
+            {
+                _queryBuilder.Append("(");
+            }
+
+            for (int i = 0; i < expressions.Count; i++)
+            {
+                // Output each expression.
+                expressions[i].AcceptVisitor(this);
+
+                if (i != expressions.Count - 1)
+                {
+                    if (!char.IsWhiteSpace(_queryBuilder[_queryBuilder.Length - 1]))
+                    {
+                        _queryBuilder.Append(" ");
+                    }
+
+                    _queryBuilder.Append(operation).Append(" ");
+                }
+            }
+
+            if (op == MultiaryOperator.Or)
+            {
+                _queryBuilder.Append(")");
+            }
         }
 
         public void Visit(StringExpression expression)
@@ -199,50 +259,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     .Append(AddParameterMapping(value))
                     .Append(")");
             }
-        }
-
-        private void VisitMultiary(MultiaryOperator op, IReadOnlyList<Expression> expressions)
-        {
-            string operation;
-
-            switch (op)
-            {
-                case MultiaryOperator.And:
-                    operation = "AND";
-                    break;
-
-                case MultiaryOperator.Or:
-                    operation = "OR";
-                    break;
-
-                default:
-                    {
-                        string message = string.Format(
-                            CultureInfo.InvariantCulture,
-                            Resources.UnhandledEnumValue,
-                            nameof(MultiaryOperator),
-                            op);
-
-                        Debug.Fail(message);
-
-                        throw new InvalidOperationException(message);
-                    }
-            }
-
-            _queryBuilder.Append("(");
-
-            for (int i = 0; i < expressions.Count; i++)
-            {
-                // Output each expression.
-                expressions[i].AcceptVisitor(this);
-
-                if (i != expressions.Count - 1)
-                {
-                    _queryBuilder.Append(" ").Append(operation).Append(" ");
-                }
-            }
-
-            _queryBuilder.Append(")");
         }
 
         private void VisitBinary(string fieldName, BinaryOperator op, object value)

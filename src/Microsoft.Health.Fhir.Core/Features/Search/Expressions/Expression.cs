@@ -16,23 +16,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Creates a <see cref="SearchParameterExpression"/> that represents a set of ANDed expressions over a search parameter.
         /// </summary>
-        /// <param name="parameterName">The search parameter name</param>
-        /// <param name="expressions">The expressions.</param>
+        /// <param name="searchParameter">The search parameter this expression is bound to.</param>
+        /// <param name="expression">The expression over the parameter's values.</param>
         /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
-        public static SearchParameterExpression SearchParameter(string parameterName, params Expression[] expressions)
+        public static SearchParameterExpression SearchParameter(SearchParameter searchParameter, Expression expression)
         {
-            return new SearchParameterExpression(parameterName, expressions);
+            return new SearchParameterExpression(searchParameter, expression);
         }
 
         /// <summary>
         /// Creates a <see cref="MissingSearchParameterExpression"/> that represents a search parameter being present or not in a resource.
         /// </summary>
-        /// <param name="parameterName">The search parameter name</param>
+        /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
         /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
-        public static MissingSearchParameterExpression MissingSearchParameter(string parameterName, bool isMissing)
+        public static MissingSearchParameterExpression MissingSearchParameter(SearchParameter searchParameter, bool isMissing)
         {
-            return new MissingSearchParameterExpression(parameterName, isMissing);
+            return new MissingSearchParameterExpression(searchParameter, isMissing);
         }
 
         /// <summary>
