@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 try
                 {
                     // We do not currently support specifying the system for the _type parameter value.
-                    // We would need to add it to the document, but for now it seems pretty unlikely that it will 
+                    // We would need to add it to the document, but for now it seems pretty unlikely that it will
                     // be specified when searching.
                     _fieldNameOverride = SearchValueConstants.RootResourceTypeName;
                     expression.Expression.AcceptVisitor(this);
