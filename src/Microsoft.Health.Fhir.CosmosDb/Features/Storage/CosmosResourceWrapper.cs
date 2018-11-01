@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                   resource.IsDeleted,
                   resource.IsHistory,
                   (resource as ISupportSearchIndices)?.SearchIndices,
+                  resource.CompartmentIndices,
                   resource.LastModifiedClaims)
         {
         }
@@ -40,8 +41,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool deleted,
             bool history,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
+            CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
-            : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, lastModifiedClaims)
+            : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, lastModifiedClaims, compartmentIndices)
         {
             IsHistory = history;
             SearchIndices = searchIndices ?? Array.Empty<SearchIndexEntry>();

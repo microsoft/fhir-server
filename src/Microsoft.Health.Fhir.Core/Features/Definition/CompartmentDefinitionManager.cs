@@ -5,46 +5,36 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Newtonsoft.Json;
+using static Hl7.Fhir.Model.Bundle;
+using static Hl7.Fhir.Model.CompartmentDefinition;
+using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     /// <summary>
     /// Manager to access compartment definitions.
     /// </summary>
-    public class CompartmentDefinitionManager : IStartable
+    public class CompartmentDefinitionManager : IStartable, ICompartmentDefinitionManager
     {
         private readonly FhirJsonParser _fhirJsonParser;
-        private CompartmentDefinitionBuilder _compartmentDefinitionBuilder;
+
+        // This data structure stores the lookup of compartmentsearchparams (in the hash set) by ResourceType and CompartmentType.
+        private Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>> _compartmentSearchParamsLookup;
 
         public CompartmentDefinitionManager(FhirJsonParser fhirJsonParser)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             _fhirJsonParser = fhirJsonParser;
         }
-
-        public static Dictionary<ResourceType, CompartmentType> ResourceTypeToCompartmentType { get; } = new Dictionary<ResourceType, CompartmentType>
-        {
-            { ResourceType.Patient, CompartmentType.Patient },
-            { ResourceType.Encounter, CompartmentType.Encounter },
-            { ResourceType.Practitioner, CompartmentType.Practitioner },
-            { ResourceType.RelatedPerson, CompartmentType.Practitioner },
-            { ResourceType.Device, CompartmentType.Device },
-        };
-
-        public static Dictionary<CompartmentType, ResourceType> CompartmentTypeToResourceType { get; } = new Dictionary<CompartmentType, ResourceType>
-        {
-            { CompartmentType.Patient, ResourceType.Patient },
-            { CompartmentType.Encounter, ResourceType.Encounter },
-            { CompartmentType.Practitioner, ResourceType.Practitioner },
-            { CompartmentType.RelatedPerson, ResourceType.Practitioner },
-            { CompartmentType.Device, ResourceType.Device },
-        };
 
         public void Start()
         {
@@ -56,35 +46,120 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             using (TextReader reader = new StreamReader(stream))
             using (JsonReader jsonReader = new JsonTextReader(reader))
             {
-                var bundle = _fhirJsonParser.Parse<Bundle>(jsonReader);
-                _compartmentDefinitionBuilder = new CompartmentDefinitionBuilder(bundle);
+                Bundle bundle = _fhirJsonParser.Parse<Bundle>(jsonReader);
+                Build(bundle);
             }
         }
 
-        /// <summary>
-        /// Get the compartment index for the given <paramref name="resourceType"/>.
-        /// </summary>
-        /// <param name="resourceType">The fhir resource type for which to get the index.</param>
-        /// <returns>The index of compartment type to fieldnames that represent the <paramref name="resourceType"/> in a compartment.</returns>
-        public Dictionary<CompartmentType, HashSet<string>> GetCompartmentSearchParams(ResourceType resourceType)
+        public bool TryGetSearchParams(ResourceType resourceType, CompartmentType compartment, out HashSet<string> searchParams)
         {
-            if (_compartmentDefinitionBuilder.CompartmentSearchParams.TryGetValue(resourceType, out var compartmentSearchParams))
+            if (_compartmentSearchParamsLookup.TryGetValue(resourceType, out Dictionary<CompartmentType, HashSet<string>> compartmentSearchParams)
+&& compartmentSearchParams.TryGetValue(compartment, out searchParams))
             {
-                return compartmentSearchParams;
+                return true;
             }
 
-            throw new ResourceNotSupportedException(resourceType.ToString());
+            searchParams = null;
+            return false;
         }
 
-        /// <summary>
-        /// Get the compartment index for the given <paramref name="resourceType"/>.
-        /// </summary>
-        /// <param name="resourceType">The fhir resource type for which to get the index.</param>
-        /// <param name="compartmentSearchParams">On return, the index of compartment type to the fieldnames that represent the <paramref name="resourceType"/> in a compartment if it exists. Otherwise the default value.</param>
-        /// <returns><c>true</c> if the compartmentSearchParams exists; otherwise, <c>false</c>.</returns>
-        public bool TryGetCompartmentSearchParams(ResourceType resourceType, out Dictionary<CompartmentType, HashSet<string>> compartmentSearchParams)
+        public static ResourceType CompartmentTypeToResourceType(CompartmentType compartmentType)
         {
-            return _compartmentDefinitionBuilder.CompartmentSearchParams.TryGetValue(resourceType, out compartmentSearchParams);
+            return ModelInfo.FhirTypeNameToResourceType(compartmentType.ToString()).Value;
+        }
+
+        internal void Build(Bundle bundle)
+        {
+            var compartmentLookup = ValidateAndGetCompartmentDict(bundle);
+            _compartmentSearchParamsLookup = BuildResourceTypeLookup(compartmentLookup.Values);
+        }
+
+        private static Dictionary<CompartmentType, CompartmentDefinition> ValidateAndGetCompartmentDict(Bundle bundle)
+        {
+            EnsureArg.IsNotNull(bundle, nameof(bundle));
+            var issues = new List<IssueComponent>();
+            var validatedCompartments = new Dictionary<CompartmentType, CompartmentDefinition>();
+
+            for (int entryIndex = 0; entryIndex < bundle.Entry.Count; entryIndex++)
+            {
+                // Make sure resources are not null and they are Compartment.
+                EntryComponent entry = bundle.Entry[entryIndex];
+
+                var compartment = entry.Resource as CompartmentDefinition;
+
+                if (compartment != null && validatedCompartments.ContainsKey(compartment.Code.Value))
+                {
+                    AddIssue(Core.Resources.CompartmentDefinitionIsDupe, entryIndex);
+                    continue;
+                }
+
+                if (compartment == null)
+                {
+                    AddIssue(Core.Resources.CompartmentDefinitionInvalidResource, entryIndex);
+                    continue;
+                }
+
+                if (compartment.Code == null)
+                {
+                    AddIssue(Core.Resources.CompartmentDefinitionInvalidCompartmentType, entryIndex);
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(compartment.Url) || !Uri.IsWellFormedUriString(compartment.Url, UriKind.Absolute))
+                {
+                    AddIssue(Core.Resources.CompartmentDefinitionInvalidUrl, entryIndex);
+                    continue;
+                }
+
+                var resourceTypes = compartment.Resource.Where(r => r.Code.HasValue).Select(r => r.Code.Value);
+                if (resourceTypes.Any() && resourceTypes.Count() != resourceTypes.Distinct().Count())
+                {
+                    AddIssue(Core.Resources.CompartmentDefinitionDupeResource, entryIndex);
+                    continue;
+                }
+
+                validatedCompartments.Add(compartment.Code.Value, compartment);
+            }
+
+            if (issues.Count != 0)
+            {
+                throw new InvalidDefinitionException(
+                    Core.Resources.CompartmentDefinitionContainsInvalidEntry,
+                    issues.ToArray());
+            }
+
+            return validatedCompartments;
+
+            void AddIssue(string format, params object[] args)
+            {
+                issues.Add(new IssueComponent()
+                {
+                    Severity = IssueSeverity.Fatal,
+                    Code = IssueType.Invalid,
+                    Diagnostics = string.Format(CultureInfo.InvariantCulture, format, args),
+                });
+            }
+        }
+
+        private static Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>> BuildResourceTypeLookup(ICollection<CompartmentDefinition> compartmentDefinitions)
+        {
+            var resourceTypeParamsByCompartmentDictionary = new Dictionary<ResourceType, Dictionary<CompartmentType, HashSet<string>>>();
+
+            foreach (CompartmentDefinition compartment in compartmentDefinitions)
+            {
+                foreach (ResourceComponent resource in compartment.Resource)
+                {
+                    if (!resourceTypeParamsByCompartmentDictionary.TryGetValue(resource.Code.Value, out Dictionary<CompartmentType, HashSet<string>> resourceTypeDict))
+                    {
+                        resourceTypeDict = new Dictionary<CompartmentType, HashSet<string>>();
+                        resourceTypeParamsByCompartmentDictionary.Add(resource.Code.Value, resourceTypeDict);
+                    }
+
+                    resourceTypeDict[compartment.Code.Value] = resource.Param?.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            return resourceTypeParamsByCompartmentDictionary;
         }
     }
 }

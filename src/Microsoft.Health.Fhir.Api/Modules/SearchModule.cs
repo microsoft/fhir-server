@@ -8,6 +8,7 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -55,6 +56,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ISearchValueExpressionBuilder, SearchValueExpressionBuilder>();
             services.AddSingleton<IExpressionParser, ExpressionParser>();
             services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();
+
+            services.Add<CompartmentDefinitionManager>()
+            .Singleton()
+            .AsSelf()
+            .AsService<IStartable>()
+            .AsService<ICompartmentDefinitionManager>();
+
+            services.Add<CompartmentIndexer>()
+            .Singleton()
+            .AsSelf()
+            .AsService<ICompartmentIndexer>();
 
             // TODO: Remove the following once bug 65143 is fixed.
             // All of the classes that implement IProvideCapability will be automatically be picked up and registered.

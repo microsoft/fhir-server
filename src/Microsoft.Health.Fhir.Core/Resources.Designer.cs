@@ -124,6 +124,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource has duplicate resources..
+        /// </summary>
+        internal static string CompartmentDefinitionDupeResource {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionDupeResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}] is null..
         /// </summary>
         internal static string CompartmentDefinitionInvalidBundle {
@@ -142,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].resource is null or is not a CompartmentDefinition resource.
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource is null or is not a CompartmentDefinition resource..
         /// </summary>
         internal static string CompartmentDefinitionInvalidResource {
             get {
@@ -151,11 +160,20 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].url is invalid..
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource.url is invalid..
         /// </summary>
         internal static string CompartmentDefinitionInvalidUrl {
             get {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource has duplicate compartment definitions..
+        /// </summary>
+        internal static string CompartmentDefinitionIsDupe {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionIsDupe", resourceCulture);
             }
         }
         

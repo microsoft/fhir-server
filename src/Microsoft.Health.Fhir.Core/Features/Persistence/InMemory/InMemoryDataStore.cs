@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
                 List[lookupKey].RemoveAt(List[lookupKey].Count - 1);
             }
 
-            var upsertedVersion = new ResourceWrapper(resource.ResourceId, Guid.NewGuid().ToString(), resource.ResourceTypeName, resource.RawResource, resource.Request, Clock.UtcNow, resource.IsDeleted, resource.LastModifiedClaims);
+            var upsertedVersion = new ResourceWrapper(resource.ResourceId, Guid.NewGuid().ToString(), resource.ResourceTypeName, resource.RawResource, resource.Request, Clock.UtcNow, resource.IsDeleted, resource.LastModifiedClaims, resource.CompartmentIndices);
             List[lookupKey].Add(upsertedVersion);
 
             return Task.FromResult(new UpsertOutcome(upsertedVersion, outcome));

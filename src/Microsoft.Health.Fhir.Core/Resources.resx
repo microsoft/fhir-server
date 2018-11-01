@@ -138,6 +138,9 @@
   <data name="CompartmentDefinitionContainsInvalidEntry" xml:space="preserve">
     <value>The compartment definition contains one or more invalid entries.</value>
   </data>
+  <data name="CompartmentDefinitionDupeResource" xml:space="preserve">
+    <value>bundle.entry[{0}].resource has duplicate resources.</value>
+  </data>
   <data name="CompartmentDefinitionInvalidBundle" xml:space="preserve">
     <value>bundle.entry[{0}] is null.</value>
     <comment>{0}: The bundle entry id.</comment>
@@ -146,10 +149,13 @@
     <value>bundle.entry[{0}].resource.code is null. Not a valid compartment type.</value>
   </data>
   <data name="CompartmentDefinitionInvalidResource" xml:space="preserve">
-    <value>bundle.entry[{0}].resource is null or is not a CompartmentDefinition resource</value>
+    <value>bundle.entry[{0}].resource is null or is not a CompartmentDefinition resource.</value>
   </data>
   <data name="CompartmentDefinitionInvalidUrl" xml:space="preserve">
-    <value>bundle.entry[{0}].url is invalid.</value>
+    <value>bundle.entry[{0}].resource.url is invalid.</value>
+  </data>
+  <data name="CompartmentDefinitionIsDupe" xml:space="preserve">
+    <value>bundle.entry[{0}].resource has duplicate compartment definitions.</value>
   </data>
   <data name="CompositeSeparatorNotFound" xml:space="preserve">
     <value>The composite separator character cannot be found.</value>

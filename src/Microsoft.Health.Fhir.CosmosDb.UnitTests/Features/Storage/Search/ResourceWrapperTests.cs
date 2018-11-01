@@ -7,11 +7,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
@@ -50,6 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 wrapper.IsDeleted,
                 true,
                 null,
+                null,
                 null);
 
             Assert.Equal($"{id}_{historyRecord.Version}", historyRecord.Id);
@@ -69,7 +75,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             var lastModified = new DateTimeOffset(2017, 1, 1, 1, 1, 1, TimeSpan.Zero);
             using (Mock.Property(() => Clock.UtcNowFunc, () => lastModified))
             {
-                var wrapper = new ResourceWrapper(observation, _rawResourceFactory.Create(observation), new ResourceRequest("http://fhir", HttpMethod.Post), false, null);
+                var wrapper = new ResourceWrapper(observation, _rawResourceFactory.Create(observation), new ResourceRequest("http://fhir", HttpMethod.Post), false, null, null);
                 var resource = ResourceDeserializer.Deserialize(wrapper);
 
                 Assert.Equal(observation.VersionId, resource.Meta.VersionId);

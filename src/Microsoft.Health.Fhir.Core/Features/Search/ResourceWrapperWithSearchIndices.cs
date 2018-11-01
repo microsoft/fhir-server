@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="request">Request information for how th resource was made.</param>
         /// <param name="isDeleted">A flag indicating whether the source is deleted or not.</param>
         /// <param name="searchIndices">The search indices.</param>
+        /// <param name="compartmentIndices">The comparment indices.</param>
         /// <param name="lastModifiedClaims">The security claims when the resource was last modified.</param>
         public ResourceWrapperWithSearchIndices(
             Resource resource,
@@ -29,8 +30,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ResourceRequest request,
             bool isDeleted,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
+            CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
-            : base(resource, rawResource, request, isDeleted, lastModifiedClaims)
+            : base(resource, rawResource, request, isDeleted, lastModifiedClaims, compartmentIndices)
         {
             SearchIndices = searchIndices ?? System.Array.Empty<SearchIndexEntry>();
         }
