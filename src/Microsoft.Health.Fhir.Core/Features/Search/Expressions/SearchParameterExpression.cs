@@ -3,9 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -14,18 +13,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class SearchParameterExpression : SearchParameterExpressionBase
     {
-        public SearchParameterExpression(string searchParameterName, IReadOnlyList<Expression> expressions)
-            : base(searchParameterName)
+        public SearchParameterExpression(SearchParameter searchParameter, Expression expression)
+            : base(searchParameter)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(searchParameterName, nameof(searchParameterName));
-            EnsureArg.IsNotNull(expressions, nameof(expressions));
-            EnsureArg.IsTrue(expressions.Any(), nameof(expressions));
-            EnsureArg.IsTrue(expressions.All(o => o != null), nameof(expressions));
+            EnsureArg.IsNotNull(expression, nameof(expression));
 
-            Expressions = expressions;
+            Expression = expression;
         }
 
-        public IReadOnlyList<Expression> Expressions { get; }
+        public Expression Expression { get; }
 
         protected internal override void AcceptVisitor(IExpressionVisitor visitor)
         {
