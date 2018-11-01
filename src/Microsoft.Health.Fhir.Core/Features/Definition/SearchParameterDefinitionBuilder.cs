@@ -15,6 +15,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Newtonsoft.Json;
 using static Hl7.Fhir.Model.Bundle;
 using static Hl7.Fhir.Model.OperationOutcome;
@@ -159,7 +160,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             EnsureNoIssues();
 
-            var validatedSearchParameters = new List<(ResourceType ResourceType, SearchParameter SearchParameter)>();
+            var validatedSearchParameters = new List<(ResourceType ResourceType, SearchParameter SearchParameter)>
+            {
+                // _type is currently missing from the search params definition bundle, so we inject it in here.
+                (ResourceType.Resource, new SearchParameter { Name = SearchParameterNames.ResourceType, Expression = "Resource.type().name", Type = SearchParamType.Token }),
+            };
 
             // Do the second pass to make sure the definition is valid.
             for (int entryIndex = 0; entryIndex < bundle.Entry.Count; entryIndex++)

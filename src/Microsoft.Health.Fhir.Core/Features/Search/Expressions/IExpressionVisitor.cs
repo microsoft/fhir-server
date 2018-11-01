@@ -11,6 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     public interface IExpressionVisitor
     {
         /// <summary>
+        /// Visits the <see cref="SearchParameterExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        void Visit(SearchParameterExpression expression);
+
+        /// <summary>
         /// Visits the <see cref="BinaryExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
@@ -29,10 +35,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         void Visit(MissingFieldExpression expression);
 
         /// <summary>
-        /// Visits the <see cref="MissingParamExpression"/>.
+        /// Visits the <see cref="MissingSearchParameterExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
-        void Visit(MissingParamExpression expression);
+        void Visit(MissingSearchParameterExpression expression);
 
         /// <summary>
         /// Visits the <see cref="MultiaryExpression"/>.

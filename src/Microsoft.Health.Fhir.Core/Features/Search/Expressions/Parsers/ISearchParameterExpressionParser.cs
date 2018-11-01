@@ -8,9 +8,9 @@ using static Hl7.Fhir.Model.SearchParameter;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
-    public interface ISearchValueExpressionBuilder
+    public interface ISearchParameterExpressionParser
     {
-        Expression Build(
+        Expression Parse(
             SearchParameter searchParameter,
             SearchModifierCode? modifier,
             string value);

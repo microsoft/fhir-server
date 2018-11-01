@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Xunit;
 
@@ -15,20 +16,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public static class SearchExpressionTestHelper
     {
-        public static void ValidateParamAndValue(Expression expression, string paramName, params Action<Expression>[] valueValidators)
+        internal static void ValidateSearchParameterExpression(Expression expression, string paramName, Action<Expression> valueValidator)
         {
-            MultiaryExpression andExpression = Assert.IsType<MultiaryExpression>(expression);
+            SearchParameterExpression parameterExpression = Assert.IsType<SearchParameterExpression>(expression);
+            Assert.Equal(paramName, parameterExpression.Parameter.Name);
+            valueValidator(parameterExpression.Expression);
+        }
 
-            Assert.Equal(MultiaryOperator.And, andExpression.MultiaryOperation);
-
-            var validators = new List<Action<Expression>>(valueValidators);
-
-            // Parameter name validation always comes first.
-            validators.Insert(0, e => ValidateEqualsExpression(e, FieldName.ParamName, paramName));
-
-            Assert.Collection(
-                andExpression.Expressions,
-                validators.ToArray());
+        internal static void ValidateResourceTypeSearchParameterExpression(Expression expression, string typeName)
+        {
+            ValidateSearchParameterExpression(expression, SearchParameterNames.ResourceType, e => ValidateBinaryExpression(e, FieldName.TokenCode, BinaryOperator.Equal, typeName));
         }
 
         public static void ValidateChainedExpression(
@@ -128,9 +125,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string expectedParamName,
             bool expectedIsMissing)
         {
-            MissingParamExpression mpExpression = Assert.IsType<MissingParamExpression>(expression);
+            MissingSearchParameterExpression mpExpression = Assert.IsType<MissingSearchParameterExpression>(expression);
 
-            Assert.Equal(expectedParamName, mpExpression.ParamName);
+            Assert.Equal(expectedParamName, mpExpression.Parameter.Name);
             Assert.Equal(expectedIsMissing, mpExpression.IsMissing);
         }
 

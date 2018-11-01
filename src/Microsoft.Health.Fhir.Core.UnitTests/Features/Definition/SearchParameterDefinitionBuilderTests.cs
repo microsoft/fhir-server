@@ -85,6 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             ValidateSearchParameters(
                 searchParametersDictionary,
+                ("_type", SearchParamType.Token, "Resource.type().name"),
                 ("_id", SearchParamType.Token, "Resource.id"),
                 ("balance", SearchParamType.Quantity, "Account.balance"),
                 ("identifier", SearchParamType.Token, "Account.identifier"));
@@ -103,6 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             ValidateSearchParameters(
                 searchParametersDictionary,
+                ("_type", SearchParamType.Token, "Resource.type().name"),
                 ("_id", SearchParamType.Token, "Resource.id"),
                 ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | MedicationStatement.identifier | MedicationDispense.identifier"));
         }

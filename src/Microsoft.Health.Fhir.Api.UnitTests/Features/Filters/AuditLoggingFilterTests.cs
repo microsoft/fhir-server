@@ -126,16 +126,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Theory]
-        [InlineData("Create", AuditEventSubType.Create)]
-        [InlineData("Update", AuditEventSubType.Update)]
-        [InlineData("Read", AuditEventSubType.Read)]
-        [InlineData("SystemHistory", AuditEventSubType.HistorySystem)]
-        [InlineData("TypeHistory", AuditEventSubType.HistoryType)]
-        [InlineData("History", AuditEventSubType.HistoryInstance)]
-        [InlineData("VRead", AuditEventSubType.VRead)]
-        [InlineData("Delete", AuditEventSubType.Delete)]
-        [InlineData("Search", AuditEventSubType.SearchType)]
-        [InlineData("SearchPost", AuditEventSubType.SearchType)]
+        [InlineData(nameof(FhirController.Create), AuditEventSubType.Create)]
+        [InlineData(nameof(FhirController.Update), AuditEventSubType.Update)]
+        [InlineData(nameof(FhirController.Read), AuditEventSubType.Read)]
+        [InlineData(nameof(FhirController.SystemHistory), AuditEventSubType.HistorySystem)]
+        [InlineData(nameof(FhirController.TypeHistory), AuditEventSubType.HistoryType)]
+        [InlineData(nameof(FhirController.History), AuditEventSubType.HistoryInstance)]
+        [InlineData(nameof(FhirController.VRead), AuditEventSubType.VRead)]
+        [InlineData(nameof(FhirController.Delete), AuditEventSubType.Delete)]
+        [InlineData(nameof(FhirController.SearchByResourceType), AuditEventSubType.SearchType)]
+        [InlineData(nameof(FhirController.SearchByResourceTypePost), AuditEventSubType.SearchType)]
+        [InlineData(nameof(FhirController.Search), AuditEventSubType.SearchSystem)]
+        [InlineData(nameof(FhirController.SearchPost), AuditEventSubType.SearchSystem)]
         public void GivenAFhirRequest_WhenExecutingAnValidAction_ThenCorrectRequestSubTypeMustBeSet(string methodName, string auditEventSubType)
         {
             var executingContext = new ActionExecutingContext(

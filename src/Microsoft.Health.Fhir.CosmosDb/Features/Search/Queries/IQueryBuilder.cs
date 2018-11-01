@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
     {
         SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions);
 
-        SqlQuerySpec GenerateHistorySql(string resourceType, SearchOptions searchOptions);
+        SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions);
     }
 }

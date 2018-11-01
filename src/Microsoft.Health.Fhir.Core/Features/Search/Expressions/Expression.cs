@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
@@ -13,11 +14,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     public abstract class Expression
     {
         /// <summary>
-        /// Creates a <see cref="MultiaryExpression"/> that represents logical AND opeation over <paramref name="expressions"/>.
+        /// Creates a <see cref="SearchParameterExpression"/> that represents a set of ANDed expressions over a search parameter.
+        /// </summary>
+        /// <param name="searchParameter">The search parameter this expression is bound to.</param>
+        /// <param name="expression">The expression over the parameter's values.</param>
+        /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
+        public static SearchParameterExpression SearchParameter(SearchParameter searchParameter, Expression expression)
+        {
+            return new SearchParameterExpression(searchParameter, expression);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="MissingSearchParameterExpression"/> that represents a search parameter being present or not in a resource.
+        /// </summary>
+        /// <param name="searchParameter">The search parameter this expression is bound to.</param>
+        /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
+        /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
+        public static MissingSearchParameterExpression MissingSearchParameter(SearchParameter searchParameter, bool isMissing)
+        {
+            return new MissingSearchParameterExpression(searchParameter, isMissing);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical AND operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of AND on all <paramref name="expressions"/>.</returns>
         public static MultiaryExpression And(params Expression[] expressions)
+        {
+            return new MultiaryExpression(MultiaryOperator.And, expressions);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical AND operation over <paramref name="expressions"/>.
+        /// </summary>
+        /// <param name="expressions">The expressions.</param>
+        /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of AND on all <paramref name="expressions"/>.</returns>
+        public static MultiaryExpression And(IReadOnlyList<Expression> expressions)
         {
             return new MultiaryExpression(MultiaryOperator.And, expressions);
         }
@@ -105,17 +138,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Creates a <see cref="MissingParamExpression"/> that represents a missing parameter.
-        /// </summary>
-        /// <param name="paramName">The search parameter name.</param>
-        /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
-        /// <returns>A <see cref="MissingParamExpression"/> that represents a missing parameter.</returns>
-        public static MissingParamExpression Missing(string paramName, bool isMissing)
-        {
-            return new MissingParamExpression(paramName, isMissing);
-        }
-
-        /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents not contains operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
@@ -160,6 +182,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of OR on all <paramref name="expressions"/>.</returns>
         public static MultiaryExpression Or(params Expression[] expressions)
+        {
+            return new MultiaryExpression(MultiaryOperator.Or, expressions);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR opeation over <paramref name="expressions"/>.
+        /// </summary>
+        /// <param name="expressions">The expressions.</param>
+        /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of OR on all <paramref name="expressions"/>.</returns>
+        public static MultiaryExpression Or(IReadOnlyList<Expression> expressions)
         {
             return new MultiaryExpression(MultiaryOperator.Or, expressions);
         }
