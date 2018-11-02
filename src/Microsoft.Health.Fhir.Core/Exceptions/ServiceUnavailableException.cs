@@ -10,13 +10,18 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     public class ServiceUnavailableException : FhirException
     {
         public ServiceUnavailableException()
-            : base(Resources.ServiceUnavailable)
+            : this(Resources.ServiceUnavailable)
+        {
+        }
+
+        public ServiceUnavailableException(string message)
+            : base(message)
         {
             Issues.Add(new OperationOutcome.IssueComponent
             {
                 Severity = OperationOutcome.IssueSeverity.Error,
                 Code = OperationOutcome.IssueType.Processing,
-                Diagnostics = Resources.ServiceUnavailable,
+                Diagnostics = message,
             });
         }
     }

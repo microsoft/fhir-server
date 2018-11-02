@@ -18,7 +18,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         }
 
         [JsonProperty("version")]
-        public int Version { get; set; }
+        public int SettingsVersion { get; set; }
+
+        [JsonProperty("dataVersion")]
+        public int DataVersion { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.PartitionKey)]
         public string PartitionKey { get; } = CollectionVersionPartition;

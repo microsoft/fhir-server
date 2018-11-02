@@ -6,6 +6,7 @@
 using System;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Initialization;
@@ -16,6 +17,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning.DataMigrations;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -111,6 +113,18 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()
                 .AsService<ICosmosDbDistributedLockFactory>();
+
+            services.TypesInSameAssemblyAs<Migration>()
+                .AssignableTo<Migration>()
+                .Transient()
+                .AsSelf()
+                .AsService<Migration>();
+
+            services.Add<DataMigrationTask>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>();
+
             return fhirServerBuilder;
         }
 

@@ -538,6 +538,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The operation could not be completed because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support. Reason: this instance expected data in v{0} format, but found v{1}..
+        /// </summary>
+        internal static string ServiceUnavailableServiceUpgraded {
+            get {
+                return ResourceManager.GetString("ServiceUnavailableServiceUpgraded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The specified resource type &apos;{0}&apos; is not a reference type..
+        /// </summary>
+        internal static string SpecifiedResourceTypeIsNotReferenceType {
+            get {
+                return ResourceManager.GetString("SpecifiedResourceTypeIsNotReferenceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported Configuration was selected.
         /// </summary>
         internal static string UnsupportedConfigurationMessage {
