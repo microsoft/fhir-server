@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 foreach (IEnumerable<ISearchValue> compositeSearchValues in componentValues.CartesianProduct())
                 {
                     yield return new SearchIndexEntry(
-                        searchParameter.Name,
+                        searchParameter,
                         new CompositeSearchValue(compositeSearchValues.ToArray()));
                 }
             }
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.Expression,
                 context))
             {
-                yield return new SearchIndexEntry(searchParameter.Name, searchValue);
+                yield return new SearchIndexEntry(searchParameter, searchValue);
             }
         }
 

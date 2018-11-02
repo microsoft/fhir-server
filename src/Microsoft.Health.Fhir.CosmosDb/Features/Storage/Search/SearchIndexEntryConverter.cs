@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             }
 
             generatedObj.AddFirst(
-                new JProperty(SearchValueConstants.ParamName, searchIndexEntry.ParamName));
+                new JProperty(SearchValueConstants.ParamName, searchIndexEntry.SearchParameter.Name));
 
             generatedObj.WriteTo(writer);
         }
