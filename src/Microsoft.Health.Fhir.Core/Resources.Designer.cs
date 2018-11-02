@@ -520,6 +520,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Server is busy. Please try again later..
+        /// </summary>
+        internal static string ServerIsBusy {
+            get {
+                return ResourceManager.GetString("ServerIsBusy", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Microsoft FHIR Server.
         /// </summary>
         internal static string ServerName {

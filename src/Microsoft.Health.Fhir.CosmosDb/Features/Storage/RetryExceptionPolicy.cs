@@ -32,11 +32,5 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             return false;
         }
-
-        public static RetryPolicy CreateRetryPolicy()
-        {
-            var strategy = new ExponentialBackoff(RetryStrategy.DefaultClientRetryCount, RetryStrategy.DefaultMinBackoff, RetryStrategy.DefaultMaxBackoff, RetryStrategy.DefaultClientBackoff);
-            return new RetryPolicy<RetryExceptionPolicy>(strategy);
-        }
     }
 }

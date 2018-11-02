@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using EnsureThat;
@@ -22,6 +23,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Class)]
     internal class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
     {
+        private const string RetryAfterHeaderName = "x-ms-retry-after-ms";
+
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
         public OperationOutcomeExceptionFilterAttribute(IFhirRequestContextAccessor fhirRequestContextAccessor)
@@ -83,6 +86,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case UnsupportedConfigurationException _:
                         fhirResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
+                    case ServerIsBusyException sibEx:
+                        fhirResult.StatusCode = HttpStatusCode.TooManyRequests;
+
+                        if (sibEx.RetryAfter != null)
+                        {
+                            fhirResult.Headers.Add(
+                                RetryAfterHeaderName,
+                                sibEx.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
+                        }
+
                         break;
                 }
 

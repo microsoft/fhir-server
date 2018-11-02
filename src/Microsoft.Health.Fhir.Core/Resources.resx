@@ -271,6 +271,9 @@
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
   </data>
+  <data name="ServerIsBusy" xml:space="preserve">
+    <value>Server is busy. Please try again later.</value>
+  </data>
   <data name="ServerName" xml:space="preserve">
     <value>Microsoft FHIR Server</value>
   </data>

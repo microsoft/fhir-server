@@ -58,6 +58,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Generated Include="Features/Storage/DocumentClientWithExceptionHandler.Generated.cs">
+      <Generator>DocumentClientWithExceptionHandlerGenerator</Generator>
+      <Namespace>Microsoft.Health.Fhir.CosmosDb.Features.Storage</Namespace>
+    </Generated>
+  </ItemGroup>
+  
+  <ItemGroup>
     <Generated Include="Features/Consistency/DocumentClientWithConsistencyLevelFromContext.Generated.cs">
       <Generator>DocumentClientWithConsistencyLevelFromContextGenerator</Generator>
       <Namespace>Microsoft.Health.Fhir.CosmosDb.Features.Consistency</Namespace>
