@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -16,11 +16,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         public UpsertResourceValidator(INarrativeHtmlSanitizer htmlSanitizer)
         {
             RuleFor(x => x.Resource.Id)
-                .SetValidator(new IdValidator())
                 .NotEmpty().WithMessage(Core.Resources.UpdateRequestsRequireId);
 
             RuleFor(x => x.Resource)
-                .SetValidator(new NarrativeValidator(htmlSanitizer));
+                .SetValidator(new ResourceValidator(htmlSanitizer));
         }
     }
 }
