@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -37,7 +39,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
                     Index = i;
                     ExcludeTokenText = true;
 
-                    composite.Components[i].AcceptVisitor(this);
+                    IReadOnlyList<ISearchValue> components = composite.Components[i];
+                    Debug.Assert(components.Count == 1, "There should be only a single value in each component");
+                    components[0].AcceptVisitor(this);
                 }
             }
             finally
