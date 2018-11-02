@@ -36,13 +36,13 @@ namespace Microsoft.Health.Fhir.SqlServer
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<(string, byte?), short> _searchParamUrlToId;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
-        private static readonly SqlMetaData[] StringSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("Value", SqlDbType.NVarChar, 512) };
-        private static readonly SqlMetaData[] DateSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("StartTime", SqlDbType.DateTime2), new SqlMetaData("EndTime", SqlDbType.DateTime2) };
-        private static readonly SqlMetaData[] ReferenceSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("BaseUri", SqlDbType.VarChar, 512), new SqlMetaData("ReferenceResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("ReferenceResourceId", SqlDbType.VarChar, 64) };
-        private static readonly SqlMetaData[] TokenSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("System", SqlDbType.NVarChar, 256), new SqlMetaData("Code", SqlDbType.NVarChar, 256), new SqlMetaData("TextHash", SqlDbType.Binary, 32) };
-        private static readonly SqlMetaData[] QuantitySearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("System", SqlDbType.NVarChar, 256), new SqlMetaData("Code", SqlDbType.NVarChar, 256), new SqlMetaData("Quantity", SqlDbType.Decimal, 18, 6) };
-        private static readonly SqlMetaData[] NumberSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("Number", SqlDbType.Decimal, 18, 6) };
-        private static readonly SqlMetaData[] UriSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("Uri", SqlDbType.VarChar, 256) };
+        private static readonly SqlMetaData[] StringSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("CompositeCorrelationId", SqlDbType.TinyInt), new SqlMetaData("Value", SqlDbType.NVarChar, 512) };
+        private static readonly SqlMetaData[] DateSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("CompositeCorrelationId", SqlDbType.TinyInt), new SqlMetaData("StartTime", SqlDbType.DateTime2), new SqlMetaData("EndTime", SqlDbType.DateTime2) };
+        private static readonly SqlMetaData[] ReferenceSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("CompositeCorrelationId", SqlDbType.TinyInt), new SqlMetaData("BaseUri", SqlDbType.VarChar, 512), new SqlMetaData("ReferenceResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("ReferenceResourceId", SqlDbType.VarChar, 64) };
+        private static readonly SqlMetaData[] TokenSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("CompositeCorrelationId", SqlDbType.TinyInt), new SqlMetaData("System", SqlDbType.NVarChar, 256), new SqlMetaData("Code", SqlDbType.NVarChar, 256), new SqlMetaData("TextHash", SqlDbType.Binary, 32) };
+        private static readonly SqlMetaData[] QuantitySearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("CompositeCorrelationId", SqlDbType.TinyInt), new SqlMetaData("System", SqlDbType.NVarChar, 256), new SqlMetaData("Code", SqlDbType.NVarChar, 256), new SqlMetaData("Quantity", SqlDbType.Decimal, 18, 6) };
+        private static readonly SqlMetaData[] NumberSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("CompositeCorrelationId", SqlDbType.TinyInt), new SqlMetaData("Number", SqlDbType.Decimal, 18, 6) };
+        private static readonly SqlMetaData[] UriSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("CompositeCorrelationId", SqlDbType.TinyInt), new SqlMetaData("Uri", SqlDbType.VarChar, 256) };
         private static readonly SqlMetaData[] TextTableValuedParameterColumns = { new SqlMetaData("Hash", SqlDbType.Binary, 32), new SqlMetaData("Text", SqlDbType.NVarChar, 512) };
         private static readonly SqlMetaData[] UriTableValuedParameterColumns = { new SqlMetaData("Uri", SqlDbType.VarChar, 512) };
 
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer
                 await connection.OpenAsync(cancellationToken);
 
                 IReadOnlyCollection<SearchIndexEntry> searchIndexEntries = ((ISupportSearchIndices)resource).SearchIndices;
-                ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> lookupByType = GroupSearchIndexEntriesByType(searchIndexEntries);
+                ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType = GroupSearchIndexEntriesByType(searchIndexEntries);
 
                 if (isCreate)
                 {
@@ -160,8 +160,8 @@ VALUES (@type, @id, 0, @version, @rawResource)
 SET @resourcePK = SCOPE_IDENTITY();
 
 INSERT INTO dbo.StringSearchParam
-(ResourceTypePK, ResourcePK, SearchParamPK, Value)
-SELECT ResourceTypePK, @resourcePK, SearchParamPK, Value FROM @tvpStringSearchParam
+(ResourceTypePK, ResourcePK, SearchParamPK, CompositeCorrelationId, Value)
+SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, Value FROM @tvpStringSearchParam
 
 INSERT INTO dbo.TokenText (Hash, Text)
 SELECT Hash, Text 
@@ -169,12 +169,12 @@ FROM @tvpTokenText p
 WHERE NOT EXISTS (SELECT 1 FROM dbo.TokenText where [Hash] = p.Hash)
 
 INSERT INTO dbo.TokenSearchParam
-(ResourceTypePK, ResourcePK, SearchParamPK, System, Code, TextHash)
-SELECT ResourceTypePK, @resourcePK, SearchParamPK, System, Code, TextHash FROM @tvpTokenSearchParam
+(ResourceTypePK, ResourcePK, SearchParamPK, CompositeCorrelationId, System, Code, TextHash)
+SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, System, Code, TextHash FROM @tvpTokenSearchParam
 
 INSERT INTO dbo.DateSearchParam
-(ResourceTypePK, ResourcePK, SearchParamPK, StartTime, EndTime)
-SELECT ResourceTypePK, @resourcePK, SearchParamPK, StartTime, EndTime FROM @tvpDateSearchParam
+(ResourceTypePK, ResourcePK, SearchParamPK, CompositeCorrelationId, StartTime, EndTime)
+SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, StartTime, EndTime FROM @tvpDateSearchParam
 
 DECLARE @dummy int
 DECLARE @uriMerged TABLE ([UriPK] int, [Uri] varchar(512))
@@ -189,23 +189,23 @@ WHEN MATCHED THEN
 OUTPUT inserted.* INTO @uriMerged;
 
 INSERT INTO dbo.ReferenceSearchParam
-(ResourceTypePK, ResourcePK, SearchParamPK, BaseUriPK, ReferenceResourceTypePK, ReferenceResourceId)
-SELECT p.ResourceTypePK, @resourcePK, p.SearchParamPK, m.UriPK, p.ReferenceResourceTypePK, p.ReferenceResourceId 
+(ResourceTypePK, ResourcePK, SearchParamPK, CompositeCorrelationId, BaseUriPK, ReferenceResourceTypePK, ReferenceResourceId)
+SELECT p.ResourceTypePK, @resourcePK, p.SearchParamPK, p.CompositeCorrelationId, m.UriPK, p.ReferenceResourceTypePK, p.ReferenceResourceId 
 FROM @tvpReferenceSearchParam p
 LEFT JOIN @uriMerged m 
 ON p.[BaseUri] = m.[Uri]
 
 INSERT INTO dbo.QuantitySearchParam
-(ResourceTypePK, ResourcePK, SearchParamPK, System, Code, Quantity)
-SELECT ResourceTypePK, @resourcePK, SearchParamPK, System, Code, Quantity FROM @tvpQuantitySearchParam
+(ResourceTypePK, ResourcePK, SearchParamPK, CompositeCorrelationId, System, Code, Quantity)
+SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, System, Code, Quantity FROM @tvpQuantitySearchParam
 
 INSERT INTO dbo.NumberSearchParam
-(ResourceTypePK, ResourcePK, SearchParamPK, Number)
-SELECT ResourceTypePK, @resourcePK, SearchParamPK, Number FROM @tvpNumberSearchParam
+(ResourceTypePK, ResourcePK, SearchParamPK, CompositeCorrelationId, Number)
+SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, Number FROM @tvpNumberSearchParam
 
 INSERT INTO dbo.UriSearchParam
-(ResourceTypePK, ResourcePK, SearchParamPK, Uri)
-SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
+(ResourceTypePK, ResourcePK, SearchParamPK, CompositeCorrelationId, Uri)
+SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, Uri FROM @tvpUriSearchParam
                             ";
 
                         short resourceTypePk = _resourceTypeToId[resource.ResourceTypeName];
@@ -251,23 +251,28 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
             return new UpsertOutcome(resource, SaveOutcomeType.Created);
         }
 
-        private static ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> GroupSearchIndexEntriesByType(IReadOnlyCollection<SearchIndexEntry> searchIndexEntries)
+        private static ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> GroupSearchIndexEntriesByType(IReadOnlyCollection<SearchIndexEntry> searchIndexEntries)
         {
-            IEnumerable<(SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> Flatten()
+            IEnumerable<(SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> Flatten()
             {
+                byte compositeCorrelationId = 0;
                 foreach (var searchIndexEntry in searchIndexEntries)
                 {
                     if (searchIndexEntry.Value is CompositeSearchValue composite)
                     {
                         for (byte index = 0; index < composite.Components.Count; index++)
                         {
-                            ISearchValue component = composite.Components[index];
-                            yield return (searchIndexEntry.SearchParameter, index, component);
+                            foreach (ISearchValue componentValue in composite.Components[index])
+                            {
+                                yield return (searchIndexEntry.SearchParameter, index, compositeCorrelationId, componentValue);
+                            }
                         }
+
+                        compositeCorrelationId++;
                     }
                     else
                     {
-                        yield return (searchIndexEntry.SearchParameter, null, searchIndexEntry.Value);
+                        yield return (searchIndexEntry.SearchParameter, null, null, searchIndexEntry.Value);
                     }
                 }
             }
@@ -275,7 +280,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
             return Flatten().ToLookup(e => e.value.GetType());
         }
 
-        private void AddTokenSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
+        private void AddTokenSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
         {
             var tokenEntries = lookupByType[typeof(TokenSearchValue)]
                 .Where(e => !string.Equals(e.searchParameter.Name, SearchParameterNames.ResourceType, StringComparison.Ordinal) &&
@@ -307,7 +312,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
                         }
                     }
 
-                    return (e.searchParameter, e.componentIndex, tokenSearchValue.System, tokenSearchValue.Code, hash, text);
+                    return (e.searchParameter, e.componentIndex, e.compositeCorrelationId, tokenSearchValue.System, tokenSearchValue.Code, hash, text);
                 })
                 .ToList();
 
@@ -316,19 +321,24 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
                 var r = new SqlDataRecord(TokenSearchParamTableValuedParameterColumns);
                 r.SetInt16(0, resourceTypePk);
                 r.SetInt16(1, _searchParamUrlToId[(e.searchParameter.Url, e.componentIndex)]);
+                if (e.compositeCorrelationId != null)
+                {
+                    r.SetByte(2, e.compositeCorrelationId.Value);
+                }
+
                 if (!string.IsNullOrWhiteSpace(e.System))
                 {
-                    r.SetString(2, e.System);
+                    r.SetString(3, e.System);
                 }
 
                 if (!string.IsNullOrWhiteSpace(e.Code))
                 {
-                    r.SetString(3, e.Code);
+                    r.SetString(4, e.Code);
                 }
 
                 if (e.hash != null)
                 {
-                    r.SetBytes(4, 0, e.hash, 0, e.hash.Length);
+                    r.SetBytes(5, 0, e.hash, 0, e.hash.Length);
                 }
 
                 return r;
@@ -355,7 +365,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
             tokenTextParam.TypeName = "dbo.TokenTextTableType";
         }
 
-        private void AddStringSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
+        private void AddStringSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
         {
             var stringEntries = lookupByType[typeof(StringSearchValue)].ToList();
             SqlDataRecord[] stringRecords = stringEntries.Select(e =>
@@ -363,7 +373,12 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
                 var r = new SqlDataRecord(StringSearchParamTableValuedParameterColumns);
                 r.SetInt16(0, resourceTypePk);
                 r.SetInt16(1, _searchParamUrlToId[(e.searchParameter.Url, e.componentIndex)]);
-                r.SetString(2, ((StringSearchValue)e.value).String);
+                if (e.compositeCorrelationId != null)
+                {
+                    r.SetByte(2, e.compositeCorrelationId.Value);
+                }
+
+                r.SetString(3, ((StringSearchValue)e.value).String);
                 return r;
             }).ToArray();
 
@@ -372,7 +387,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
             param.TypeName = "dbo.StringSearchParamTableType";
         }
 
-        private void AddDateSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
+        private void AddDateSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
         {
             var entries = lookupByType[typeof(DateTimeSearchValue)].ToList();
 
@@ -381,8 +396,13 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
                 var r = new SqlDataRecord(DateSearchParamTableValuedParameterColumns);
                 r.SetInt16(0, resourceTypePk);
                 r.SetInt16(1, _searchParamUrlToId[(e.searchParameter.Url, e.componentIndex)]);
-                r.SetDateTime(2, ((DateTimeSearchValue)e.value).Start.ToUniversalTime().DateTime);
-                r.SetDateTime(3, ((DateTimeSearchValue)e.value).End.ToUniversalTime().DateTime);
+                if (e.compositeCorrelationId != null)
+                {
+                    r.SetByte(2, e.compositeCorrelationId.Value);
+                }
+
+                r.SetDateTime(3, ((DateTimeSearchValue)e.value).Start.ToUniversalTime().DateTime);
+                r.SetDateTime(4, ((DateTimeSearchValue)e.value).End.ToUniversalTime().DateTime);
                 return r;
             }).ToArray();
 
@@ -391,7 +411,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
             param.TypeName = "dbo.DateSearchParamTableType";
         }
 
-        private void AddReferenceSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
+        private void AddReferenceSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
         {
             var entries = lookupByType[typeof(ReferenceSearchValue)].ToList();
 
@@ -416,17 +436,22 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
                 var r = new SqlDataRecord(ReferenceSearchParamTableValuedParameterColumns);
                 r.SetInt16(0, resourceTypePk);
                 r.SetInt16(1, _searchParamUrlToId[(e.searchParameter.Url, e.componentIndex)]);
+                if (e.compositeCorrelationId != null)
+                {
+                    r.SetByte(2, e.compositeCorrelationId.Value);
+                }
+
                 if (referenceSearchValue.BaseUri != null)
                 {
-                    r.SetString(2, referenceSearchValue.BaseUri.ToString());
+                    r.SetString(3, referenceSearchValue.BaseUri.ToString());
                 }
 
                 if (referenceSearchValue.ResourceType != null)
                 {
-                    r.SetInt16(3, _resourceTypeToId[referenceSearchValue.ResourceType.ToString()]);
+                    r.SetInt16(4, _resourceTypeToId[referenceSearchValue.ResourceType.ToString()]);
                 }
 
-                r.SetString(4, referenceSearchValue.ResourceId);
+                r.SetString(5, referenceSearchValue.ResourceId);
                 return r;
             }).ToArray();
 
@@ -435,7 +460,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
             referenceParam.TypeName = "dbo.ReferenceSearchParamTableType";
         }
 
-        private void AddQuantitySearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
+        private void AddQuantitySearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
         {
             var entries = lookupByType[typeof(QuantitySearchValue)].ToList();
 
@@ -445,17 +470,22 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
                 var r = new SqlDataRecord(QuantitySearchParamTableValuedParameterColumns);
                 r.SetInt16(0, resourceTypePk);
                 r.SetInt16(1, _searchParamUrlToId[(e.searchParameter.Url, e.componentIndex)]);
+                if (e.compositeCorrelationId != null)
+                {
+                    r.SetByte(2, e.compositeCorrelationId.Value);
+                }
+
                 if (!string.IsNullOrWhiteSpace(value.System))
                 {
-                    r.SetString(2, value.System);
+                    r.SetString(3, value.System);
                 }
 
                 if (!string.IsNullOrWhiteSpace(value.Code))
                 {
-                    r.SetString(3, value.Code);
+                    r.SetString(4, value.Code);
                 }
 
-                r.SetDecimal(4, value.Quantity);
+                r.SetDecimal(5, value.Quantity);
                 return r;
             }).ToArray();
 
@@ -464,7 +494,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
             param.TypeName = "dbo.QuantitySearchParamTableType";
         }
 
-        private void AddNumberSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
+        private void AddNumberSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
         {
             var entries = lookupByType[typeof(NumberSearchValue)].ToList();
 
@@ -474,7 +504,12 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
                 var r = new SqlDataRecord(NumberSearchParamTableValuedParameterColumns);
                 r.SetInt16(0, resourceTypePk);
                 r.SetInt16(1, _searchParamUrlToId[(e.searchParameter.Url, e.componentIndex)]);
-                r.SetDecimal(2, value.Number);
+                if (e.compositeCorrelationId != null)
+                {
+                    r.SetByte(2, e.compositeCorrelationId.Value);
+                }
+
+                r.SetDecimal(3, value.Number);
                 return r;
             }).ToArray();
 
@@ -483,7 +518,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
             param.TypeName = "dbo.NumberSearchParamTableType";
         }
 
-        private void AddUriSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
+        private void AddUriSearchParams(ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType, short resourceTypePk, SqlCommand command)
         {
             var entries = lookupByType[typeof(UriSearchValue)].ToList();
 
@@ -493,7 +528,12 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, Uri FROM @tvpUriSearchParam
                 var r = new SqlDataRecord(UriSearchParamTableValuedParameterColumns);
                 r.SetInt16(0, resourceTypePk);
                 r.SetInt16(1, _searchParamUrlToId[(e.searchParameter.Url, e.componentIndex)]);
-                r.SetString(2, value.Uri);
+                if (e.compositeCorrelationId != null)
+                {
+                    r.SetByte(2, e.compositeCorrelationId.Value);
+                }
+
+                r.SetString(3, value.Uri);
                 return r;
             }).ToArray();
 

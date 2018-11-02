@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <summary>
     /// NOTE: These tests will fail if security is disabled.
     /// </summary>
+    [Trait(Traits.Category, Categories.Authorization)]
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";

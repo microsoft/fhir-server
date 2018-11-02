@@ -79,7 +79,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## FluentValidation 7.6.100
+## FluentValidation 8.0.100
 * Component Source:   https://github.com/JeremySkinner/fluentvalidation/
 * Component Copyright and License:
   >                                  Apache License
@@ -807,7 +807,7 @@ This file is based on or incorporates material from the projects listed below (T
   >  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
   >  THE SOFTWARE.
 
-## XUnit 2.3.1
+## XUnit 2.4.1
 * Component Source:   https://github.com/xunit/xunit
 * Component Copyright and License:  
   > Copyright (c) .NET Foundation and Contributors

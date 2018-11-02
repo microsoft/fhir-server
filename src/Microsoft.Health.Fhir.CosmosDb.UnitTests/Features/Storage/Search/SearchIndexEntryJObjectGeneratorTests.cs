@@ -38,12 +38,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             const string system3 = "s3";
             const string code3 = "c3";
 
-            var value = new CompositeSearchValue(new ISearchValue[]
-            {
-                new TokenSearchValue(system1, code1, text1),
-                new TokenSearchValue(system2, code2, text2),
-                new QuantitySearchValue(system3, code3, quantity),
-            });
+            var value = new CompositeSearchValue(
+                new[]
+                {
+                    new ISearchValue[] { new TokenSearchValue(system1, code1, text1) },
+                    new ISearchValue[] { new TokenSearchValue(system2, code2, text2) },
+                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity) },
+                });
 
             TestAndValidateOutput(
                 value,

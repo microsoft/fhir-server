@@ -5,7 +5,11 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -37,11 +41,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
                 generator = new SearchIndexEntryJObjectGenerator();
             }
 
+            if (searchIndexEntry.Value is CompositeSearchValue compositeValue)
+            {
+                // From the cartesian product, produce CompositeSearchValues where each component has exactly one value.
+                foreach (IEnumerable<ISearchValue> compositeSearchValues in compositeValue.Components.CartesianProduct())
+                {
+                    WriteJsonImpl(writer, generator, searchIndexEntry.SearchParameter.Name, new CompositeSearchValue(compositeSearchValues.Select(v => new[] { v }).ToArray()));
+                }
+            }
+            else
+            {
+                WriteJsonImpl(writer, generator, searchIndexEntry.SearchParameter.Name, searchIndexEntry.Value);
+            }
+        }
+
+        private static void WriteJsonImpl(JsonWriter writer, SearchIndexEntryJObjectGenerator generator, string paramName, ISearchValue searchValue)
+        {
             JObject generatedObj;
 
             try
             {
-                searchIndexEntry.Value.AcceptVisitor(generator);
+                searchValue.AcceptVisitor(generator);
 
                 generatedObj = generator.Output;
             }
@@ -53,7 +73,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             }
 
             generatedObj.AddFirst(
-                new JProperty(SearchValueConstants.ParamName, searchIndexEntry.SearchParameter.Name));
+                new JProperty(SearchValueConstants.ParamName, paramName));
 
             generatedObj.WriteTo(writer);
         }

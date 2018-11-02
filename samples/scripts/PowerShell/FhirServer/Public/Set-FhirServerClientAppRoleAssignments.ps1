@@ -44,9 +44,9 @@ function Set-FhirServerClientAppRoleAssignments {
 
     $existingRoleAssignments = Get-AzureADServiceAppRoleAssignment -ObjectId $apiApplication.ObjectId | Where-Object {$_.PrincipalId -eq $ObjectId} 
 
-    $expectedRoles = $()
-    $rolesToAdd = $()
-    $rolesToRemove = $()
+    $expectedRoles = New-Object System.Collections.ArrayList
+    $rolesToAdd = New-Object System.Collections.ArrayList
+    $rolesToRemove = New-Object System.Collections.ArrayList
 
     foreach ($role in $AppRoles) {
         $expectedRoles += @($apiApplication.AppRoles | Where-Object { $_.Value -eq $role })
@@ -64,7 +64,7 @@ function Set-FhirServerClientAppRoleAssignments {
     }
 
     foreach ($role in $rolesToAdd) {
-        # This is know to report failure in certain scenarios, but will actually apply the permissions
+        # This is known to report failure in certain scenarios, but will actually apply the permissions
         try {
             New-AzureADServiceAppRoleAssignment -ObjectId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.ObjectId -Id $role | Out-Null
         }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Xunit;
 
@@ -22,21 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [Fact]
         public void GivenAnEmptyComponents_WhenInitializing_ThenExceptionShouldBeThrown()
         {
-            Assert.Throws<ArgumentException>(ParamNameComponents, () => new CompositeSearchValue(new StringSearchValue[0]));
-        }
-
-        [Fact]
-        public void GivenComponents_WhenInitialized_ThenCorrectComponentsShouldBeAssigned()
-        {
-            var components = new ISearchValue[]
-            {
-                new StringSearchValue("abc"),
-                new NumberSearchValue(123),
-            };
-
-            var value = new CompositeSearchValue(components);
-
-            Assert.Same(components, value.Components);
+            Assert.Throws<ArgumentException>(ParamNameComponents, () => new CompositeSearchValue(new IReadOnlyList<ISearchValue>[] { }));
         }
 
         [Fact]
@@ -47,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
                 new StringSearchValue("abc"),
             };
 
-            var value = new CompositeSearchValue(components);
+            var value = new CompositeSearchValue(new[] { components });
 
             Assert.False(value.IsValidAsCompositeComponent);
         }
@@ -55,15 +42,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [Fact]
         public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
-            var components = new ISearchValue[]
+            var components = new ISearchValue[][]
             {
-                new TokenSearchValue("system", "code", "text"),
-                new NumberSearchValue(123),
+                new ISearchValue[]
+                {
+                    new TokenSearchValue("system1", "code1", "text1"),
+                    new TokenSearchValue("system2", "code2", "text2"),
+                },
+                new ISearchValue[]
+                {
+                    new NumberSearchValue(123),
+                    new NumberSearchValue(789),
+                },
             };
 
             var value = new CompositeSearchValue(components);
 
-            Assert.Equal("system|code$123", value.ToString());
+            Assert.Equal("(system1|code1), (system2|code2) $ (123), (789)", value.ToString());
         }
     }
 }
