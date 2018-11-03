@@ -9,15 +9,15 @@ using Hl7.Fhir.Model;
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
     /// <summary>
-    /// An exception indicating that the server is busy.
+    /// An exception indicating that the request rate has exceeded the maximum API request rate.
     /// </summary>
-    public class ServerIsBusyException : FhirException
+    public class RequestRateExceededException : FhirException
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="ServerIsBusyException"/> class.
+        /// Initializes a new instance of the <see cref="RequestRateExceededException"/> class.
         /// </summary>
         /// <param name="retryAfter">The amount of time the client should wait before retrying again.</param>
-        public ServerIsBusyException(TimeSpan? retryAfter)
+        public RequestRateExceededException(TimeSpan? retryAfter)
         {
             RetryAfter = retryAfter;
 
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
             {
                 Severity = OperationOutcome.IssueSeverity.Error,
                 Code = OperationOutcome.IssueType.Throttled,
-                Diagnostics = Resources.ServerIsBusy,
+                Diagnostics = Resources.RequestRateExceeded,
             });
         }
 

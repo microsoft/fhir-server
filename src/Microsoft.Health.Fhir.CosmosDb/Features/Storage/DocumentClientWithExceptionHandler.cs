@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             if (ex is DocumentClientException dce &&
                 dce.StatusCode == (HttpStatusCode)429)
             {
-                throw new ServerIsBusyException(dce.RetryAfter);
+                throw new RequestRateExceededException(dce.RetryAfter);
             }
         }
     }

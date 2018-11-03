@@ -55,6 +55,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 ConnectionMode = configuration.ConnectionMode,
                 ConnectionProtocol = configuration.ConnectionProtocol,
+                RetryOptions = new RetryOptions()
+                {
+                    MaxRetryAttemptsOnThrottledRequests = configuration.RetryOptions.MaxNumberOfRetries,
+                    MaxRetryWaitTimeInSeconds = configuration.RetryOptions.MaxWaitTimeInSeconds,
+                },
             };
 
             if (configuration.PreferredLocations != null && configuration.PreferredLocations.Any())
@@ -66,14 +71,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     connectionPolicy.PreferredLocations.Add(preferredLocation);
                 }
             }
-
-            if (connectionPolicy.RetryOptions == null)
-            {
-                connectionPolicy.RetryOptions = new RetryOptions();
-            }
-
-            connectionPolicy.RetryOptions.MaxRetryAttemptsOnThrottledRequests = configuration.RetryOptions.MaxNumberOfRetries;
-            connectionPolicy.RetryOptions.MaxRetryWaitTimeInSeconds = configuration.RetryOptions.MaxWaitTimeInSeconds;
 
             // Setting TypeNameHandling to any value other than 'None' will be flagged
             // as causing potential security issues

@@ -331,6 +331,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The request rate has exceeded the maximum API request rate and is being throttled. Please try again later..
+        /// </summary>
+        internal static string RequestRateExceeded {
+            get {
+                return ResourceManager.GetString("RequestRateExceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource creation is not allowed..
         /// </summary>
         internal static string ResourceCreationNotAllowed {
@@ -516,15 +525,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterNotSupported {
             get {
                 return ResourceManager.GetString("SearchParameterNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Server is busy. Please try again later..
-        /// </summary>
-        internal static string ServerIsBusy {
-            get {
-                return ResourceManager.GetString("ServerIsBusy", resourceCulture);
             }
         }
         

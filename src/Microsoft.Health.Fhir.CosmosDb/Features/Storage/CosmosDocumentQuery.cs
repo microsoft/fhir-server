@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 else if (ex.StatusCode == (HttpStatusCode)429)
                 {
-                    throw new ServerIsBusyException(ex.RetryAfter);
+                    throw new RequestRateExceededException(ex.RetryAfter);
                 }
 
                 throw;

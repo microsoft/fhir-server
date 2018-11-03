@@ -69,24 +69,28 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     argumentType.IsGenericType &&
                     _returnTypeSymbols.Contains(argumentType.ConstructedFrom))
                 {
+                    visitedNode = visitedNode.AddModifiers(Token(SyntaxKind.AsyncKeyword));
+
+                    var invocation = visitedNode.DescendantNodes().OfType<InvocationExpressionSyntax>().First();
+
                     TryStatementSyntax tryStatementSyntax = TryStatement(
-                            visitedNode.Body,
-                            SingletonList<CatchClauseSyntax>(
-                                CatchClause()
-                                .WithDeclaration(
-                                    CatchDeclaration(
-                                        IdentifierName("System.Exception"))
-                                    .WithIdentifier(
-                                        Identifier("ex")))
-                                .WithBlock(
-                                    Block(
-                                        SeparatedList<StatementSyntax>(
-                                            new StatementSyntax[]
-                                            {
-                                                ExpressionStatement(InvocationExpression(IdentifierName("ProcessException")).AddArgumentListArguments(Argument(IdentifierName("ex")))),
-                                                ThrowStatement(),
-                                            })))),
-                            null);
+                        Block(ReturnStatement(AwaitExpression(invocation))),
+                        SingletonList<CatchClauseSyntax>(
+                            CatchClause()
+                            .WithDeclaration(
+                                CatchDeclaration(
+                                    IdentifierName("System.Exception"))
+                                .WithIdentifier(
+                                    Identifier("ex")))
+                            .WithBlock(
+                                Block(
+                                    SeparatedList<StatementSyntax>(
+                                        new StatementSyntax[]
+                                        {
+                                            ExpressionStatement(InvocationExpression(IdentifierName("ProcessException")).AddArgumentListArguments(Argument(IdentifierName("ex")))),
+                                            ThrowStatement(),
+                                        })))),
+                        null);
 
                     visitedNode = visitedNode.WithBody(Block(tryStatementSyntax));
 

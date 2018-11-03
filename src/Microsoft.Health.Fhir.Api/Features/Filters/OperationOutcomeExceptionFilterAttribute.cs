@@ -87,14 +87,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case UnsupportedConfigurationException _:
                         fhirResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
-                    case ServerIsBusyException sibEx:
+                    case RequestRateExceededException ex:
                         fhirResult.StatusCode = HttpStatusCode.TooManyRequests;
 
-                        if (sibEx.RetryAfter != null)
+                        if (ex.RetryAfter != null)
                         {
                             fhirResult.Headers.Add(
                                 RetryAfterHeaderName,
-                                sibEx.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
+                                ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
                         }
 
                         break;

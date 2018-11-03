@@ -137,11 +137,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenAServerIsBusyException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        public void GivenARequestRateExceededException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             TimeSpan retryAfter = TimeSpan.FromSeconds(1.5);
 
-            FhirResult result = ValidateOperationOutcome(new ServerIsBusyException(retryAfter), (HttpStatusCode)429);
+            FhirResult result = ValidateOperationOutcome(new RequestRateExceededException(retryAfter), (HttpStatusCode)429);
 
             Assert.Contains(
                 result.Headers,

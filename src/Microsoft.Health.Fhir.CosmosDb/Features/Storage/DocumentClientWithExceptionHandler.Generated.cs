@@ -85,11 +85,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentAsync(System.String attachmentsLink, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, Microsoft.Azure.Documents.Client.RequestOptions requestOptions, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentAsync(System.String attachmentsLink, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, Microsoft.Azure.Documents.Client.RequestOptions requestOptions, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.CreateAttachmentAsync(attachmentsLink, mediaStream, options, requestOptions, cancellationToken);
+                return await _inner.CreateAttachmentAsync(attachmentsLink, mediaStream, options, requestOptions, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -99,11 +99,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentAsync(System.String documentLink, System.Object attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentAsync(System.String documentLink, System.Object attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.CreateAttachmentAsync(documentLink, attachment, options, cancellationToken);
+                return await _inner.CreateAttachmentAsync(documentLink, attachment, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -113,11 +113,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentAsync(System.Uri documentUri, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, Microsoft.Azure.Documents.Client.RequestOptions requestOptions, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentAsync(System.Uri documentUri, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, Microsoft.Azure.Documents.Client.RequestOptions requestOptions, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.CreateAttachmentAsync(documentUri, mediaStream, options, requestOptions, cancellationToken);
+                return await _inner.CreateAttachmentAsync(documentUri, mediaStream, options, requestOptions, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -127,11 +127,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentAsync(System.Uri documentUri, System.Object attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentAsync(System.Uri documentUri, System.Object attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.CreateAttachmentAsync(documentUri, attachment, options, cancellationToken);
+                return await _inner.CreateAttachmentAsync(documentUri, attachment, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -249,11 +249,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.CreateDatabaseAsync(Microsoft.Azure.Documents.Database database, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.CreateDatabaseAsync(Microsoft.Azure.Documents.Database database, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateDatabaseAsync(database, options);
+                return await _inner.CreateDatabaseAsync(database, options);
             }
             catch (System.Exception ex)
             {
@@ -263,11 +263,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.CreateDatabaseIfNotExistsAsync(Microsoft.Azure.Documents.Database database, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.CreateDatabaseIfNotExistsAsync(Microsoft.Azure.Documents.Database database, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateDatabaseIfNotExistsAsync(database, options);
+                return await _inner.CreateDatabaseIfNotExistsAsync(database, options);
             }
             catch (System.Exception ex)
             {
@@ -295,11 +295,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentAsync(System.String collectionLink, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Boolean disableAutomaticIdGeneration, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentAsync(System.String collectionLink, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Boolean disableAutomaticIdGeneration, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.CreateDocumentAsync(collectionLink, document, options, disableAutomaticIdGeneration, cancellationToken);
+                return await _inner.CreateDocumentAsync(collectionLink, document, options, disableAutomaticIdGeneration, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -309,11 +309,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentAsync(System.Uri documentCollectionUri, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Boolean disableAutomaticIdGeneration, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentAsync(System.Uri documentCollectionUri, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Boolean disableAutomaticIdGeneration, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.CreateDocumentAsync(documentCollectionUri, document, options, disableAutomaticIdGeneration, cancellationToken);
+                return await _inner.CreateDocumentAsync(documentCollectionUri, document, options, disableAutomaticIdGeneration, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -335,11 +335,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionAsync(System.String databaseLink, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionAsync(System.String databaseLink, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateDocumentCollectionAsync(databaseLink, documentCollection, options);
+                return await _inner.CreateDocumentCollectionAsync(databaseLink, documentCollection, options);
             }
             catch (System.Exception ex)
             {
@@ -349,11 +349,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionAsync(System.Uri databaseUri, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionAsync(System.Uri databaseUri, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateDocumentCollectionAsync(databaseUri, documentCollection, options);
+                return await _inner.CreateDocumentCollectionAsync(databaseUri, documentCollection, options);
             }
             catch (System.Exception ex)
             {
@@ -363,11 +363,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionIfNotExistsAsync(System.String databaseLink, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionIfNotExistsAsync(System.String databaseLink, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateDocumentCollectionIfNotExistsAsync(databaseLink, documentCollection, options);
+                return await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseLink, documentCollection, options);
             }
             catch (System.Exception ex)
             {
@@ -377,11 +377,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionIfNotExistsAsync(System.Uri databaseUri, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionIfNotExistsAsync(System.Uri databaseUri, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateDocumentCollectionIfNotExistsAsync(databaseUri, documentCollection, options);
+                return await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseUri, documentCollection, options);
             }
             catch (System.Exception ex)
             {
@@ -517,11 +517,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionAsync(System.String userLink, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionAsync(System.String userLink, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreatePermissionAsync(userLink, permission, options);
+                return await _inner.CreatePermissionAsync(userLink, permission, options);
             }
             catch (System.Exception ex)
             {
@@ -531,11 +531,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionAsync(System.Uri userUri, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionAsync(System.Uri userUri, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreatePermissionAsync(userUri, permission, options);
+                return await _inner.CreatePermissionAsync(userUri, permission, options);
             }
             catch (System.Exception ex)
             {
@@ -581,11 +581,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureAsync(System.String collectionLink, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureAsync(System.String collectionLink, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateStoredProcedureAsync(collectionLink, storedProcedure, options);
+                return await _inner.CreateStoredProcedureAsync(collectionLink, storedProcedure, options);
             }
             catch (System.Exception ex)
             {
@@ -595,11 +595,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateStoredProcedureAsync(documentCollectionUri, storedProcedure, options);
+                return await _inner.CreateStoredProcedureAsync(documentCollectionUri, storedProcedure, options);
             }
             catch (System.Exception ex)
             {
@@ -645,11 +645,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerAsync(System.String collectionLink, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerAsync(System.String collectionLink, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateTriggerAsync(collectionLink, trigger, options);
+                return await _inner.CreateTriggerAsync(collectionLink, trigger, options);
             }
             catch (System.Exception ex)
             {
@@ -659,11 +659,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateTriggerAsync(documentCollectionUri, trigger, options);
+                return await _inner.CreateTriggerAsync(documentCollectionUri, trigger, options);
             }
             catch (System.Exception ex)
             {
@@ -709,11 +709,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.CreateUserAsync(System.String databaseLink, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.CreateUserAsync(System.String databaseLink, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateUserAsync(databaseLink, user, options);
+                return await _inner.CreateUserAsync(databaseLink, user, options);
             }
             catch (System.Exception ex)
             {
@@ -723,11 +723,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.CreateUserAsync(System.Uri databaseUri, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.CreateUserAsync(System.Uri databaseUri, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateUserAsync(databaseUri, user, options);
+                return await _inner.CreateUserAsync(databaseUri, user, options);
             }
             catch (System.Exception ex)
             {
@@ -737,11 +737,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionAsync(System.String collectionLink, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionAsync(System.String collectionLink, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateUserDefinedFunctionAsync(collectionLink, function, options);
+                return await _inner.CreateUserDefinedFunctionAsync(collectionLink, function, options);
             }
             catch (System.Exception ex)
             {
@@ -751,11 +751,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.CreateUserDefinedFunctionAsync(documentCollectionUri, function, options);
+                return await _inner.CreateUserDefinedFunctionAsync(documentCollectionUri, function, options);
             }
             catch (System.Exception ex)
             {
@@ -837,11 +837,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.DeleteAttachmentAsync(System.String attachmentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.DeleteAttachmentAsync(System.String attachmentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.DeleteAttachmentAsync(attachmentLink, options, cancellationToken);
+                return await _inner.DeleteAttachmentAsync(attachmentLink, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -851,11 +851,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.DeleteAttachmentAsync(System.Uri attachmentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.DeleteAttachmentAsync(System.Uri attachmentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.DeleteAttachmentAsync(attachmentUri, options, cancellationToken);
+                return await _inner.DeleteAttachmentAsync(attachmentUri, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -865,11 +865,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.DeleteConflictAsync(System.String conflictLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.DeleteConflictAsync(System.String conflictLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteConflictAsync(conflictLink, options);
+                return await _inner.DeleteConflictAsync(conflictLink, options);
             }
             catch (System.Exception ex)
             {
@@ -879,11 +879,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.DeleteConflictAsync(System.Uri conflictUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.DeleteConflictAsync(System.Uri conflictUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteConflictAsync(conflictUri, options);
+                return await _inner.DeleteConflictAsync(conflictUri, options);
             }
             catch (System.Exception ex)
             {
@@ -893,11 +893,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.DeleteDatabaseAsync(System.String databaseLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.DeleteDatabaseAsync(System.String databaseLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteDatabaseAsync(databaseLink, options);
+                return await _inner.DeleteDatabaseAsync(databaseLink, options);
             }
             catch (System.Exception ex)
             {
@@ -907,11 +907,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.DeleteDatabaseAsync(System.Uri databaseUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.DeleteDatabaseAsync(System.Uri databaseUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteDatabaseAsync(databaseUri, options);
+                return await _inner.DeleteDatabaseAsync(databaseUri, options);
             }
             catch (System.Exception ex)
             {
@@ -921,11 +921,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.DeleteDocumentAsync(System.String documentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.DeleteDocumentAsync(System.String documentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.DeleteDocumentAsync(documentLink, options, cancellationToken);
+                return await _inner.DeleteDocumentAsync(documentLink, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -935,11 +935,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.DeleteDocumentAsync(System.Uri documentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.DeleteDocumentAsync(System.Uri documentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.DeleteDocumentAsync(documentUri, options, cancellationToken);
+                return await _inner.DeleteDocumentAsync(documentUri, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -949,11 +949,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.DeleteDocumentCollectionAsync(System.String documentCollectionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.DeleteDocumentCollectionAsync(System.String documentCollectionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteDocumentCollectionAsync(documentCollectionLink, options);
+                return await _inner.DeleteDocumentCollectionAsync(documentCollectionLink, options);
             }
             catch (System.Exception ex)
             {
@@ -963,11 +963,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.DeleteDocumentCollectionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.DeleteDocumentCollectionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteDocumentCollectionAsync(documentCollectionUri, options);
+                return await _inner.DeleteDocumentCollectionAsync(documentCollectionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -977,11 +977,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.DeletePermissionAsync(System.String permissionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.DeletePermissionAsync(System.String permissionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeletePermissionAsync(permissionLink, options);
+                return await _inner.DeletePermissionAsync(permissionLink, options);
             }
             catch (System.Exception ex)
             {
@@ -991,11 +991,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.DeletePermissionAsync(System.Uri permissionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.DeletePermissionAsync(System.Uri permissionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeletePermissionAsync(permissionUri, options);
+                return await _inner.DeletePermissionAsync(permissionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1005,11 +1005,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.DeleteStoredProcedureAsync(System.String storedProcedureLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.DeleteStoredProcedureAsync(System.String storedProcedureLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteStoredProcedureAsync(storedProcedureLink, options);
+                return await _inner.DeleteStoredProcedureAsync(storedProcedureLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1019,11 +1019,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.DeleteStoredProcedureAsync(System.Uri storedProcedureUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.DeleteStoredProcedureAsync(System.Uri storedProcedureUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteStoredProcedureAsync(storedProcedureUri, options);
+                return await _inner.DeleteStoredProcedureAsync(storedProcedureUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1033,11 +1033,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.DeleteTriggerAsync(System.String triggerLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.DeleteTriggerAsync(System.String triggerLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteTriggerAsync(triggerLink, options);
+                return await _inner.DeleteTriggerAsync(triggerLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1047,11 +1047,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.DeleteTriggerAsync(System.Uri triggerUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.DeleteTriggerAsync(System.Uri triggerUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteTriggerAsync(triggerUri, options);
+                return await _inner.DeleteTriggerAsync(triggerUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1061,11 +1061,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.DeleteUserAsync(System.String userLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.DeleteUserAsync(System.String userLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteUserAsync(userLink, options);
+                return await _inner.DeleteUserAsync(userLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1075,11 +1075,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.DeleteUserAsync(System.Uri userUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.DeleteUserAsync(System.Uri userUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteUserAsync(userUri, options);
+                return await _inner.DeleteUserAsync(userUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1089,11 +1089,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.DeleteUserDefinedFunctionAsync(System.String functionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.DeleteUserDefinedFunctionAsync(System.String functionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteUserDefinedFunctionAsync(functionLink, options);
+                return await _inner.DeleteUserDefinedFunctionAsync(functionLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1103,11 +1103,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.DeleteUserDefinedFunctionAsync(System.Uri functionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.DeleteUserDefinedFunctionAsync(System.Uri functionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.DeleteUserDefinedFunctionAsync(functionUri, options);
+                return await _inner.DeleteUserDefinedFunctionAsync(functionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1159,11 +1159,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReadAttachmentAsync(System.String attachmentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReadAttachmentAsync(System.String attachmentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadAttachmentAsync(attachmentLink, options, cancellationToken);
+                return await _inner.ReadAttachmentAsync(attachmentLink, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1173,11 +1173,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReadAttachmentAsync(System.Uri attachmentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReadAttachmentAsync(System.Uri attachmentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadAttachmentAsync(attachmentUri, options, cancellationToken);
+                return await _inner.ReadAttachmentAsync(attachmentUri, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1187,11 +1187,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReadAttachmentFeedAsync(System.String attachmentsLink, Microsoft.Azure.Documents.Client.FeedOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReadAttachmentFeedAsync(System.String attachmentsLink, Microsoft.Azure.Documents.Client.FeedOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadAttachmentFeedAsync(attachmentsLink, options, cancellationToken);
+                return await _inner.ReadAttachmentFeedAsync(attachmentsLink, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1201,11 +1201,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReadAttachmentFeedAsync(System.Uri documentUri, Microsoft.Azure.Documents.Client.FeedOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReadAttachmentFeedAsync(System.Uri documentUri, Microsoft.Azure.Documents.Client.FeedOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadAttachmentFeedAsync(documentUri, options, cancellationToken);
+                return await _inner.ReadAttachmentFeedAsync(documentUri, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1215,11 +1215,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.ReadConflictAsync(System.String conflictLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.ReadConflictAsync(System.String conflictLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadConflictAsync(conflictLink, options);
+                return await _inner.ReadConflictAsync(conflictLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1229,11 +1229,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.ReadConflictAsync(System.Uri conflictUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.ReadConflictAsync(System.Uri conflictUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadConflictAsync(conflictUri, options);
+                return await _inner.ReadConflictAsync(conflictUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1243,11 +1243,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.ReadConflictFeedAsync(System.String conflictsLink, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.ReadConflictFeedAsync(System.String conflictsLink, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadConflictFeedAsync(conflictsLink, options);
+                return await _inner.ReadConflictFeedAsync(conflictsLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1257,11 +1257,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.ReadConflictFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Conflict>> Microsoft.Azure.Documents.IDocumentClient.ReadConflictFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadConflictFeedAsync(documentCollectionUri, options);
+                return await _inner.ReadConflictFeedAsync(documentCollectionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1271,11 +1271,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.ReadDatabaseAsync(System.String databaseLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.ReadDatabaseAsync(System.String databaseLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadDatabaseAsync(databaseLink, options);
+                return await _inner.ReadDatabaseAsync(databaseLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1285,11 +1285,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.ReadDatabaseAsync(System.Uri databaseUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.ReadDatabaseAsync(System.Uri databaseUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadDatabaseAsync(databaseUri, options);
+                return await _inner.ReadDatabaseAsync(databaseUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1299,11 +1299,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.ReadDatabaseFeedAsync(Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Database>> Microsoft.Azure.Documents.IDocumentClient.ReadDatabaseFeedAsync(Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadDatabaseFeedAsync(options);
+                return await _inner.ReadDatabaseFeedAsync(options);
             }
             catch (System.Exception ex)
             {
@@ -1313,11 +1313,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentAsync(System.String documentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentAsync(System.String documentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadDocumentAsync(documentLink, options, cancellationToken);
+                return await _inner.ReadDocumentAsync(documentLink, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1327,11 +1327,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.DocumentResponse<T>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentAsync<T>(System.String documentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.DocumentResponse<T>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentAsync<T>(System.String documentLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadDocumentAsync<T>(documentLink, options, cancellationToken);
+                return await _inner.ReadDocumentAsync<T>(documentLink, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1341,11 +1341,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentAsync(System.Uri documentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentAsync(System.Uri documentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadDocumentAsync(documentUri, options, cancellationToken);
+                return await _inner.ReadDocumentAsync(documentUri, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1355,11 +1355,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.DocumentResponse<T>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentAsync<T>(System.Uri documentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.DocumentResponse<T>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentAsync<T>(System.Uri documentUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadDocumentAsync<T>(documentUri, options, cancellationToken);
+                return await _inner.ReadDocumentAsync<T>(documentUri, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1369,11 +1369,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentCollectionAsync(System.String documentCollectionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentCollectionAsync(System.String documentCollectionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadDocumentCollectionAsync(documentCollectionLink, options);
+                return await _inner.ReadDocumentCollectionAsync(documentCollectionLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1383,11 +1383,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentCollectionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentCollectionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadDocumentCollectionAsync(documentCollectionUri, options);
+                return await _inner.ReadDocumentCollectionAsync(documentCollectionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1397,11 +1397,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentCollectionFeedAsync(System.String collectionsLink, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentCollectionFeedAsync(System.String collectionsLink, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadDocumentCollectionFeedAsync(collectionsLink, options);
+                return await _inner.ReadDocumentCollectionFeedAsync(collectionsLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1411,11 +1411,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentCollectionFeedAsync(System.Uri databaseUri, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentCollectionFeedAsync(System.Uri databaseUri, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadDocumentCollectionFeedAsync(databaseUri, options);
+                return await _inner.ReadDocumentCollectionFeedAsync(databaseUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1425,11 +1425,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<System.Object>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentFeedAsync(System.String documentsLink, Microsoft.Azure.Documents.Client.FeedOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<System.Object>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentFeedAsync(System.String documentsLink, Microsoft.Azure.Documents.Client.FeedOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadDocumentFeedAsync(documentsLink, options, cancellationToken);
+                return await _inner.ReadDocumentFeedAsync(documentsLink, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1439,11 +1439,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<System.Object>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<System.Object>> Microsoft.Azure.Documents.IDocumentClient.ReadDocumentFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReadDocumentFeedAsync(documentCollectionUri, options, cancellationToken);
+                return await _inner.ReadDocumentFeedAsync(documentCollectionUri, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1465,11 +1465,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Offer>> Microsoft.Azure.Documents.IDocumentClient.ReadOfferAsync(System.String offerLink)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Offer>> Microsoft.Azure.Documents.IDocumentClient.ReadOfferAsync(System.String offerLink)
         {
             try
             {
-                return _inner.ReadOfferAsync(offerLink);
+                return await _inner.ReadOfferAsync(offerLink);
             }
             catch (System.Exception ex)
             {
@@ -1479,11 +1479,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Offer>> Microsoft.Azure.Documents.IDocumentClient.ReadOffersFeedAsync(Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Offer>> Microsoft.Azure.Documents.IDocumentClient.ReadOffersFeedAsync(Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadOffersFeedAsync(options);
+                return await _inner.ReadOffersFeedAsync(options);
             }
             catch (System.Exception ex)
             {
@@ -1493,11 +1493,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.PartitionKeyRange>> Microsoft.Azure.Documents.IDocumentClient.ReadPartitionKeyRangeFeedAsync(System.String partitionKeyRangesOrCollectionLink, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.PartitionKeyRange>> Microsoft.Azure.Documents.IDocumentClient.ReadPartitionKeyRangeFeedAsync(System.String partitionKeyRangesOrCollectionLink, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionLink, options);
+                return await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1507,11 +1507,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.PartitionKeyRange>> Microsoft.Azure.Documents.IDocumentClient.ReadPartitionKeyRangeFeedAsync(System.Uri partitionKeyRangesOrCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.PartitionKeyRange>> Microsoft.Azure.Documents.IDocumentClient.ReadPartitionKeyRangeFeedAsync(System.Uri partitionKeyRangesOrCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionUri, options);
+                return await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1521,11 +1521,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReadPermissionAsync(System.String permissionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReadPermissionAsync(System.String permissionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadPermissionAsync(permissionLink, options);
+                return await _inner.ReadPermissionAsync(permissionLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1535,11 +1535,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReadPermissionAsync(System.Uri permissionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReadPermissionAsync(System.Uri permissionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadPermissionAsync(permissionUri, options);
+                return await _inner.ReadPermissionAsync(permissionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1549,11 +1549,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReadPermissionFeedAsync(System.String permissionsLink, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReadPermissionFeedAsync(System.String permissionsLink, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadPermissionFeedAsync(permissionsLink, options);
+                return await _inner.ReadPermissionFeedAsync(permissionsLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1563,11 +1563,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReadPermissionFeedAsync(System.Uri userUri, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReadPermissionFeedAsync(System.Uri userUri, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadPermissionFeedAsync(userUri, options);
+                return await _inner.ReadPermissionFeedAsync(userUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1577,11 +1577,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReadStoredProcedureAsync(System.String storedProcedureLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReadStoredProcedureAsync(System.String storedProcedureLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadStoredProcedureAsync(storedProcedureLink, options);
+                return await _inner.ReadStoredProcedureAsync(storedProcedureLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1591,11 +1591,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReadStoredProcedureAsync(System.Uri storedProcedureUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReadStoredProcedureAsync(System.Uri storedProcedureUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadStoredProcedureAsync(storedProcedureUri, options);
+                return await _inner.ReadStoredProcedureAsync(storedProcedureUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1605,11 +1605,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReadStoredProcedureFeedAsync(System.String storedProceduresLink, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReadStoredProcedureFeedAsync(System.String storedProceduresLink, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadStoredProcedureFeedAsync(storedProceduresLink, options);
+                return await _inner.ReadStoredProcedureFeedAsync(storedProceduresLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1619,11 +1619,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReadStoredProcedureFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReadStoredProcedureFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadStoredProcedureFeedAsync(documentCollectionUri, options);
+                return await _inner.ReadStoredProcedureFeedAsync(documentCollectionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1633,11 +1633,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReadTriggerAsync(System.String triggerLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReadTriggerAsync(System.String triggerLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadTriggerAsync(triggerLink, options);
+                return await _inner.ReadTriggerAsync(triggerLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1647,11 +1647,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReadTriggerAsync(System.Uri triggerUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReadTriggerAsync(System.Uri triggerUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadTriggerAsync(triggerUri, options);
+                return await _inner.ReadTriggerAsync(triggerUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1661,11 +1661,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReadTriggerFeedAsync(System.String triggersLink, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReadTriggerFeedAsync(System.String triggersLink, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadTriggerFeedAsync(triggersLink, options);
+                return await _inner.ReadTriggerFeedAsync(triggersLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1675,11 +1675,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReadTriggerFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReadTriggerFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadTriggerFeedAsync(documentCollectionUri, options);
+                return await _inner.ReadTriggerFeedAsync(documentCollectionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1689,11 +1689,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReadUserAsync(System.String userLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReadUserAsync(System.String userLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadUserAsync(userLink, options);
+                return await _inner.ReadUserAsync(userLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1703,11 +1703,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReadUserAsync(System.Uri userUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReadUserAsync(System.Uri userUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadUserAsync(userUri, options);
+                return await _inner.ReadUserAsync(userUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1717,11 +1717,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReadUserDefinedFunctionAsync(System.String functionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReadUserDefinedFunctionAsync(System.String functionLink, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadUserDefinedFunctionAsync(functionLink, options);
+                return await _inner.ReadUserDefinedFunctionAsync(functionLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1731,11 +1731,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReadUserDefinedFunctionAsync(System.Uri functionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReadUserDefinedFunctionAsync(System.Uri functionUri, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReadUserDefinedFunctionAsync(functionUri, options);
+                return await _inner.ReadUserDefinedFunctionAsync(functionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1745,11 +1745,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReadUserDefinedFunctionFeedAsync(System.String userDefinedFunctionsLink, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReadUserDefinedFunctionFeedAsync(System.String userDefinedFunctionsLink, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadUserDefinedFunctionFeedAsync(userDefinedFunctionsLink, options);
+                return await _inner.ReadUserDefinedFunctionFeedAsync(userDefinedFunctionsLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1759,11 +1759,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReadUserDefinedFunctionFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReadUserDefinedFunctionFeedAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadUserDefinedFunctionFeedAsync(documentCollectionUri, options);
+                return await _inner.ReadUserDefinedFunctionFeedAsync(documentCollectionUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1773,11 +1773,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReadUserFeedAsync(System.String usersLink, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReadUserFeedAsync(System.String usersLink, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadUserFeedAsync(usersLink, options);
+                return await _inner.ReadUserFeedAsync(usersLink, options);
             }
             catch (System.Exception ex)
             {
@@ -1787,11 +1787,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReadUserFeedAsync(System.Uri databaseUri, Microsoft.Azure.Documents.Client.FeedOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.FeedResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReadUserFeedAsync(System.Uri databaseUri, Microsoft.Azure.Documents.Client.FeedOptions options)
         {
             try
             {
-                return _inner.ReadUserFeedAsync(databaseUri, options);
+                return await _inner.ReadUserFeedAsync(databaseUri, options);
             }
             catch (System.Exception ex)
             {
@@ -1801,11 +1801,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReplaceAttachmentAsync(Microsoft.Azure.Documents.Attachment attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReplaceAttachmentAsync(Microsoft.Azure.Documents.Attachment attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReplaceAttachmentAsync(attachment, options, cancellationToken);
+                return await _inner.ReplaceAttachmentAsync(attachment, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1815,11 +1815,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReplaceAttachmentAsync(System.Uri attachmentUri, Microsoft.Azure.Documents.Attachment attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.ReplaceAttachmentAsync(System.Uri attachmentUri, Microsoft.Azure.Documents.Attachment attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReplaceAttachmentAsync(attachmentUri, attachment, options, cancellationToken);
+                return await _inner.ReplaceAttachmentAsync(attachmentUri, attachment, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1829,11 +1829,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentAsync(Microsoft.Azure.Documents.Document document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentAsync(Microsoft.Azure.Documents.Document document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReplaceDocumentAsync(document, options, cancellationToken);
+                return await _inner.ReplaceDocumentAsync(document, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1843,11 +1843,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentAsync(System.String documentLink, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentAsync(System.String documentLink, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReplaceDocumentAsync(documentLink, document, options, cancellationToken);
+                return await _inner.ReplaceDocumentAsync(documentLink, document, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1857,11 +1857,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentAsync(System.Uri documentUri, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentAsync(System.Uri documentUri, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.ReplaceDocumentAsync(documentUri, document, options, cancellationToken);
+                return await _inner.ReplaceDocumentAsync(documentUri, document, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -1871,11 +1871,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentCollectionAsync(Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentCollectionAsync(Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceDocumentCollectionAsync(documentCollection, options);
+                return await _inner.ReplaceDocumentCollectionAsync(documentCollection, options);
             }
             catch (System.Exception ex)
             {
@@ -1885,11 +1885,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentCollectionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.DocumentCollection>> Microsoft.Azure.Documents.IDocumentClient.ReplaceDocumentCollectionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.DocumentCollection documentCollection, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceDocumentCollectionAsync(documentCollectionUri, documentCollection, options);
+                return await _inner.ReplaceDocumentCollectionAsync(documentCollectionUri, documentCollection, options);
             }
             catch (System.Exception ex)
             {
@@ -1899,11 +1899,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Offer>> Microsoft.Azure.Documents.IDocumentClient.ReplaceOfferAsync(Microsoft.Azure.Documents.Offer offer)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Offer>> Microsoft.Azure.Documents.IDocumentClient.ReplaceOfferAsync(Microsoft.Azure.Documents.Offer offer)
         {
             try
             {
-                return _inner.ReplaceOfferAsync(offer);
+                return await _inner.ReplaceOfferAsync(offer);
             }
             catch (System.Exception ex)
             {
@@ -1913,11 +1913,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReplacePermissionAsync(Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReplacePermissionAsync(Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplacePermissionAsync(permission, options);
+                return await _inner.ReplacePermissionAsync(permission, options);
             }
             catch (System.Exception ex)
             {
@@ -1927,11 +1927,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReplacePermissionAsync(System.Uri permissionUri, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.ReplacePermissionAsync(System.Uri permissionUri, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplacePermissionAsync(permissionUri, permission, options);
+                return await _inner.ReplacePermissionAsync(permissionUri, permission, options);
             }
             catch (System.Exception ex)
             {
@@ -1941,11 +1941,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReplaceStoredProcedureAsync(Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReplaceStoredProcedureAsync(Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceStoredProcedureAsync(storedProcedure, options);
+                return await _inner.ReplaceStoredProcedureAsync(storedProcedure, options);
             }
             catch (System.Exception ex)
             {
@@ -1955,11 +1955,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReplaceStoredProcedureAsync(System.Uri storedProcedureUri, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.ReplaceStoredProcedureAsync(System.Uri storedProcedureUri, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceStoredProcedureAsync(storedProcedureUri, storedProcedure, options);
+                return await _inner.ReplaceStoredProcedureAsync(storedProcedureUri, storedProcedure, options);
             }
             catch (System.Exception ex)
             {
@@ -1969,11 +1969,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReplaceTriggerAsync(Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReplaceTriggerAsync(Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceTriggerAsync(trigger, options);
+                return await _inner.ReplaceTriggerAsync(trigger, options);
             }
             catch (System.Exception ex)
             {
@@ -1983,11 +1983,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReplaceTriggerAsync(System.Uri triggerUri, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.ReplaceTriggerAsync(System.Uri triggerUri, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceTriggerAsync(triggerUri, trigger, options);
+                return await _inner.ReplaceTriggerAsync(triggerUri, trigger, options);
             }
             catch (System.Exception ex)
             {
@@ -1997,11 +1997,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReplaceUserAsync(Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReplaceUserAsync(Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceUserAsync(user, options);
+                return await _inner.ReplaceUserAsync(user, options);
             }
             catch (System.Exception ex)
             {
@@ -2011,11 +2011,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReplaceUserAsync(System.Uri userUri, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.ReplaceUserAsync(System.Uri userUri, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceUserAsync(userUri, user, options);
+                return await _inner.ReplaceUserAsync(userUri, user, options);
             }
             catch (System.Exception ex)
             {
@@ -2025,11 +2025,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReplaceUserDefinedFunctionAsync(Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReplaceUserDefinedFunctionAsync(Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceUserDefinedFunctionAsync(function, options);
+                return await _inner.ReplaceUserDefinedFunctionAsync(function, options);
             }
             catch (System.Exception ex)
             {
@@ -2039,11 +2039,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReplaceUserDefinedFunctionAsync(System.Uri userDefinedFunctionUri, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.ReplaceUserDefinedFunctionAsync(System.Uri userDefinedFunctionUri, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.ReplaceUserDefinedFunctionAsync(userDefinedFunctionUri, function, options);
+                return await _inner.ReplaceUserDefinedFunctionAsync(userDefinedFunctionUri, function, options);
             }
             catch (System.Exception ex)
             {
@@ -2059,11 +2059,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.UpsertAttachmentAsync(System.String attachmentsLink, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, Microsoft.Azure.Documents.Client.RequestOptions requestOptions, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.UpsertAttachmentAsync(System.String attachmentsLink, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, Microsoft.Azure.Documents.Client.RequestOptions requestOptions, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.UpsertAttachmentAsync(attachmentsLink, mediaStream, options, requestOptions, cancellationToken);
+                return await _inner.UpsertAttachmentAsync(attachmentsLink, mediaStream, options, requestOptions, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -2073,11 +2073,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.UpsertAttachmentAsync(System.String documentLink, System.Object attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.UpsertAttachmentAsync(System.String documentLink, System.Object attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.UpsertAttachmentAsync(documentLink, attachment, options, cancellationToken);
+                return await _inner.UpsertAttachmentAsync(documentLink, attachment, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -2087,11 +2087,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.UpsertAttachmentAsync(System.Uri documentUri, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, Microsoft.Azure.Documents.Client.RequestOptions requestOptions, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.UpsertAttachmentAsync(System.Uri documentUri, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, Microsoft.Azure.Documents.Client.RequestOptions requestOptions, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.UpsertAttachmentAsync(documentUri, mediaStream, options, requestOptions, cancellationToken);
+                return await _inner.UpsertAttachmentAsync(documentUri, mediaStream, options, requestOptions, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -2101,11 +2101,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.UpsertAttachmentAsync(System.Uri documentUri, System.Object attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Attachment>> Microsoft.Azure.Documents.IDocumentClient.UpsertAttachmentAsync(System.Uri documentUri, System.Object attachment, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.UpsertAttachmentAsync(documentUri, attachment, options, cancellationToken);
+                return await _inner.UpsertAttachmentAsync(documentUri, attachment, options, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -2115,11 +2115,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.UpsertDocumentAsync(System.String collectionLink, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Boolean disableAutomaticIdGeneration, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.UpsertDocumentAsync(System.String collectionLink, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Boolean disableAutomaticIdGeneration, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.UpsertDocumentAsync(collectionLink, document, options, disableAutomaticIdGeneration, cancellationToken);
+                return await _inner.UpsertDocumentAsync(collectionLink, document, options, disableAutomaticIdGeneration, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -2129,11 +2129,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.UpsertDocumentAsync(System.Uri documentCollectionUri, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Boolean disableAutomaticIdGeneration, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Document>> Microsoft.Azure.Documents.IDocumentClient.UpsertDocumentAsync(System.Uri documentCollectionUri, System.Object document, Microsoft.Azure.Documents.Client.RequestOptions options, System.Boolean disableAutomaticIdGeneration, System.Threading.CancellationToken cancellationToken)
         {
             try
             {
-                return _inner.UpsertDocumentAsync(documentCollectionUri, document, options, disableAutomaticIdGeneration, cancellationToken);
+                return await _inner.UpsertDocumentAsync(documentCollectionUri, document, options, disableAutomaticIdGeneration, cancellationToken);
             }
             catch (System.Exception ex)
             {
@@ -2143,11 +2143,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.UpsertPermissionAsync(System.String userLink, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.UpsertPermissionAsync(System.String userLink, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertPermissionAsync(userLink, permission, options);
+                return await _inner.UpsertPermissionAsync(userLink, permission, options);
             }
             catch (System.Exception ex)
             {
@@ -2157,11 +2157,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.UpsertPermissionAsync(System.Uri userUri, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Permission>> Microsoft.Azure.Documents.IDocumentClient.UpsertPermissionAsync(System.Uri userUri, Microsoft.Azure.Documents.Permission permission, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertPermissionAsync(userUri, permission, options);
+                return await _inner.UpsertPermissionAsync(userUri, permission, options);
             }
             catch (System.Exception ex)
             {
@@ -2171,11 +2171,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.UpsertStoredProcedureAsync(System.String collectionLink, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.UpsertStoredProcedureAsync(System.String collectionLink, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertStoredProcedureAsync(collectionLink, storedProcedure, options);
+                return await _inner.UpsertStoredProcedureAsync(collectionLink, storedProcedure, options);
             }
             catch (System.Exception ex)
             {
@@ -2185,11 +2185,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.UpsertStoredProcedureAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.StoredProcedure>> Microsoft.Azure.Documents.IDocumentClient.UpsertStoredProcedureAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.StoredProcedure storedProcedure, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertStoredProcedureAsync(documentCollectionUri, storedProcedure, options);
+                return await _inner.UpsertStoredProcedureAsync(documentCollectionUri, storedProcedure, options);
             }
             catch (System.Exception ex)
             {
@@ -2199,11 +2199,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.UpsertTriggerAsync(System.String collectionLink, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.UpsertTriggerAsync(System.String collectionLink, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertTriggerAsync(collectionLink, trigger, options);
+                return await _inner.UpsertTriggerAsync(collectionLink, trigger, options);
             }
             catch (System.Exception ex)
             {
@@ -2213,11 +2213,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.UpsertTriggerAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.Trigger>> Microsoft.Azure.Documents.IDocumentClient.UpsertTriggerAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Trigger trigger, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertTriggerAsync(documentCollectionUri, trigger, options);
+                return await _inner.UpsertTriggerAsync(documentCollectionUri, trigger, options);
             }
             catch (System.Exception ex)
             {
@@ -2227,11 +2227,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.UpsertUserAsync(System.String databaseLink, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.UpsertUserAsync(System.String databaseLink, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertUserAsync(databaseLink, user, options);
+                return await _inner.UpsertUserAsync(databaseLink, user, options);
             }
             catch (System.Exception ex)
             {
@@ -2241,11 +2241,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.UpsertUserAsync(System.Uri databaseUri, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.User>> Microsoft.Azure.Documents.IDocumentClient.UpsertUserAsync(System.Uri databaseUri, Microsoft.Azure.Documents.User user, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertUserAsync(databaseUri, user, options);
+                return await _inner.UpsertUserAsync(databaseUri, user, options);
             }
             catch (System.Exception ex)
             {
@@ -2255,11 +2255,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.UpsertUserDefinedFunctionAsync(System.String collectionLink, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.UpsertUserDefinedFunctionAsync(System.String collectionLink, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertUserDefinedFunctionAsync(collectionLink, function, options);
+                return await _inner.UpsertUserDefinedFunctionAsync(collectionLink, function, options);
             }
             catch (System.Exception ex)
             {
@@ -2269,11 +2269,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.UpsertUserDefinedFunctionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.ResourceResponse<Microsoft.Azure.Documents.UserDefinedFunction>> Microsoft.Azure.Documents.IDocumentClient.UpsertUserDefinedFunctionAsync(System.Uri documentCollectionUri, Microsoft.Azure.Documents.UserDefinedFunction function, Microsoft.Azure.Documents.Client.RequestOptions options)
         {
             try
             {
-                return _inner.UpsertUserDefinedFunctionAsync(documentCollectionUri, function, options);
+                return await _inner.UpsertUserDefinedFunctionAsync(documentCollectionUri, function, options);
             }
             catch (System.Exception ex)
             {

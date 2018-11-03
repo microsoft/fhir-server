@@ -207,6 +207,9 @@
   <data name="RequestedActionNotAllowed" xml:space="preserve">
     <value>The requested action was not allowed</value>
   </data>
+  <data name="RequestRateExceeded" xml:space="preserve">
+    <value>The request rate has exceeded the maximum API request rate and is being throttled. Please try again later.</value>
+  </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>
   </data>
@@ -270,9 +273,6 @@
   </data>
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
-  </data>
-  <data name="ServerIsBusy" xml:space="preserve">
-    <value>Server is busy. Please try again later.</value>
   </data>
   <data name="ServerName" xml:space="preserve">
     <value>Microsoft FHIR Server</value>
