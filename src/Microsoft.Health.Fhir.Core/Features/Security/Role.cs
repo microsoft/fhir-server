@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
             if (ResourcePermissions.Count == 0)
             {
-                yield return new ValidationResult(Core.Resources.ResourcePermissionEmpty);
+                yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourcePermissionEmpty, Name));
             }
             else
             {

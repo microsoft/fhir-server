@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The &quot;content-type&quot; header is required by the server.
+        ///   Looks up a localized string similar to The &quot;content-type&quot; header is required..
         /// </summary>
         public static string ContentTypeHeaderRequired {
             get {
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to There must be an id specified in the resource.
+        ///   Looks up a localized string similar to Id must be specified in the resource.
         /// </summary>
         public static string ResourceIdRequired {
             get {
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resource type mismatch.
+        ///   Looks up a localized string similar to Resource type in the URL must match resource type in the resource.
         /// </summary>
         public static string ResourceTypeMismatch {
             get {
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;accept&quot; header is not supported by the server.
+        ///   Looks up a localized string similar to The requested &quot;accept&quot; header is not supported.
         /// </summary>
         public static string UnsupportedAcceptHeader {
             get {
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;content-type&quot; header is not supported by the server.
+        ///   Looks up a localized string similar to The requested &quot;content-type&quot; header is not supported.
         /// </summary>
         public static string UnsupportedContentTypeHeader {
             get {
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;_format&quot; is not supported by the server.
+        ///   Looks up a localized string similar to The requested &quot;_format&quot; is not supported.
         /// </summary>
         public static string UnsupportedFormatParameter {
             get {
