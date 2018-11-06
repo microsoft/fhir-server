@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 {
     public static class Categories
     {
+        public const string Authorization = "Authorization";
+
         public const string Crucible = "Crucible";
 
         public const string Xml = "Xml";

@@ -11,7 +11,6 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using static Hl7.Fhir.Model.SearchParameter;
@@ -21,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
     /// <summary>
     /// A builder used to build expression from the search value.
     /// </summary>
-    public class SearchValueExpressionBuilder : ISearchValueExpressionBuilder
+    public class SearchParameterExpressionParser : ISearchParameterExpressionParser
     {
         private static readonly Tuple<string, SearchComparator>[] SearchParamComparators = Enum.GetValues(typeof(SearchComparator))
             .Cast<SearchComparator>()
@@ -32,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
 
-        public SearchValueExpressionBuilder(
+        public SearchParameterExpressionParser(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IReferenceSearchValueParser referenceSearchValueParser)
         {
@@ -54,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             };
         }
 
-        public Expression Build(
+        public Expression Parse(
             SearchParameter searchParameter,
             SearchModifierCode? modifier,
             string value)
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 "Invalid modifier.");
             EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
 
-            IEnumerable<Expression> outputExpressions = null;
+            Expression outputExpression;
 
             if (modifier == SearchModifierCode.Missing)
             {
@@ -78,9 +77,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     throw new InvalidSearchOperationException(Core.Resources.InvalidValueTypeForMissingModifier);
                 }
 
-                return Expression.Missing(searchParameter.Name, isMissing);
+                return Expression.MissingSearchParameter(searchParameter, isMissing);
             }
-            else if (modifier == SearchModifierCode.Text)
+
+            if (modifier == SearchModifierCode.Text)
             {
                 // We have to handle :text modifier specially because if :text modifier is supplied for token search param,
                 // then we want to search the display text using the specified text, and therefore
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
                 }
 
-                outputExpressions = Expression.Contains(FieldName.TokenText, null, value, true).AsEnumerable();
+                outputExpression = Expression.Contains(FieldName.TokenText, null, value, true);
             }
             else
             {
@@ -130,25 +130,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                             value: componentValue);
                     }
 
-                    outputExpressions = compositeExpressions;
+                    outputExpression = Expression.And(compositeExpressions);
                 }
                 else
                 {
-                    outputExpressions = Build(
+                    outputExpression = Build(
                         searchParameter,
                         modifier,
                         componentIndex: null,
-                        value: value)
-                        .AsEnumerable();
+                        value: value);
                 }
             }
 
-            // Add the parameter name matching expression which is common to all search values.
-            outputExpressions = Expression.Equals(FieldName.ParamName, null, searchParameter.Name).AsEnumerable().Concat(
-                outputExpressions);
-
-            return Expression.And(
-                outputExpressions.ToArray());
+            return Expression.SearchParameter(searchParameter, outputExpression);
         }
 
         private Expression Build(

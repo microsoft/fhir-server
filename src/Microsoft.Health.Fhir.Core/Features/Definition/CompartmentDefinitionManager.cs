@@ -36,6 +36,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _fhirJsonParser = fhirJsonParser;
         }
 
+        public static Dictionary<ResourceType, CompartmentType> ResourceTypeToCompartmentType { get; } = new Dictionary<ResourceType, CompartmentType>
+        {
+            { ResourceType.Device, CompartmentType.Device },
+            { ResourceType.Encounter, CompartmentType.Encounter },
+            { ResourceType.Patient, CompartmentType.Patient },
+            { ResourceType.Practitioner, CompartmentType.Practitioner },
+            { ResourceType.RelatedPerson, CompartmentType.RelatedPerson },
+        };
+
         public void Start()
         {
             Type type = GetType();
@@ -65,6 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public static ResourceType CompartmentTypeToResourceType(CompartmentType compartmentType)
         {
+            EnsureArg.IsTrue(Enum.IsDefined(typeof(CompartmentType), compartmentType), nameof(compartmentType));
             return ModelInfo.FhirTypeNameToResourceType(compartmentType.ToString()).Value;
         }
 
@@ -87,12 +97,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 var compartment = entry.Resource as CompartmentDefinition;
 
-                if (compartment != null && validatedCompartments.ContainsKey(compartment.Code.Value))
-                {
-                    AddIssue(Core.Resources.CompartmentDefinitionIsDupe, entryIndex);
-                    continue;
-                }
-
                 if (compartment == null)
                 {
                     AddIssue(Core.Resources.CompartmentDefinitionInvalidResource, entryIndex);
@@ -105,6 +109,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     continue;
                 }
 
+                if (validatedCompartments.ContainsKey(compartment.Code.Value))
+                {
+                    AddIssue(Core.Resources.CompartmentDefinitionIsDupe, entryIndex);
+                    continue;
+                }
+
                 if (string.IsNullOrWhiteSpace(compartment.Url) || !Uri.IsWellFormedUriString(compartment.Url, UriKind.Absolute))
                 {
                     AddIssue(Core.Resources.CompartmentDefinitionInvalidUrl, entryIndex);
@@ -112,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
 
                 var resourceTypes = compartment.Resource.Where(r => r.Code.HasValue).Select(r => r.Code.Value);
-                if (resourceTypes.Any() && resourceTypes.Count() != resourceTypes.Distinct().Count())
+                if (resourceTypes.Count() != resourceTypes.Distinct().Count())
                 {
                     AddIssue(Core.Resources.CompartmentDefinitionDupeResource, entryIndex);
                     continue;

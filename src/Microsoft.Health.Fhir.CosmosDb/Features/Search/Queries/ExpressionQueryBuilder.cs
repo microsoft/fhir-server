@@ -59,6 +59,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         private readonly StringBuilder _queryBuilder;
         private readonly QueryParameterManager _queryParameterManager;
 
+        private string _instanceVariableName = SearchValueConstants.RootAliasName;
+        private string _fieldNameOverride;
+
         internal ExpressionQueryBuilder(
             StringBuilder queryBuilder,
             QueryParameterManager queryParameterManager)
@@ -70,8 +73,53 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             _queryParameterManager = queryParameterManager;
         }
 
-        public void AppendSubquery(Expression expression)
+        public void Visit(SearchParameterExpression expression)
         {
+            if (expression.Parameter.Name == SearchParameterNames.ResourceType)
+            {
+                try
+                {
+                    // We do not currently support specifying the system for the _type parameter value.
+                    // We would need to add it to the document, but for now it seems pretty unlikely that it will
+                    // be specified when searching.
+                    _fieldNameOverride = SearchValueConstants.RootResourceTypeName;
+                    expression.Expression.AcceptVisitor(this);
+                }
+                finally
+                {
+                    _fieldNameOverride = null;
+                }
+            }
+            else
+            {
+                AppendSubquery(expression.Parameter.Name, expression.Expression);
+            }
+
+            _queryBuilder.AppendLine();
+        }
+
+        public void Visit(MissingSearchParameterExpression expression)
+        {
+            if (expression.Parameter.Name == SearchParameterNames.ResourceType)
+            {
+                // this will always be present
+                _queryBuilder.Append(expression.IsMissing ? "false" : "true");
+            }
+            else
+            {
+                AppendSubquery(expression.Parameter.Name, null, negate: expression.IsMissing);
+            }
+
+            _queryBuilder.AppendLine();
+        }
+
+        private void AppendSubquery(string parameterName, Expression expression, bool negate = false)
+        {
+            if (negate)
+            {
+                _queryBuilder.Append("NOT ");
+            }
+
             _queryBuilder.Append("EXISTS (SELECT VALUE ")
                 .Append(SearchValueConstants.SearchIndexAliasName)
                 .Append(" FROM ")
@@ -82,21 +130,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .Append(KnownResourceWrapperProperties.SearchIndices)
                 .Append(" WHERE ");
 
-            expression.AcceptVisitor(this);
+            string originalInstanceVariableName = _instanceVariableName;
 
-            _queryBuilder.AppendLine(")");
+            try
+            {
+                _instanceVariableName = SearchValueConstants.SearchIndexAliasName;
+
+                VisitBinary(GetMappedValue(FieldNameMapping, FieldName.ParamName), BinaryOperator.Equal, parameterName);
+
+                if (expression != null)
+                {
+                    _queryBuilder.Append(" AND ");
+
+                    expression.AcceptVisitor(this);
+                }
+            }
+            finally
+            {
+                _instanceVariableName = originalInstanceVariableName;
+            }
+
+            _queryBuilder.Append(")");
         }
 
         public void Visit(BinaryExpression expression)
         {
-            string paramName = AddParameterMapping(expression.Value);
-
-            _queryBuilder
-                .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(GetFieldName(expression))
-                .Append(" ")
-                .Append(GetMappedValue(BinaryOperatorMapping, expression.BinaryOperator))
-                .Append(" ")
-                .Append(paramName);
+            VisitBinary(GetFieldName(expression), expression.BinaryOperator, expression.Value);
         }
 
         public void Visit(ChainedExpression expression)
@@ -109,21 +168,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             _queryBuilder
                 .Append("NOT IS_DEFINED(")
-                .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(GetFieldName(expression))
+                .Append(_instanceVariableName).Append(".").Append(GetFieldName(expression))
                 .Append(")");
-        }
-
-        public void Visit(MissingParamExpression expression)
-        {
-            // TODO: This will be removed once it's impelmented.
-            throw new SearchOperationNotSupportedException("MissingParamExpression is not supported.");
         }
 
         public void Visit(MultiaryExpression expression)
         {
+            MultiaryOperator op = expression.MultiaryOperation;
+            IReadOnlyList<Expression> expressions = expression.Expressions;
             string operation;
 
-            switch (expression.MultiaryOperation)
+            switch (op)
             {
                 case MultiaryOperator.And:
                     operation = "AND";
@@ -134,22 +189,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     break;
 
                 default:
-                    {
-                        string message = string.Format(
-                            CultureInfo.InvariantCulture,
-                            Resources.UnhandledEnumValue,
-                            nameof(MultiaryOperator),
-                            expression.MultiaryOperation);
+                {
+                    string message = string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.UnhandledEnumValue,
+                        nameof(MultiaryOperator),
+                        op);
 
-                        Debug.Fail(message);
+                    Debug.Fail(message);
 
-                        throw new InvalidOperationException(message);
-                    }
+                    throw new InvalidOperationException(message);
+                }
             }
 
-            IReadOnlyList<Expression> expressions = expression.Expressions;
-
-            _queryBuilder.Append("(");
+            if (op == MultiaryOperator.Or)
+            {
+                _queryBuilder.Append("(");
+            }
 
             for (int i = 0; i < expressions.Count; i++)
             {
@@ -158,11 +214,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 if (i != expressions.Count - 1)
                 {
-                    _queryBuilder.Append(" ").Append(operation).Append(" ");
+                    if (!char.IsWhiteSpace(_queryBuilder[_queryBuilder.Length - 1]))
+                    {
+                        _queryBuilder.Append(" ");
+                    }
+
+                    _queryBuilder.Append(operation).Append(" ");
                 }
             }
 
-            _queryBuilder.Append(")");
+            if (op == MultiaryOperator.Or)
+            {
+                _queryBuilder.Append(")");
+            }
         }
 
         public void Visit(StringExpression expression)
@@ -181,7 +245,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             if (expression.StringOperator == StringOperator.Equals)
             {
                 _queryBuilder
-                    .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(fieldName)
+                    .Append(_instanceVariableName).Append(".").Append(fieldName)
                     .Append(" = ")
                     .Append(AddParameterMapping(value));
             }
@@ -190,15 +254,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryBuilder
                     .Append(GetMappedValue(StringOperatorMapping, expression.StringOperator))
                     .Append("(")
-                    .Append(SearchValueConstants.SearchIndexAliasName).Append(".").Append(fieldName)
+                    .Append(_instanceVariableName).Append(".").Append(fieldName)
                     .Append(", ")
                     .Append(AddParameterMapping(value))
                     .Append(")");
             }
         }
 
-        private static string GetFieldName(IFieldExpression fieldExpression)
+        private void VisitBinary(string fieldName, BinaryOperator op, object value)
         {
+            string paramName = AddParameterMapping(value);
+
+            _queryBuilder
+                .Append(_instanceVariableName).Append(".").Append(fieldName)
+                .Append(" ")
+                .Append(GetMappedValue(BinaryOperatorMapping, op))
+                .Append(" ")
+                .Append(paramName);
+        }
+
+        private string GetFieldName(IFieldExpression fieldExpression)
+        {
+            if (_fieldNameOverride != null)
+            {
+                return _fieldNameOverride;
+            }
+
             string fieldNameInString = GetMappedValue(FieldNameMapping, fieldExpression.FieldName);
 
             if (fieldExpression.ComponentIndex == null)

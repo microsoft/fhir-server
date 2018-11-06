@@ -89,25 +89,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _featureConfiguration = uiConfiguration.Value;
         }
 
-        /// <summary>
-        /// Default page of the FHIR endpoint
-        /// </summary>
-        [ApiExplorerSettings(IgnoreApi = true)]
-        [Route("")]
-        [AllowAnonymous]
-        public IActionResult Fhir()
-        {
-            _logger.LogInformation("Default route called.");
-
-            if (_featureConfiguration.SupportsUI)
-            {
-                return View("Welcome");
-            }
-
-            // If the UI is not supported, return NotFound.
-            return new NotFoundResult();
-        }
-
         [ApiExplorerSettings(IgnoreApi = true)]
         [Route("CustomError")]
         [AllowAnonymous]
@@ -346,6 +327,29 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /// <summary>
+        /// Searches across all resource types.
+        /// </summary>
+        [Route("", Name = RouteNames.SearchAllResources)]
+        [AuditEventSubType(AuditEventSubType.SearchSystem)]
+        [Authorize(PolicyNames.ReadPolicy)]
+        public async Task<IActionResult> Search()
+        {
+            return await SearchByResourceType(type: null);
+        }
+
+        /// <summary>
+        /// Searches for resources.
+        /// </summary>
+        [HttpPost]
+        [Route(KnownRoutes.Search, Name = RouteNames.SearchAllResourcesPost)]
+        [AuditEventSubType(AuditEventSubType.SearchSystem)]
+        [Authorize(PolicyNames.ReadPolicy)]
+        public async Task<IActionResult> SearchPost()
+        {
+            return await SearchByResourceTypePost(type: null);
+        }
+
+        /// <summary>
         /// Searches for resources.
         /// </summary>
         /// <param name="type">The resource type.</param>
@@ -353,7 +357,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceType, Name = RouteNames.SearchResources)]
         [AuditEventSubType(AuditEventSubType.SearchType)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> Search(string type)
+        public async Task<IActionResult> SearchByResourceType(string type)
         {
             IReadOnlyList<Tuple<string, string>> queries = Array.Empty<Tuple<string, string>>();
 
@@ -374,7 +378,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceTypeSearch, Name = RouteNames.SearchResourcesPost)]
         [AuditEventSubType(AuditEventSubType.SearchType)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> SearchPost(string type)
+        public async Task<IActionResult> SearchByResourceTypePost(string type)
         {
             var queries = new List<Tuple<string, string>>();
 

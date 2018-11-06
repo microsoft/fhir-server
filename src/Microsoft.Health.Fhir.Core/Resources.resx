@@ -158,7 +158,7 @@
     <value>bundle.entry[{0}].resource has duplicate compartment definitions.</value>
   </data>
   <data name="CompositeSeparatorNotFound" xml:space="preserve">
-    <value>The composite separator character cannot be found.</value>
+    <value>The composite separator cannot be found.</value>
   </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>

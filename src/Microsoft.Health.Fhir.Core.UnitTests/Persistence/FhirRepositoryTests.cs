@@ -339,6 +339,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
                 _rawResourceFactory.Create(resource),
                 new ResourceRequest("http://fhir", HttpMethod.Put),
                 isDeleted,
+                null,
                 null);
         }
     }

@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using EnsureThat;
 using MediatR;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Search
@@ -14,8 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
     {
         public SearchResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> queries)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
-
             ResourceType = resourceType;
             Queries = queries;
         }

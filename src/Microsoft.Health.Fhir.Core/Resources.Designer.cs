@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The composite separator character cannot be found..
+        ///   Looks up a localized string similar to The composite separator cannot be found..
         /// </summary>
         internal static string CompositeSeparatorNotFound {
             get {

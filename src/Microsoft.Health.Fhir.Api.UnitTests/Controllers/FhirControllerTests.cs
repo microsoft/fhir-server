@@ -42,26 +42,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenUIIsSupported_WhenRequestingForRoot_ThenViewResultShouldBeReturned()
-        {
-            _featureConfiguration.SupportsUI = true;
-
-            IActionResult result = _controller.Fhir();
-
-            Assert.IsType<ViewResult>(result);
-        }
-
-        [Fact]
-        public void GivenUIIsNotSupported_WhenRequestingForRoot_ThenNotFoundResultShouldBeReturned()
-        {
-            _featureConfiguration.SupportsUI = false;
-
-            IActionResult result = _controller.Fhir();
-
-            Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
         public async void GivenHardDeleteActionNotAuthorized_WhenRequestingHardDeleteAction_ThenForbiddenResultShouldBeReturned()
         {
             _authorizationService.AuthorizeAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<object>(), policyName: "HardDelete").Returns(Task.FromResult(AuthorizationResult.Failed()));

@@ -6,50 +6,61 @@
 using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Compartment;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class CompartmentIndices
     {
-        private readonly ICompartmentIndexer _compartmentIndexer;
-
         [JsonConstructor]
         public CompartmentIndices()
         {
         }
 
-        public CompartmentIndices(ICompartmentIndexer compartmentIndexer)
+        internal CompartmentIndices(IDictionary<CompartmentType, IReadOnlyCollection<string>> compartmentTypeToResourceIds)
         {
-            EnsureArg.IsNotNull(compartmentIndexer, nameof(compartmentIndexer));
-            _compartmentIndexer = compartmentIndexer;
+            EnsureArg.IsNotNull(compartmentTypeToResourceIds, nameof(compartmentTypeToResourceIds));
+            IReadOnlyCollection<string> compartmentEntry = null;
+
+            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.Device, out compartmentEntry))
+            {
+                DeviceCompartmentEntry = compartmentEntry;
+            }
+
+            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.Encounter, out compartmentEntry))
+            {
+                EncounterCompartmentEntry = compartmentEntry;
+            }
+
+            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.Patient, out compartmentEntry))
+            {
+                PatientCompartmentEntry = compartmentEntry;
+            }
+
+            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.Practitioner, out compartmentEntry))
+            {
+                PractitionerCompartmentEntry = compartmentEntry;
+            }
+
+            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.RelatedPerson, out compartmentEntry))
+            {
+                RelatedPersonCompartmentEntry = compartmentEntry;
+            }
         }
 
         [JsonProperty(KnownResourceWrapperProperties.Device)]
-        public IReadOnlyCollection<string> DeviceCompartmentEntry { get; private set; }
+        public IReadOnlyCollection<string> DeviceCompartmentEntry { get; }
 
         [JsonProperty(KnownResourceWrapperProperties.Encounter)]
-        public IReadOnlyCollection<string> EncounterCompartmentEntry { get; private set; }
+        public IReadOnlyCollection<string> EncounterCompartmentEntry { get; }
 
         [JsonProperty(KnownResourceWrapperProperties.Patient)]
-        public IReadOnlyCollection<string> PatientCompartmentEntry { get; private set; }
+        public IReadOnlyCollection<string> PatientCompartmentEntry { get; }
 
         [JsonProperty(KnownResourceWrapperProperties.Practitioner)]
-        public IReadOnlyCollection<string> PractitionerCompartmentEntry { get; private set; }
+        public IReadOnlyCollection<string> PractitionerCompartmentEntry { get; }
 
         [JsonProperty(KnownResourceWrapperProperties.RelatedPerson)]
-        public IReadOnlyCollection<string> RelatedPersonCompartmentEntry { get; private set; }
-
-        public void Extract(ResourceType resourceType, IReadOnlyCollection<SearchIndexEntry> searchIndices)
-        {
-            EnsureArg.IsNotNull(searchIndices, nameof(searchIndices));
-            DeviceCompartmentEntry = _compartmentIndexer.Extract(resourceType, CompartmentType.Device, searchIndices);
-            EncounterCompartmentEntry = _compartmentIndexer.Extract(resourceType, CompartmentType.Encounter, searchIndices);
-            PatientCompartmentEntry = _compartmentIndexer.Extract(resourceType, CompartmentType.Patient, searchIndices);
-            PractitionerCompartmentEntry = _compartmentIndexer.Extract(resourceType, CompartmentType.Practitioner, searchIndices);
-            RelatedPersonCompartmentEntry = _compartmentIndexer.Extract(resourceType, CompartmentType.RelatedPerson, searchIndices);
-        }
+        public IReadOnlyCollection<string> RelatedPersonCompartmentEntry { get; }
     }
 }

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -63,6 +64,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundle = await Client.SearchAsync("Patient");
 
             ValidateBundle(bundle, patients);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourcesWithVariousValues_WhenSearchedWithTheMissingModifer_ThenOnlyTheResourcesWithMissingOrPresentParametersAreReturned()
+        {
+            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p => p.Gender = AdministrativeGender.Female)).Single();
+            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p => { })).Single();
+
+            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "gender:missing=true"), unspecifiedPatient);
+            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "gender:missing=false"), femalePatient);
+
+            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "_type:missing=true"));
+            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "_type:missing=false"), femalePatient, unspecifiedPatient);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypes_ThenOnlyResourcesMatchingTypeParameterShouldBeReturned()
+        {
+            // Create various resources.
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            Observation observation = (await Client.CreateAsync(Samples.GetDefaultObservation())).Resource;
+            Organization organization = (await Client.CreateAsync(Samples.GetDefaultOrganization())).Resource;
+
+            Bundle bundle = await Client.SearchAsync("?_type=Patient");
+            ValidateBundle(bundle, patients);
+            bundle = await Client.SearchPostAsync(null, ("_type", "Patient"));
+            ValidateBundle(bundle, patients);
+
+            bundle = await Client.SearchAsync("?_type=Observation,Patient");
+            Assert.True(bundle.Entry.Count > patients.Length);
+            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"));
+            Assert.True(bundle.Entry.Count > patients.Length);
+
+            bundle = await Client.SearchAsync($"?_type=Observation,Patient&_id={observation.Id}");
+            ValidateBundle(bundle, observation);
+            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"), ("_id", observation.Id));
+            ValidateBundle(bundle, observation);
+
+            bundle = await Client.SearchAsync($"?_type=Observation,Patient&_id={organization.Id}");
+            ValidateBundle(bundle);
+            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"), ("_id", organization.Id));
+            ValidateBundle(bundle);
         }
 
         [Fact]

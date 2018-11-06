@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -30,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [InlineData(ResourceType.Condition, CompartmentType.Encounter, 1)]
         [InlineData(ResourceType.Encounter, CompartmentType.Patient, 1)]
         [InlineData(ResourceType.Observation, CompartmentType.Encounter, 1)]
-        public void GivenAValidCompartDefinitionBundle_NoIssues_And_ValidSearchParams(ResourceType resourceType, CompartmentType compartmentType, int testCount)
+        public void GivenAValidCompartmentDefinitionBundle_WhenValidated_ThenValidSearchParams(ResourceType resourceType, CompartmentType compartmentType, int testCount)
         {
             Assert.True(_validBuiltCompartment.TryGetSearchParams(resourceType, compartmentType, out HashSet<string> searchParams));
             Assert.Equal(testCount, searchParams.Count);

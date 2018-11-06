@@ -9,5 +9,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         public static readonly string Id = "_id";
         public static readonly string LastUpdated = "_lastUpdated";
+        public static readonly string ResourceType = "_type";
     }
 }

@@ -53,20 +53,20 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IFhirElementToSearchValueTypeConverterManager>();
 
             services.AddSingleton<ISearchIndexer, SearchIndexer>();
-            services.AddSingleton<ISearchValueExpressionBuilder, SearchValueExpressionBuilder>();
+            services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
             services.AddSingleton<IExpressionParser, ExpressionParser>();
             services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();
 
             services.Add<CompartmentDefinitionManager>()
-            .Singleton()
-            .AsSelf()
-            .AsService<IStartable>()
-            .AsService<ICompartmentDefinitionManager>();
+                .Singleton()
+                .AsSelf()
+                .AsService<IStartable>()
+                .AsService<ICompartmentDefinitionManager>();
 
             services.Add<CompartmentIndexer>()
-            .Singleton()
-            .AsSelf()
-            .AsService<ICompartmentIndexer>();
+                .Singleton()
+                .AsSelf()
+                .AsService<ICompartmentIndexer>();
 
             // TODO: Remove the following once bug 65143 is fixed.
             // All of the classes that implement IProvideCapability will be automatically be picked up and registered.

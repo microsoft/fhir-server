@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CancellationToken cancellationToken)
         {
             return await ExecuteSearchAsync(
-                _queryBuilder.GenerateHistorySql(searchOptions.ResourceType, searchOptions),
+                _queryBuilder.GenerateHistorySql(searchOptions),
                 searchOptions,
                 cancellationToken);
         }

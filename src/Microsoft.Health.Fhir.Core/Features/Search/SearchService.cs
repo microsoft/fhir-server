@@ -48,14 +48,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
-
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
 
             // Execute the actual search.
             SearchResult result = await SearchInternalAsync(searchOptions, cancellationToken);
 
-            return _bundleFactory.CreateSearchBundle(searchOptions.UnsupportedSearchParams, result);
+            return _bundleFactory.CreateSearchBundle(resourceType, searchOptions.UnsupportedSearchParams, result);
         }
 
         public async Task<Bundle> SearchHistoryAsync(

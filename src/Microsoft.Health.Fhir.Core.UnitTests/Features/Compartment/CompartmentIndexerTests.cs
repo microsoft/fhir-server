@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using NSubstitute;
@@ -36,8 +37,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
                     return true;
                 });
             var searchIndexEntries = new List<SearchIndexEntry> { new SearchIndexEntry("testParam", new ReferenceSearchValue(ReferenceKind.Internal, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType), resourceId)) };
-            IReadOnlyCollection<string> compartmentIndices = compartmentIndexer.Extract(resourceType, compartmentType, searchIndexEntries);
-            Assert.Contains(resourceId, compartmentIndices);
+            CompartmentIndices compartmentIndices = compartmentIndexer.Extract(resourceType, searchIndexEntries);
+
+            IReadOnlyCollection<string> resourceIds = null;
+            if (compartmentType == CompartmentType.Device)
+            {
+                resourceIds = compartmentIndices.DeviceCompartmentEntry;
+            }
+            else if (compartmentType == CompartmentType.Encounter)
+            {
+                resourceIds = compartmentIndices.EncounterCompartmentEntry;
+            }
+            else if (compartmentType == CompartmentType.Patient)
+            {
+                resourceIds = compartmentIndices.PatientCompartmentEntry;
+            }
+            else if (compartmentType == CompartmentType.Practitioner)
+            {
+                resourceIds = compartmentIndices.PractitionerCompartmentEntry;
+            }
+            else if (compartmentType == CompartmentType.RelatedPerson)
+            {
+                resourceIds = compartmentIndices.RelatedPersonCompartmentEntry;
+            }
+
+            Assert.Single(resourceIds);
+            Assert.Contains(resourceId, resourceIds);
         }
     }
 }

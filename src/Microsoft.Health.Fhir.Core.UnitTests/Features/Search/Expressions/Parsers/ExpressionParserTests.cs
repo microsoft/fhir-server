@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
     public class ExpressionParserTests
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-        private readonly ISearchValueExpressionBuilder _searchValueExpressionBuilder = Substitute.For<ISearchValueExpressionBuilder>();
+        private readonly ISearchParameterExpressionParser _searchParameterExpressionParser = Substitute.For<ISearchParameterExpressionParser>();
 
         private readonly ExpressionParser _expressionParser;
 
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             _expressionParser = new ExpressionParser(
                 _searchParameterDefinitionManager,
-                _searchValueExpressionBuilder);
+                _searchParameterExpressionParser);
         }
 
         [Fact]
@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             string param1 = "ref";
             string modifier = "missing";
 
-            // Practitioner is a valid resource type but is not supported by the search paramter.
+            // Practitioner is a valid resource type but is not supported by the search parameter.
             string key = $"{param1}:{modifier}";
             string value = "Seattle";
 
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             Expression expression = Substitute.For<Expression>();
 
-            _searchValueExpressionBuilder.Build(searchParameter, SearchParameter.SearchModifierCode.Missing, value).Returns(expression);
+            _searchParameterExpressionParser.Parse(searchParameter, SearchParameter.SearchModifierCode.Missing, value).Returns(expression);
 
             // Parse the expression.
             Expression actualExpression = _expressionParser.Parse(resourceType, key, value);
@@ -361,7 +361,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             Expression expectedExpression = Substitute.For<Expression>();
 
-            _searchValueExpressionBuilder.Build(searchParameter, null, value).Returns(expectedExpression);
+            _searchParameterExpressionParser.Parse(searchParameter, null, value).Returns(expectedExpression);
 
             return expectedExpression;
         }

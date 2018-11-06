@@ -8,7 +8,6 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
@@ -19,9 +18,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
         }
 
-        public SqlQuerySpec GenerateHistorySql(string resourceType, SearchOptions searchOptions)
+        public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
         {
-            return new QueryBuilderHelper().GenerateHistorySql(resourceType, searchOptions);
+            return new QueryBuilderHelper().GenerateHistorySql(searchOptions);
         }
 
         private class QueryBuilderHelper
@@ -50,27 +49,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendSystemDataFilter("WHERE");
 
-                MultiaryExpression expression = searchOptions.Expression;
+                var expressionQueryBuilder = new ExpressionQueryBuilder(
+                    _queryBuilder,
+                    _queryParameterManager);
 
-                if (expression != null)
+                if (searchOptions.Expression != null)
                 {
-                    var expressionQueryBuilder = new ExpressionQueryBuilder(
-                        _queryBuilder,
-                        _queryParameterManager);
-
-                    for (int i = 0; i < expression.Expressions.Count; i++)
-                    {
-                        _queryBuilder.Append("AND ");
-
-                        expressionQueryBuilder.AppendSubquery(expression.Expressions[i]);
-                    }
+                    _queryBuilder.Append("AND ");
+                    searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
                 AppendFilterCondition(
-                    "AND",
-                    (KnownResourceWrapperProperties.ResourceTypeName, searchOptions.ResourceType),
-                    (KnownResourceWrapperProperties.IsHistory, false),
-                    (KnownResourceWrapperProperties.IsDeleted, false));
+                   "AND",
+                   (KnownResourceWrapperProperties.IsHistory, false),
+                   (KnownResourceWrapperProperties.IsDeleted, false));
 
                 SqlQuerySpec query = new SqlQuerySpec(
                     _queryBuilder.ToString(),
@@ -79,7 +71,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 return query;
             }
 
-            public SqlQuerySpec GenerateHistorySql(string resourceType, SearchOptions searchOptions)
+            public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
@@ -87,27 +79,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendSystemDataFilter("WHERE");
 
-                MultiaryExpression expression = searchOptions.Expression;
+                var expressionQueryBuilder = new ExpressionQueryBuilder(
+                    _queryBuilder,
+                    _queryParameterManager);
 
-                if (expression != null)
+                if (searchOptions.Expression != null)
                 {
-                    var expressionQueryBuilder = new ExpressionQueryBuilder(
-                        _queryBuilder,
-                        _queryParameterManager);
-
-                    for (int i = 0; i < expression.Expressions.Count; i++)
-                    {
-                        _queryBuilder.Append("AND ");
-
-                        expressionQueryBuilder.AppendSubquery(expression.Expressions[i]);
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(resourceType))
-                {
-                    AppendFilterCondition(
-                        "AND",
-                        (KnownResourceWrapperProperties.ResourceTypeName, searchOptions.ResourceType));
+                    _queryBuilder.Append("AND ");
+                    searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
                 _queryBuilder

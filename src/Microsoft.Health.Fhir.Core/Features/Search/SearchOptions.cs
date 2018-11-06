@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -19,26 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private const int MaxItemCountPerSearch = 100;
 
         private int _maxItemCount = DefaultItemCountPerSearch;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SearchOptions"/> class.
-        /// </summary>
-        /// <param name="resourceType">The resource type.</param>
-        public SearchOptions(string resourceType)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
-
-            ResourceType = resourceType;
-        }
-
-        internal SearchOptions()
-        {
-        }
-
-        /// <summary>
-        /// Gets the resource type to search.
-        /// </summary>
-        public string ResourceType { get; }
 
         /// <summary>
         /// Gets the optional continuation token.
@@ -73,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the search expression.
         /// </summary>
-        public MultiaryExpression Expression { get; internal set; }
+        public Expression Expression { get; internal set; }
 
         /// <summary>
         /// Gets the list of search parameters that were not used in the search.

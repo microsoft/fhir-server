@@ -52,8 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             RawResource rawResource = _rawResourceFactory.Create(resource);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
-            var compartmentIndices = new CompartmentIndices(_compartmentIndexer);
-            compartmentIndices.Extract(resource.ResourceType, searchIndices);
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
@@ -63,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 new ResourceRequest(fhirRequestContext.Uri, fhirRequestContext.Method),
                 deleted,
                 searchIndices,
-                compartmentIndices,
+                _compartmentIndexer.Extract(resource.ResourceType, searchIndices),
                 _claimsIndexer.Extract());
         }
     }

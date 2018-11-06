@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         [Fact]
         public void GivenANullUnsupportedSearchParams_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
-            _urlResolver.ResolveSearchUrl(unsupportedSearchParams: null, continuationToken: null);
+            _urlResolver.ResolveSearchUrl("Patient", unsupportedSearchParams: null, continuationToken: null);
 
             ValidateUrlRouteContext(
                 "SearchResources",
@@ -247,7 +247,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         {
             _httpContext.Request.QueryString = new QueryString(inputQueryString);
 
-            _urlResolver.ResolveSearchUrl(unsupportedSearchParams, continuationToken);
+            _urlResolver.ResolveSearchUrl("Patient", unsupportedSearchParams, continuationToken);
 
             ValidateUrlRouteContext(
                  "SearchResources",
