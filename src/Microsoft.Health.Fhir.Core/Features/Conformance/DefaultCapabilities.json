@@ -13368,12 +13368,6 @@
                             "documentation": "The time during which the questionnaire is intended to be in use"
                         },
                         {
-                            "name": "code",
-                            "definition": "http://hl7.org/fhir/SearchParameter/Questionnaire-code",
-                            "type": "token",
-                            "documentation": "A code that corresponds to one of its items in the questionnaire"
-                        },
-                        {
                             "name": "jurisdiction",
                             "definition": "http://hl7.org/fhir/SearchParameter/Questionnaire-jurisdiction",
                             "type": "token",

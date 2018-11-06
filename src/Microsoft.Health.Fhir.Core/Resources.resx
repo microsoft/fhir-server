@@ -168,6 +168,9 @@
   <data name="InvalidEnumConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported. Please select from the following list of supported capabilities: [{2}]."</value>
   </data>
+  <data name="InvalidListConfigDuplicateItem" xml:space="preserve">
+    <value>A duplicate value was found for field '{0}'. Please check your configured options.</value>
+  </data>
   <data name="InvalidListConfigSetting" xml:space="preserve">
     <value>Unsupported values for field '{0}' were selected. Please check your configured options.</value>
   </data>

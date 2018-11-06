@@ -325,6 +325,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 issues.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.InvalidListConfigSetting, fieldName));
             }
 
+            if (config.Select(selector).GroupBy(x => x).Any(x => x.Count() > 1))
+            {
+                issues.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.InvalidListConfigDuplicateItem, fieldName));
+            }
+
             return config.ToList();
         }
     }

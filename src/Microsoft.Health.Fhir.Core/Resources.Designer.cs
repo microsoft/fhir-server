@@ -214,6 +214,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A duplicate value was found for field &apos;{0}&apos;. Please check your configured options..
+        /// </summary>
+        internal static string InvalidListConfigDuplicateItem {
+            get {
+                return ResourceManager.GetString("InvalidListConfigDuplicateItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported values for field &apos;{0}&apos; were selected. Please check your configured options..
         /// </summary>
         internal static string InvalidListConfigSetting {
