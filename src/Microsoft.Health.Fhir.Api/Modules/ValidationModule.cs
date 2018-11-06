@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc.DataAnnotations.Internal;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -28,8 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // Adds basic FHIR model validation into MVC
             services.PostConfigure<MvcOptions>(options =>
             {
-                // Override default DataAnnotationsModelValidator
-                options.ModelValidatorProviders.Insert(0, new ResourceValidatorProvider());
+                // Removes default DataAnnotationsModelValidator
                 options.ModelValidatorProviders.RemoveType<DataAnnotationsModelValidatorProvider>();
             });
 
