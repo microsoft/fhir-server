@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Consistency level &apos;{0} specified in the request is invalid when service is configured with consistency level &apos;{1}&apos;. Ensure the request consistency level is not stronger than the service consistency level..
+        ///   Looks up a localized string similar to Consistency level &apos;{0}&apos; specified in the request is invalid when service is configured with consistency level &apos;{1}&apos;. Ensure the request consistency level is not stronger than the service consistency level..
         /// </summary>
         internal static string InvalidConsistencyLevel {
             get {
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Invalid consitency level &apos;{0}&apos;. Valid values are {1}..
+        ///   Looks up a localized string similar to Invalid consistency level &apos;{0}&apos;. Valid values are: {1}..
         /// </summary>
         internal static string UnrecognizedConsistencyLevel {
             get {

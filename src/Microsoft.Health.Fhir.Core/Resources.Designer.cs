@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} and {1} cannot be both specified..
+        ///   Looks up a localized string similar to {0} and {1} cannot both be specified..
         /// </summary>
         internal static string AtAndSinceCannotBeBothSpecified {
             get {
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to CapabilityStatement must only have a single item in the &apos;Rest&apos; collection..
+        ///   Looks up a localized string similar to CapabilityStatement must have only a single item in the &apos;Rest&apos; collection..
         /// </summary>
         internal static string CapabilityStatementSingleRestItem {
             get {
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The comparator &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
+        ///   Looks up a localized string similar to Comparator &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
         internal static string ComparatorNotSupported {
             get {
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to (Id) Must be any combination of upper or lower case ASCII letters (&apos;A&apos;..&apos;Z&apos;, and &apos;a&apos;..&apos;z&apos;, numerals (&apos;0&apos;..&apos;9&apos;), &apos;-&apos; and &apos;.&apos;, with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID or any other identifier pattern that meets these constraints.).
+        ///   Looks up a localized string similar to Id must be any combination of upper or lower case ASCII letters (&apos;A&apos;..&apos;Z&apos;, and &apos;a&apos;..&apos;z&apos;), numerals (&apos;0&apos;..&apos;9&apos;), &apos;-&apos; and &apos;.&apos;, with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.).
         /// </summary>
         internal static string IdRequirements {
             get {
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Illegal attribute name &apos;{0}&apos; on element &apos;{1}&apos;.
+        ///   Looks up a localized string similar to Illegal attribute name &apos;{0}&apos; on element &apos;{1}&apos;..
         /// </summary>
         internal static string IllegalHtmlAttribute {
             get {
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Illegal element name &apos;{0}&apos;.
+        ///   Looks up a localized string similar to Illegal element name &apos;{0}&apos;..
         /// </summary>
         internal static string IllegalHtmlElement {
             get {
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The div element must have some non-whitespace content (text or an image).
+        ///   Looks up a localized string similar to The div element must not be empty or only whitespace..
         /// </summary>
         internal static string IllegalHtmlEmpty {
             get {
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to XHTML content should be contained within a single &lt;div&gt; element.
+        ///   Looks up a localized string similar to XHTML content should be contained within a single &lt;div&gt; element..
         /// </summary>
         internal static string IllegalHtmlOuterDiv {
             get {
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error while parsing XHTML: {0} Line: {1} Col: {2}.
+        ///   Looks up a localized string similar to Error while parsing XHTML: {0} Line: {1} Col: {2}..
         /// </summary>
         internal static string IllegalHtmlParsingError {
             get {
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported. Please select from the following list of supported capabilities: [{2}].&quot;.
+        ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported. Please select from the following list of supported capabilities: [{2}]..
         /// </summary>
         internal static string InvalidEnumConfigSetting {
             get {
@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The value should be a boolean string if :missing modifier is specified..
+        ///   Looks up a localized string similar to Invalid value for :missing modifier. Valid values are: true, false..
         /// </summary>
         internal static string InvalidValueTypeForMissingModifier {
             get {
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The modifier &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
+        ///   Looks up a localized string similar to Modifier &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
         internal static string ModifierNotSupported {
             get {
@@ -259,7 +259,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to More than one token separator character specified..
+        ///   Looks up a localized string similar to Only one token separator can be specified..
         /// </summary>
         internal static string MoreThanOneTokenSeparatorSpecified {
             get {
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to More than two token separator characters specified..
+        ///   Looks up a localized string similar to No more than two token separators can be specified..
         /// </summary>
         internal static string MoreThanTwoTokenSeparatorSpecified {
             get {
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Multiple &apos;{0}&apos; query parameters cannot be specified..
+        ///   Looks up a localized string similar to Query parameter &apos;{0}&apos; cannot be specified more than once..
         /// </summary>
         internal static string MultipleQueryParametersNotAllowed {
             get {
@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Only one modifier separator can be specified. Value: &apos;{0}&apos;..
+        ///   Looks up a localized string similar to Only one modifier separator can be specified..
         /// </summary>
         internal static string OnlyOneModifierSeparatorSupported {
             get {
@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to There was a problem with retrieving the OpenId configuration from the authentication provider..
+        ///   Looks up a localized string similar to Failed to retrieve the OpenId configuration from the authentication provider..
         /// </summary>
         internal static string OpenIdConfiguration {
             get {
@@ -331,7 +331,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested action was not allowed.
+        ///   Looks up a localized string similar to The requested action is not allowed..
         /// </summary>
         internal static string RequestedActionNotAllowed {
             get {
@@ -367,7 +367,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The resource type &apos;{0}&apos; is not supported..
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos; is not supported..
         /// </summary>
         internal static string ResourceNotSupported {
             get {
@@ -376,7 +376,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &quot;Role does not have any ResourcePermission.&quot;.
+        ///   Looks up a localized string similar to Role &apos;{0}&apos; must have one or more ResourcePermissions..
         /// </summary>
         internal static string ResourcePermissionEmpty {
             get {
@@ -394,7 +394,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &quot;Role name cannot be null or empty.&quot;.
+        ///   Looks up a localized string similar to Role name cannot be null or empty..
         /// </summary>
         internal static string RoleNameEmpty {
             get {
@@ -403,7 +403,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ResourcePermission for Role &apos;{0}&apos; does not have any Actions..
+        ///   Looks up a localized string similar to Role &apos;{0}&apos; contains a ResourcePermission with no Actions..
         /// </summary>
         internal static string RoleResourcePermissionWithNoAction {
             get {
@@ -439,7 +439,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}] cannot be pointing to a composite SearchParameter..
+        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}] cannot refer to a composite SearchParameter..
         /// </summary>
         internal static string SearchParameterDefinitionComponentReferenceCannotBeComposite {
             get {
@@ -448,7 +448,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The search parameter definition contains one or mroe invalid entries..
+        ///   Looks up a localized string similar to The search parameter definition contains one or more invalid entries..
         /// </summary>
         internal static string SearchParameterDefinitionContainsInvalidEntry {
             get {
@@ -484,7 +484,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}].definition.reference is null or empty, or is not pointing to a valid SearchParameter resource..
+        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidComponentReference {
             get {
@@ -538,7 +538,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The operation could not be completed because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support..
+        ///   Looks up a localized string similar to The operation could not be completed, because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support..
         /// </summary>
         internal static string ServiceUnavailable {
             get {
@@ -547,7 +547,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unsupported Configuration was selected.
+        ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {
             get {
@@ -556,7 +556,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Update requests must contain an Id.
+        ///   Looks up a localized string similar to Resource id is required for updates..
         /// </summary>
         internal static string UpdateRequestsRequireId {
             get {
@@ -565,7 +565,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to VersionId should not be in the weak ETag format.
+        ///   Looks up a localized string similar to VersionId should not be in the weak ETag format..
         /// </summary>
         internal static string VersionIdFormatNotETag {
             get {
@@ -574,7 +574,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to WeakETag must be in the weak ETag format.
+        ///   Looks up a localized string similar to WeakETag must be in the weak ETag format..
         /// </summary>
         internal static string WeakETagFormatRequired {
             get {

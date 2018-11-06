@@ -118,17 +118,17 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AuditEventSubTypeNotSet" xml:space="preserve">
-    <value>Audit Event Sub Type is not set for method {0}</value>
+    <value>Audit Event Sub Type is not set for method {0}.</value>
     <comment>{0} is method name</comment>
   </data>
   <data name="BackToTop" xml:space="preserve">
     <value>Back to top</value>
   </data>
   <data name="ContentTypeHeaderRequired" xml:space="preserve">
-    <value>The "content-type" header is required by the server</value>
+    <value>The "content-type" header is required.</value>
   </data>
   <data name="Forbidden" xml:space="preserve">
-    <value>Authorization failed</value>
+    <value>Authorization failed.</value>
   </data>
   <data name="GeneralInternalError" xml:space="preserve">
     <value>There was an error processing your request.</value>
@@ -150,13 +150,13 @@
     <value>The security configuration requires the authority to be set to an https address.</value>
   </data>
   <data name="ResourceAndIdRequired" xml:space="preserve">
-    <value>Both id and the resource are required</value>
+    <value>Both id and the resource are required.</value>
   </data>
   <data name="ResourceIdRequired" xml:space="preserve">
-    <value>There must be an id specified in the resource</value>
+    <value>Id must be specified in the resource.</value>
   </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
-    <value>Resource type mismatch</value>
+    <value>Resource type in the URL must match resourceType in the resource.</value>
   </data>
   <data name="ToggleNavigation" xml:space="preserve">
     <value>Toggle navigation</value>
@@ -165,19 +165,19 @@
     <value>Unable to obtain OpenID configuration.</value>
   </data>
   <data name="Unauthorized" xml:space="preserve">
-    <value>Authentication failed</value>
+    <value>Authentication failed.</value>
   </data>
   <data name="UnsupportedAcceptHeader" xml:space="preserve">
-    <value>The requested "accept" header is not supported by the server</value>
+    <value>The requested "accept" header is not supported.</value>
   </data>
   <data name="UnsupportedContentTypeHeader" xml:space="preserve">
-    <value>The requested "content-type" header is not supported by the server</value>
+    <value>The requested "content-type" header is not supported.</value>
   </data>
   <data name="UnsupportedFormatParameter" xml:space="preserve">
-    <value>The requested "_format" is not supported by the server</value>
+    <value>The requested "_format" parameter is not supported.</value>
   </data>
   <data name="UrlResourceIdMismatch" xml:space="preserve">
-    <value>The id in the URL must match the id in the resource</value>
+    <value>Id in the URL must match id in the resource.</value>
   </data>
   <data name="ViewNotFound" xml:space="preserve">
     <value>View was not found.</value>
