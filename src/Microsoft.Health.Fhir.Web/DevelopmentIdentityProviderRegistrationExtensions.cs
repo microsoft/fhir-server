@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Web
 
         /// <summary>
         /// If <paramref name="testEnvironmentFilePath"/> exists, adds an <see cref="IConfigurationBuilder"/> that
-        /// reads a testauthenvironment.json file and reshapes it to fit into the expected schema of the fhir server
+        /// reads a testauthenvironment.json file and reshapes it to fit into the expected schema of the FHIR server
         /// configuration. Also sets the security audience and sets the development identity server as enabled.
         /// This is an optional configuration source and is only intended to be used for local development.
         /// </summary>

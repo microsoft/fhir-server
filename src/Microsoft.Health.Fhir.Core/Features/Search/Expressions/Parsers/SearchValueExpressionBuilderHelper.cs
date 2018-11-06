@@ -52,9 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         void ISearchValueVisitor.Visit(CompositeSearchValue composite)
         {
-            // Composite search values will be break down into individual component
+            // Composite search values will be broken down into individual components,
             // and therefore this method should not be called.
-            throw new InvalidOperationException("The composite search value should have been breaked down into components and have handled individually.");
+            throw new InvalidOperationException("The composite search value should have been broken down into components and handled individually.");
         }
 
         void ISearchValueVisitor.Visit(DateTimeSearchValue dateTime)

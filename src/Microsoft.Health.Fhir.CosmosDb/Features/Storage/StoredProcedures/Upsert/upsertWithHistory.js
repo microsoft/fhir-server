@@ -115,7 +115,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                 let selfLink = document._self;
 
                 if (keepHistory) {
-                    // Convert the currect primary record to a 'history' record
+                    // Convert the current primary record to a 'history' record
                     let historyDocument = convertToHistoryRecord(document);
 
                     // Insert the history object
