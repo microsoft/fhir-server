@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     foreach (var error in results)
                     {
-                        yield return new ValidationFailure(error.MemberNames.First(), error.ErrorMessage);
+                        yield return new ValidationFailure(error.MemberNames?.FirstOrDefault(), error.ErrorMessage);
                     }
                 }
             }
