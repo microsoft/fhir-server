@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Illegal attribute name &apos;{0}&apos; on element &apos;{1}&apos;.
+        ///   Looks up a localized string similar to Illegal attribute name &apos;{0}&apos; on element &apos;{1}&apos;..
         /// </summary>
         internal static string IllegalHtmlAttribute {
             get {
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Illegal element name &apos;{0}&apos;.
+        ///   Looks up a localized string similar to Illegal element name &apos;{0}&apos;..
         /// </summary>
         internal static string IllegalHtmlElement {
             get {
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The div element must not be empty or only whitespace.
+        ///   Looks up a localized string similar to The div element must not be empty or only whitespace..
         /// </summary>
         internal static string IllegalHtmlEmpty {
             get {
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to XHTML content should be contained within a single &lt;div&gt; element.
+        ///   Looks up a localized string similar to XHTML content should be contained within a single &lt;div&gt; element..
         /// </summary>
         internal static string IllegalHtmlOuterDiv {
             get {
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error while parsing XHTML: {0} Line: {1} Col: {2}.
+        ///   Looks up a localized string similar to Error while parsing XHTML: {0} Line: {1} Col: {2}..
         /// </summary>
         internal static string IllegalHtmlParsingError {
             get {
@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested action is not allowed.
+        ///   Looks up a localized string similar to The requested action is not allowed..
         /// </summary>
         internal static string RequestedActionNotAllowed {
             get {
@@ -538,7 +538,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unsupported configuration was selected.
+        ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {
             get {
@@ -547,7 +547,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resource id is required for updates.
+        ///   Looks up a localized string similar to Resource id is required for updates..
         /// </summary>
         internal static string UpdateRequestsRequireId {
             get {
@@ -556,7 +556,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to VersionId should not be in the weak ETag format.
+        ///   Looks up a localized string similar to VersionId should not be in the weak ETag format..
         /// </summary>
         internal static string VersionIdFormatNotETag {
             get {
@@ -565,7 +565,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to WeakETag must be in the weak ETag format.
+        ///   Looks up a localized string similar to WeakETag must be in the weak ETag format..
         /// </summary>
         internal static string WeakETagFormatRequired {
             get {

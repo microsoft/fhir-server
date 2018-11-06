@@ -30,6 +30,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public OperationOutcome OperationOutcome => _response.Resource;
 
         public override string Message
-            => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault().Diagnostics}.";
+            => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault().Diagnostics}";
     }
 }

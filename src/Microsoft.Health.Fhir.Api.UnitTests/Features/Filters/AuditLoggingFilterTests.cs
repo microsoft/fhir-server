@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             descriptor.MethodInfo = typeof(FilterTestsHelper).GetMethod("MethodWithNoAttribute");
 
             var excp = Assert.Throws<NotSupportedException>(() => _filter.OnActionExecuting(executingContext));
-            Assert.Contains(excp.Message, "Audit Event Sub Type is not set for method MethodWithNoAttribute");
+            Assert.Contains(excp.Message, "Audit Event Sub Type is not set for method MethodWithNoAttribute.");
         }
     }
 }

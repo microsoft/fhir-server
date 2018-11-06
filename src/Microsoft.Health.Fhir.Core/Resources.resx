@@ -145,19 +145,19 @@
     <value>A valid if-match header is required for resource type '{0}'.</value>
   </data>
   <data name="IllegalHtmlAttribute" xml:space="preserve">
-    <value>Illegal attribute name '{0}' on element '{1}'</value>
+    <value>Illegal attribute name '{0}' on element '{1}'.</value>
   </data>
   <data name="IllegalHtmlElement" xml:space="preserve">
-    <value>Illegal element name '{0}'</value>
+    <value>Illegal element name '{0}'.</value>
   </data>
   <data name="IllegalHtmlEmpty" xml:space="preserve">
-    <value>The div element must not be empty or only whitespace</value>
+    <value>The div element must not be empty or only whitespace.</value>
   </data>
   <data name="IllegalHtmlOuterDiv" xml:space="preserve">
-    <value>XHTML content should be contained within a single &lt;div&gt; element</value>
+    <value>XHTML content should be contained within a single &lt;div&gt; element.</value>
   </data>
   <data name="IllegalHtmlParsingError" xml:space="preserve">
-    <value>Error while parsing XHTML: {0} Line: {1} Col: {2}</value>
+    <value>Error while parsing XHTML: {0} Line: {1} Col: {2}.</value>
   </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
@@ -205,7 +205,7 @@
     <value>ReadHistory is disabled for resources of type '{0}'.</value>
   </data>
   <data name="RequestedActionNotAllowed" xml:space="preserve">
-    <value>The requested action is not allowed</value>
+    <value>The requested action is not allowed.</value>
   </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>
@@ -278,15 +278,15 @@
     <value>The operation could not be completed, because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support.</value>
   </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
-    <value>Unsupported configuration was selected</value>
+    <value>Unsupported configuration found.</value>
   </data>
   <data name="UpdateRequestsRequireId" xml:space="preserve">
-    <value>Resource id is required for updates</value>
+    <value>Resource id is required for updates.</value>
   </data>
   <data name="VersionIdFormatNotETag" xml:space="preserve">
-    <value>VersionId should not be in the weak ETag format</value>
+    <value>VersionId should not be in the weak ETag format.</value>
   </data>
   <data name="WeakETagFormatRequired" xml:space="preserve">
-    <value>WeakETag must be in the weak ETag format</value>
+    <value>WeakETag must be in the weak ETag format.</value>
   </data>
 </root>
