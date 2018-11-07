@@ -6,16 +6,20 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Data;
 using System.Data.SqlClient;
+using System.Globalization;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -34,6 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private Dictionary<string, short> _resourceTypeToId;
+        private Dictionary<short, string> _resourceTypeIdToTypeName;
         private Dictionary<(string, byte?), short> _searchParamUrlToId;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private static readonly SqlMetaData[] StringSearchParamTableValuedParameterColumns = { new SqlMetaData("ResourceTypePK", SqlDbType.SmallInt), new SqlMetaData("SearchParamPK", SqlDbType.SmallInt), new SqlMetaData("CompositeCorrelationId", SqlDbType.TinyInt), new SqlMetaData("Value", SqlDbType.NVarChar, 512) };
@@ -46,7 +51,8 @@ namespace Microsoft.Health.Fhir.SqlServer
         private static readonly SqlMetaData[] TextTableValuedParameterColumns = { new SqlMetaData("Hash", SqlDbType.Binary, 32), new SqlMetaData("Text", SqlDbType.NVarChar, 512) };
         private static readonly SqlMetaData[] UriTableValuedParameterColumns = { new SqlMetaData("Uri", SqlDbType.VarChar, 512) };
 
-        private readonly SHA256 _sha256 = SHA256.Create();
+        [ThreadStatic]
+        private static SHA256 s_sha256;
 
         public SqlServerDataStore(SqlServerDataStoreConfiguration configuration, ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
@@ -59,6 +65,8 @@ namespace Microsoft.Health.Fhir.SqlServer
 
             InitializeStore().GetAwaiter().GetResult();
         }
+
+        private static SHA256 Sha256 => s_sha256 ?? (s_sha256 = SHA256.Create());
 
         private async Task InitializeStore()
         {
@@ -88,11 +96,13 @@ namespace Microsoft.Health.Fhir.SqlServer
                     using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync())
                     {
                         _resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
+                        _resourceTypeIdToTypeName = new Dictionary<short, string>();
                         while (await reader.ReadAsync())
                         {
-                            _resourceTypeToId.Add(
-                                reader.GetString(1),
-                                reader.GetInt16(0));
+                            string resourceTypeName = reader.GetString(1);
+                            short id = reader.GetInt16(0);
+                            _resourceTypeToId.Add(resourceTypeName, id);
+                            _resourceTypeIdToTypeName.Add(id, resourceTypeName);
                         }
 
                         await reader.NextResultAsync();
@@ -127,9 +137,76 @@ namespace Microsoft.Health.Fhir.SqlServer
             }
         }
 
-        public Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default)
+        public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            {
+                await connection.OpenAsync(cancellationToken);
+
+                using (SqlCommand command = connection.CreateCommand())
+                {
+                    bool versionedRead = !string.IsNullOrEmpty(key.VersionId);
+
+                    if (versionedRead)
+                    {
+                        command.CommandText = $@"
+SELECT Version, LastUpdated, RawResource 
+FROM dbo.Resource
+WHERE ResourceTypePK = @resourceTypePK AND Id = @id 
+AND Version = @version";
+                    }
+                    else
+                    {
+                        command.CommandText = $@"
+SELECT TOP 1 Version, LastUpdated, RawResource
+FROM dbo.Resource
+WHERE ResourceTypePK = @resourceTypePK AND Id = @id 
+ORDER BY [Version] DESC";
+                    }
+
+                    command.Parameters.AddWithValue("@resourceTypePK", _resourceTypeToId[key.ResourceType]);
+                    command.Parameters.AddWithValue("@id", key.Id);
+                    if (versionedRead)
+                    {
+                        if (!int.TryParse(key.VersionId, out var version))
+                        {
+                            return null;
+                        }
+
+                        command.Parameters.AddWithValue("@version", version);
+                    }
+
+                    using (SqlDataReader sqlDataReader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                    {
+                        if (!sqlDataReader.Read())
+                        {
+                            return null;
+                        }
+
+                        int version = sqlDataReader.GetInt32(0);
+                        DateTime lastModified = sqlDataReader.GetDateTime(1);
+                        string rawResource;
+
+                        using (var dataStream = sqlDataReader.GetStream(2))
+                        using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
+                        using (var gzipStream = new GZipStream(dataStream, CompressionMode.Decompress, true))
+                        {
+                            await gzipStream.CopyToAsync(ms, cancellationToken);
+                            rawResource = Encoding.UTF8.GetString(ms.GetBuffer().AsSpan().Slice(0, (int)ms.Length));
+                        }
+
+                        return new ResourceWrapper(
+                            key.Id,
+                            version.ToString(CultureInfo.InvariantCulture),
+                            key.ResourceType,
+                            new RawResource(rawResource, ResourceFormat.Json),
+                            new ResourceRequest("https://exmaple", HttpMethod.Get),
+                            new DateTimeOffset(lastModified, TimeSpan.Zero),
+                            false,
+                            ImmutableArray<KeyValuePair<string, string>>.Empty);
+                    }
+                }
+            }
         }
 
         public Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default)
@@ -146,17 +223,22 @@ namespace Microsoft.Health.Fhir.SqlServer
                 IReadOnlyCollection<SearchIndexEntry> searchIndexEntries = ((ISupportSearchIndices)resource).SearchIndices;
                 ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> lookupByType = GroupSearchIndexEntriesByType(searchIndexEntries);
 
-                if (isCreate)
+                using (var command = connection.CreateCommand())
                 {
-                    using (var command = connection.CreateCommand())
-                    {
-                        command.CommandText =
-                            @"
+                    command.CommandText =
+                        $@"
+SET XACT_ABORT ON
+BEGIN TRANSACTION
+
 DECLARE @resourcePk bigint
+DECLARE @version int = {(isCreate ? "1" : "(SELECT MAX(Version) FROM dbo.Resource WHERE ResourceTypePK = @resourceTypePK AND Id = @id) + 1")}
+
+IF @version IS NULL 
+    SET @version = 1
 
 INSERT INTO dbo.Resource 
-(ResourceTypePK, Id, IsHistory, Version, RawResource)
-VALUES (@type, @id, 0, @version, @rawResource)
+(ResourceTypePK, Id, Version, LastUpdated, RawResource)
+VALUES (@resourceTypePK, @id, @version, SYSUTCDATETIME(), @rawResource)
 SET @resourcePK = SCOPE_IDENTITY();
 
 INSERT INTO dbo.StringSearchParam
@@ -206,49 +288,48 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, Numbe
 INSERT INTO dbo.UriSearchParam
 (ResourceTypePK, ResourcePK, SearchParamPK, CompositeCorrelationId, Uri)
 SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, Uri FROM @tvpUriSearchParam
-                            ";
 
-                        short resourceTypePk = _resourceTypeToId[resource.ResourceTypeName];
-                        command.Parameters.AddWithValue("@type", resourceTypePk);
-                        command.Parameters.AddWithValue("@id", resource.ResourceId);
-                        command.Parameters.AddWithValue("@version", 1);
+COMMIT TRANSACTION
 
-                        byte[] bytes = ArrayPool<byte>.Shared.Rent(resource.RawResource.Data.Length * 4);
-                        try
+select @version";
+
+                    short resourceTypePk = _resourceTypeToId[resource.ResourceTypeName];
+                    command.Parameters.AddWithValue("@resourceTypePK", resourceTypePk);
+                    command.Parameters.Add(new SqlParameter("@id", SqlDbType.VarChar, 64) { Value = resource.ResourceId });
+
+                    byte[] bytes = ArrayPool<byte>.Shared.Rent(resource.RawResource.Data.Length * 4);
+                    try
+                    {
+                        using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
                         {
-                            using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
+                            using (var gzipStream = new GZipStream(ms, CompressionMode.Compress, true))
                             {
-                                using (var gzipStream = new GZipStream(ms, CompressionMode.Compress, true))
-                                {
-                                    gzipStream.Write(bytes.AsSpan().Slice(0, Encoding.UTF8.GetBytes(resource.RawResource.Data.AsSpan(), bytes.AsSpan())));
-                                }
-
-                                ms.Seek(0, 0);
-
-                                command.Parameters.AddWithValue("@rawResource", ms.GetBuffer()).Size = (int)ms.Length;
-
-                                AddStringSearchParams(lookupByType, resourceTypePk, command);
-                                AddTokenSearchParams(lookupByType, resourceTypePk, command);
-                                AddDateSearchParams(lookupByType, resourceTypePk, command);
-
-                                AddReferenceSearchParams(lookupByType, resourceTypePk, command);
-                                AddQuantitySearchParams(lookupByType, resourceTypePk, command);
-                                AddNumberSearchParams(lookupByType, resourceTypePk, command);
-                                AddUriSearchParams(lookupByType, resourceTypePk, command);
-
-                                await command.ExecuteNonQueryAsync(cancellationToken);
+                                gzipStream.Write(bytes.AsSpan().Slice(0, Encoding.UTF8.GetBytes(resource.RawResource.Data.AsSpan(), bytes.AsSpan())));
                             }
+
+                            ms.Seek(0, 0);
+
+                            command.Parameters.AddWithValue("@rawResource", ms.GetBuffer()).Size = (int)ms.Length;
+
+                            AddStringSearchParams(lookupByType, resourceTypePk, command);
+                            AddTokenSearchParams(lookupByType, resourceTypePk, command);
+                            AddDateSearchParams(lookupByType, resourceTypePk, command);
+
+                            AddReferenceSearchParams(lookupByType, resourceTypePk, command);
+                            AddQuantitySearchParams(lookupByType, resourceTypePk, command);
+                            AddNumberSearchParams(lookupByType, resourceTypePk, command);
+                            AddUriSearchParams(lookupByType, resourceTypePk, command);
+
+                            resource.Version = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+                            return new UpsertOutcome(resource, SaveOutcomeType.Created);
                         }
-                        finally
-                        {
-                            ArrayPool<byte>.Shared.Return(bytes);
-                        }
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(bytes);
                     }
                 }
             }
-
-            resource.Version = "0";
-            return new UpsertOutcome(resource, SaveOutcomeType.Created);
         }
 
         private static ILookup<Type, (SearchParameter searchParameter, byte? componentIndex, byte? compositeCorrelationId, ISearchValue value)> GroupSearchIndexEntriesByType(IReadOnlyCollection<SearchIndexEntry> searchIndexEntries)
@@ -304,7 +385,7 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, Uri F
                         try
                         {
                             int byteLength = Encoding.UTF8.GetBytes(text.AsSpan(), bytes.AsSpan());
-                            hash = _sha256.ComputeHash(bytes, 0, byteLength);
+                            hash = Sha256.ComputeHash(bytes, 0, byteLength);
                         }
                         finally
                         {
@@ -557,6 +638,59 @@ SELECT ResourceTypePK, @resourcePK, SearchParamPK, CompositeCorrelationId, Uri F
                     builder.ReadHistory = true;
                     builder.UpdateCreate = true;
                 });
+            }
+        }
+
+        public async Task<SearchResult> Search(SearchOptions searchOptions, CancellationToken cancellationToken)
+        {
+            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            {
+                await connection.OpenAsync(cancellationToken);
+
+                using (SqlCommand command = connection.CreateCommand())
+                {
+                    int pageSize = 10;
+
+#pragma warning disable CA1806 // Do not ignore method results
+                    int.TryParse(searchOptions.ContinuationToken, out int pageNum);
+#pragma warning restore CA1806 // Do not ignore method results
+
+                    command.CommandText = SqlQueryBuilder.BuildQuery(_resourceTypeToId, _searchParamUrlToId, searchOptions, command.Parameters, pageSize, pageNum);
+
+                    using (SqlDataReader sqlDataReader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                    {
+                        var results = new List<ResourceWrapper>();
+
+                        while (sqlDataReader.Read())
+                        {
+                            string resourceTypeName = _resourceTypeIdToTypeName[sqlDataReader.GetInt16(0)];
+                            string id = sqlDataReader.GetString(1);
+                            int version = sqlDataReader.GetInt32(2);
+                            DateTime lastModified = sqlDataReader.GetDateTime(3);
+                            string rawResource;
+
+                            using (var dataStream = sqlDataReader.GetStream(4))
+                            using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
+                            using (var gzipStream = new GZipStream(dataStream, CompressionMode.Decompress, true))
+                            {
+                                await gzipStream.CopyToAsync(ms, cancellationToken);
+                                rawResource = Encoding.UTF8.GetString(ms.GetBuffer().AsSpan().Slice(0, (int)ms.Length));
+                            }
+
+                            results.Add(new ResourceWrapper(
+                                id,
+                                version.ToString(CultureInfo.InvariantCulture),
+                                resourceTypeName,
+                                new RawResource(rawResource, ResourceFormat.Json),
+                                new ResourceRequest("https://exmaple", HttpMethod.Get),
+                                new DateTimeOffset(lastModified, TimeSpan.Zero),
+                                false,
+                                ImmutableArray<KeyValuePair<string, string>>.Empty));
+                        }
+
+                        return new SearchResult(results, results.Count == pageSize ? (pageNum + 1).ToString(CultureInfo.InvariantCulture) : null);
+                    }
+                }
             }
         }
     }
