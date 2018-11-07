@@ -226,6 +226,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
+        public void GivenACapabilityStatement_WhenSupportingSearchParamConfiguringDuplicateSearchParams_ThenNotSupportedExceptionIsThrown()
+        {
+            var supported = GetMockedListedCapabilityStatement();
+            supported.TryAddSearchParams(ResourceType.Account, GetSearchParamCollection());
+
+            var configured = CapabilityStatementMock.GetMockedCapabilityStatement();
+            CapabilityStatementMock.SetupMockResource(configured, ResourceType.Account, null, new List<SearchParamComponent>
+            {
+                new SearchParamComponent { Type = SearchParamType.String, Name = "name" },
+                new SearchParamComponent { Type = SearchParamType.String, Name = "name" },
+            });
+
+            Assert.Throws<UnsupportedConfigurationException>(() => supported.Intersect(configured, strictConfig: true));
+        }
+
+        [Fact]
         public void GivenACapabilityStatement_WhenSupportingSearchParamConfiguringSearchParam_ThenResultIsCorrectlyIntersected()
         {
             var supported = GetMockedListedCapabilityStatement();

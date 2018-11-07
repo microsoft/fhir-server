@@ -25,12 +25,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         }
 
         [Fact]
+        public void GivenAnInvalidAuthorizationConfigurationForRoleWithNoPermissions_WhenValidated_ThrowAppropriateValidationException()
+        {
+            var invalidAuthorizationConfiguration = Samples.GetJsonSample<AuthorizationConfiguration>("AuthConfigWithValidRoles");
+            invalidAuthorizationConfiguration.Roles[0].ResourcePermissions.Clear();
+
+            InvalidDefinitionException validationException = Assert.Throws<InvalidDefinitionException>(() => invalidAuthorizationConfiguration.ValidateRoles());
+
+            Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("Role 'clinician' must have one or more ResourcePermissions.")));
+        }
+
+        [Fact]
         public void GivenAnInvalidAuthorizationConfigurationForRoleWithNoActions_WhenValidated_ThrowAppropriateValidationException()
         {
             var invalidAuthorizationConfiguration = Samples.GetJsonSample<AuthorizationConfiguration>("AuthConfigWithInvalidEntries");
             InvalidDefinitionException validationException = Assert.Throws<InvalidDefinitionException>(() => invalidAuthorizationConfiguration.ValidateRoles());
 
-            Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("ResourcePermission for Role 'Nurse' does not have any Actions.")));
+            Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("Role 'Nurse' contains a ResourcePermission with no Actions.")));
         }
     }
 }
