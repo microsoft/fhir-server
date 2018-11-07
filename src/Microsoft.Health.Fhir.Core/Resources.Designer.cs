@@ -115,6 +115,78 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The compartment definition contains one or more invalid entries..
+        /// </summary>
+        internal static string CompartmentDefinitionContainsInvalidEntry {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionContainsInvalidEntry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource has duplicate resources..
+        /// </summary>
+        internal static string CompartmentDefinitionDupeResource {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionDupeResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}] is null..
+        /// </summary>
+        internal static string CompartmentDefinitionInvalidBundle {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionInvalidBundle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource.code is null. Not a valid compartment type..
+        /// </summary>
+        internal static string CompartmentDefinitionInvalidCompartmentType {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionInvalidCompartmentType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource is null or is not a CompartmentDefinition resource..
+        /// </summary>
+        internal static string CompartmentDefinitionInvalidResource {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionInvalidResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource.url is invalid..
+        /// </summary>
+        internal static string CompartmentDefinitionInvalidUrl {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionInvalidUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}].resource has duplicate compartment definitions..
+        /// </summary>
+        internal static string CompartmentDefinitionIsDupe {
+            get {
+                return ResourceManager.GetString("CompartmentDefinitionIsDupe", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The composite separator cannot be found..
+        /// </summary>
+        internal static string CompositeSeparatorNotFound {
+            get {
+                return ResourceManager.GetString("CompositeSeparatorNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {

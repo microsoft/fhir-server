@@ -135,6 +135,31 @@
   <data name="ComparatorNotSupported" xml:space="preserve">
     <value>Comparator '{0}' is not supported for search parameter '{1}'.</value>
   </data>
+  <data name="CompartmentDefinitionContainsInvalidEntry" xml:space="preserve">
+    <value>The compartment definition contains one or more invalid entries.</value>
+  </data>
+  <data name="CompartmentDefinitionDupeResource" xml:space="preserve">
+    <value>bundle.entry[{0}].resource has duplicate resources.</value>
+  </data>
+  <data name="CompartmentDefinitionInvalidBundle" xml:space="preserve">
+    <value>bundle.entry[{0}] is null.</value>
+    <comment>{0}: The bundle entry id.</comment>
+  </data>
+  <data name="CompartmentDefinitionInvalidCompartmentType" xml:space="preserve">
+    <value>bundle.entry[{0}].resource.code is null. Not a valid compartment type.</value>
+  </data>
+  <data name="CompartmentDefinitionInvalidResource" xml:space="preserve">
+    <value>bundle.entry[{0}].resource is null or is not a CompartmentDefinition resource.</value>
+  </data>
+  <data name="CompartmentDefinitionInvalidUrl" xml:space="preserve">
+    <value>bundle.entry[{0}].resource.url is invalid.</value>
+  </data>
+  <data name="CompartmentDefinitionIsDupe" xml:space="preserve">
+    <value>bundle.entry[{0}].resource has duplicate compartment definitions.</value>
+  </data>
+  <data name="CompositeSeparatorNotFound" xml:space="preserve">
+    <value>The composite separator cannot be found.</value>
+  </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
   </data>

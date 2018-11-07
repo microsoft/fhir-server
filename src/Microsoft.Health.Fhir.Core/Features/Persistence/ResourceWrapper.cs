@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceWrapper
     {
-        public ResourceWrapper(Resource resource, RawResource rawResource, ResourceRequest request, bool deleted, IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+        public ResourceWrapper(Resource resource, RawResource rawResource, ResourceRequest request, bool deleted, IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims, CompartmentIndices compartmentIndices)
            : this(
                  IsNotNull(resource).Id,
                  resource.VersionId,
@@ -22,7 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  request,
                  resource.Meta?.LastUpdated ?? Clock.UtcNow,
                  deleted,
-                 lastModifiedClaims)
+                 lastModifiedClaims,
+                 compartmentIndices)
         {
         }
 
@@ -34,7 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceRequest request,
             DateTimeOffset lastModified,
             bool deleted,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            CompartmentIndices compartmentIndices)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IsDeleted = deleted;
             LastModified = lastModified;
             LastModifiedClaims = lastModifiedClaims;
+            CompartmentIndices = compartmentIndices;
         }
 
         [JsonConstructor]
@@ -85,6 +88,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         [JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }
+
+        [JsonProperty(KnownResourceWrapperProperties.CompartmentIndices)]
+        public CompartmentIndices CompartmentIndices { get; protected set; }
 
         public ResourceKey ToResourceKey()
         {
