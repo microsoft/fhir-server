@@ -11,10 +11,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Gets the field name.
         /// </summary>
         FieldName FieldName { get; }
-
-        /// <summary>
-        /// Gets the optional component index.
-        /// </summary>
-        int? ComponentIndex { get; }
     }
 }

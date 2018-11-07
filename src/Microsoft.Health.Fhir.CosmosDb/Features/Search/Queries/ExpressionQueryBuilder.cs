@@ -61,6 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         private string _instanceVariableName = SearchValueConstants.RootAliasName;
         private string _fieldNameOverride;
+        private int? _componentIndex;
 
         internal ExpressionQueryBuilder(
             StringBuilder queryBuilder,
@@ -96,6 +97,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             }
 
             _queryBuilder.AppendLine();
+        }
+
+        public void Visit(CompositeComponentSearchParameterExpression expression)
+        {
+            int? componentIndexSnapshot = _componentIndex;
+            try
+            {
+                _componentIndex = expression.ComponentIndex;
+            }
+            finally
+            {
+                _componentIndex = componentIndexSnapshot;
+            }
         }
 
         public void Visit(MissingSearchParameterExpression expression)
@@ -282,12 +296,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             string fieldNameInString = GetMappedValue(FieldNameMapping, fieldExpression.FieldName);
 
-            if (fieldExpression.ComponentIndex == null)
+            if (_componentIndex == null)
             {
                 return fieldNameInString;
             }
 
-            return $"{fieldNameInString}_{fieldExpression.ComponentIndex.Value}";
+            return $"{fieldNameInString}_{_componentIndex}";
         }
 
         private static string GetMappedValue<T>(Dictionary<T, string> mapping, T key)

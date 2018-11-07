@@ -17,14 +17,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="stringOperator">The string operator.</param>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
-        public StringExpression(StringOperator stringOperator, FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public StringExpression(StringOperator stringOperator, FieldName fieldName, string value, bool ignoreCase)
         {
             StringOperator = stringOperator;
             FieldName = fieldName;
-            ComponentIndex = componentIndex;
             Value = value;
             IgnoreCase = ignoreCase;
         }
@@ -36,9 +34,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         /// <inheritdoc />
         public FieldName FieldName { get; }
-
-        /// <inheritdoc />
-        public int? ComponentIndex { get; }
 
         /// <summary>
         /// Gets the value.

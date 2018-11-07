@@ -16,18 +16,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Initializes a new instance of the <see cref="MissingFieldExpression"/> class.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
-        public MissingFieldExpression(FieldName fieldName, int? componentIndex)
+        public MissingFieldExpression(FieldName fieldName)
         {
             FieldName = fieldName;
-            ComponentIndex = componentIndex;
         }
 
         /// <inheritdoc />
         public FieldName FieldName { get; }
-
-        /// <inheritdoc />
-        public int? ComponentIndex { get; }
 
         protected internal override void AcceptVisitor(IExpressionVisitor visitor)
         {

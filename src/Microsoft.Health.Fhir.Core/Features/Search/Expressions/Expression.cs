@@ -25,6 +25,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
+        /// Creates a <see cref="CompositeComponentSearchParameterExpression"/>.
+        /// </summary>
+        /// <param name="componentSearchParameter">The component search parameter this expression is bound to.</param>
+        /// <param name="expression">The expression over the parameter's values.</param>
+        /// <param name="componentIndex">The composite component index.</param>
+        /// <returns>A <see cref="CompositeComponentSearchParameterExpression"/>.</returns>
+        public static CompositeComponentSearchParameterExpression CompositeComponentSearchParameter(SearchParameter componentSearchParameter, Expression expression, int componentIndex)
+        {
+            return new CompositeComponentSearchParameterExpression(componentSearchParameter, expression, componentIndex);
+        }
+
+        /// <summary>
         /// Creates a <see cref="MissingSearchParameterExpression"/> that represents a search parameter being present or not in a resource.
         /// </summary>
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>
@@ -72,108 +84,101 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Creates a <see cref="StringExpression"/> that represents contains operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
         /// <returns>A <see cref="StringExpression"/> that represents contains operation.</returns>
-        public static StringExpression Contains(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public static StringExpression Contains(FieldName fieldName, string value, bool ignoreCase)
         {
-            return new StringExpression(StringOperator.Contains, fieldName, componentIndex, value, ignoreCase);
+            return new StringExpression(StringOperator.Contains, fieldName, value, ignoreCase);
         }
 
         /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents ends with operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
         /// <returns>A <see cref="StringExpression"/> that represents ends with operation.</returns>
-        public static StringExpression EndsWith(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public static StringExpression EndsWith(FieldName fieldName, string value, bool ignoreCase)
         {
-            return new StringExpression(StringOperator.EndsWith, fieldName, componentIndex, value, ignoreCase);
+            return new StringExpression(StringOperator.EndsWith, fieldName, value, ignoreCase);
         }
 
         /// <summary>
         /// Creates a <see cref="BinaryExpression"/> that represents an equality comparison.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <returns>A <see cref="BinaryExpression"/> that represents an equality comparison.</returns>
-        public static BinaryExpression Equals(FieldName fieldName, int? componentIndex, object value)
+        public static BinaryExpression Equals(FieldName fieldName, object value)
         {
-            return new BinaryExpression(BinaryOperator.Equal, fieldName, componentIndex, value);
+            return new BinaryExpression(BinaryOperator.Equal, fieldName, value);
         }
 
-        public static BinaryExpression GreaterThan(FieldName fieldName, int? componentIndex, object value)
+        public static BinaryExpression GreaterThan(FieldName fieldName, object value)
         {
-            return new BinaryExpression(BinaryOperator.GreaterThan, fieldName, componentIndex, value);
+            return new BinaryExpression(BinaryOperator.GreaterThan, fieldName, value);
         }
 
-        public static BinaryExpression GreaterThanOrEqual(FieldName fieldName, int? componentIndex, object value)
+        public static BinaryExpression GreaterThanOrEqual(FieldName fieldName, object value)
         {
-            return new BinaryExpression(BinaryOperator.GreaterThanOrEqual, fieldName, componentIndex, value);
+            return new BinaryExpression(BinaryOperator.GreaterThanOrEqual, fieldName, value);
         }
 
-        public static BinaryExpression LessThan(FieldName fieldName, int? componentIndex, object value)
+        public static BinaryExpression LessThan(FieldName fieldName, object value)
         {
-            return new BinaryExpression(BinaryOperator.LessThan, fieldName, componentIndex, value);
+            return new BinaryExpression(BinaryOperator.LessThan, fieldName, value);
         }
 
-        public static BinaryExpression LessThanOrEqual(FieldName fieldName, int? componentIndex, object value)
+        public static BinaryExpression LessThanOrEqual(FieldName fieldName, object value)
         {
-            return new BinaryExpression(BinaryOperator.LessThanOrEqual, fieldName, componentIndex, value);
+            return new BinaryExpression(BinaryOperator.LessThanOrEqual, fieldName, value);
         }
 
         /// <summary>
         /// Creates a <see cref="MissingFieldExpression"/> that represents a missing field.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <returns>A <see cref="MissingFieldExpression"/> that represents a missing field.</returns>
-        public static MissingFieldExpression Missing(FieldName fieldName, int? componentIndex)
+        public static MissingFieldExpression Missing(FieldName fieldName)
         {
-            return new MissingFieldExpression(fieldName, componentIndex);
+            return new MissingFieldExpression(fieldName);
         }
 
         /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents not contains operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
         /// <returns>A <see cref="StringExpression"/> that represents not contains operation.</returns>
-        public static StringExpression NotContains(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public static StringExpression NotContains(FieldName fieldName, string value, bool ignoreCase)
         {
-            return new StringExpression(StringOperator.NotContains, fieldName, componentIndex, value, ignoreCase);
+            return new StringExpression(StringOperator.NotContains, fieldName, value, ignoreCase);
         }
 
         /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents not ends with operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
         /// <returns>A <see cref="StringExpression"/> that represents not ends with operation.</returns>
-        public static StringExpression NotEndsWith(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public static StringExpression NotEndsWith(FieldName fieldName, string value, bool ignoreCase)
         {
-            return new StringExpression(StringOperator.NotEndsWith, fieldName, componentIndex, value, ignoreCase);
+            return new StringExpression(StringOperator.NotEndsWith, fieldName, value, ignoreCase);
         }
 
         /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents not starts with operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
         /// <returns>A <see cref="StringExpression"/> that represents not starts with operation.</returns>
-        public static StringExpression NotStartsWith(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public static StringExpression NotStartsWith(FieldName fieldName, string value, bool ignoreCase)
         {
-            return new StringExpression(StringOperator.NotStartsWith, fieldName, componentIndex, value, ignoreCase);
+            return new StringExpression(StringOperator.NotStartsWith, fieldName, value, ignoreCase);
         }
 
         /// <summary>
@@ -200,26 +205,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Creates a <see cref="StringExpression"/> that represents starts with operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
         /// <returns>A <see cref="StringExpression"/> that represents starts with operation.</returns>
-        public static StringExpression StartsWith(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public static StringExpression StartsWith(FieldName fieldName, string value, bool ignoreCase)
         {
-            return new StringExpression(StringOperator.StartsWith, fieldName, componentIndex, value, ignoreCase);
+            return new StringExpression(StringOperator.StartsWith, fieldName, value, ignoreCase);
         }
 
         /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents string equals operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
         /// <returns>A <see cref="StringExpression"/> that represents string equals operation.</returns>
-        public static StringExpression StringEquals(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public static StringExpression StringEquals(FieldName fieldName, string value, bool ignoreCase)
         {
-            return new StringExpression(StringOperator.Equals, fieldName, componentIndex, value, ignoreCase);
+            return new StringExpression(StringOperator.Equals, fieldName, value, ignoreCase);
         }
 
         protected internal abstract void AcceptVisitor(IExpressionVisitor visitor);

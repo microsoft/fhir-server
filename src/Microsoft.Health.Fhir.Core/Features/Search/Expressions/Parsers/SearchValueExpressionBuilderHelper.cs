@@ -20,7 +20,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         private string _searchParameterName;
         private SearchModifierCode? _modifier;
         private SearchComparator _comparator;
-        private int? _componentIndex;
 
         private Expression _outputExpression;
 
@@ -28,7 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             string searchParameterName,
             SearchModifierCode? modifier,
             SearchComparator comparator,
-            int? componentIndex,
             ISearchValue searchValue)
         {
             EnsureArg.IsNotNullOrWhiteSpace(searchParameterName, nameof(searchParameterName));
@@ -43,7 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             _searchParameterName = searchParameterName;
             _modifier = modifier;
             _comparator = comparator;
-            _componentIndex = componentIndex;
 
             searchValue.AcceptVisitor(this);
 
@@ -71,31 +68,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 case SearchComparator.Eq:
                     _outputExpression = Expression.And(
-                        Expression.GreaterThanOrEqual(FieldName.DateTimeStart, _componentIndex, dateTime.Start),
-                        Expression.LessThanOrEqual(FieldName.DateTimeEnd, _componentIndex, dateTime.End));
+                        Expression.GreaterThanOrEqual(FieldName.DateTimeStart, dateTime.Start),
+                        Expression.LessThanOrEqual(FieldName.DateTimeEnd, dateTime.End));
                     break;
                 case SearchComparator.Ne:
                     _outputExpression = Expression.Or(
-                        Expression.LessThan(FieldName.DateTimeStart, _componentIndex, dateTime.Start),
-                        Expression.GreaterThan(FieldName.DateTimeEnd, _componentIndex, dateTime.End));
+                        Expression.LessThan(FieldName.DateTimeStart, dateTime.Start),
+                        Expression.GreaterThan(FieldName.DateTimeEnd, dateTime.End));
                     break;
                 case SearchComparator.Lt:
-                    _outputExpression = Expression.LessThan(FieldName.DateTimeStart, _componentIndex, dateTime.Start);
+                    _outputExpression = Expression.LessThan(FieldName.DateTimeStart, dateTime.Start);
                     break;
                 case SearchComparator.Gt:
-                    _outputExpression = Expression.GreaterThan(FieldName.DateTimeEnd, _componentIndex, dateTime.End);
+                    _outputExpression = Expression.GreaterThan(FieldName.DateTimeEnd, dateTime.End);
                     break;
                 case SearchComparator.Le:
-                    _outputExpression = Expression.LessThanOrEqual(FieldName.DateTimeStart, _componentIndex, dateTime.End);
+                    _outputExpression = Expression.LessThanOrEqual(FieldName.DateTimeStart, dateTime.End);
                     break;
                 case SearchComparator.Ge:
-                    _outputExpression = Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, _componentIndex, dateTime.Start);
+                    _outputExpression = Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, dateTime.Start);
                     break;
                 case SearchComparator.Sa:
-                    _outputExpression = Expression.GreaterThan(FieldName.DateTimeStart, _componentIndex, dateTime.End);
+                    _outputExpression = Expression.GreaterThan(FieldName.DateTimeStart, dateTime.End);
                     break;
                 case SearchComparator.Eb:
-                    _outputExpression = Expression.LessThan(FieldName.DateTimeEnd, _componentIndex, dateTime.Start);
+                    _outputExpression = Expression.LessThan(FieldName.DateTimeEnd, dateTime.Start);
                     break;
                 case SearchComparator.Ap:
                     var startTicks = dateTime.Start.UtcTicks;
@@ -107,8 +104,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     var approximateEnd = dateTime.End.AddTicks(differenceTicks);
 
                     _outputExpression = Expression.And(
-                        Expression.GreaterThanOrEqual(FieldName.DateTimeStart, _componentIndex, approximateStart),
-                        Expression.LessThanOrEqual(FieldName.DateTimeEnd, _componentIndex, approximateEnd));
+                        Expression.GreaterThanOrEqual(FieldName.DateTimeStart, approximateStart),
+                        Expression.LessThanOrEqual(FieldName.DateTimeEnd, approximateEnd));
                     break;
                 default:
                     ThrowComparatorNotSupported();
@@ -144,13 +141,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             if (!string.IsNullOrWhiteSpace(quantity.System))
             {
                 expressions.Add(
-                    Expression.StringEquals(FieldName.QuantitySystem, _componentIndex, quantity.System, false));
+                    Expression.StringEquals(FieldName.QuantitySystem, quantity.System, false));
             }
 
             if (!string.IsNullOrWhiteSpace(quantity.Code))
             {
                 expressions.Add(
-                    Expression.StringEquals(FieldName.QuantityCode, _componentIndex, quantity.Code, false));
+                    Expression.StringEquals(FieldName.QuantityCode, quantity.Code, false));
             }
 
             expressions.Add(GenerateNumberExpression(FieldName.Quantity, quantity.Quantity));
@@ -180,29 +177,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 // The reference is external.
                 _outputExpression = Expression.And(
-                    Expression.StringEquals(FieldName.ReferenceBaseUri, _componentIndex, reference.BaseUri.ToString(), false),
-                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
-                    Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
+                    Expression.StringEquals(FieldName.ReferenceBaseUri, reference.BaseUri.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceType, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceId, reference.ResourceId, false));
             }
             else if (reference.ResourceType == null)
             {
                 // Only resource id is specified.
-                _outputExpression = Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false);
+                _outputExpression = Expression.StringEquals(FieldName.ReferenceResourceId, reference.ResourceId, false);
             }
             else if (reference.Kind == ReferenceKind.Internal)
             {
                 // The reference must be internal.
                 _outputExpression = Expression.And(
-                    Expression.Missing(FieldName.ReferenceBaseUri, _componentIndex),
-                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
-                    Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
+                    Expression.Missing(FieldName.ReferenceBaseUri),
+                    Expression.StringEquals(FieldName.ReferenceResourceType, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceId, reference.ResourceId, false));
             }
             else
             {
                 // The reference can be internal or external.
                 _outputExpression = Expression.And(
-                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
-                    Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
+                    Expression.StringEquals(FieldName.ReferenceResourceType, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceId, reference.ResourceId, false));
             }
         }
 
@@ -216,17 +213,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 // Based on spec http://hl7.org/fhir/STU3/search.html#string,
                 // is case-insensitive search so we will normalize into lower case for search.
-                _outputExpression = Expression.StartsWith(FieldName.String, _componentIndex, s.String, true);
+                _outputExpression = Expression.StartsWith(FieldName.String, s.String, true);
             }
             else if (_modifier == SearchModifierCode.Exact)
             {
-                _outputExpression = Expression.StringEquals(FieldName.String, _componentIndex, s.String, false);
+                _outputExpression = Expression.StringEquals(FieldName.String, s.String, false);
             }
             else if (_modifier == SearchModifierCode.Contains)
             {
                 // Based on spec http://hl7.org/fhir/STU3/search.html#modifiers,
                 // contains is case-insensitive search so we will normalize into lower case for search.
-                _outputExpression = Expression.Contains(FieldName.String, _componentIndex, s.String, true);
+                _outputExpression = Expression.Contains(FieldName.String, s.String, true);
             }
             else
             {
@@ -247,25 +244,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 if (token.System == null)
                 {
                     // If the system is not supplied, then the token code is matched irrespective of the value of system.
-                    _outputExpression = Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false);
+                    _outputExpression = Expression.StringEquals(FieldName.TokenCode, token.Code, false);
                 }
                 else if (token.System.Length == 0)
                 {
                     // If the system is empty, then the token is matched if there is no system property.
                     _outputExpression = Expression.And(
-                       Expression.Missing(FieldName.TokenSystem, _componentIndex),
-                       Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
+                       Expression.Missing(FieldName.TokenSystem),
+                       Expression.StringEquals(FieldName.TokenCode, token.Code, false));
                 }
                 else if (string.IsNullOrWhiteSpace(token.Code))
                 {
                     // If the code is empty, then the token is matched if system is matched.
-                    _outputExpression = Expression.StringEquals(FieldName.TokenSystem, _componentIndex, token.System, false);
+                    _outputExpression = Expression.StringEquals(FieldName.TokenSystem, token.System, false);
                 }
                 else
                 {
                     _outputExpression = Expression.And(
-                        Expression.StringEquals(FieldName.TokenSystem, _componentIndex, token.System, false),
-                        Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
+                        Expression.StringEquals(FieldName.TokenSystem, token.System, false),
+                        Expression.StringEquals(FieldName.TokenCode, token.Code, false));
                 }
             }
             else if (_modifier == SearchModifierCode.Above ||
@@ -289,17 +286,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             switch (_modifier)
             {
                 case null:
-                    _outputExpression = Expression.Equals(FieldName.Uri, _componentIndex, uri.Uri);
+                    _outputExpression = Expression.Equals(FieldName.Uri, uri.Uri);
                     break;
                 case SearchModifierCode.Above:
                     _outputExpression = Expression.And(
-                        Expression.EndsWith(FieldName.Uri, _componentIndex, uri.Uri, false),
-                        Expression.NotStartsWith(FieldName.Uri, _componentIndex, KnownUriSchemes.Urn, false));
+                        Expression.EndsWith(FieldName.Uri, uri.Uri, false),
+                        Expression.NotStartsWith(FieldName.Uri, KnownUriSchemes.Urn, false));
                     break;
                 case SearchModifierCode.Below:
                     _outputExpression = Expression.And(
-                        Expression.StartsWith(FieldName.Uri, _componentIndex, uri.Uri, false),
-                        Expression.NotStartsWith(FieldName.Uri, _componentIndex, KnownUriSchemes.Urn, false));
+                        Expression.StartsWith(FieldName.Uri, uri.Uri, false),
+                        Expression.NotStartsWith(FieldName.Uri, KnownUriSchemes.Urn, false));
                     break;
                 default:
                     ThrowModifierNotSupported();
@@ -339,22 +336,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 case SearchComparator.Eq:
                 case SearchComparator.Ap:
                     return Expression.And(
-                        Expression.GreaterThanOrEqual(fieldName, _componentIndex, lowerBound),
-                        Expression.LessThanOrEqual(fieldName, _componentIndex, upperBound));
+                        Expression.GreaterThanOrEqual(fieldName, lowerBound),
+                        Expression.LessThanOrEqual(fieldName, upperBound));
                 case SearchComparator.Ne:
                     return Expression.Or(
-                        Expression.LessThan(fieldName, _componentIndex, lowerBound),
-                        Expression.GreaterThan(fieldName, _componentIndex, upperBound));
+                        Expression.LessThan(fieldName, lowerBound),
+                        Expression.GreaterThan(fieldName, upperBound));
                 case SearchComparator.Ge:
-                    return Expression.GreaterThanOrEqual(fieldName, _componentIndex, number);
+                    return Expression.GreaterThanOrEqual(fieldName, number);
                 case SearchComparator.Gt:
                 case SearchComparator.Sa:
-                    return Expression.GreaterThan(fieldName, _componentIndex, number);
+                    return Expression.GreaterThan(fieldName, number);
                 case SearchComparator.Le:
-                    return Expression.LessThanOrEqual(fieldName, _componentIndex, number);
+                    return Expression.LessThanOrEqual(fieldName, number);
                 case SearchComparator.Lt:
                 case SearchComparator.Eb:
-                    return Expression.LessThan(fieldName, _componentIndex, number);
+                    return Expression.LessThan(fieldName, number);
                 default:
                     ThrowComparatorNotSupported();
                     break;

@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
                 }
 
-                outputExpression = Expression.Contains(FieldName.TokenText, null, value, true);
+                outputExpression = Expression.Contains(FieldName.TokenText, value, true);
             }
             else
             {
@@ -123,11 +123,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                         string componentValue = compositeValueParts[i];
 
-                        compositeExpressions[i] = Build(
-                            componentSearchParameter,
-                            modifier: null,
-                            componentIndex: i,
-                            value: componentValue);
+                        compositeExpressions[i] =
+                            Expression.CompositeComponentSearchParameter(
+                                componentSearchParameter,
+                                Build(
+                                    componentSearchParameter,
+                                    modifier: null,
+                                    value: componentValue),
+                                i);
                     }
 
                     outputExpression = Expression.And(compositeExpressions);
@@ -137,7 +140,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     outputExpression = Build(
                         searchParameter,
                         modifier,
-                        componentIndex: null,
                         value: value);
                 }
             }
@@ -148,7 +150,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         private Expression Build(
             SearchParameter searchParameter,
             SearchModifierCode? modifier,
-            int? componentIndex,
             string value)
         {
             ReadOnlySpan<char> valueSpan = value.AsSpan();
@@ -190,7 +191,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     searchParameter.Name,
                     modifier,
                     comparator,
-                    componentIndex,
                     searchValue);
             }
             else
@@ -209,7 +209,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         searchParameter.Name,
                         modifier,
                         comparator,
-                        componentIndex,
                         searchValue);
                 }).ToArray();
 

@@ -74,6 +74,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 valueValidators);
         }
 
+        public static void ValidateCompositeComponentExpression(
+            Expression expression,
+            int index,
+            Action<Expression> valueValidator)
+        {
+            CompositeComponentSearchParameterExpression componentExpression = Assert.IsType<CompositeComponentSearchParameterExpression>(expression);
+
+            Assert.Equal(index, componentExpression.ComponentIndex);
+
+            valueValidator(componentExpression.Expression);
+        }
+
         public static void ValidateEqualsExpression(Expression expression, FieldName expectedFieldName, object expectedValue)
         {
             ValidateBinaryExpression(expression, expectedFieldName, BinaryOperator.Equal, expectedValue);

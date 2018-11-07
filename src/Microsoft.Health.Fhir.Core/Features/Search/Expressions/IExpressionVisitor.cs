@@ -17,6 +17,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         void Visit(SearchParameterExpression expression);
 
         /// <summary>
+        /// Visits the <see cref="CompositeComponentSearchParameterExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        void Visit(CompositeComponentSearchParameterExpression expression);
+
+        /// <summary>
         /// Visits the <see cref="BinaryExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>

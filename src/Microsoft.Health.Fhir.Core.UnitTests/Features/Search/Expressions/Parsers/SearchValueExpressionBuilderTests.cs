@@ -157,21 +157,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 outer => ValidateMultiaryExpression(
                     outer,
                     MultiaryOperator.And,
-                    e => ValidateMultiaryExpression(
-                        e,
-                        MultiaryOperator.And,
-                        se => ValidateStringExpression(se, FieldName.TokenSystem, StringOperator.Equals, system, false),
-                        se => ValidateStringExpression(se, FieldName.TokenCode, StringOperator.Equals, code, false)),
-                    e => ValidateMultiaryExpression(
-                        e,
-                        MultiaryOperator.And,
-                        e1 => ValidateStringExpression(e1, FieldName.QuantitySystem, StringOperator.Equals, quantitySystem, false),
-                        e1 => ValidateStringExpression(e1, FieldName.QuantityCode, StringOperator.Equals, quantityCode, false),
-                        e1 => ValidateMultiaryExpression(
-                            e1,
+                    ce => ValidateCompositeComponentExpression(
+                        ce,
+                        0,
+                        e => ValidateMultiaryExpression(
+                            e,
                             MultiaryOperator.And,
-                            e2 => ValidateBinaryExpression(e2, FieldName.Quantity, BinaryOperator.GreaterThanOrEqual, 9.5m),
-                            e2 => ValidateBinaryExpression(e2, FieldName.Quantity, BinaryOperator.LessThanOrEqual, 10.5m)))));
+                            se => ValidateStringExpression(se, FieldName.TokenSystem, StringOperator.Equals, system, false),
+                            se => ValidateStringExpression(se, FieldName.TokenCode, StringOperator.Equals, code, false))),
+                    ce => ValidateCompositeComponentExpression(
+                        ce,
+                        1,
+                        e => ValidateMultiaryExpression(
+                            e,
+                            MultiaryOperator.And,
+                            e1 => ValidateStringExpression(e1, FieldName.QuantitySystem, StringOperator.Equals, quantitySystem, false),
+                            e1 => ValidateStringExpression(e1, FieldName.QuantityCode, StringOperator.Equals, quantityCode, false),
+                            e1 => ValidateMultiaryExpression(
+                                e1,
+                                MultiaryOperator.And,
+                                e2 => ValidateBinaryExpression(e2, FieldName.Quantity, BinaryOperator.GreaterThanOrEqual, 9.5m),
+                                e2 => ValidateBinaryExpression(e2, FieldName.Quantity, BinaryOperator.LessThanOrEqual, 10.5m))))));
         }
 
         [Fact]
@@ -210,18 +216,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 outer => ValidateMultiaryExpression(
                     outer,
                     MultiaryOperator.And,
-                    e => ValidateMultiaryExpression(
-                        e,
-                        MultiaryOperator.And,
-                        e1 => ValidateStringExpression(e1, FieldName.QuantitySystem, StringOperator.Equals, quantitySystem1, false),
-                        e1 => ValidateStringExpression(e1, FieldName.QuantityCode, StringOperator.Equals, quantityCode1, false),
-                        e1 => ValidateBinaryExpression(e1, FieldName.Quantity, BinaryOperator.GreaterThan, quantity1)),
-                    e => ValidateMultiaryExpression(
-                        e,
-                        MultiaryOperator.And,
-                        e1 => ValidateStringExpression(e1, FieldName.QuantitySystem, StringOperator.Equals, quantitySystem2, false),
-                        e1 => ValidateStringExpression(e1, FieldName.QuantityCode, StringOperator.Equals, quantityCode2, false),
-                        e1 => ValidateBinaryExpression(e1, FieldName.Quantity, BinaryOperator.LessThanOrEqual, quantity2))));
+                    ce => ValidateCompositeComponentExpression(
+                        ce,
+                        0,
+                        e => ValidateMultiaryExpression(
+                            e,
+                            MultiaryOperator.And,
+                            e1 => ValidateStringExpression(e1, FieldName.QuantitySystem, StringOperator.Equals, quantitySystem1, false),
+                            e1 => ValidateStringExpression(e1, FieldName.QuantityCode, StringOperator.Equals, quantityCode1, false),
+                            e1 => ValidateBinaryExpression(e1, FieldName.Quantity, BinaryOperator.GreaterThan, quantity1))),
+                    ce => ValidateCompositeComponentExpression(
+                        ce,
+                        1,
+                        e => ValidateMultiaryExpression(
+                            e,
+                            MultiaryOperator.And,
+                            e1 => ValidateStringExpression(e1, FieldName.QuantitySystem, StringOperator.Equals, quantitySystem2, false),
+                            e1 => ValidateStringExpression(e1, FieldName.QuantityCode, StringOperator.Equals, quantityCode2, false),
+                            e1 => ValidateBinaryExpression(e1, FieldName.Quantity, BinaryOperator.LessThanOrEqual, quantity2)))));
         }
 
         [Theory]

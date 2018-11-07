@@ -17,15 +17,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="binaryOperator">The binary operator.</param>
         /// <param name="fieldName">The field name.</param>
-        /// <param name="componentIndex">The component index.</param>
         /// <param name="value">The value.</param>
-        public BinaryExpression(BinaryOperator binaryOperator, FieldName fieldName, int? componentIndex, object value)
+        public BinaryExpression(BinaryOperator binaryOperator, FieldName fieldName, object value)
         {
             EnsureArg.IsNotNull(value, nameof(value));
 
             BinaryOperator = binaryOperator;
             FieldName = fieldName;
-            ComponentIndex = componentIndex;
             Value = value;
         }
 
@@ -36,9 +34,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         /// <inheritdoc />
         public FieldName FieldName { get; }
-
-        /// <inheritdoc />
-        public int? ComponentIndex { get; }
 
         /// <summary>
         /// Gets the value.
