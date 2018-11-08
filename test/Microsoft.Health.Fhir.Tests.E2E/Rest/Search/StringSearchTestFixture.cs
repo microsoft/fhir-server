@@ -5,24 +5,23 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class StringSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class StringSearchTestFixture : SearchTestFixture
     {
-        public StringSearchTestFixture()
-            : base()
-        {
-            // Prepare the resources used for string search tests.
-            FhirClient.DeleteAllResources(ResourceType.Patient).Wait();
+        public IReadOnlyList<Patient> Patients { get; private set; }
 
-            Patients = FhirClient.CreateResourcesAsync<Patient>(
+        public override async Task InitializeAsync()
+        {
+            await base.InitializeAsync();
+
+            Patients = await CreateResourcesAsync<Patient>(
+                p => p.Identifier,
                 p => SetPatientInfo(p, "Seattle", "Smith"),
                 p => SetPatientInfo(p, "Portland", "Williams"),
-                p => SetPatientInfo(p, "Vancouver", "Anderson"))
-                .Result;
+                p => SetPatientInfo(p, "Vancouver", "Anderson"));
 
             void SetPatientInfo(Patient patient, string city, string family)
             {
@@ -37,7 +36,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 };
             }
         }
-
-        public IReadOnlyList<Patient> Patients { get; }
     }
 }

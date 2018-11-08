@@ -17,9 +17,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -29,10 +31,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Code adapted from https://docs.microsoft.com/en-us/aspnet/core/mvc/controllers/testing#integration-testing
     /// </summary>
     /// <typeparam name="TStartup">The target web project startup</typeparam>
-    public class HttpIntegrationTestFixture<TStartup> : IDisposable
+    public class HttpIntegrationTestFixture<TStartup> : IAsyncLifetime, IDisposable
     {
         private TestServer _server;
         private string _environmentUrl;
+
+        private FhirClient _fhirClient;
         private HttpMessageHandler _messageHandler;
 
         public HttpIntegrationTestFixture()
@@ -61,18 +65,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             HttpClient = new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
-
-            FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
-            FhirXmlClient = new Lazy<FhirClient>(() => new FhirClient(HttpClient, ResourceFormat.Xml));
         }
 
         public bool IsUsingInProcTestServer { get; }
 
         public HttpClient HttpClient { get; }
 
-        public FhirClient FhirClient { get; }
+        public virtual FhirClient FhirClient
+            => _fhirClient ?? (_fhirClient = new FhirClient(HttpClient, ResourceFormat.Json));
 
-        public Lazy<FhirClient> FhirXmlClient { get; set; }
+        public async virtual Task InitializeAsync()
+        {
+            await FhirClient.RunAsClientApplication(TestApplications.ServiceClient);
+        }
+
+        public virtual Task DisposeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
         private void StartInMemoryServer(string targetProjectParentDirectory)
         {

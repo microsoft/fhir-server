@@ -5,20 +5,20 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class QuantitySearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class QuantitySearchTestFixture : SearchTestFixture
     {
-        public QuantitySearchTestFixture()
-            : base()
-        {
-            // Prepare the resources used for number search tests.
-            FhirClient.DeleteAllResources(ResourceType.Observation).Wait();
+        public IReadOnlyList<Observation> Observations { get; private set; }
 
-            Observations = FhirClient.CreateResourcesAsync<Observation>(
+        public override async Task InitializeAsync()
+        {
+            await base.InitializeAsync();
+
+            Observations = await CreateResourcesAsync<Observation>(
+                o => o.Identifier,
                 o => SetObservation(o, 1.0m, "unit1", "system1"),
                 o => SetObservation(o, 3.12m, "unit1", "system2"),
                 o => SetObservation(o, 4.0m, "unit1", "system1"),
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 o => SetObservation(o, 5.0m, "unit2", "system2"),
                 o => SetObservation(o, 6.0m, "unit2", "system2"),
                 o => SetObservation(o, 8.95m, "unit2", "system1"),
-                o => SetObservation(o, 10.0m, "unit1", "system1")).Result;
+                o => SetObservation(o, 10.0m, "unit1", "system1"));
 
             void SetObservation(Observation observation, decimal quantity, string unit, string system)
             {
@@ -36,7 +36,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observation.Value = new Quantity(quantity, unit, system);
             }
         }
-
-        public IReadOnlyList<Observation> Observations { get; }
     }
 }

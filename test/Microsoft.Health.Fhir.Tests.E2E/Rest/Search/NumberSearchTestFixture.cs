@@ -5,25 +5,25 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class NumberSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class NumberSearchTestFixture : SearchTestFixture
     {
-        public NumberSearchTestFixture()
-            : base()
-        {
-            // Prepare the resources used for number search tests.
-            FhirClient.DeleteAllResources(ResourceType.Immunization).Wait();
+        public IReadOnlyList<Immunization> Immunizations { get; private set; }
 
-            Immunizations = FhirClient.CreateResourcesAsync<Immunization>(
+        public override async Task InitializeAsync()
+        {
+            await base.InitializeAsync();
+
+            Immunizations = await CreateResourcesAsync<Immunization>(
+                i => i.Identifier,
                 i => SetImmunization(i, 1),
                 i => SetImmunization(i, 4),
                 i => SetImmunization(i, 5),
                 i => SetImmunization(i, 6),
-                i => SetImmunization(i, 100)).Result;
+                i => SetImmunization(i, 100));
 
             void SetImmunization(Immunization immunization, int doseSequence)
             {
@@ -42,7 +42,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 };
             }
         }
-
-        public IReadOnlyList<Immunization> Immunizations { get; }
     }
 }

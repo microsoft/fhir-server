@@ -16,13 +16,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         where TFixture : HttpIntegrationTestFixture<Startup>
     {
         protected SearchTestsBase(TFixture fixture)
+            : this(fixture, fixture.FhirClient)
+        {
+        }
+
+        protected SearchTestsBase(TFixture fixture, FhirClient client)
         {
             Fixture = fixture;
+            Client = client;
         }
 
         protected TFixture Fixture { get; }
 
-        protected FhirClient Client => Fixture.FhirClient;
+        protected FhirClient Client { get; }
 
         protected void ValidateBundle(Bundle bundle, params Resource[] expectedResources)
         {
@@ -31,5 +37,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 bundle.Entry.Select(e => e.Resource),
                 expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
         }
+
+        ////protected async Task<Bundle> SearchAsync(ResourceType resourceType, string queryValue)
+        ////{
+        ////    // Append the test session id.
+        ////    return await Client.SearchAsync(
+        ////        resourceType,
+        ////        $"identifier={Fixture.TestSessionId}&{queryValue}");
+        ////}
     }
 }
