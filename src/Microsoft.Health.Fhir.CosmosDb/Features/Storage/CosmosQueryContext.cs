@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosQueryContext"/> class.
         /// </summary>
-        /// <param name="collectionUri">The colleciton URI.</param>
+        /// <param name="collectionUri">The collection URI.</param>
         /// <param name="sqlQuerySpec">The SQL query.</param>
         /// <param name="feedOptions">The options.</param>
         public CosmosQueryContext(Uri collectionUri, SqlQuerySpec sqlQuerySpec, FeedOptions feedOptions = null)

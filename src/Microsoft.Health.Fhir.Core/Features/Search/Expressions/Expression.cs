@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR opeation over <paramref name="expressions"/>.
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of OR on all <paramref name="expressions"/>.</returns>
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR opeation over <paramref name="expressions"/>.
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of OR on all <paramref name="expressions"/>.</returns>

@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <summary>
-        /// Gets the prameter name.
+        /// Gets the parameter name.
         /// </summary>
         public string ParamName { get; }
 

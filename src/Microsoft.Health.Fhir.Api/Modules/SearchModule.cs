@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // TODO: Remove the following once bug 65143 is fixed.
             // All of the classes that implement IProvideCapability will be automatically be picked up and registered.
             // This means that even though ResourceTypeManifestManager is not being registered, the service will still
-            // try to instantiate but will fail since the dependency components are not regsitered. We should re-look
+            // try to instantiate but will fail since the dependency components are not registered. We should re-look
             // at the logic for automatically registering types since different component could have different life time.
             // For now, just manually remove the registration.
             RemoveRegistration(typeof(IProvideCapability), typeof(SearchParameterDefinitionManager), ServiceLifetime.Transient);

@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         /// Cleanses the provided HTML to return only Elements and Attributes allowed by the FHIR specification
         /// </summary>
         /// <param name="html">The raw HTML</param>
-        /// <returns>Sanatized HTML for display purposes</returns>
+        /// <returns>Sanitized HTML for display purposes</returns>
         public string Sanitize(string html)
         {
             EnsureArg.IsNotNullOrEmpty(html, nameof(html));

@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Provides methods for creating a DocumentClient instance and initializating a collection.
+    /// Provides methods for creating a DocumentClient instance and initializing a collection.
     /// </summary>
     public interface IDocumentClientInitializer
     {

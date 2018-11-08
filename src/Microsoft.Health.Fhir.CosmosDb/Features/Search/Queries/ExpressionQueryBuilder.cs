@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public void Visit(ChainedExpression expression)
         {
-            // TODO: This will be removed once it's impelmented.
+            // TODO: This will be removed once it's implemented.
             throw new SearchOperationNotSupportedException("ChainedExpression is not supported.");
         }
 

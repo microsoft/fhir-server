@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
                 if (utcOffset == null)
                 {
-                    // If hour and minut are specified, then the timezone offset must be specified
+                    // If hour and minute are specified, then the timezone offset must be specified
                     // per spec (http://hl7.org/fhir/datatypes.html#dateTime).
                     // However, in search queries, the time zone information is optional (http://hl7.org/fhir/search.html#date).
                     // The parsing logic will default to UTC time zone if the time zone information is not specified in the search query.
