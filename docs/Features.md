@@ -88,7 +88,7 @@ The Microsoft FHIR server has a pluggable persistence module (see [`Microsoft.He
 
 Currently the FHIR Server source code includes an implementation for [Azure Cosmos DB](https://docs.microsoft.com/en-us/azure/cosmos-db/). 
 
-Cosmos DB is a globally distributed non-  supports different [consistency levels](https://docs.microsoft.com/en-us/azure/cosmos-db/consistency-levels). The default deployment template configures the FHIR Server with `Strong` consistency, but the consistency policy can be modified (generally relaxed) on a request by request basis using the `x-ms-consistency-level` request header.
+Cosmos DB is a globally distributed multi-model (SQL API, MongoDB API, etc.) database. It supports different [consistency levels](https://docs.microsoft.com/en-us/azure/cosmos-db/consistency-levels). The default deployment template configures the FHIR Server with `Strong` consistency, but the consistency policy can be modified (generally relaxed) on a request by request basis using the `x-ms-consistency-level` request header.
 
 ## Role Based Access Control 
 The FHIR Server uses Azure Active Directory for access control. Specifically if the `FhirServer:Security:Enabled` configuration parameter is set to `true`, all requests (except `/metadata`) to the FHIR server must have `Authorization` request header set to `Bearer <TOKEN>`. The token must contain one or more role defined in the `roles` claim. A request will be allowed if the token contains a role that allows the specified action on the specified resource. 
