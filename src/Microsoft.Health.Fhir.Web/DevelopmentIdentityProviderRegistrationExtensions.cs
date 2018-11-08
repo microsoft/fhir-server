@@ -34,6 +34,9 @@ namespace Microsoft.Health.Fhir.Web
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
+            var authorizationConfiguration = new AuthorizationConfiguration();
+            configuration.GetSection("FhirServer:Security:Authorization").Bind(authorizationConfiguration);
+
             var developmentIdentityProviderConfiguration = new DevelopmentIdentityProviderConfiguration();
             configuration.GetSection("DevelopmentIdentityProvider").Bind(developmentIdentityProviderConfiguration);
             services.AddSingleton(Options.Create(developmentIdentityProviderConfiguration));
@@ -46,9 +49,9 @@ namespace Microsoft.Health.Fhir.Web
                     {
                         new ApiResource(
                         DevelopmentIdentityProviderConfiguration.Audience,
-                        claimTypes: new List<string>() { ClaimTypes.Role, ClaimTypes.Name, ClaimTypes.NameIdentifier })
+                        claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
                         {
-                            UserClaims = { AuthorizationConfiguration.RolesClaim },
+                            UserClaims = { authorizationConfiguration.RolesClaim },
                         },
                     })
                     .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select(user =>
@@ -58,7 +61,7 @@ namespace Microsoft.Health.Fhir.Web
                             Password = user.Id,
                             IsActive = true,
                             SubjectId = user.Id,
-                            Claims = user.Roles.Select(r => new Claim(AuthorizationConfiguration.RolesClaim, r)).ToList(),
+                            Claims = user.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).ToList(),
                         }).ToList())
                     .AddInMemoryClients(
                         developmentIdentityProviderConfiguration.ClientApplications.Select(
@@ -77,7 +80,7 @@ namespace Microsoft.Health.Fhir.Web
                                     AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience },
 
                                     // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(AuthorizationConfiguration.RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
+                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
                                 }));

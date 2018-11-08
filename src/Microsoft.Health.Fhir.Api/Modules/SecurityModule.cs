@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.IdentityModel.Tokens.Jwt;
 using EnsureThat;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -32,6 +33,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddSingleton<IAuthorizationPolicyProvider, AuthorizationPolicyProvider>();
+
+            // Set the token handler to not do auto inbound mapping. (e.g. "roles" -> "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
             if (_securityConfiguration.Enabled)
             {

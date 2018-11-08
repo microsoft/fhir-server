@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         private static ClaimsPrincipal GetClaimsPrincipalForRoles(params string[] roles)
         {
-            var claimsId = new ClaimsIdentity(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+            var claimsId = new ClaimsIdentity(roles.Select(r => new Claim("roles", r)));
             return new ClaimsPrincipal(new List<ClaimsIdentity> { claimsId });
         }
 
