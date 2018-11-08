@@ -3,18 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Fhir.Web;
-using Xunit;
+using Hl7.Fhir.Rest;
+using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Xml
 {
-    [Trait(Traits.Category, Categories.Xml)]
-    public class VReadXmlTests : VReadTests<XmlTestFixture<Startup>>
+    public class XmlTestFixture<TStartup> : HttpIntegrationTestFixture<TStartup>
     {
-        public VReadXmlTests(XmlTestFixture<Startup> fixture)
-            : base(fixture)
-        {
-        }
+        private FhirClient _fhirClient;
+
+        public override FhirClient FhirClient
+            => _fhirClient ?? (_fhirClient = new FhirClient(HttpClient, ResourceFormat.Xml));
     }
 }

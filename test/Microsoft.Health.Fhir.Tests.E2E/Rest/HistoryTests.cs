@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -14,18 +13,30 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    public class HistoryTests : IClassFixture<HttpIntegrationTestFixture<Startup>>, IDisposable
+    public abstract class HistoryTests<TFixture> : IClassFixture<TFixture>, IAsyncLifetime
+        where TFixture : HttpIntegrationTestFixture<Startup>
     {
         private FhirResponse<Observation> _createdResource;
 
-        public HistoryTests(HttpIntegrationTestFixture<Startup> fixture)
+        protected HistoryTests(TFixture fixture)
         {
             Client = fixture.FhirClient;
-
-            _createdResource = Client.CreateAsync(Samples.GetDefaultObservation()).GetAwaiter().GetResult();
         }
 
-        protected FhirClient Client { get; set; }
+        protected FhirClient Client { get; }
+
+        public async Task InitializeAsync()
+        {
+            _createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+        }
+
+        public async Task DisposeAsync()
+        {
+            if (_createdResource?.Resource != null)
+            {
+                await Client.DeleteAsync(_createdResource.Resource);
+            }
+        }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -51,14 +62,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history");
 
                 Assert.NotEmpty(readResponse.Resource.Entry);
-        }
-
-        public void Dispose()
-        {
-            if (_createdResource?.Resource != null)
-            {
-                Client.DeleteAsync(_createdResource.Resource).GetAwaiter().GetResult();
-            }
         }
     }
 }

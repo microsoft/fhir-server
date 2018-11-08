@@ -14,14 +14,15 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    public class ReadTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public abstract class ReadTests<TFixture> : IClassFixture<TFixture>
+        where TFixture : HttpIntegrationTestFixture<Startup>
     {
-        public ReadTests(HttpIntegrationTestFixture<Startup> fixture)
+        protected ReadTests(TFixture fixture)
         {
             Client = fixture.FhirClient;
         }
 
-        protected FhirClient Client { get; set; }
+        protected FhirClient Client { get; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

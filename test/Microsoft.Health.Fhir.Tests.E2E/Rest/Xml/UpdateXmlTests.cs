@@ -10,12 +10,11 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Xml
 {
     [Trait(Traits.Category, Categories.Xml)]
-    public class UpdateXmlTests : UpdateTests
+    public class UpdateXmlTests : UpdateTests<XmlTestFixture<Startup>>
     {
-        public UpdateXmlTests(HttpIntegrationTestFixture<Startup> fixture)
+        public UpdateXmlTests(XmlTestFixture<Startup> fixture)
             : base(fixture)
         {
-            Client = fixture.FhirXmlClient.Value;
         }
     }
 }

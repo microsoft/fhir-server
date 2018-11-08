@@ -5,22 +5,19 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class UriSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class UriSearchTestFixture : SearchTestFixture
     {
-        public UriSearchTestFixture()
-            : base()
-        {
-            // Prepare the resources used for URI search tests.
-            FhirClient.DeleteAllResources(ResourceType.ValueSet).Wait();
+        public IReadOnlyList<ValueSet> ValueSets { get; private set; }
 
-            ValueSets = FhirClient.CreateResourcesAsync<ValueSet>(
+        protected override async Task InitializeInternalAsync()
+        {
+            ValueSets = await CreateAsync<ValueSet>(
                 vs => AddValueSet(vs, "http://somewhere.com/test/system"),
-                vs => AddValueSet(vs, "urn://localhost/test")).Result;
+                vs => AddValueSet(vs, "urn://localhost/test"));
 
             void AddValueSet(ValueSet vs, string url)
             {
@@ -28,7 +25,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 vs.Url = url;
             }
         }
-
-        public IReadOnlyList<ValueSet> ValueSets { get; }
     }
 }

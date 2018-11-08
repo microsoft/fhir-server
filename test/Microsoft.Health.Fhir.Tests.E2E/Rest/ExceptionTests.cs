@@ -3,32 +3,29 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Net;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Validation;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    public class ExceptionTests : IClassFixture<HttpIntegrationTestFixture<ExceptionTests.StartupWithThrowingMiddleware>>
+    public abstract class ExceptionTests<TFixture> : IClassFixture<TFixture>
+        where TFixture : HttpIntegrationTestFixture<StartupWithThrowingMiddleware>
     {
-        private readonly HttpIntegrationTestFixture<StartupWithThrowingMiddleware> _fixture;
+        private readonly TFixture _fixture;
 
-        public ExceptionTests(HttpIntegrationTestFixture<StartupWithThrowingMiddleware> fixture)
+        protected ExceptionTests(TFixture fixture)
         {
             _fixture = fixture;
             Client = fixture.FhirClient;
         }
 
-        protected FhirClient Client { get; set; }
+        protected FhirClient Client { get; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -90,6 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var operationOutcome = fhirException.OperationOutcome;
 
+            Assert.NotNull(operationOutcome);
             Assert.NotNull(operationOutcome.Id);
             Assert.NotEmpty(operationOutcome.Issue);
             Assert.Equal(OperationOutcome.IssueType.NotFound, operationOutcome.Issue[0].Code);
@@ -97,47 +95,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertSecurityHeaders(fhirException.Headers);
 
             DotNetAttributeValidation.Validate(operationOutcome, true);
-        }
-
-        public class StartupWithThrowingMiddleware : Startup
-        {
-            public StartupWithThrowingMiddleware(IConfiguration configuration)
-                : base(configuration)
-            {
-            }
-
-            public override void Configure(IApplicationBuilder app)
-            {
-                app.Use(async (context, next) =>
-                {
-                    const string internalExceptionThrown = "internalExceptionThrown";
-
-                    var throwValue = context.Request.Query["throw"];
-
-                    switch (throwValue)
-                    {
-                        // Internal is used to cause the ExceptionHandlerMiddleware logic to execute
-                        case "internal":
-                            // Only throw the error the first time that this path is executed.
-                            // This allows the ExceptionHandlerMiddleware to continue to the error page on the second execution of this path.
-                            if (!context.Items.ContainsKey(internalExceptionThrown))
-                            {
-                                context.Items[internalExceptionThrown] = true;
-                                throw new Exception("internal exception");
-                            }
-
-                            break;
-
-                        // Middleware is used to cause the BaseExceptionMiddleware logic to execute
-                        case "middleware":
-                            throw new Exception("middleware exception");
-                    }
-
-                    await next();
-                });
-
-                base.Configure(app);
-            }
         }
     }
 }

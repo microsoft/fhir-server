@@ -6,20 +6,17 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class TokenSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class TokenSearchTestFixture : SearchTestFixture
     {
-        public TokenSearchTestFixture()
-            : base()
-        {
-            // Prepare the resources used for number search tests.
-            FhirClient.DeleteAllResources(ResourceType.Observation).Wait();
+        public IReadOnlyList<Observation> Observations { get; private set; }
 
-            Observations = FhirClient.CreateResourcesAsync<Observation>(
+        protected override async Task InitializeInternalAsync()
+        {
+            Observations = await CreateAsync<Observation>(
                 o => SetObservation(o, cc => cc.Coding.Add(new Coding("system1", "code1"))),
                 o => SetObservation(o, cc => cc.Coding.Add(new Coding("system2", "code2"))),
                 o => SetObservation(o, cc => cc.Text = "text"),
@@ -36,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     cc.Coding.Add(new Coding("system2", "code1"));
                     cc.Coding.Add(new Coding("system3", "code3", "text2"));
                 }),
-                o => SetObservation(o, cc => cc.Coding.Add(new Coding(null, "code3")))).Result;
+                o => SetObservation(o, cc => cc.Coding.Add(new Coding(null, "code3"))));
 
             void SetObservation(Observation observation, Action<CodeableConcept> codeableConceptCustomizer)
             {
@@ -50,7 +47,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observation.Value = codeableConcept;
             }
         }
-
-        public IReadOnlyList<Observation> Observations { get; }
     }
 }
