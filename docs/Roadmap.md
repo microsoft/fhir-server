@@ -1,12 +1,12 @@
 # Roadmap
-This document contains a list of Microsoft FHIR server features that are in various stages of planning and/or implementation.
+This document contains a list of Microsoft FHIR Server for Azure features that are in various stages of planning and/or implementation.
 
 ## Role Based Access Control (RBAC)
-As outlined in the current [features list](Features.md), the current implementation of the RBAC system only allows *global* assignment of allowed actions to specific roles (as indicated by the `roles` token claim). Future work is aimed at enabling more granular (Resource specific) specification of allowed actions. The RBAC system will use a set of policies, which *may* look something like this:
+As outlined in the [features list](Features.md), the current implementation of the RBAC system only allows *global* assignment of allowed actions to specific roles (as indicated by the `roles` token claim). Future work is aimed at enabling more granular (Resource specific) specification of allowed actions. The RBAC system will use a set of policies, which *may* look something like this:
 
 ```json
 {
-  "appRole": "patient",
+  "name": "patient",
   "resourcePermissions": [
     {
       "criteria": "/Patient/{search('Patient?identifier=http://example.com/aad|{claims('sub')}', 'id', 3600)}/*",
