@@ -39,7 +39,7 @@ All search parameter types are supported. Chained parameters and reverse chainin
 | Token	                | Yes       |         |	
 | Reference	            | Yes       |         |	
 | Composite	            | Yes	    |         |
-| Quantity	            | Yes	    | Bug #103 on range |
+| Quantity	            | Yes	    | Issue #103 |
 | URI	                | Yes	    |         |
 
 
@@ -55,7 +55,7 @@ All search parameter types are supported. Chained parameters and reverse chainin
 |`:not-in` (token)      | No        |         |
 |`:[type]` (reference)  | No        |         |
 |`:below` (uri)         | Yes       |         |
-|`:above` (uri)         | No        | Bug #158 |
+|`:above` (uri)         | No        | Issue #158 |
 
 | Common search parameter | Supported | Comment |
 |-------------------------| ----------|---------|
