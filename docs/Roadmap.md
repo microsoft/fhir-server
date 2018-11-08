@@ -48,12 +48,16 @@ The project plans to support [Azure AD B2C](https://azure.microsoft.com/en-us/se
 The Microsoft FHIR Server uses Azure AD for identity. This presents a few challenges for [SMART on FHIR](http://docs.smarthealthit.org/) applications. As an example, Azure AD uses the `resource=` parameter in authentication requests whereas SMART on FHIR expects this paremeter to be called `aud=`. The FHIR Server project has plans to implement an Azure AD proxy as part of the FHIR server itself to provide transalation between the SMART on FHIR protocol and the Azure AD naming conventions.   
 
 ## Search 
-`_include`, `_revinclude`, `_sort`, `_element`
+For a list of the search capabilities see [Search Features](Features.md#Search). The project aims to have a full implementation the search specification including chained search parameters. 
 
 ## Extensions
+Extensions are not yet supported. Documents with extensions will get stored and returned but extensions are not currently validated or indexed for search. The roadmap includes full support for extensions. 
 
 ## Profiling
+Profiling is not supported yet, but the project aims to support storing profiles and validating against stored profiles.
 
+## FHIR Versions
+The FHIR server currently supports FHIR 3.0.1 but the intention is to support multiple versions in the future. A given instance of the FHIR server would support only a single version. Migration (up) to later version may be supported. 
 
 ## Azure Data Factory Connector
 Users of the Microsoft FHIR server will want to use analytics and machine learning tools in Azure to gain insights from the data stored in the FHIR server. [Azure Data Factory](https://azure.microsoft.com/en-us/services/data-factory/) is the natural choice for facilitating the export and transformation of data for dowmstream analytics. An [example of using Data Factory with the Microsoft FHIR server](https://github.com/hansenms/FhirDemo). This example was based on accessing the data in the FHIR server directly through the FHIR API. One of the FHIR projects goals is to provide a more direct and efficient integration with Data Factory. Specifically, the goal is to provide a first class connector to allow the FHIR Server to serve as source and sink for Data Factory.  
