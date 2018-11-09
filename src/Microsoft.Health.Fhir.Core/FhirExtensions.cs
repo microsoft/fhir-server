@@ -10,7 +10,7 @@ using Hl7.Fhir.Model;
 namespace Microsoft.Health.Fhir.Core
 {
     /// <summary>
-    /// Provides extension methods to Fhir objects.
+    /// Provides extension methods to FHIR objects.
     /// </summary>
     public static class FhirExtensions
     {

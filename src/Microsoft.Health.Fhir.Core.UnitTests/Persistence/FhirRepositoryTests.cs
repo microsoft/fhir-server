@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         {
             var resource = Samples.GetDefaultPatient();
 
-            // Documented for completeness, but under this situation debatably this request should succeed.
+            // Documented for completeness, but under this situation arguably this request should succeed.
             // Versioned-update + UpdateCreate; When no If-Match header is provided, the request should allow create but not update
             await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _repository.UpsertAsync(resource, null));
         }

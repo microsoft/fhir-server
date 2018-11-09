@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                     (string name, string value) = conditions[i];
 
-                    AppendArrayContainsFilter(name, value);
+                    AppendArrayContainsFilter(name, _queryParameterManager.AddOrGetParameterMapping(value));
                 }
             }
 

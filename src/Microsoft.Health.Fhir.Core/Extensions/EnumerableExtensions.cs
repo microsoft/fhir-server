@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <summary>
         /// Generates a sequence that contains one value.
         /// </summary>
-        /// <typeparam name="TResult">The elementtype.</typeparam>
+        /// <typeparam name="TResult">The element type.</typeparam>
         /// <param name="element">The element to return.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> that contains one value.</returns>
         public static IEnumerable<TResult> AsEnumerable<TResult>(this TResult element)

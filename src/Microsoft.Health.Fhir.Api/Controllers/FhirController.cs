@@ -413,14 +413,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="compartmentType">The compartment type.</param>
         /// <param name="id">The identifier.</param>
-        /// <param name="resourceType">The resource type.</param>
+        /// <param name="type">The resource type.</param>
         [HttpGet]
         [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.ReadCompartmentByResourceType)]
         [AuditEventSubType(AuditEventSubType.ReadCompartmentByResourceType)]
-        public async Task<IActionResult> ReadCompartmentByResourceType(string compartmentType, string id, string resourceType)
+        public async Task<IActionResult> ReadCompartmentByResourceType(string compartmentType, string id, string type)
         {
             var queries = GetQueriesForSearch();
-            return await PerformCompartmentSearch(compartmentType, id, resourceType, queries);
+            return await PerformCompartmentSearch(compartmentType, id, type, queries);
         }
 
         private async Task<IActionResult> PerformCompartmentSearch(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)

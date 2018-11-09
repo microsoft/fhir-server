@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Configure<RouteOptions>(options => options.ConstraintMap.Add(KnownRoutes.CompartmentTypeRouteConstraint, typeof(CompartmentTypesRouteConstraint)));
 
+            services.Configure<RouteOptions>(options => options.ConstraintMap.Add(KnownRoutes.CompartmentResourceTypeRouteConstraint, typeof(CompartmentResourceTypesRouteConstraint)));
+
             // Adds provider to serve embedded razor views
             services.Configure<RazorViewEngineOptions>(options =>
             {

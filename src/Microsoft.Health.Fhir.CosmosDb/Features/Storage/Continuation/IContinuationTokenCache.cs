@@ -9,10 +9,10 @@ using System.Threading.Tasks;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation
 {
     /// <summary>
-    /// Defines a contract for caching and retrieving CosmosDb continuation tokens
+    /// Defines a contract for caching and retrieving Cosmos DB continuation tokens
     /// </summary>
     /// <remarks>
-    /// The larger a cosmosdb collection grows, the bigger the Continuation Token gets.
+    /// The larger a Cosmos DB collection grows, the bigger the Continuation Token gets.
     /// At a certain point, an encoded continuation token will exceed the accepted size of a URL (2048 chars),
     /// this breaks the Bundle.next link and results in an error (e.g. HTTP 414)
     ///

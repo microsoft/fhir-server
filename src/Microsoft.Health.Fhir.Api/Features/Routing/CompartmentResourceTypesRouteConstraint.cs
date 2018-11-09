@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
-    public class CompartmentTypesRouteConstraint : IRouteConstraint
+    public class CompartmentResourceTypesRouteConstraint : IRouteConstraint
     {
         public bool Match(HttpContext httpContext, IRouter route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection)
         {
@@ -20,9 +20,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             EnsureArg.IsNotNullOrEmpty(routeKey, nameof(routeKey));
             EnsureArg.IsNotNull(values, nameof(values));
 
-            if (values.TryGetValue(KnownActionParameterNames.CompartmentType, out var compartmentTypeObj) && compartmentTypeObj is string compartmentType && !string.IsNullOrEmpty(compartmentType))
+            if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj) && resourceTypeObj is string resourceType && !string.IsNullOrEmpty(resourceType))
             {
-                return Enum.TryParse<CompartmentType>(compartmentType, false, out var compartmentTypeEnumValue);
+                if (resourceType == "*")
+                {
+                    values[KnownActionParameterNames.ResourceType] = null;
+                    return true;
+                }
+
+                return new ResourceTypesRouteConstraint().Match(httpContext, route, routeKey, values, routeDirection);
             }
 
             return false;

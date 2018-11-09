@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             string param1 = "ref";
             string param2 = "param";
 
-            // Practitioner is a valid resource type but is not supported by the search paramter.
+            // Practitioner is a valid resource type but is not supported by the search parameter.
             string key = $"{param1}:Practitioner.{param2}";
 
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceType);

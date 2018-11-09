@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
             {
                 policy = new AuthorizationPolicyBuilder().AddRequirements(new ResourceActionRequirement(policyName)).Build();
 
-                // This caches the the policy in the base class
+                // This caches the policy in the base class
                 _options.AddPolicy(policyName, policy);
             }
 

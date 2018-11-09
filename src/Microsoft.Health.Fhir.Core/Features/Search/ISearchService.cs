@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resourceType">The resource type that should be searched.</param>
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Bundle"/> representing the earch result.</returns>
+        /// <returns>A <see cref="Bundle"/> representing the result.</returns>
         Task<Bundle> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,

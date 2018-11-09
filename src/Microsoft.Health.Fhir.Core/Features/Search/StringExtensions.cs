@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return s;
             }
 
-            // Escaping character has to be escaped first since the rest of the escaping uses escaping charater.
+            // Escaping character has to be escaped first since the rest of the escaping uses escaping character.
             s = s.Replace($"{EscapingCharacter}", EscapedEscapingCharacter, StringComparison.Ordinal);
             s = s.Replace($"{TokenSeparator}", EscapedTokenSeparator, StringComparison.Ordinal);
             s = s.Replace($"{CompositeSeparator}", EscapedCompositeSeparator, StringComparison.Ordinal);
