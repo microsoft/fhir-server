@@ -35,5 +35,7 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string SearchSystem = "search-system";
 
         public const string Capabilities = "capabilities";
+
+        public const string ReadCompartmentByResourceType = "read-compartment";
     }
 }

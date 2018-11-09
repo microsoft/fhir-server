@@ -44,6 +44,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
+            return Create(null, null, resourceType, queryParameters);
+        }
+
+        public SearchOptions Create(string compartmentType, string compartmentId, IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
+            return Create(compartmentType, compartmentId, null, queryParameters);
+        }
+
+        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
             var options = new SearchOptions();
 
             string continuationToken = null;
@@ -150,6 +160,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             options.UnsupportedSearchParams = unsupportedSearchParameters;
+
+            options.CompartmentType = null;
+
+            // Initialize enum to undefined value
+            var parsedCompartmentType = (CompartmentType)(-1);
+
+            if (!string.IsNullOrWhiteSpace(compartmentType) &&
+    !Enum.TryParse(compartmentType, out parsedCompartmentType))
+            {
+                throw new NotSupportedException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+            }
+
+            if (Enum.IsDefined(typeof(CompartmentType), parsedCompartmentType))
+            {
+                options.CompartmentType = parsedCompartmentType;
+            }
+
+            if (options.CompartmentType != null && string.IsNullOrWhiteSpace(compartmentId))
+            {
+                throw new NotSupportedException(Core.Resources.CompartmentIdIsInvalid);
+            }
+
+            options.CompartmentId = compartmentId;
 
             return options;
         }

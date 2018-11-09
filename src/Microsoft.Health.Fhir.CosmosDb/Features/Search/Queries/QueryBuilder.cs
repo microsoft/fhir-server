@@ -3,8 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Text;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Azure.Documents;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -13,6 +16,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     public class QueryBuilder : IQueryBuilder
     {
+        private static Dictionary<CompartmentType, string> s_compartmentTypeToParamName = new Dictionary<CompartmentType, string>
+        {
+            { CompartmentType.Device, KnownResourceWrapperProperties.Device },
+            { CompartmentType.Encounter, KnownResourceWrapperProperties.Encounter },
+            { CompartmentType.Patient, KnownResourceWrapperProperties.Patient },
+            { CompartmentType.Practitioner, KnownResourceWrapperProperties.Practitioner },
+            { CompartmentType.RelatedPerson, KnownResourceWrapperProperties.RelatedPerson },
+        };
+
         public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
         {
             return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
@@ -59,6 +71,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
+                if (searchOptions.CompartmentType != null)
+                {
+                    AppendArrayContainsFilter(
+                        "AND",
+                        (GetCompartmentIndicesParamName(searchOptions.CompartmentType.Value), searchOptions.CompartmentId));
+                }
+
                 AppendFilterCondition(
                    "AND",
                    (KnownResourceWrapperProperties.IsHistory, false),
@@ -69,6 +88,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     _queryParameterManager.ToSqlParameterCollection());
 
                 return query;
+            }
+
+            private static string GetCompartmentIndicesParamName(CompartmentType compartmentType)
+            {
+                return $"{KnownResourceWrapperProperties.CompartmentIndices}.{s_compartmentTypeToParamName[compartmentType]}";
             }
 
             public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
@@ -132,6 +156,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
                         .Append(" = ")
                         .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
+            }
+
+            private void AppendArrayContainsFilter(string logicalOperator, params (string, string)[] conditions)
+            {
+                for (int i = 0; i < conditions.Length; i++)
+                {
+                    _queryBuilder
+                        .Append(logicalOperator)
+                        .Append(" ");
+
+                    (string name, string value) = conditions[i];
+
+                    AppendArrayContainsFilter(name, value);
+                }
+            }
+
+            private void AppendArrayContainsFilter(string name, string value)
+            {
+                _queryBuilder
+                        .Append("ARRAY_CONTAINS(")
+                        .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
+                        .Append(", ")
+                        .Append(value)
+                        .AppendLine(")");
             }
 
             private void AppendSystemDataFilter(string keyword = null)
