@@ -105,6 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             try
             {
                 _componentIndex = expression.ComponentIndex;
+                expression.Expression.AcceptVisitor(this);
             }
             finally
             {
