@@ -176,6 +176,8 @@ ORDER BY [Version] DESC";
                         command.Parameters.AddWithValue("@version", version);
                     }
 
+                    DumpCommand(command);
+
                     using (SqlDataReader sqlDataReader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
                         if (!sqlDataReader.Read())
@@ -657,6 +659,8 @@ select @version";
 
                     command.CommandText = SqlQueryBuilder.BuildQuery(_resourceTypeToId, _searchParamUrlToId, searchOptions, command.Parameters, pageSize, pageNum);
 
+                    DumpCommand(command);
+
                     using (SqlDataReader sqlDataReader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
                         var results = new List<ResourceWrapper>();
@@ -692,6 +696,28 @@ select @version";
                     }
                 }
             }
+        }
+
+        private static void DumpCommand(SqlCommand command)
+        {
+            Console.WriteLine();
+            Console.WriteLine("-------------------------------");
+            Console.WriteLine();
+            foreach (SqlParameter commandParameter in command.Parameters)
+            {
+                string typeSpec = commandParameter.SqlDbType.ToString();
+                if (commandParameter.Size > 0)
+                {
+                    typeSpec += $"({commandParameter.Size})";
+                }
+
+                object value = commandParameter.Value is string ? $"'{commandParameter.Value}'" : commandParameter.Value;
+                Console.WriteLine($"DECLARE {commandParameter.ParameterName} {typeSpec} = {value}");
+            }
+
+            Console.WriteLine();
+
+            Console.WriteLine(command.CommandText);
         }
     }
 }

@@ -6,8 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Xunit;
@@ -26,38 +24,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         internal static void ValidateResourceTypeSearchParameterExpression(Expression expression, string typeName)
         {
             ValidateSearchParameterExpression(expression, SearchParameterNames.ResourceType, e => ValidateBinaryExpression(e, FieldName.TokenCode, BinaryOperator.Equal, typeName));
-        }
-
-        public static void ValidateChainedExpression(
-            Expression expression,
-            ResourceType resourceType,
-            string key,
-            ResourceType targetResourceType,
-            Action<Expression> childExpressionValidator)
-        {
-            ChainedExpression chainedExpression = Assert.IsType<ChainedExpression>(expression);
-
-            Assert.Equal(resourceType, chainedExpression.ResourceType);
-            Assert.Equal(key, chainedExpression.ParamName);
-            Assert.Equal(targetResourceType, chainedExpression.TargetResourceType);
-
-            childExpressionValidator(chainedExpression.Expression);
-        }
-
-        public static void ValidateChainedExpression(
-            Expression expression,
-            Type resourceType,
-            string key,
-            Type targetResourceType,
-            Action<Expression> childExpressionValidator)
-        {
-            ChainedExpression chainedExpression = Assert.IsType<ChainedExpression>(expression);
-
-            Assert.Equal(resourceType, chainedExpression.ResourceType.ToResourceModelType());
-            Assert.Equal(key, chainedExpression.ParamName);
-            Assert.Equal(targetResourceType, chainedExpression.TargetResourceType.ToResourceModelType());
-
-            childExpressionValidator(chainedExpression.Expression);
         }
 
         public static void ValidateMultiaryExpression(

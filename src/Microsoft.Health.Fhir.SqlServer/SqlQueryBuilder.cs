@@ -19,40 +19,65 @@ namespace Microsoft.Health.Fhir.SqlServer
     {
         private readonly Dictionary<string, short> _resourceTypeToId;
         private readonly Dictionary<(string, byte?), short> _searchParamUrlToId;
+        private readonly SqlQueryParameterManager _sqlQueryParameterManager;
+        private readonly CteManager _cteManager;
         private readonly StringBuilder _query;
-        private readonly SqlParameterCollection _parameterCollection;
         private SearchParameter _currentSearchParameter;
-        private int _parameterSuffix;
         private string _currentTableAlias;
 
-        private SqlQueryBuilder(Dictionary<string, short> resourceTypeToId, Dictionary<(string, byte?), short> searchParamUrlToId, StringBuilder query, SqlParameterCollection parameterCollection)
+        private SqlQueryBuilder(
+            Dictionary<string, short> resourceTypeToId,
+            Dictionary<(string, byte?), short> searchParamUrlToId,
+            StringBuilder query,
+            SqlQueryParameterManager sqlQueryParameterManager,
+            CteManager cteManager)
         {
             _resourceTypeToId = resourceTypeToId;
             _searchParamUrlToId = searchParamUrlToId;
             _query = query;
-            _parameterCollection = parameterCollection;
+            _sqlQueryParameterManager = sqlQueryParameterManager;
+            _cteManager = cteManager;
         }
 
         public static string BuildQuery(Dictionary<string, short> resourceTypeToId, Dictionary<(string, byte?), short> searchParamUrlToId, SearchOptions searchOptions, SqlParameterCollection parameterCollection, int pageSize, int pageNum)
         {
+            var cteManager = new CteManager();
             var query = new StringBuilder(@"
 SELECT ResourceTypePK, Id, Version, LastUpdated, RawResource FROM RESOURCE r 
 WHERE ");
             if (searchOptions.Expression != null)
             {
-                var builder = new SqlQueryBuilder(resourceTypeToId, searchParamUrlToId, query, parameterCollection);
+                var builder = new SqlQueryBuilder(
+                    resourceTypeToId,
+                    searchParamUrlToId,
+                    query,
+                    new SqlQueryParameterManager(parameterCollection),
+                    cteManager);
 
                 searchOptions.Expression.AcceptVisitor(builder);
 
                 query.Append("AND ");
             }
 
-            query.Append(@"NOT EXISTS (
- SELECT * FROM Resource r2
- WHERE r.ResourcePK = r2.ResourcePK
- AND r2.Version > r.Version
-)
-ORDER BY ResourcePK
+            if (cteManager.Definitions.Count > 0)
+            {
+                var newQuery = new StringBuilder("WITH ");
+                for (int i = cteManager.Definitions.Count - 1; i >= 0; i--)
+                {
+                    newQuery.Append(cteManager.Definitions[i]);
+                    if (i != 0)
+                    {
+                        newQuery.AppendLine(",");
+                    }
+                }
+
+                newQuery.Append(query);
+                query = newQuery;
+            }
+
+            AppendLatestVersionPredicate(query);
+
+            query.AppendLine(@"ORDER BY ResourcePK
 OFFSET ((@pageNum) * @pagesize) ROWS
 FETCH NEXT @pageSize ROWS ONLY;
 ");
@@ -63,21 +88,13 @@ FETCH NEXT @pageSize ROWS ONLY;
             return query.ToString();
         }
 
-        private string CreateParameter(object value, SqlDbType? sqlDbType = null, int? length = null)
+        private static void AppendLatestVersionPredicate(StringBuilder query)
         {
-            SqlParameter sqlParameter = _parameterCollection.AddWithValue("@p" + _parameterSuffix++, value);
-
-            if (sqlDbType != null)
-            {
-                sqlParameter.SqlDbType = sqlDbType.Value;
-            }
-
-            if (length != null)
-            {
-                sqlParameter.Size = length.Value;
-            }
-
-            return sqlParameter.ParameterName;
+            query.AppendLine(@"NOT EXISTS (
+ SELECT * FROM Resource r2
+ WHERE r.ResourcePK = r2.ResourcePK
+ AND r2.Version > r.Version
+)");
         }
 
         public void Visit(SearchParameterExpression expression)
@@ -148,7 +165,7 @@ FETCH NEXT @pageSize ROWS ONLY;
 SELECT *
 FROM ")
                 .Append(TableName(_currentSearchParameter)).Append(" ").AppendLine(_currentTableAlias).Append("WHERE ").Append(_currentTableAlias).Append(@".ResourcePK = r.ResourcePK
-AND ").Append(_currentTableAlias).Append(@".SearchParamPK = ").AppendLine(CreateParameter(searchParamId));
+AND ").Append(_currentTableAlias).Append(@".SearchParamPK = ").AppendLine(_sqlQueryParameterManager.CreateParameter(searchParamId));
 
             if (innerExpression != null)
             {
@@ -191,11 +208,11 @@ AND ").Append(_currentTableAlias).Append(@".SearchParamPK = ").AppendLine(Create
         {
             if (_currentSearchParameter.Name == SearchParameterNames.ResourceType)
             {
-                _query.Append("r.ResourceTypePK = ").AppendLine(CreateParameter(_resourceTypeToId[(string)expression.Value]));
+                _query.Append("r.ResourceTypePK = ").AppendLine(_sqlQueryParameterManager.CreateParameter(_resourceTypeToId[(string)expression.Value]));
             }
             else
             {
-                _query.Append(_currentTableAlias).Append(".").Append(ColumnName(expression.FieldName, _currentSearchParameter.Type.Value));
+                _query.Append(_currentTableAlias).Append(".").Append(ColumnName(expression.FieldName));
                 switch (expression.BinaryOperator)
                 {
                     case BinaryOperator.Equal:
@@ -220,18 +237,54 @@ AND ").Append(_currentTableAlias).Append(@".SearchParamPK = ").AppendLine(Create
                         throw new InvalidOperationException(expression.BinaryOperator.ToString());
                 }
 
-                _query.Append(CreateParameter(expression.Value));
+                _query.Append(_sqlQueryParameterManager.CreateParameter(expression.Value));
             }
         }
 
         public void Visit(ChainedExpression expression)
         {
-            throw new NotImplementedException();
+            string cteName = $"cte_{expression.Parameter.Name}_{expression.TargetResourceType}_{_cteManager.Definitions.Count}";
+            var cteBody = new StringBuilder(cteName).Append(@"(Id)
+AS (
+SELECT Id from dbo.Resource r 
+WHERE r.ResourceTypePK = ").AppendLine(_sqlQueryParameterManager.CreateParameter(_resourceTypeToId[expression.TargetResourceType.ToString()]))
+                .Append("AND ");
+
+            _cteManager.Definitions.Add(cteBody);
+
+            var cteQueryBuilder = new SqlQueryBuilder(_resourceTypeToId, _searchParamUrlToId, cteBody, _sqlQueryParameterManager, _cteManager);
+            expression.Expression.AcceptVisitor(cteQueryBuilder);
+
+            cteBody.AppendLine();
+            cteBody.Append("AND ");
+            AppendLatestVersionPredicate(cteBody);
+
+            cteBody.AppendLine().AppendLine(")");
+
+            SearchParameter currentSearchParameterSnapshot = _currentSearchParameter;
+            string currentTableAliasSnapshot = _currentTableAlias;
+            _currentTableAlias = "i";
+            _currentSearchParameter = expression.Parameter;
+            try
+            {
+                var criteria = Expression.And(Expression.Missing(FieldName.ReferenceBaseUri), Expression.StringEquals(FieldName.ReferenceResourceType, expression.TargetResourceType.ToString(), false));
+                GenerateSubquery(false, _searchParamUrlToId[(expression.Parameter.Url, null)], criteria);
+                _query.AppendLine().AppendLine(@"AND EXISTS(SELECT * FROM ").Append(cteName)
+                    .Append(" WHERE ").Append(cteName).Append(".Id = ")
+                    .Append(_currentTableAlias).Append(".")
+                    .Append(ColumnName(FieldName.ReferenceResourceId))
+                    .AppendLine(")").AppendLine(")");
+            }
+            finally
+            {
+                _currentTableAlias = currentTableAliasSnapshot;
+                _currentSearchParameter = currentSearchParameterSnapshot;
+            }
         }
 
         public void Visit(MissingFieldExpression expression)
         {
-            string columnName = ColumnName(expression.FieldName, _currentSearchParameter.Type.Value);
+            string columnName = ColumnName(expression.FieldName);
             _query.Append(_currentTableAlias).Append(".").Append(columnName).Append(" IS NULL");
         }
 
@@ -304,7 +357,7 @@ AND ").Append(_currentTableAlias).Append(@".SearchParamPK = ").AppendLine(Create
 
         public void Visit(StringExpression expression)
         {
-            string columnName = ColumnName(expression.FieldName, _currentSearchParameter.Type.Value);
+            string columnName = ColumnName(expression.FieldName);
 
             object expressionValue = expression.Value;
             if (expression.FieldName == FieldName.TokenText)
@@ -313,7 +366,7 @@ AND ").Append(_currentTableAlias).Append(@".SearchParamPK = ").AppendLine(Create
                 _query.Append(@"EXISTS (
 SELECT * 
 FROM dbo.TokenText ").AppendLine(tokenTextAlias).Append("WHERE ").Append(_currentTableAlias).Append(@".").Append(columnName).Append(@" = ").Append(tokenTextAlias).Append(@".Hash
-AND ").Append(tokenTextAlias).Append(".Text LIKE ").AppendLine(CreateParameter($@"%{expressionValue}%")).AppendLine(")");
+AND ").Append(tokenTextAlias).Append(".Text LIKE ").AppendLine(_sqlQueryParameterManager.CreateParameter($@"%{expressionValue}%")).AppendLine(")");
                 return;
             }
 
@@ -323,7 +376,7 @@ AND ").Append(tokenTextAlias).Append(".Text LIKE ").AppendLine(CreateParameter($
                 _query.Append(@"EXISTS (
 SELECT * 
 FROM dbo.Uri ").AppendLine(uriAlias).Append("WHERE ").Append(_currentTableAlias).Append(@".").Append(columnName).Append(@" = ").Append(uriAlias).Append(@".UriPK
-AND ").Append(uriAlias).Append(".Uri = ").AppendLine(CreateParameter(expressionValue)).AppendLine(")");
+AND ").Append(uriAlias).Append(".Uri = ").AppendLine(_sqlQueryParameterManager.CreateParameter(expressionValue)).AppendLine(")");
                 return;
             }
 
@@ -341,7 +394,7 @@ AND ").Append(uriAlias).Append(".Uri = ").AppendLine(CreateParameter(expressionV
                     type = SqlDbType.VarChar;
                 }
 
-                _query.Append(" = ").AppendLine(CreateParameter(expressionValue, type));
+                _query.Append(" = ").AppendLine(_sqlQueryParameterManager.CreateParameter(expressionValue, type));
                 return;
             }
 
@@ -361,22 +414,22 @@ AND ").Append(uriAlias).Append(".Uri = ").AppendLine(CreateParameter(expressionV
             {
                 case StringOperator.Contains:
                 case StringOperator.NotContains:
-                    _query.Append(CreateParameter($"%{expressionValue}%"));
+                    _query.Append(_sqlQueryParameterManager.CreateParameter($"%{expressionValue}%"));
                     break;
                 case StringOperator.EndsWith:
                 case StringOperator.NotEndsWith:
-                    _query.Append(CreateParameter($"%{expressionValue}"));
+                    _query.Append(_sqlQueryParameterManager.CreateParameter($"%{expressionValue}"));
                     break;
                 case StringOperator.StartsWith:
                 case StringOperator.NotStartsWith:
-                    _query.Append(CreateParameter($"{expressionValue}%"));
+                    _query.Append(_sqlQueryParameterManager.CreateParameter($"{expressionValue}%"));
                     break;
             }
         }
 
-        private static string ColumnName(FieldName fieldName, SearchParamType searchParamType)
+        private string ColumnName(FieldName fieldName)
         {
-            switch (searchParamType)
+            switch (_currentSearchParameter.Type)
             {
                 case SearchParamType.Number:
                     switch (fieldName)
@@ -452,7 +505,12 @@ AND ").Append(uriAlias).Append(".Uri = ").AppendLine(CreateParameter(expressionV
                     break;
             }
 
-            throw new InvalidOperationException($"Unsupported combination {fieldName}, {searchParamType}");
+            throw new InvalidOperationException($"Unsupported combination {fieldName}, {_currentSearchParameter.Type}");
+        }
+
+        private class CteManager
+        {
+            public List<StringBuilder> Definitions { get; } = new List<StringBuilder>();
         }
     }
 }

@@ -134,8 +134,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     try
                     {
                         return Expression.Chained(
+                            _searchParameterDefinitionManager.GetSearchParameter(resourceType, currentPath),
                             resourceType,
-                            currentPath,
                             targetType.Value,
                             Parse(
                                 targetType.Value,
