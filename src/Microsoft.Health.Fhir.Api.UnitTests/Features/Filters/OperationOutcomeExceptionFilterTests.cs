@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                     Code = OperationOutcome.IssueType.Invalid,
                     Diagnostics = reason,
                 }),
-                HttpStatusCode.BadRequest);
+                HttpStatusCode.BadRequest).Resource as OperationOutcome;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 {
                     new ValidationFailure(propertyName, reason),
                 }),
-                HttpStatusCode.BadRequest);
+                HttpStatusCode.BadRequest).Resource as OperationOutcome;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
@@ -136,7 +136,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new SearchOperationNotSupportedException("Not supported."), HttpStatusCode.Forbidden);
         }
 
-        private OperationOutcome ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
+        [Fact]
+        public void GivenARequestRateExceededException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            TimeSpan retryAfter = TimeSpan.FromSeconds(1.5);
+
+            FhirResult result = ValidateOperationOutcome(new RequestRateExceededException(retryAfter), (HttpStatusCode)429);
+
+            Assert.Contains(
+                result.Headers,
+                h => string.Equals(h.Key, "x-ms-retry-after-ms", StringComparison.Ordinal) && string.Equals(h.Value, "1500", StringComparison.Ordinal));
+        }
+
+        private FhirResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
 
@@ -150,7 +162,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(expectedStatusCode, result.StatusCode.GetValueOrDefault());
             Assert.Equal(_correlationId, result.Resource.Id);
 
-            return Assert.IsType<OperationOutcome>(result.Resource);
+            Assert.IsType<OperationOutcome>(result.Resource);
+
+            return result;
         }
     }
 }

@@ -12,6 +12,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Newtonsoft.Json;
 
@@ -225,7 +226,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                         break;
                     }
-                    catch (DocumentClientException e) when (e.StatusCode == (HttpStatusCode)429)
+                    catch (RequestRateExceededException)
                     {
                     }
                 }

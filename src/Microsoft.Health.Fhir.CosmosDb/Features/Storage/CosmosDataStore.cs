@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         private readonly IScoped<IDocumentClient> _documentClient;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
+        private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosDataStore> _logger;
         private readonly Uri _collectionUri;
         private readonly UpsertWithHistory _upsertWithHistoryProc;
@@ -48,19 +49,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration</param>
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
+        /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         public CosmosDataStore(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
+            RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
+            EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
+            _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _documentClient = documentClient;
             _collectionUri = cosmosDataStoreConfiguration.RelativeCollectionUri;
@@ -83,7 +88,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
-                UpsertWithHistoryModel response = await RetryExceptionPolicy.CreateRetryPolicy().ExecuteAsync(
+                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async () => await _upsertWithHistoryProc.Execute(
                         _documentClient.Value,
                         _collectionUri,
@@ -160,7 +165,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
 
-                StoredProcedureResponse<IList<string>> response = await RetryExceptionPolicy.CreateRetryPolicy().ExecuteAsync(
+                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async () => await _hardDelete.Execute(
                         _documentClient.Value,
                         _collectionUri,

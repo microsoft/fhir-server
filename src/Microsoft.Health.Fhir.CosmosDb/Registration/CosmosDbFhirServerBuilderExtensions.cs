@@ -111,6 +111,11 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()
                 .AsService<ICosmosDbDistributedLockFactory>();
+
+            services.Add<RetryExceptionPolicyFactory>()
+                .Singleton()
+                .AsSelf();
+
             return fhirServerBuilder;
         }
 

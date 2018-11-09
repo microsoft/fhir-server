@@ -54,7 +54,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration).GetAwaiter().GetResult();
 
             var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(NullCosmosDocumentQueryLogger.Instance);
-            _dataStore = new CosmosDataStore(new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, cosmosDocumentQueryFactory, NullLogger<CosmosDataStore>.Instance);
+            _dataStore = new CosmosDataStore(
+                new NonDisposingScope(_documentClient),
+                _cosmosDataStoreConfiguration,
+                cosmosDocumentQueryFactory,
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
+                NullLogger<CosmosDataStore>.Instance);
         }
 
         public void Dispose()
