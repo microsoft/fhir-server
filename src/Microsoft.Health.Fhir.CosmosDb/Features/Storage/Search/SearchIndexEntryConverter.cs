@@ -5,8 +5,8 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -37,25 +37,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
                 generator = new SearchIndexEntryJObjectGenerator();
             }
 
-            JObject generatedObj;
+            IReadOnlyList<JObject> generatedObjects;
 
             try
             {
-                searchIndexEntry.Value.AcceptVisitor(generator);
-
-                generatedObj = generator.Output;
+                generatedObjects = generator.Generate(searchIndexEntry);
             }
             finally
             {
-                generator.Reset();
-
                 CachedGenerators.Enqueue(generator);
             }
 
-            generatedObj.AddFirst(
-                new JProperty(SearchValueConstants.ParamName, searchIndexEntry.ParamName));
-
-            generatedObj.WriteTo(writer);
+            foreach (JObject generatedObj in generatedObjects)
+            {
+                generatedObj.WriteTo(writer);
+            }
         }
     }
 }
