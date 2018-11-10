@@ -7,13 +7,21 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceWrapper
     {
-        public ResourceWrapper(Resource resource, RawResource rawResource, ResourceRequest request, bool deleted, IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims, CompartmentIndices compartmentIndices)
+        public ResourceWrapper(
+            Resource resource,
+            RawResource rawResource,
+            ResourceRequest request,
+            bool deleted,
+            IReadOnlyCollection<SearchIndexEntry> searchIndices,
+            CompartmentIndices compartmentIndices,
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
            : this(
                  IsNotNull(resource).Id,
                  resource.VersionId,
@@ -22,8 +30,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  request,
                  resource.Meta?.LastUpdated ?? Clock.UtcNow,
                  deleted,
-                 lastModifiedClaims,
-                 compartmentIndices)
+                 searchIndices,
+                 compartmentIndices,
+                 lastModifiedClaims)
         {
         }
 
@@ -35,8 +44,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceRequest request,
             DateTimeOffset lastModified,
             bool deleted,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
-            CompartmentIndices compartmentIndices)
+            IReadOnlyCollection<SearchIndexEntry> searchIndices,
+            CompartmentIndices compartmentIndices,
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
@@ -49,8 +59,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Request = request;
             IsDeleted = deleted;
             LastModified = lastModified;
-            LastModifiedClaims = lastModifiedClaims;
+            SearchIndices = searchIndices;
             CompartmentIndices = compartmentIndices;
+            LastModifiedClaims = lastModifiedClaims;
         }
 
         [JsonConstructor]
@@ -82,9 +93,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.IsHistory)]
         public virtual bool IsHistory { get; protected set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1822:Mark members as static", Justification = "Used in serialization")]
         [JsonProperty(KnownResourceWrapperProperties.IsSystem)]
-        public bool IsSystem => false;
+        public bool IsSystem { get; } = false;
+
+        [JsonProperty(KnownResourceWrapperProperties.SearchIndices)]
+        public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }
