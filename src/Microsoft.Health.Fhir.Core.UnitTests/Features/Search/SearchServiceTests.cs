@@ -101,8 +101,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             ResourceWrapper[] resourceWrappers = new ResourceWrapper[]
             {
-                new ResourceWrapper(observation1, _rawResourceFactory.Create(observation1), _resourceRequest, false, null, null),
-                new ResourceWrapper(observation2, _rawResourceFactory.Create(observation2), _resourceRequest, false, null, null),
+                new ResourceWrapper(observation1, _rawResourceFactory.Create(observation1), _resourceRequest, false, null, null, null),
+                new ResourceWrapper(observation2, _rawResourceFactory.Create(observation2), _resourceRequest, false, null, null, null),
             };
 
             _searchService.SearchImplementation = options => new SearchResult(resourceWrappers, null);
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var observation = new Observation { Id = resourceId };
 
             var resourceWrapper =
-                new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null);
+                new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
             _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
             _urlResolver.ResolveRouteUrl(Arg.Any<string>(), Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(new Uri("http://narwhal"));
 

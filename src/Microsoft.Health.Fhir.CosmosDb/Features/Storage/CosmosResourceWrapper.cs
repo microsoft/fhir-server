@@ -13,11 +13,11 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    internal class CosmosResourceWrapper : ResourceWrapper, ISupportSearchIndices
+    internal class CosmosResourceWrapper : ResourceWrapper
     {
         public CosmosResourceWrapper(ResourceWrapper resource)
             : this(
-                  IsNotNull(resource).ResourceId,
+                  EnsureArg.IsNotNull(resource, nameof(resource)).ResourceId,
                   resource.Version,
                   resource.ResourceTypeName,
                   resource.RawResource,
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                   resource.LastModified,
                   resource.IsDeleted,
                   resource.IsHistory,
-                  (resource as ISupportSearchIndices)?.SearchIndices,
+                  resource.SearchIndices,
                   resource.CompartmentIndices,
                   resource.LastModifiedClaims)
         {
@@ -43,10 +43,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
-            : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, lastModifiedClaims, compartmentIndices)
+            : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims)
         {
             IsHistory = history;
-            SearchIndices = searchIndices ?? Array.Empty<SearchIndexEntry>();
         }
 
         [JsonConstructor]
@@ -79,7 +78,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices, ItemConverterType = typeof(SearchIndexEntryConverter))]
-        public IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; }
+        public override IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
 
         [JsonProperty("partitionKey")]
         public string PartitionKey => ToResourceKey().ToPartitionKey();
@@ -94,13 +93,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return base.Version;
-        }
-
-        private static ResourceWrapper IsNotNull(ResourceWrapper resource)
-        {
-            EnsureArg.IsNotNull(resource);
-
-            return resource;
         }
     }
 }
