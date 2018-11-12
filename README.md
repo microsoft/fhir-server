@@ -38,7 +38,7 @@ This open source project is fully backed by the Microsoft Healthcare team, but w
 * [FHIR Server for Azure Demo by Michael Hansen, Senior Program Manager](https://github.com/hansenms/FhirDemo)
 * [Features](docs/Features.md): This document lists the main features of the FHIR Server for Azure.
 * [Roadmap](docs/Roadmap.md): This document provides a list of features that are planned or in development.
-* Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/industry/health/fhir-server-for-azure-an-open-source-project-for-modern-healthcare/)
+* Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/industry/health/fhir-server-for-azure-an-open-source-project-for-cloud-based-health-solutions/)
 * Twitter: [Health_IT](https://twitter.com/Health_IT)
 
 ## Contributing
