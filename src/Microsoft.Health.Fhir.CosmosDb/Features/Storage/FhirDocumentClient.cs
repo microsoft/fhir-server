@@ -13,22 +13,26 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// A <see cref="IDocumentClient"/> wrapper that sets the consistency level and, if applicable, the session token
-    /// for each request.
+    /// A <see cref="IDocumentClient"/> wrapper that, for each request:
+    /// (1) sets the consistency level and, if applicable, the session token
+    /// (2) Sets <see cref="FeedOptions.ResponseContinuationTokenLimitInKb"/>
+    /// (3) Sets the <see cref="CosmosDbHeaders.RequestCharge"/> response header.
     /// </summary>
-    internal sealed partial class DocumentClientWithConsistencyLevelFromContext
+    internal sealed partial class FhirDocumentClient
     {
         private static readonly string ValidConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly int? _continuationTokenSizeLimitInKb;
 
-        public DocumentClientWithConsistencyLevelFromContext(IDocumentClient inner, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public FhirDocumentClient(IDocumentClient inner, IFhirRequestContextAccessor fhirRequestContextAccessor, int? continuationTokenSizeLimitInKb)
             : this(inner)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _continuationTokenSizeLimitInKb = continuationTokenSizeLimitInKb;
         }
 
         private RequestOptions UpdateOptions(RequestOptions options)
@@ -62,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
         {
             (ConsistencyLevel? consistencyLevel, string sessionToken) = GetConsistencyHeaders();
 
-            if (consistencyLevel == null && string.IsNullOrEmpty(sessionToken))
+            if (_continuationTokenSizeLimitInKb == null && consistencyLevel == null && string.IsNullOrEmpty(sessionToken))
             {
                 return options;
             }
@@ -70,6 +74,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
             if (options == null)
             {
                 options = new FeedOptions();
+            }
+
+            if (_continuationTokenSizeLimitInKb != null)
+            {
+                options.ResponseContinuationTokenLimitInKb = _continuationTokenSizeLimitInKb;
             }
 
             if (consistencyLevel != null)
@@ -96,7 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
 
             ConsistencyLevel? requestedConsistencyLevel = null;
 
-            if (fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbConsistencyHeaders.ConsistencyLevel, out var values))
+            if (fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbHeaders.ConsistencyLevel, out var values))
             {
                 if (!Enum.TryParse(values, out ConsistencyLevel parsedLevel))
                 {
@@ -114,7 +123,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
                 }
             }
 
-            fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbConsistencyHeaders.SessionToken, out values);
+            fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbHeaders.SessionToken, out values);
 
             return (requestedConsistencyLevel, values);
         }
@@ -138,49 +147,42 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Consistency
                 case ConsistencyLevel.ConsistentPrefix:
                     return desiredConsistency == ConsistencyLevel.Session || desiredConsistency == ConsistencyLevel.Eventual || desiredConsistency == ConsistencyLevel.ConsistentPrefix;
                 default:
-                    throw new NotSupportedException(nameof(_inner.ConsistencyLevel));
+                    throw new NotSupportedException(nameof(IDocumentClient.ConsistencyLevel));
             }
         }
 
         private T ProcessResponse<T>(T response)
             where T : ResourceResponseBase
         {
-            AddSessionTokenToResponseHeaders(response.SessionToken);
+            _fhirRequestContextAccessor.FhirRequestContext.UpdateResponseHeaders(response.SessionToken, response.RequestCharge);
             return response;
         }
 
         private FeedResponse<T> ProcessResponse<T>(FeedResponse<T> response)
         {
-            AddSessionTokenToResponseHeaders(response.SessionToken);
+            _fhirRequestContextAccessor.FhirRequestContext.UpdateResponseHeaders(response.SessionToken, response.RequestCharge);
             return response;
         }
 
         private StoredProcedureResponse<T> ProcessResponse<T>(StoredProcedureResponse<T> response)
         {
-            AddSessionTokenToResponseHeaders(response.SessionToken);
+            _fhirRequestContextAccessor.FhirRequestContext.UpdateResponseHeaders(response.SessionToken, response.RequestCharge);
             return response;
         }
 
-        private void AddSessionTokenToResponseHeaders(string sessionToken)
+        private void ProcessException(Exception ex)
         {
-            if (!string.IsNullOrEmpty(sessionToken))
-            {
-                IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
-                if (fhirRequestContext != null)
-                {
-                    fhirRequestContext.ResponseHeaders[CosmosDbConsistencyHeaders.SessionToken] = sessionToken;
-                }
-            }
+            _fhirRequestContextAccessor.FhirRequestContext.ProcessException(ex);
         }
 
         Task<StoredProcedureResponse<TValue>> IDocumentClient.ExecuteStoredProcedureAsync<TValue>(string storedProcedureLink, params object[] procedureParams)
         {
-            return ((IDocumentClient)this).ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, UpdateOptions(default(RequestOptions)), procedureParams);
+            return ((IDocumentClient)this).ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, default, procedureParams);
         }
 
         Task<StoredProcedureResponse<TValue>> IDocumentClient.ExecuteStoredProcedureAsync<TValue>(Uri storedProcedureUri, params dynamic[] procedureParams)
         {
-            return ((IDocumentClient)this).ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, UpdateOptions(default(RequestOptions)), procedureParams);
+            return ((IDocumentClient)this).ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, default, procedureParams);
         }
     }
 }

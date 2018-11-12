@@ -4,14 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
-using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -19,31 +18,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// Wrapper on <see cref="IDocumentQuery"/> to provide common error status code to exceptions handling.
     /// </summary>
     /// <typeparam name="T">The result type.</typeparam>
-    public class CosmosDocumentQuery<T> : IDocumentQuery<T>
+    public class FhirDocumentQuery<T> : IDocumentQuery<T>
     {
         private readonly ICosmosQueryContext _queryContext;
         private IDocumentQuery<T> _documentQuery;
-        private readonly ICosmosDocumentQueryLogger _logger;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly IFhirDocumentQueryLogger _logger;
 
         private string _continuationToken;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CosmosDocumentQuery{T}"/> class.
+        /// Initializes a new instance of the <see cref="FhirDocumentQuery{T}"/> class.
         /// </summary>
         /// <param name="queryContext">The query context.</param>
         /// <param name="documentQuery">The document query to execute.</param>
+        /// <param name="fhirRequestContextAccessor">The request accessor</param>
         /// <param name="logger">The logger.</param>
-        public CosmosDocumentQuery(
+        public FhirDocumentQuery(
             ICosmosQueryContext queryContext,
             IDocumentQuery<T> documentQuery,
-            ICosmosDocumentQueryLogger logger)
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IFhirDocumentQueryLogger logger)
         {
             EnsureArg.IsNotNull(queryContext, nameof(queryContext));
             EnsureArg.IsNotNull(documentQuery, nameof(documentQuery));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queryContext = queryContext;
             _documentQuery = documentQuery;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _logger = logger;
 
             _continuationToken = _queryContext.FeedOptions?.RequestContinuation;
@@ -85,6 +89,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 FeedResponse<TResult> response = await _documentQuery.ExecuteNextAsync<TResult>(token);
 
+                _fhirRequestContextAccessor.FhirRequestContext.UpdateResponseHeaders(response.SessionToken, response.RequestCharge);
+
                 _continuationToken = response.ResponseContinuation;
 
                 _logger.LogQueryExecutionResult(
@@ -108,14 +114,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     0,
                     ex);
 
-                if (ex.StatusCode == HttpStatusCode.ServiceUnavailable)
-                {
-                    throw new ServiceUnavailableException();
-                }
-                else if (ex.StatusCode == (HttpStatusCode)429)
-                {
-                    throw new RequestRateExceededException(ex.RetryAfter);
-                }
+                _fhirRequestContextAccessor.FhirRequestContext.ProcessException(ex);
 
                 throw;
             }

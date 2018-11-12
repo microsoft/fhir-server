@@ -9,17 +9,17 @@ using Microsoft.Azure.Documents.Linq;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Factory for creating the <see cref="CosmosDocumentQuery{T}"/>.
+    /// Factory for creating the <see cref="FhirDocumentQuery{T}"/>.
     /// </summary>
     public interface ICosmosDocumentQueryFactory
     {
         /// <summary>
-        /// Creates an instance of <see cref="CosmosDocumentQuery{T}"/>.
+        /// Creates an instance of <see cref="FhirDocumentQuery{T}"/>.
         /// </summary>
         /// <typeparam name="T">The document type.</typeparam>
         /// <param name="documentClient">The document client</param>
         /// <param name="queryContext">The SQL query context.</param>
-        /// <returns>An instance of <see cref="CosmosDocumentQuery{T}"/>.</returns>
+        /// <returns>An instance of <see cref="FhirDocumentQuery{T}"/>.</returns>
         IDocumentQuery<T> Create<T>(IDocumentClient documentClient, CosmosQueryContext queryContext);
     }
 }

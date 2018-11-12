@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -17,20 +16,17 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public sealed class CosmosDataStore : IDataStore, IContinuationTokenCache, IProvideCapability
+    public sealed class CosmosDataStore : IDataStore, IProvideCapability
     {
         private readonly IScoped<IDocumentClient> _documentClient;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
@@ -197,65 +193,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CosmosQueryContext context = new CosmosQueryContext(_collectionUri, sqlQuerySpec, feedOptions);
 
             return _cosmosDocumentQueryFactory.Create<T>(_documentClient.Value, context);
-        }
-
-        public async Task<string> GetContinuationTokenAsync(string id, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(id, nameof(id));
-
-            var ctQuery = new SqlQuerySpec(
-                "SELECT * FROM root r WHERE r.id = @id",
-                new SqlParameterCollection(new[] { new SqlParameter("@id", id) }));
-
-            var ctOptions = new FeedOptions
-            {
-                PartitionKey = new PartitionKey(ContinuationToken.ContinuationTokenPartition),
-            };
-
-            IDocumentQuery<ContinuationToken> cosmosDocumentQuery = CreateDocumentQuery<ContinuationToken>(ctQuery, ctOptions);
-
-            using (cosmosDocumentQuery)
-            {
-                var response = await cosmosDocumentQuery.ExecuteNextAsync(cancellationToken);
-                ContinuationToken result = response.SingleOrDefault();
-
-                if (result == null)
-                {
-                    _logger.LogError("Continuation token does not exist in CosmosDb.");
-
-                    throw new InvalidSearchOperationException(Core.Resources.InvalidContinuationToken);
-                }
-
-                return result.Token;
-            }
-        }
-
-        public async Task<string> SaveContinuationTokenAsync(string continuationToken, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(continuationToken, nameof(continuationToken));
-
-            using (_logger.BeginTimedScope($"{nameof(CosmosDataStore)}.{nameof(SaveContinuationTokenAsync)}"))
-            {
-                var tokenCacheStopwatch = new Stopwatch();
-                tokenCacheStopwatch.Start();
-
-                var savedCt = new ContinuationToken(continuationToken);
-
-                var requestOptions = new RequestOptions
-                {
-                    PartitionKey = new PartitionKey(ContinuationToken.ContinuationTokenPartition),
-                };
-
-                var response = await _documentClient.Value.UpsertDocumentAsync(
-                    _collectionUri,
-                    savedCt,
-                    requestOptions,
-                    true);
-
-                _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
-
-                return savedCt.Id;
-            }
         }
 
         private static string GetValue(HttpStatusCode type)
