@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     {
         private readonly Dictionary<string, Role> _roles;
         private readonly Dictionary<string, IEnumerable<ResourceAction>> _roleNameToResourceActions;
-        private AuthorizationConfiguration _authorizationConfiguration;
+        private readonly AuthorizationConfiguration _authorizationConfiguration;
 
         public RoleBasedAuthorizationPolicy(AuthorizationConfiguration authorizationConfiguration)
         {
