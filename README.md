@@ -51,7 +51,7 @@ a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow th
 provided by the bot. You will only need to do this once across all repos using our CLA.
 
 There are many other ways to contribute to FHIR Server for Azure.
-* [Submit bugs](issues) and help us verify fixes as they are checked in.
+* [Submit bugs](https://github.com/Microsoft/fhir-server/issues) and help us verify fixes as they are checked in.
 * Review the [source code changes](https://github.com/Microsoft/fhir-server/pulls).
 * Engage with FHIR Server for Azure users and developers on [StackOverflow](https://stackoverflow.com/questions/tagged/fhir-server-for-azure).
 * Join the [#fhirforazure](https://twitter.com/hashtag/fhirserverforazure?f=tweets&vertical=default) discussion on Twitter.
