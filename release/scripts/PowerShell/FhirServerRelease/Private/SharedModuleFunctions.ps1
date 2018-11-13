@@ -50,10 +50,14 @@ function Get-ServiceAudience {
     param (
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [string]$EnvironmentName
+        [string]$EnvironmentName,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$WebAppSuffix
     )
  
-    return "https://$EnvironmentName.azurewebsites.net/"
+    return "https://$EnvironmentName.$WebAppSuffix/"
 }
 
 function Get-UserId { 
