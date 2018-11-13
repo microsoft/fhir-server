@@ -157,7 +157,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task<FhirException> ExecuteAndValidateNotFoundStatus(Func<Task> action)
             {
-                FhirException exception = await Assert.ThrowsAsync<FhirException>(action);
+                FhirException exception = null;
+
+                do
+                {
+                    if (exception?.StatusCode == (HttpStatusCode)429)
+                    {
+                        // Wait for a little bit before retrying if we are geting throttled.
+                        await Task.Delay(500);
+                    }
+
+                    exception = await Assert.ThrowsAsync<FhirException>(action);
+                }
+                while (exception.StatusCode == (HttpStatusCode)429);
 
                 Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
 

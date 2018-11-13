@@ -37,5 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         public IList<string> PreferredLocations { get; set; }
 
         public int DataMigrationBatchSize { get; set; } = 100;
+
+        public CosmosDataStoreRetryOptions RetryOptions { get; } = new CosmosDataStoreRetryOptions();
     }
 }

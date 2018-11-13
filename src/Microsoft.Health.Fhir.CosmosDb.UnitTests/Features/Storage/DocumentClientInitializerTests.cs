@@ -16,17 +16,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
     public class DocumentClientInitializerTests
     {
         private readonly DocumentClientInitializer _documentClientInitializer = new DocumentClientInitializer(Substitute.For<IDocumentClientTestProvider>(), NullLogger<DocumentClientInitializer>.Instance, Substitute.For<IUpgradeManager>(), Substitute.For<IFhirRequestContextAccessor>());
-        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
+
+        public DocumentClientInitializerTests()
         {
-            AllowDatabaseCreation = false,
-            CollectionId = "testcollectionid",
-            ConnectionMode = Azure.Documents.Client.ConnectionMode.Direct,
-            ConnectionProtocol = Azure.Documents.Client.Protocol.Https,
-            DatabaseId = "testdatabaseid",
-            Host = "https://fakehost",
-            Key = "ZmFrZWtleQ==",   // "fakekey"
-            PreferredLocations = null,
-        };
+            _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
+            {
+                AllowDatabaseCreation = false,
+                CollectionId = "testcollectionid",
+                ConnectionMode = Azure.Documents.Client.ConnectionMode.Direct,
+                ConnectionProtocol = Azure.Documents.Client.Protocol.Https,
+                DatabaseId = "testdatabaseid",
+                Host = "https://fakehost",
+                Key = "ZmFrZWtleQ==",   // "fakekey"
+                PreferredLocations = null,
+            };
+
+            _cosmosDataStoreConfiguration.RetryOptions.MaxNumberOfRetries = 10;
+            _cosmosDataStoreConfiguration.RetryOptions.MaxWaitTimeInSeconds = 99;
+        }
 
         [Fact]
         public void CreateDocumentClient_NullPreferredLocations_DoesNotSetPreferredLocations()
@@ -61,6 +69,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             {
                 Assert.Equal(_cosmosDataStoreConfiguration.PreferredLocations[i], documentClient.ConnectionPolicy.PreferredLocations[i]);
             }
+        }
+
+        [Fact]
+        public void CreateDocumentClient_SetsMaxRetryAttemptsOnThrottledRequests()
+        {
+            var documentClient = _documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
+
+            Assert.NotNull(documentClient.ConnectionPolicy);
+            Assert.NotNull(documentClient.ConnectionPolicy.RetryOptions);
+            Assert.Equal(10, documentClient.ConnectionPolicy.RetryOptions.MaxRetryAttemptsOnThrottledRequests);
+        }
+
+        [Fact]
+        public void CreateDocumentClient_SetsMaxRetryWaitTimeInSeconds()
+        {
+            var documentClient = _documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
+
+            Assert.NotNull(documentClient.ConnectionPolicy);
+            Assert.NotNull(documentClient.ConnectionPolicy.RetryOptions);
+            Assert.Equal(99, documentClient.ConnectionPolicy.RetryOptions.MaxRetryWaitTimeInSeconds);
         }
     }
 }

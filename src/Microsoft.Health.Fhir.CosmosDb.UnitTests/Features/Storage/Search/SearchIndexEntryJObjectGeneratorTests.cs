@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
@@ -38,22 +39,108 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             const string system3 = "s3";
             const string code3 = "c3";
 
-            var value = new CompositeSearchValue(new ISearchValue[]
-            {
-                new TokenSearchValue(system1, code1, text1),
-                new TokenSearchValue(system2, code2, text2),
-                new QuantitySearchValue(system3, code3, quantity),
-            });
+            var value = new CompositeSearchValue(
+                new[]
+                {
+                    new ISearchValue[] { new TokenSearchValue(system1, code1, text1) },
+                    new ISearchValue[] { new TokenSearchValue(system2, code2, text2) },
+                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity) },
+                });
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple("s_0", system1),
                 CreateTuple("c_0", code1),
                 CreateTuple("s_1", system2),
                 CreateTuple("c_1", code2),
                 CreateTuple("s_2", system3),
                 CreateTuple("c_2", code3),
-                CreateTuple("q_2", quantity));
+                CreateTuple("q_2", quantity),
+            };
+
+            TestAndValidateOutput(
+                "composite",
+                value,
+                expectedValues);
+        }
+
+        [Fact]
+        public void GivenACompositeSearchValueWithMultipleValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        {
+            const string system1 = "s1";
+            const string code1 = "s2";
+            const string text1 = "t1";
+            const string system2 = "s2";
+            const string code2 = "c2";
+            const string text2 = "T2";
+            const decimal quantity = 123.5m;
+            const string system3 = "s3";
+            const string code3 = "c3";
+            const string s1 = "test1";
+            const string s2 = "test2";
+            const string normalizedS1 = "TEST1";
+            const string normalizedS2 = "TEST2";
+
+            var value = new CompositeSearchValue(
+                new[]
+                {
+                    new ISearchValue[]
+                    {
+                        new TokenSearchValue(system1, code1, text1),
+                        new TokenSearchValue(system2, code2, text2),
+                    },
+                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity) },
+                    new ISearchValue[]
+                    {
+                        new StringSearchValue(s1),
+                        new StringSearchValue(s2),
+                    },
+                });
+
+            var expectedValues = new[]
+            {
+                new[]
+                {
+                    CreateTuple("s_0", system1),
+                    CreateTuple("c_0", code1),
+                    CreateTuple("s_1", system3),
+                    CreateTuple("c_1", code3),
+                    CreateTuple("q_1", quantity),
+                    CreateTuple("n_s_2", normalizedS1),
+                },
+                new[]
+                {
+                    CreateTuple("s_0", system1),
+                    CreateTuple("c_0", code1),
+                    CreateTuple("s_1", system3),
+                    CreateTuple("c_1", code3),
+                    CreateTuple("q_1", quantity),
+                    CreateTuple("n_s_2", normalizedS2),
+                },
+                new[]
+                {
+                    CreateTuple("s_0", system2),
+                    CreateTuple("c_0", code2),
+                    CreateTuple("s_1", system3),
+                    CreateTuple("c_1", code3),
+                    CreateTuple("q_1", quantity),
+                    CreateTuple("n_s_2", normalizedS1),
+                },
+                new[]
+                {
+                    CreateTuple("s_0", system2),
+                    CreateTuple("c_0", code2),
+                    CreateTuple("s_1", system3),
+                    CreateTuple("c_1", code3),
+                    CreateTuple("q_1", quantity),
+                    CreateTuple("n_s_2", normalizedS2),
+                },
+            };
+
+            TestAndValidateOutput(
+                "composite",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -63,10 +150,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 new PartialDateTime(2000),
                 new PartialDateTime(2001));
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple("st", "2000-01-01T00:00:00.0000000+00:00"),
-                CreateTuple("et", "2001-12-31T23:59:59.9999999+00:00"));
+                CreateTuple("et", "2001-12-31T23:59:59.9999999+00:00"),
+            };
+
+            TestAndValidateOutput(
+                "date",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -77,8 +170,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             var value = new NumberSearchValue(number);
 
             TestAndValidateOutput(
+                "number",
                 value,
-                CreateTuple("n", number));
+                new[] { CreateTuple("n", number) });
         }
 
         [Fact]
@@ -93,11 +187,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 code,
                 quantity);
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple(SystemName, system),
                 CreateTuple(CodeName, code),
-                CreateTuple("q", quantity));
+                CreateTuple("q", quantity),
+            };
+
+            TestAndValidateOutput(
+                "quantity",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -107,10 +207,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, ResourceType.Immunization, resourceId);
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple(ReferenceResourceTypeName, "Immunization"),
-                CreateTuple(ReferenceResourceIdName, resourceId));
+                CreateTuple(ReferenceResourceIdName, resourceId),
+            };
+
+            TestAndValidateOutput(
+                "reference",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -121,11 +227,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var value = new ReferenceSearchValue(ReferenceKind.Internal, baseUri, ResourceType.Account, resourceId);
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple("rb", baseUri.ToString()),
                 CreateTuple(ReferenceResourceTypeName, "Account"),
-                CreateTuple(ReferenceResourceIdName, resourceId));
+                CreateTuple(ReferenceResourceIdName, resourceId),
+            };
+
+            TestAndValidateOutput(
+                "reference",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -135,10 +247,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             StringSearchValue value = new StringSearchValue(s);
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple("s", s),
-                CreateTuple("n_s", s.ToUpperInvariant()));
+                CreateTuple("n_s", s.ToUpperInvariant()),
+            };
+
+            TestAndValidateOutput(
+                "string",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -149,10 +267,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var value = new TokenSearchValue(null, code, text);
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple(CodeName, code),
-                CreateTuple(TextName, text));
+                CreateTuple(TextName, text),
+            };
+
+            TestAndValidateOutput(
+                "token",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -163,10 +287,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var value = new TokenSearchValue(system, null, text);
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple(SystemName, system),
-                CreateTuple(TextName, text));
+                CreateTuple(TextName, text),
+            };
+
+            TestAndValidateOutput(
+                "token",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -177,10 +307,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var value = new TokenSearchValue(system, code, null);
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple(SystemName, system),
-                CreateTuple(CodeName, code));
+                CreateTuple(CodeName, code),
+            };
+
+            TestAndValidateOutput(
+                "token",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -192,11 +328,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var value = new TokenSearchValue(system, code, text);
 
-            TestAndValidateOutput(
-                value,
+            var expectedValues = new[]
+            {
                 CreateTuple(SystemName, system),
                 CreateTuple(CodeName, code),
-                CreateTuple(TextName, text.ToUpperInvariant()));
+                CreateTuple(TextName, text.ToUpperInvariant()),
+            };
+
+            TestAndValidateOutput(
+                "token",
+                value,
+                expectedValues);
         }
 
         [Fact]
@@ -207,25 +349,37 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             var value = new UriSearchValue(uri);
 
             TestAndValidateOutput(
+                "uri",
                 value,
-                CreateTuple("u", uri));
+                new[] { CreateTuple("u", uri) });
         }
 
-        private static Tuple<string, object> CreateTuple(string key, object value)
+        private static (string Name, object Value) CreateTuple(string key, object value)
         {
-            return new Tuple<string, object>(key, value);
+            return (key, value);
         }
 
-        private void TestAndValidateOutput(ISearchValue value, params Tuple<string, object>[] expectedValues)
+        private void TestAndValidateOutput(string parameterName, ISearchValue value, params (string Name, object Value)[][] expectedValues)
         {
-            value.AcceptVisitor(_generator);
+            SearchIndexEntry entry = new SearchIndexEntry(parameterName, value);
 
-            JObject result = _generator.Output;
+            IReadOnlyList<JObject> generatedObjects = _generator.Generate(entry);
 
-            Assert.NotNull(result);
+            Assert.NotNull(generatedObjects);
             Assert.Collection(
-                result,
-                expectedValues.Select(v => (Action<KeyValuePair<string, JToken>>)(p => ValidateProperty(v.Item1, v.Item2, p))).ToArray());
+                generatedObjects,
+                expectedValues.Select(v => (Action<JObject>)(p => ValidateObject(parameterName, v, p))).ToArray());
+        }
+
+        private void ValidateObject(string expectedParameterName, IEnumerable<(string Name, object Value)> expectedValues, JObject obj)
+        {
+            // Add the parameter name validation.
+            expectedValues = expectedValues.Prepend(("p", expectedParameterName));
+
+            Assert.NotNull(obj);
+            Assert.Collection(
+                obj,
+                expectedValues.Select(v => (Action<KeyValuePair<string, JToken>>)(p => ValidateProperty(v.Name, v.Value, p))).ToArray());
         }
 
         private void ValidateProperty(string expectedName, object expectedValue, KeyValuePair<string, JToken> property)

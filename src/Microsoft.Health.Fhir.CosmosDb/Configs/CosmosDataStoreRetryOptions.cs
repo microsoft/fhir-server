@@ -3,18 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-
-namespace Microsoft.Health.Fhir.Core.Features.Search
+namespace Microsoft.Health.Fhir.CosmosDb.Configs
 {
-    /// <summary>
-    /// Provides search indices.
-    /// </summary>
-    public interface ISupportSearchIndices
+    public class CosmosDataStoreRetryOptions
     {
         /// <summary>
-        /// Gets search indices.
+        /// Gets the maximum number of retries allowed.
         /// </summary>
-        IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; }
+        public int MaxNumberOfRetries { get; set; } = 3;
+
+        /// <summary>
+        /// Gets the maximum number of seconds to wait while the retries are happening.
+        /// </summary>
+        public int MaxWaitTimeInSeconds { get; set; } = 5;
     }
 }

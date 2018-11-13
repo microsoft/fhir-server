@@ -33,8 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation
         [JsonProperty("ttl", NullValueHandling = NullValueHandling.Ignore)]
         public int? TimeToLive { get; protected set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1822:Mark members as static", Justification = "Used in serialization to Cosmos DB")]
         [JsonProperty("partitionKey")]
-        public string PartitionKey => ContinuationTokenPartition;
+        public string PartitionKey { get; } = ContinuationTokenPartition;
     }
 }

@@ -25,9 +25,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <summary>
         /// Gets a value indicating whether this object is system metadata and not user generated data
         /// </summary>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1822:Mark members as static", Justification = "Used in serialization to Cosmos DB")]
         [JsonProperty(KnownResourceWrapperProperties.IsSystem)]
-        public bool IsSystem => true;
+        public bool IsSystem { get; } = true;
 
         [JsonProperty("_selfLink")]
         public string SelfLink { get; set; }

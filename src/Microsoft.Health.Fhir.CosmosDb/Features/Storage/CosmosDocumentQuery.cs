@@ -112,6 +112,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     throw new ServiceUnavailableException();
                 }
+                else if (ex.StatusCode == (HttpStatusCode)429)
+                {
+                    throw new RequestRateExceededException(ex.RetryAfter);
+                }
 
                 throw;
             }

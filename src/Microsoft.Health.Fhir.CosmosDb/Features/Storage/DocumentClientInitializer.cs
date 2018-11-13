@@ -55,6 +55,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 ConnectionMode = configuration.ConnectionMode,
                 ConnectionProtocol = configuration.ConnectionProtocol,
+                RetryOptions = new RetryOptions()
+                {
+                    MaxRetryAttemptsOnThrottledRequests = configuration.RetryOptions.MaxNumberOfRetries,
+                    MaxRetryWaitTimeInSeconds = configuration.RetryOptions.MaxWaitTimeInSeconds,
+                },
             };
 
             if (configuration.PreferredLocations != null && configuration.PreferredLocations.Any())
@@ -86,9 +91,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // if the values don't always have complete 7 digits, the comparison might not work properly.
             serializerSettings.Converters.Add(new IsoDateTimeConverter { DateTimeFormat = "o" });
 
-            return new DocumentClientWithConsistencyLevelFromContext(
-                new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
-                _fhirRequestContextAccessor);
+            return new DocumentClientWithExceptionHandler(
+                new DocumentClientWithConsistencyLevelFromContext(
+                    new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
+                    _fhirRequestContextAccessor));
         }
 
         /// <summary>

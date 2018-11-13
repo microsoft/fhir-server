@@ -241,6 +241,9 @@
   <data name="RequestedActionNotAllowed" xml:space="preserve">
     <value>The requested action is not allowed.</value>
   </data>
+  <data name="RequestRateExceeded" xml:space="preserve">
+    <value>The request rate has exceeded the maximum API request rate and is being throttled. Please try again later.</value>
+  </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>
   </data>

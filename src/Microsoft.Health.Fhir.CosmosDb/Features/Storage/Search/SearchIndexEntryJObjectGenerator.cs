@@ -3,7 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Globalization;
+using EnsureThat;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Newtonsoft.Json.Linq;
@@ -12,42 +16,59 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 {
     internal class SearchIndexEntryJObjectGenerator : ISearchValueVisitor
     {
+        private List<JObject> _generatedObjects = new List<JObject>();
+
         public SearchIndexEntryJObjectGenerator()
         {
-            Reset();
         }
+
+        private SearchIndexEntry Entry { get; set; }
 
         private int? Index { get; set; }
 
-        private bool ExcludeTokenText { get; set; }
+        private bool IsCompositeComponent => Index != null;
 
-        public JObject Output
+        private JObject CurrentEntry { get; set; }
+
+        public IReadOnlyList<JObject> Generate(SearchIndexEntry entry)
         {
-            get;
-            private set;
+            EnsureArg.IsNotNull(entry, nameof(entry));
+
+            Entry = entry;
+            CurrentEntry = null;
+            _generatedObjects.Clear();
+
+            entry.Value.AcceptVisitor(this);
+
+            return _generatedObjects;
         }
 
-        public void Visit(CompositeSearchValue composite)
+        void ISearchValueVisitor.Visit(CompositeSearchValue composite)
         {
-            try
+            foreach (IEnumerable<ISearchValue> componentValues in composite.Components.CartesianProduct())
             {
-                // Set the component index and process individual component of the composite value.
-                for (int i = 0; i < composite.Components.Count; i++)
-                {
-                    Index = i;
-                    ExcludeTokenText = true;
+                int index = 0;
 
-                    composite.Components[i].AcceptVisitor(this);
+                CreateEntry();
+
+                try
+                {
+                    foreach (ISearchValue componentValue in componentValues)
+                    {
+                        // Set the component index and process individual component of the composite value.
+                        Index = index++;
+
+                        componentValue.AcceptVisitor(this);
+                    }
+                }
+                finally
+                {
+                    Index = null;
                 }
             }
-            finally
-            {
-                Index = null;
-                ExcludeTokenText = false;
-            }
         }
 
-        public void Visit(DateTimeSearchValue dateTime)
+        void ISearchValueVisitor.Visit(DateTimeSearchValue dateTime)
         {
             // By default, Json.NET will serialize date time object using format
             // "yyyy'-'MM'-'dd'T'HH':'mm':'ss.FFFFFFFK". The 'F' format specifier
@@ -60,51 +81,60 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             AddProperty(SearchValueConstants.DateTimeEndName, dateTime.End.ToString("o", CultureInfo.InvariantCulture));
         }
 
-        public void Visit(NumberSearchValue number)
+        void ISearchValueVisitor.Visit(NumberSearchValue number)
         {
             AddProperty(SearchValueConstants.NumberName, number.Number);
         }
 
-        public void Visit(QuantitySearchValue quantity)
+        void ISearchValueVisitor.Visit(QuantitySearchValue quantity)
         {
-            AddProperty(SearchValueConstants.SystemName, quantity.System);
-            AddProperty(SearchValueConstants.CodeName, quantity.Code);
+            AddPropertyIfNotNull(SearchValueConstants.SystemName, quantity.System);
+            AddPropertyIfNotNull(SearchValueConstants.CodeName, quantity.Code);
             AddProperty(SearchValueConstants.QuantityName, quantity.Quantity);
         }
 
-        public void Visit(ReferenceSearchValue reference)
+        void ISearchValueVisitor.Visit(ReferenceSearchValue reference)
         {
             AddPropertyIfNotNull(SearchValueConstants.ReferenceBaseUriName, reference.BaseUri?.ToString());
             AddPropertyIfNotNull(SearchValueConstants.ReferenceResourceTypeName, reference.ResourceType?.ToString());
             AddProperty(SearchValueConstants.ReferenceResourceIdName, reference.ResourceId);
         }
 
-        public void Visit(StringSearchValue s)
+        void ISearchValueVisitor.Visit(StringSearchValue s)
         {
-            AddProperty(SearchValueConstants.StringName, s.String);
+            if (!IsCompositeComponent)
+            {
+                AddProperty(SearchValueConstants.StringName, s.String);
+            }
+
             AddProperty(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
         }
 
-        public void Visit(TokenSearchValue token)
+        void ISearchValueVisitor.Visit(TokenSearchValue token)
         {
             AddPropertyIfNotNull(SearchValueConstants.SystemName, token.System);
             AddPropertyIfNotNull(SearchValueConstants.CodeName, token.Code);
 
-            if (!ExcludeTokenText)
+            if (!IsCompositeComponent)
             {
                 // Since text is case-insensitive search, it will always be normalized.
                 AddPropertyIfNotNull(SearchValueConstants.NormalizedTextName, token.Text?.ToUpperInvariant());
             }
         }
 
-        public void Visit(UriSearchValue uri)
+        void ISearchValueVisitor.Visit(UriSearchValue uri)
         {
             AddProperty(SearchValueConstants.UriName, uri.Uri);
         }
 
-        public void Reset()
+        private void CreateEntry()
         {
-            Output = new JObject();
+            CurrentEntry = new JObject
+            {
+                new JProperty(SearchValueConstants.ParamName, Entry.ParamName),
+            };
+
+            _generatedObjects.Add(CurrentEntry);
         }
 
         private void AddProperty(string name, object value)
@@ -114,7 +144,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
                 name = $"{name}_{Index}";
             }
 
-            Output.Add(new JProperty(name, value));
+            if (CurrentEntry == null)
+            {
+                CreateEntry();
+            }
+
+            CurrentEntry.Add(new JProperty(name, value));
         }
 
         private void AddPropertyIfNotNull(string name, string value)

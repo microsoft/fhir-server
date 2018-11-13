@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj) && resourceTypeObj is string resourceType && !string.IsNullOrEmpty(resourceType))
             {
+                // If wildcard (*) is specified for ResourceType, then set the value to null so that
+                //  resource type is not used in expression generation.
                 if (resourceType == "*")
                 {
                     values[KnownActionParameterNames.ResourceType] = null;

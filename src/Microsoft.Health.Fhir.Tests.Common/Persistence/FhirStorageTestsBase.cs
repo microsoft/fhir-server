@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
                 {
                     Resource resource = x.ArgAt<Resource>(0);
 
-                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource), new ResourceRequest("http://fhir", HttpMethod.Post), x.ArgAt<bool>(1), null, null);
+                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource), new ResourceRequest("http://fhir", HttpMethod.Post), x.ArgAt<bool>(1), null, null, null);
                 });
 
             FhirRepository = new FhirRepository(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory);

@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
 
             Assert.Empty(data.Routers);
             Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
+            Assert.False(data.Values.ContainsKey(KnownActionParameterNames.CompartmentType));
         }
 
         [Theory]
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
 
             Assert.Empty(data.Routers);
             Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
+            Assert.False(data.Values.ContainsKey(KnownActionParameterNames.CompartmentType));
         }
 
         [Theory]
@@ -84,6 +86,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
 
             Assert.Empty(data.Routers);
             Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
+            Assert.False(data.Values.ContainsKey(KnownActionParameterNames.CompartmentType));
         }
 
         protected override void AddAdditionalServices(IServiceCollection builder)
