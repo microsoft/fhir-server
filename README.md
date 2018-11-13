@@ -52,7 +52,7 @@ provided by the bot. You will only need to do this once across all repos using o
 
 There are many other ways to contribute to FHIR Server for Azure.
 * [Submit bugs](issues) and help us verify fixes as they are checked in.
-* Review the [source code changes](pulls).
+* Review the [source code changes](https://github.com/Microsoft/fhir-server/pulls).
 * Engage with FHIR Server for Azure users and developers on [StackOverflow](https://stackoverflow.com/questions/tagged/fhir-server-for-azure).
 * Join the [#fhirforazure](https://twitter.com/hashtag/fhirserverforazure?f=tweets&vertical=default) discussion on Twitter.
 * [Contribute bug fixes](CONTRIBUTING.md).
