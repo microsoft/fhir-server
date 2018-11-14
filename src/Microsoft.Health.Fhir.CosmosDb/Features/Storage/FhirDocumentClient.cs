@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// (1) sets the consistency level and, if applicable, the session token
     /// (2) Sets <see cref="FeedOptions.ResponseContinuationTokenLimitInKb"/>
     /// (3) Sets the <see cref="CosmosDbHeaders.RequestCharge"/> response header.
+    /// (4) In the event of a 429 response from the database, throws a <see cref="RequestRateTooLargeException"/>.
     /// </summary>
     internal sealed partial class FhirDocumentClient
     {
