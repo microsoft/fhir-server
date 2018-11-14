@@ -26,7 +26,7 @@
     <EmbeddedResource Include="Views\_ViewStart.cshtml" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Ensure.That" Version="8.0.0" />
+    <PackageReference Include="Ensure.That" Version="8.1.0" />
     <PackageReference Include="FluentValidation" Version="8.0.100" />
     <PackageReference Include="MediatR" Version="5.1.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="5.1.0" />
