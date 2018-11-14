@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The compartment id is null or empty..
+        ///   Looks up a localized string similar to Compartment id is null or empty..
         /// </summary>
         internal static string CompartmentIdIsInvalid {
             get {
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The compartment type {0} is invalid..
+        ///   Looks up a localized string similar to Compartment type {0} is invalid..
         /// </summary>
         internal static string CompartmentTypeIsInvalid {
             get {

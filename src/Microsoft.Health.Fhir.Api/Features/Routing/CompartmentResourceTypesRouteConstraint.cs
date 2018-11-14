@@ -20,13 +20,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             EnsureArg.IsNotNullOrEmpty(routeKey, nameof(routeKey));
             EnsureArg.IsNotNull(values, nameof(values));
 
-            if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj) && resourceTypeObj is string resourceType && !string.IsNullOrEmpty(resourceType))
+            if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj)
+                    && resourceTypeObj is string resourceType
+                    && !string.IsNullOrEmpty(resourceType))
             {
-                // If wildcard (*) is specified for ResourceType, then set the value to null so that
-                //  resource type is not used in expression generation.
+                // Don't validate wild card.
                 if (resourceType == "*")
                 {
-                    values[KnownActionParameterNames.ResourceType] = null;
                     return true;
                 }
 

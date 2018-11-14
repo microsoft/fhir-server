@@ -20,9 +20,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             EnsureArg.IsNotNullOrEmpty(routeKey, nameof(routeKey));
             EnsureArg.IsNotNull(values, nameof(values));
 
-            if (values.TryGetValue(KnownActionParameterNames.CompartmentType, out var compartmentTypeObj) && compartmentTypeObj is string compartmentType && !string.IsNullOrEmpty(compartmentType))
+            if (values.TryGetValue(KnownActionParameterNames.CompartmentType, out var compartmentTypeObj)
+                    && compartmentTypeObj is string compartmentType
+                    && !string.IsNullOrEmpty(compartmentType))
             {
-                return Enum.TryParse<CompartmentType>(compartmentType, false, out var compartmentTypeEnumValue);
+                return Enum.IsDefined(typeof(CompartmentType), compartmentType);
             }
 
             return false;

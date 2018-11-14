@@ -22,11 +22,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         [InlineData("/Encounter/asasasa/Condition", "Encounter", "asasasa", "Condition")]
         [InlineData("/Practitioner/doc1/Account", "Practitioner", "doc1", "Account")]
         [InlineData("/RelatedPerson/123/Practitioner", "RelatedPerson", "123", "Practitioner")]
-        [InlineData("/Patient/123/*", "Patient", "123", null)]
-        [InlineData("/Device/123/*", "Device", "123", null)]
-        [InlineData("/Encounter/123/*", "Encounter", "123", null)]
-        [InlineData("/Practitioner/123/*", "Practitioner", "123", null)]
-        [InlineData("/RelatedPerson/xyzz/*", "RelatedPerson", "xyzz", null)]
+        [InlineData("/Patient/123/*", "Patient", "123", "*")]
+        [InlineData("/Device/123/*", "Device", "123", "*")]
+        [InlineData("/Encounter/123/*", "Encounter", "123", "*")]
+        [InlineData("/Practitioner/123/*", "Practitioner", "123", "*")]
+        [InlineData("/RelatedPerson/xyzz/*", "RelatedPerson", "xyzz", "*")]
         public async Task GivenAValidModelGetRequest_WhenRouting_ThenConstraintIsPassed(string url, string compartmentType, string compartmentId, string resourceType)
         {
             var data = await GetRouteData(HttpMethods.Get, url);

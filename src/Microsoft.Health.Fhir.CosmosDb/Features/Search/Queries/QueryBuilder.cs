@@ -3,8 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -92,6 +92,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             private static string GetCompartmentIndicesParamName(CompartmentType compartmentType)
             {
+                Debug.Assert(s_compartmentTypeToParamName.ContainsKey(compartmentType), $"CompartmentType {compartmentType} should have a corresponding index param");
                 return $"{KnownResourceWrapperProperties.CompartmentIndices}.{s_compartmentTypeToParamName[compartmentType]}";
             }
 

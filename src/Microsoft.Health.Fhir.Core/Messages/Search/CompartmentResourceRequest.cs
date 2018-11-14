@@ -13,7 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
     {
         public CompartmentResourceRequest(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)
         {
-            ResourceType = resourceType;
+            // If wildcard (*) is specified for ResourceType, then set the value to null so that
+            //  resource type is not used in expression generation.
+            ResourceType = resourceType == "*" ? null : resourceType;
+
             CompartmentType = compartmentType;
             CompartmentId = compartmentId;
             Queries = queries;
