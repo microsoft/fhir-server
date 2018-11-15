@@ -94,9 +94,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsService<ICosmosDocumentQueryFactory>();
 
-            services.Add<CosmosDocumentQueryLogger>()
+            services.Add<FhirDocumentQueryLogger>()
                 .Singleton()
-                .AsService<ICosmosDocumentQueryLogger>();
+                .AsService<IFhirDocumentQueryLogger>();
 
             services.Add<CollectionUpgradeManager>()
                 .Singleton()

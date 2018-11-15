@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.TypesInSameAssemblyAs<ResourceNotValidException>()
                 .AssignableTo<IValidator>()
-                .Scoped()
+                .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
         }

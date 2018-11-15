@@ -22,7 +22,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
     /// we set ConsistencyLevel and/or SessionToken on <see cref="FeedOptions" /> or <see cref="RequestOptions"/>
     /// parameters based on HTTP request headers, and we set the session consistency output header based on the response.
     /// </summary>
-    internal class DocumentClientWithConsistencyLevelFromContextGenerator : DocumentClientGenerator
+    internal class FhirDocumentClientGenerator : DocumentClientGenerator
     {
         internal override CSharpSyntaxRewriter CreateSyntaxRewriter(Compilation compilation, SemanticModel semanticModel)
         {
@@ -33,6 +33,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
         {
             private readonly SemanticModel _semanticModel;
             private readonly INamedTypeSymbol _taskTypeSymbol;
+            private readonly INamedTypeSymbol _taskOfTTypeSymbol;
             private readonly ImmutableHashSet<INamedTypeSymbol> _optionTypeSymbols;
             private readonly ImmutableHashSet<INamedTypeSymbol> _responseTypeSymbols;
             private readonly HashSet<string> _methodsWithOptionOverloads;
@@ -48,7 +49,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                         g.Select(m => m.GetParameters().Any(p => optionParameterTypes.Contains(p.ParameterType))).Distinct().Count() > 1)
                     .Select(g => g.Key).ToHashSet();
 
-                _taskTypeSymbol = compilation.GetTypeByMetadataName(typeof(Task<>).FullName);
+                _taskTypeSymbol = compilation.GetTypeByMetadataName(typeof(Task).FullName);
+                _taskOfTTypeSymbol = compilation.GetTypeByMetadataName(typeof(Task<>).FullName);
                 _optionTypeSymbols = optionParameterTypes.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToImmutableHashSet();
                 _responseTypeSymbols = new[] { typeof(DocumentResponse<>), typeof(FeedResponse<>), typeof(ResourceResponse<>), typeof(StoredProcedureResponse<>) }.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToImmutableHashSet();
                 _semanticModel = semanticModel;
@@ -81,17 +83,46 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     return IncompleteMember();
                 }
 
-                if (_semanticModel.GetTypeInfo(node.ReturnType).Type is INamedTypeSymbol type &&
-                    type.ConstructedFrom.Equals(_taskTypeSymbol) &&
-                    type.TypeArguments[0] is INamedTypeSymbol argumentType &&
-                    argumentType.IsGenericType &&
-                    _responseTypeSymbols.Contains(argumentType.ConstructedFrom))
+                var returnTypeSymbol = _semanticModel.GetTypeInfo(node.ReturnType).Type as INamedTypeSymbol;
+
+                bool isAsync = returnTypeSymbol != null &&
+                               (returnTypeSymbol.Equals(_taskTypeSymbol) || returnTypeSymbol.ConstructedFrom.Equals(_taskOfTTypeSymbol));
+
+                if (isAsync)
                 {
                     visitedNode = visitedNode.AddModifiers(Token(SyntaxKind.AsyncKeyword));
                     var invocation = visitedNode.DescendantNodes().OfType<InvocationExpressionSyntax>().First();
-                    visitedNode = visitedNode.ReplaceNode(invocation, InvocationExpression(IdentifierName("ProcessResponse")).AddArgumentListArguments(Argument(AwaitExpression(invocation))));
+                    visitedNode = visitedNode.ReplaceNode(invocation, AwaitExpression(invocation));
+                }
 
-                    return visitedNode;
+                // wrap with try/catch
+
+                visitedNode = visitedNode.WithBody(Block(TryStatement(
+                    block: visitedNode.Body,
+                    catches: SingletonList(
+                        CatchClause()
+                            .WithDeclaration(
+                                CatchDeclaration(
+                                        IdentifierName("System.Exception"))
+                                    .WithIdentifier(
+                                        Identifier("ex")))
+                            .WithBlock(
+                                Block(
+                                    SeparatedList(
+                                        new StatementSyntax[]
+                                        {
+                                            ExpressionStatement(InvocationExpression(IdentifierName("ProcessException")).AddArgumentListArguments(Argument(IdentifierName("ex")))),
+                                            ThrowStatement(),
+                                        })))),
+                    @finally: null)));
+
+                if (isAsync &&
+                    returnTypeSymbol.TypeArguments.FirstOrDefault() is INamedTypeSymbol argumentType &&
+                    argumentType.IsGenericType &&
+                    _responseTypeSymbols.Contains(argumentType.ConstructedFrom))
+                {
+                    var awaitSyntax = visitedNode.DescendantNodes().OfType<AwaitExpressionSyntax>().First();
+                    visitedNode = visitedNode.ReplaceNode(awaitSyntax, InvocationExpression(IdentifierName("ProcessResponse")).AddArgumentListArguments(Argument(awaitSyntax)));
                 }
 
                 return visitedNode;

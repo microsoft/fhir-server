@@ -9,9 +9,9 @@ using Microsoft.Azure.Documents;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Logger used for logging <see cref="CosmosDocumentQuery{T}"/>.
+    /// Logger used for logging <see cref="FhirDocumentQuery{T}"/>.
     /// </summary>
-    public interface ICosmosDocumentQueryLogger
+    public interface IFhirDocumentQueryLogger
     {
         /// <summary>
         /// Logs the query execution.

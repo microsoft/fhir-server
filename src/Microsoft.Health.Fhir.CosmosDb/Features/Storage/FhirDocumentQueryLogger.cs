@@ -12,9 +12,9 @@ using Microsoft.Extensions.Logging;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Logger used for logging <see cref="CosmosDocumentQuery{T}"/>.
+    /// Logger used for logging <see cref="FhirDocumentQuery{T}"/>.
     /// </summary>
-    public class CosmosDocumentQueryLogger : ICosmosDocumentQueryLogger
+    public class FhirDocumentQueryLogger : IFhirDocumentQueryLogger
     {
         private static readonly string QueryExecutingMessageFormat =
             "QueryId: {QueryId}" + Environment.NewLine +
@@ -46,10 +46,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ILogger<IDocumentQuery> _logger;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CosmosDocumentQueryLogger"/> class.
+        /// Initializes a new instance of the <see cref="FhirDocumentQueryLogger"/> class.
         /// </summary>
         /// <param name="logger">The logger.</param>
-        public CosmosDocumentQueryLogger(
+        public FhirDocumentQueryLogger(
             ILogger<IDocumentQuery> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));

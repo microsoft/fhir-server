@@ -8,10 +8,10 @@
 //------------------------------------------------------------------------------
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    internal partial class DocumentClientWithExceptionHandler : Microsoft.Azure.Documents.IDocumentClient, System.IDisposable
+    internal partial class FhirDocumentClient : Microsoft.Azure.Documents.IDocumentClient, System.IDisposable
     {
         private readonly Microsoft.Azure.Documents.IDocumentClient _inner;
-        public DocumentClientWithExceptionHandler(Microsoft.Azure.Documents.IDocumentClient inner)
+        private FhirDocumentClient(Microsoft.Azure.Documents.IDocumentClient inner)
         {
             _inner = inner ?? throw new System.ArgumentNullException(nameof(inner));
         }
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateAttachmentAsync(attachmentsLink, mediaStream, options, requestOptions, cancellationToken);
+                return ProcessResponse(await _inner.CreateAttachmentAsync(attachmentsLink, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateAttachmentAsync(documentLink, attachment, options, cancellationToken);
+                return ProcessResponse(await _inner.CreateAttachmentAsync(documentLink, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateAttachmentAsync(documentUri, mediaStream, options, requestOptions, cancellationToken);
+                return ProcessResponse(await _inner.CreateAttachmentAsync(documentUri, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateAttachmentAsync(documentUri, attachment, options, cancellationToken);
+                return ProcessResponse(await _inner.CreateAttachmentAsync(documentUri, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -143,109 +143,253 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery<T>(System.String documentLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery<T>(documentLink, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery<T>(documentLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Attachment> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery(System.String documentLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery(documentLink, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery(documentLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery<T>(System.String documentLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery<T>(documentLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery<T>(documentLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery(System.String documentLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery(documentLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery(documentLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery<T>(System.String documentLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery<T>(documentLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery<T>(documentLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery(System.String documentLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery(documentLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery(documentLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery<T>(System.Uri documentUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery<T>(documentUri, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery<T>(documentUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Attachment> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery(System.Uri documentUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery(documentUri, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery(documentUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery<T>(System.Uri documentUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery<T>(documentUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery<T>(documentUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery(System.Uri documentUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery(documentUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery(documentUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery<T>(System.Uri documentUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery<T>(documentUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery<T>(documentUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateAttachmentQuery(System.Uri documentUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateAttachmentQuery(documentUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateAttachmentQuery(documentUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Conflict> Microsoft.Azure.Documents.IDocumentClient.CreateConflictQuery(System.String collectionLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateConflictQuery(collectionLink, feedOptions);
+            try
+            {
+                return _inner.CreateConflictQuery(collectionLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateConflictQuery(System.String collectionLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateConflictQuery(collectionLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateConflictQuery(collectionLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateConflictQuery(System.String collectionLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateConflictQuery(collectionLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateConflictQuery(collectionLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Conflict> Microsoft.Azure.Documents.IDocumentClient.CreateConflictQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateConflictQuery(documentCollectionUri, feedOptions);
+            try
+            {
+                return _inner.CreateConflictQuery(documentCollectionUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateConflictQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateConflictQuery(documentCollectionUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateConflictQuery(documentCollectionUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateConflictQuery(System.Uri documentCollectionUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateConflictQuery(documentCollectionUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateConflictQuery(documentCollectionUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -253,7 +397,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateDatabaseAsync(database, options);
+                return ProcessResponse(await _inner.CreateDatabaseAsync(database, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -267,7 +411,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateDatabaseIfNotExistsAsync(database, options);
+                return ProcessResponse(await _inner.CreateDatabaseIfNotExistsAsync(database, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -279,19 +423,43 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Database> Microsoft.Azure.Documents.IDocumentClient.CreateDatabaseQuery(Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDatabaseQuery(feedOptions);
+            try
+            {
+                return _inner.CreateDatabaseQuery(UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDatabaseQuery(Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDatabaseQuery(querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateDatabaseQuery(querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDatabaseQuery(System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDatabaseQuery(sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateDatabaseQuery(sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -299,7 +467,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateDocumentAsync(collectionLink, document, options, disableAutomaticIdGeneration, cancellationToken);
+                return ProcessResponse(await _inner.CreateDocumentAsync(collectionLink, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -313,7 +481,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateDocumentAsync(documentCollectionUri, document, options, disableAutomaticIdGeneration, cancellationToken);
+                return ProcessResponse(await _inner.CreateDocumentAsync(documentCollectionUri, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -325,13 +493,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         Microsoft.Azure.Documents.Linq.IDocumentQuery<Microsoft.Azure.Documents.Document> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentChangeFeedQuery(System.String collectionLink, Microsoft.Azure.Documents.Client.ChangeFeedOptions feedOptions)
         {
-            return _inner.CreateDocumentChangeFeedQuery(collectionLink, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentChangeFeedQuery(collectionLink, feedOptions);
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         Microsoft.Azure.Documents.Linq.IDocumentQuery<Microsoft.Azure.Documents.Document> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentChangeFeedQuery(System.Uri collectionLink, Microsoft.Azure.Documents.Client.ChangeFeedOptions feedOptions)
         {
-            return _inner.CreateDocumentChangeFeedQuery(collectionLink, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentChangeFeedQuery(collectionLink, feedOptions);
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -339,7 +523,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateDocumentCollectionAsync(databaseLink, documentCollection, options);
+                return ProcessResponse(await _inner.CreateDocumentCollectionAsync(databaseLink, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -353,7 +537,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateDocumentCollectionAsync(databaseUri, documentCollection, options);
+                return ProcessResponse(await _inner.CreateDocumentCollectionAsync(databaseUri, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -367,7 +551,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseLink, documentCollection, options);
+                return ProcessResponse(await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseLink, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -381,7 +565,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseUri, documentCollection, options);
+                return ProcessResponse(await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseUri, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -393,127 +577,295 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.DocumentCollection> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionQuery(System.String databaseLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentCollectionQuery(databaseLink, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentCollectionQuery(databaseLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionQuery(System.String databaseLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentCollectionQuery(databaseLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentCollectionQuery(databaseLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionQuery(System.String databaseLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentCollectionQuery(databaseLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentCollectionQuery(databaseLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.DocumentCollection> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionQuery(System.Uri databaseUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentCollectionQuery(databaseUri, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentCollectionQuery(databaseUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionQuery(System.Uri databaseUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentCollectionQuery(databaseUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentCollectionQuery(databaseUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentCollectionQuery(System.Uri databaseUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentCollectionQuery(databaseUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentCollectionQuery(databaseUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery<T>(System.String collectionLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery<T>(collectionLink, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery<T>(collectionLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Document> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery(System.String collectionLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery(collectionLink, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery(collectionLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery<T>(System.String collectionLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery<T>(collectionLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery<T>(collectionLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery(System.String collectionLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery(collectionLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery(collectionLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery<T>(System.String collectionLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery<T>(collectionLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery<T>(collectionLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery(System.String collectionLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery(collectionLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery(collectionLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery<T>(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery<T>(documentCollectionUri, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery<T>(documentCollectionUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Document> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery(documentCollectionUri, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery(documentCollectionUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery<T>(System.Uri documentCollectionUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery<T>(documentCollectionUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery<T>(documentCollectionUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery(documentCollectionUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery(documentCollectionUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<T> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery<T>(System.Uri documentCollectionUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery<T>(documentCollectionUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery<T>(documentCollectionUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateDocumentQuery(System.Uri documentCollectionUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateDocumentQuery(documentCollectionUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateDocumentQuery(documentCollectionUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Offer> Microsoft.Azure.Documents.IDocumentClient.CreateOfferQuery(Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateOfferQuery(feedOptions);
+            try
+            {
+                return _inner.CreateOfferQuery(UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateOfferQuery(Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateOfferQuery(querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateOfferQuery(querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateOfferQuery(System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateOfferQuery(sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateOfferQuery(sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -521,7 +873,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreatePermissionAsync(userLink, permission, options);
+                return ProcessResponse(await _inner.CreatePermissionAsync(userLink, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -535,7 +887,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreatePermissionAsync(userUri, permission, options);
+                return ProcessResponse(await _inner.CreatePermissionAsync(userUri, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -547,37 +899,85 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Permission> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionQuery(System.String permissionsLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreatePermissionQuery(permissionsLink, feedOptions);
+            try
+            {
+                return _inner.CreatePermissionQuery(permissionsLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionQuery(System.String permissionsLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreatePermissionQuery(permissionsLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreatePermissionQuery(permissionsLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionQuery(System.String permissionsLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreatePermissionQuery(permissionsLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreatePermissionQuery(permissionsLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Permission> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionQuery(System.Uri userUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreatePermissionQuery(userUri, feedOptions);
+            try
+            {
+                return _inner.CreatePermissionQuery(userUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionQuery(System.Uri userUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreatePermissionQuery(userUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreatePermissionQuery(userUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreatePermissionQuery(System.Uri userUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreatePermissionQuery(userUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreatePermissionQuery(userUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -585,7 +985,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateStoredProcedureAsync(collectionLink, storedProcedure, options);
+                return ProcessResponse(await _inner.CreateStoredProcedureAsync(collectionLink, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -599,7 +999,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateStoredProcedureAsync(documentCollectionUri, storedProcedure, options);
+                return ProcessResponse(await _inner.CreateStoredProcedureAsync(documentCollectionUri, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -611,37 +1011,85 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.StoredProcedure> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureQuery(System.String collectionLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateStoredProcedureQuery(collectionLink, feedOptions);
+            try
+            {
+                return _inner.CreateStoredProcedureQuery(collectionLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureQuery(System.String collectionLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateStoredProcedureQuery(collectionLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateStoredProcedureQuery(collectionLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureQuery(System.String collectionLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateStoredProcedureQuery(collectionLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateStoredProcedureQuery(collectionLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.StoredProcedure> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateStoredProcedureQuery(documentCollectionUri, feedOptions);
+            try
+            {
+                return _inner.CreateStoredProcedureQuery(documentCollectionUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateStoredProcedureQuery(documentCollectionUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateStoredProcedureQuery(documentCollectionUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateStoredProcedureQuery(System.Uri documentCollectionUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateStoredProcedureQuery(documentCollectionUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateStoredProcedureQuery(documentCollectionUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -649,7 +1097,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateTriggerAsync(collectionLink, trigger, options);
+                return ProcessResponse(await _inner.CreateTriggerAsync(collectionLink, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -663,7 +1111,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateTriggerAsync(documentCollectionUri, trigger, options);
+                return ProcessResponse(await _inner.CreateTriggerAsync(documentCollectionUri, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -675,37 +1123,85 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Trigger> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerQuery(System.String collectionLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateTriggerQuery(collectionLink, feedOptions);
+            try
+            {
+                return _inner.CreateTriggerQuery(collectionLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerQuery(System.String collectionLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateTriggerQuery(collectionLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateTriggerQuery(collectionLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerQuery(System.String collectionLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateTriggerQuery(collectionLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateTriggerQuery(collectionLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.Trigger> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateTriggerQuery(documentCollectionUri, feedOptions);
+            try
+            {
+                return _inner.CreateTriggerQuery(documentCollectionUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateTriggerQuery(documentCollectionUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateTriggerQuery(documentCollectionUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateTriggerQuery(System.Uri documentCollectionUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateTriggerQuery(documentCollectionUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateTriggerQuery(documentCollectionUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -713,7 +1209,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateUserAsync(databaseLink, user, options);
+                return ProcessResponse(await _inner.CreateUserAsync(databaseLink, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -727,7 +1223,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateUserAsync(databaseUri, user, options);
+                return ProcessResponse(await _inner.CreateUserAsync(databaseUri, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -741,7 +1237,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateUserDefinedFunctionAsync(collectionLink, function, options);
+                return ProcessResponse(await _inner.CreateUserDefinedFunctionAsync(collectionLink, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -755,7 +1251,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.CreateUserDefinedFunctionAsync(documentCollectionUri, function, options);
+                return ProcessResponse(await _inner.CreateUserDefinedFunctionAsync(documentCollectionUri, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -767,73 +1263,169 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.UserDefinedFunction> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionQuery(System.String collectionLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserDefinedFunctionQuery(collectionLink, feedOptions);
+            try
+            {
+                return _inner.CreateUserDefinedFunctionQuery(collectionLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionQuery(System.String collectionLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserDefinedFunctionQuery(collectionLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateUserDefinedFunctionQuery(collectionLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionQuery(System.String collectionLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserDefinedFunctionQuery(collectionLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateUserDefinedFunctionQuery(collectionLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.UserDefinedFunction> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserDefinedFunctionQuery(documentCollectionUri, feedOptions);
+            try
+            {
+                return _inner.CreateUserDefinedFunctionQuery(documentCollectionUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserDefinedFunctionQuery(documentCollectionUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateUserDefinedFunctionQuery(documentCollectionUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateUserDefinedFunctionQuery(System.Uri documentCollectionUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserDefinedFunctionQuery(documentCollectionUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateUserDefinedFunctionQuery(documentCollectionUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.User> Microsoft.Azure.Documents.IDocumentClient.CreateUserQuery(System.String usersLink, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserQuery(usersLink, feedOptions);
+            try
+            {
+                return _inner.CreateUserQuery(usersLink, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateUserQuery(System.String usersLink, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserQuery(usersLink, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateUserQuery(usersLink, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateUserQuery(System.String usersLink, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserQuery(usersLink, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateUserQuery(usersLink, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IOrderedQueryable<Microsoft.Azure.Documents.User> Microsoft.Azure.Documents.IDocumentClient.CreateUserQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserQuery(documentCollectionUri, feedOptions);
+            try
+            {
+                return _inner.CreateUserQuery(documentCollectionUri, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateUserQuery(System.Uri documentCollectionUri, Microsoft.Azure.Documents.SqlQuerySpec querySpec, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserQuery(documentCollectionUri, querySpec, feedOptions);
+            try
+            {
+                return _inner.CreateUserQuery(documentCollectionUri, querySpec, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         System.Linq.IQueryable<System.Object> Microsoft.Azure.Documents.IDocumentClient.CreateUserQuery(System.Uri documentCollectionUri, System.String sqlExpression, Microsoft.Azure.Documents.Client.FeedOptions feedOptions)
         {
-            return _inner.CreateUserQuery(documentCollectionUri, sqlExpression, feedOptions);
+            try
+            {
+                return _inner.CreateUserQuery(documentCollectionUri, sqlExpression, UpdateOptions(feedOptions));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -841,7 +1433,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteAttachmentAsync(attachmentLink, options, cancellationToken);
+                return ProcessResponse(await _inner.DeleteAttachmentAsync(attachmentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -855,7 +1447,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteAttachmentAsync(attachmentUri, options, cancellationToken);
+                return ProcessResponse(await _inner.DeleteAttachmentAsync(attachmentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -869,7 +1461,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteConflictAsync(conflictLink, options);
+                return ProcessResponse(await _inner.DeleteConflictAsync(conflictLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -883,7 +1475,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteConflictAsync(conflictUri, options);
+                return ProcessResponse(await _inner.DeleteConflictAsync(conflictUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -897,7 +1489,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteDatabaseAsync(databaseLink, options);
+                return ProcessResponse(await _inner.DeleteDatabaseAsync(databaseLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -911,7 +1503,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteDatabaseAsync(databaseUri, options);
+                return ProcessResponse(await _inner.DeleteDatabaseAsync(databaseUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -925,7 +1517,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteDocumentAsync(documentLink, options, cancellationToken);
+                return ProcessResponse(await _inner.DeleteDocumentAsync(documentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -939,7 +1531,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteDocumentAsync(documentUri, options, cancellationToken);
+                return ProcessResponse(await _inner.DeleteDocumentAsync(documentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -953,7 +1545,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteDocumentCollectionAsync(documentCollectionLink, options);
+                return ProcessResponse(await _inner.DeleteDocumentCollectionAsync(documentCollectionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -967,7 +1559,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteDocumentCollectionAsync(documentCollectionUri, options);
+                return ProcessResponse(await _inner.DeleteDocumentCollectionAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -981,7 +1573,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeletePermissionAsync(permissionLink, options);
+                return ProcessResponse(await _inner.DeletePermissionAsync(permissionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -995,7 +1587,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeletePermissionAsync(permissionUri, options);
+                return ProcessResponse(await _inner.DeletePermissionAsync(permissionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1009,7 +1601,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteStoredProcedureAsync(storedProcedureLink, options);
+                return ProcessResponse(await _inner.DeleteStoredProcedureAsync(storedProcedureLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1023,7 +1615,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteStoredProcedureAsync(storedProcedureUri, options);
+                return ProcessResponse(await _inner.DeleteStoredProcedureAsync(storedProcedureUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1037,7 +1629,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteTriggerAsync(triggerLink, options);
+                return ProcessResponse(await _inner.DeleteTriggerAsync(triggerLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1051,7 +1643,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteTriggerAsync(triggerUri, options);
+                return ProcessResponse(await _inner.DeleteTriggerAsync(triggerUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1065,7 +1657,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteUserAsync(userLink, options);
+                return ProcessResponse(await _inner.DeleteUserAsync(userLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1079,7 +1671,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteUserAsync(userUri, options);
+                return ProcessResponse(await _inner.DeleteUserAsync(userUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1093,7 +1685,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteUserDefinedFunctionAsync(functionLink, options);
+                return ProcessResponse(await _inner.DeleteUserDefinedFunctionAsync(functionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1107,7 +1699,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.DeleteUserDefinedFunctionAsync(functionUri, options);
+                return ProcessResponse(await _inner.DeleteUserDefinedFunctionAsync(functionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1117,45 +1709,73 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.String storedProcedureLink, Microsoft.Azure.Documents.Client.RequestOptions options, params System.Object[] procedureParams)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.String storedProcedureLink, Microsoft.Azure.Documents.Client.RequestOptions options, params System.Object[] procedureParams)
         {
-            return _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, options, procedureParams);
+            try
+            {
+                return ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, UpdateOptions(options), procedureParams));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.String storedProcedureLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken, params System.Object[] procedureParams)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.String storedProcedureLink, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken, params System.Object[] procedureParams)
         {
-            return _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, options, cancellationToken, procedureParams);
+            try
+            {
+                return ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, UpdateOptions(options), cancellationToken, procedureParams));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.String storedProcedureLink, params System.Object[] procedureParams)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.Uri storedProcedureUri, Microsoft.Azure.Documents.Client.RequestOptions options, params System.Object[] procedureParams)
         {
-            return _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, procedureParams);
+            try
+            {
+                return ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, UpdateOptions(options), procedureParams));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.Uri storedProcedureUri, Microsoft.Azure.Documents.Client.RequestOptions options, params System.Object[] procedureParams)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.Uri storedProcedureUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken, params System.Object[] procedureParams)
         {
-            return _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, options, procedureParams);
+            try
+            {
+                return ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, UpdateOptions(options), cancellationToken, procedureParams));
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.Uri storedProcedureUri, Microsoft.Azure.Documents.Client.RequestOptions options, System.Threading.CancellationToken cancellationToken, params System.Object[] procedureParams)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.DatabaseAccount> Microsoft.Azure.Documents.IDocumentClient.GetDatabaseAccountAsync()
         {
-            return _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, options, cancellationToken, procedureParams);
-        }
-
-        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.StoredProcedureResponse<TValue>> Microsoft.Azure.Documents.IDocumentClient.ExecuteStoredProcedureAsync<TValue>(System.Uri storedProcedureUri, params System.Object[] procedureParams)
-        {
-            return _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, procedureParams);
-        }
-
-        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.DatabaseAccount> Microsoft.Azure.Documents.IDocumentClient.GetDatabaseAccountAsync()
-        {
-            return _inner.GetDatabaseAccountAsync();
+            try
+            {
+                return await _inner.GetDatabaseAccountAsync();
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -1163,7 +1783,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadAttachmentAsync(attachmentLink, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadAttachmentAsync(attachmentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1177,7 +1797,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadAttachmentAsync(attachmentUri, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadAttachmentAsync(attachmentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1191,7 +1811,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadAttachmentFeedAsync(attachmentsLink, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadAttachmentFeedAsync(attachmentsLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1205,7 +1825,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadAttachmentFeedAsync(documentUri, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadAttachmentFeedAsync(documentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1219,7 +1839,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadConflictAsync(conflictLink, options);
+                return ProcessResponse(await _inner.ReadConflictAsync(conflictLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1233,7 +1853,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadConflictAsync(conflictUri, options);
+                return ProcessResponse(await _inner.ReadConflictAsync(conflictUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1247,7 +1867,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadConflictFeedAsync(conflictsLink, options);
+                return ProcessResponse(await _inner.ReadConflictFeedAsync(conflictsLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1261,7 +1881,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadConflictFeedAsync(documentCollectionUri, options);
+                return ProcessResponse(await _inner.ReadConflictFeedAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1275,7 +1895,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDatabaseAsync(databaseLink, options);
+                return ProcessResponse(await _inner.ReadDatabaseAsync(databaseLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1289,7 +1909,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDatabaseAsync(databaseUri, options);
+                return ProcessResponse(await _inner.ReadDatabaseAsync(databaseUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1303,7 +1923,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDatabaseFeedAsync(options);
+                return ProcessResponse(await _inner.ReadDatabaseFeedAsync(UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1317,7 +1937,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentAsync(documentLink, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadDocumentAsync(documentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1331,7 +1951,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentAsync<T>(documentLink, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadDocumentAsync<T>(documentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1345,7 +1965,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentAsync(documentUri, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadDocumentAsync(documentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1359,7 +1979,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentAsync<T>(documentUri, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadDocumentAsync<T>(documentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1373,7 +1993,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentCollectionAsync(documentCollectionLink, options);
+                return ProcessResponse(await _inner.ReadDocumentCollectionAsync(documentCollectionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1387,7 +2007,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentCollectionAsync(documentCollectionUri, options);
+                return ProcessResponse(await _inner.ReadDocumentCollectionAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1401,7 +2021,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentCollectionFeedAsync(collectionsLink, options);
+                return ProcessResponse(await _inner.ReadDocumentCollectionFeedAsync(collectionsLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1415,7 +2035,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentCollectionFeedAsync(databaseUri, options);
+                return ProcessResponse(await _inner.ReadDocumentCollectionFeedAsync(databaseUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1429,7 +2049,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentFeedAsync(documentsLink, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadDocumentFeedAsync(documentsLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1443,7 +2063,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadDocumentFeedAsync(documentCollectionUri, options, cancellationToken);
+                return ProcessResponse(await _inner.ReadDocumentFeedAsync(documentCollectionUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1453,15 +2073,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.MediaResponse> Microsoft.Azure.Documents.IDocumentClient.ReadMediaAsync(System.String mediaLink, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.MediaResponse> Microsoft.Azure.Documents.IDocumentClient.ReadMediaAsync(System.String mediaLink, System.Threading.CancellationToken cancellationToken)
         {
-            return _inner.ReadMediaAsync(mediaLink, cancellationToken);
+            try
+            {
+                return await _inner.ReadMediaAsync(mediaLink, cancellationToken);
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.MediaResponse> Microsoft.Azure.Documents.IDocumentClient.ReadMediaMetadataAsync(System.String mediaLink)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.MediaResponse> Microsoft.Azure.Documents.IDocumentClient.ReadMediaMetadataAsync(System.String mediaLink)
         {
-            return _inner.ReadMediaMetadataAsync(mediaLink);
+            try
+            {
+                return await _inner.ReadMediaMetadataAsync(mediaLink);
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -1469,7 +2105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadOfferAsync(offerLink);
+                return ProcessResponse(await _inner.ReadOfferAsync(offerLink));
             }
             catch (System.Exception ex)
             {
@@ -1483,7 +2119,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadOffersFeedAsync(options);
+                return ProcessResponse(await _inner.ReadOffersFeedAsync(UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1497,7 +2133,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionLink, options);
+                return ProcessResponse(await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1511,7 +2147,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionUri, options);
+                return ProcessResponse(await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1525,7 +2161,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadPermissionAsync(permissionLink, options);
+                return ProcessResponse(await _inner.ReadPermissionAsync(permissionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1539,7 +2175,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadPermissionAsync(permissionUri, options);
+                return ProcessResponse(await _inner.ReadPermissionAsync(permissionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1553,7 +2189,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadPermissionFeedAsync(permissionsLink, options);
+                return ProcessResponse(await _inner.ReadPermissionFeedAsync(permissionsLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1567,7 +2203,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadPermissionFeedAsync(userUri, options);
+                return ProcessResponse(await _inner.ReadPermissionFeedAsync(userUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1581,7 +2217,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadStoredProcedureAsync(storedProcedureLink, options);
+                return ProcessResponse(await _inner.ReadStoredProcedureAsync(storedProcedureLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1595,7 +2231,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadStoredProcedureAsync(storedProcedureUri, options);
+                return ProcessResponse(await _inner.ReadStoredProcedureAsync(storedProcedureUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1609,7 +2245,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadStoredProcedureFeedAsync(storedProceduresLink, options);
+                return ProcessResponse(await _inner.ReadStoredProcedureFeedAsync(storedProceduresLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1623,7 +2259,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadStoredProcedureFeedAsync(documentCollectionUri, options);
+                return ProcessResponse(await _inner.ReadStoredProcedureFeedAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1637,7 +2273,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadTriggerAsync(triggerLink, options);
+                return ProcessResponse(await _inner.ReadTriggerAsync(triggerLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1651,7 +2287,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadTriggerAsync(triggerUri, options);
+                return ProcessResponse(await _inner.ReadTriggerAsync(triggerUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1665,7 +2301,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadTriggerFeedAsync(triggersLink, options);
+                return ProcessResponse(await _inner.ReadTriggerFeedAsync(triggersLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1679,7 +2315,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadTriggerFeedAsync(documentCollectionUri, options);
+                return ProcessResponse(await _inner.ReadTriggerFeedAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1693,7 +2329,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadUserAsync(userLink, options);
+                return ProcessResponse(await _inner.ReadUserAsync(userLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1707,7 +2343,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadUserAsync(userUri, options);
+                return ProcessResponse(await _inner.ReadUserAsync(userUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1721,7 +2357,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadUserDefinedFunctionAsync(functionLink, options);
+                return ProcessResponse(await _inner.ReadUserDefinedFunctionAsync(functionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1735,7 +2371,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadUserDefinedFunctionAsync(functionUri, options);
+                return ProcessResponse(await _inner.ReadUserDefinedFunctionAsync(functionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1749,7 +2385,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadUserDefinedFunctionFeedAsync(userDefinedFunctionsLink, options);
+                return ProcessResponse(await _inner.ReadUserDefinedFunctionFeedAsync(userDefinedFunctionsLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1763,7 +2399,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadUserDefinedFunctionFeedAsync(documentCollectionUri, options);
+                return ProcessResponse(await _inner.ReadUserDefinedFunctionFeedAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1777,7 +2413,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadUserFeedAsync(usersLink, options);
+                return ProcessResponse(await _inner.ReadUserFeedAsync(usersLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1791,7 +2427,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReadUserFeedAsync(databaseUri, options);
+                return ProcessResponse(await _inner.ReadUserFeedAsync(databaseUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1805,7 +2441,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceAttachmentAsync(attachment, options, cancellationToken);
+                return ProcessResponse(await _inner.ReplaceAttachmentAsync(attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1819,7 +2455,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceAttachmentAsync(attachmentUri, attachment, options, cancellationToken);
+                return ProcessResponse(await _inner.ReplaceAttachmentAsync(attachmentUri, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1833,7 +2469,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceDocumentAsync(document, options, cancellationToken);
+                return ProcessResponse(await _inner.ReplaceDocumentAsync(document, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1847,7 +2483,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceDocumentAsync(documentLink, document, options, cancellationToken);
+                return ProcessResponse(await _inner.ReplaceDocumentAsync(documentLink, document, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1861,7 +2497,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceDocumentAsync(documentUri, document, options, cancellationToken);
+                return ProcessResponse(await _inner.ReplaceDocumentAsync(documentUri, document, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -1875,7 +2511,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceDocumentCollectionAsync(documentCollection, options);
+                return ProcessResponse(await _inner.ReplaceDocumentCollectionAsync(documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1889,7 +2525,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceDocumentCollectionAsync(documentCollectionUri, documentCollection, options);
+                return ProcessResponse(await _inner.ReplaceDocumentCollectionAsync(documentCollectionUri, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1903,7 +2539,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceOfferAsync(offer);
+                return ProcessResponse(await _inner.ReplaceOfferAsync(offer));
             }
             catch (System.Exception ex)
             {
@@ -1917,7 +2553,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplacePermissionAsync(permission, options);
+                return ProcessResponse(await _inner.ReplacePermissionAsync(permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1931,7 +2567,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplacePermissionAsync(permissionUri, permission, options);
+                return ProcessResponse(await _inner.ReplacePermissionAsync(permissionUri, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1945,7 +2581,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceStoredProcedureAsync(storedProcedure, options);
+                return ProcessResponse(await _inner.ReplaceStoredProcedureAsync(storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1959,7 +2595,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceStoredProcedureAsync(storedProcedureUri, storedProcedure, options);
+                return ProcessResponse(await _inner.ReplaceStoredProcedureAsync(storedProcedureUri, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1973,7 +2609,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceTriggerAsync(trigger, options);
+                return ProcessResponse(await _inner.ReplaceTriggerAsync(trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -1987,7 +2623,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceTriggerAsync(triggerUri, trigger, options);
+                return ProcessResponse(await _inner.ReplaceTriggerAsync(triggerUri, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2001,7 +2637,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceUserAsync(user, options);
+                return ProcessResponse(await _inner.ReplaceUserAsync(user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2015,7 +2651,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceUserAsync(userUri, user, options);
+                return ProcessResponse(await _inner.ReplaceUserAsync(userUri, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2029,7 +2665,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceUserDefinedFunctionAsync(function, options);
+                return ProcessResponse(await _inner.ReplaceUserDefinedFunctionAsync(function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2043,7 +2679,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.ReplaceUserDefinedFunctionAsync(userDefinedFunctionUri, function, options);
+                return ProcessResponse(await _inner.ReplaceUserDefinedFunctionAsync(userDefinedFunctionUri, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2053,9 +2689,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
-        System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.MediaResponse> Microsoft.Azure.Documents.IDocumentClient.UpdateMediaAsync(System.String mediaLink, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, System.Threading.CancellationToken cancellationToken)
+        async System.Threading.Tasks.Task<Microsoft.Azure.Documents.Client.MediaResponse> Microsoft.Azure.Documents.IDocumentClient.UpdateMediaAsync(System.String mediaLink, System.IO.Stream mediaStream, Microsoft.Azure.Documents.Client.MediaOptions options, System.Threading.CancellationToken cancellationToken)
         {
-            return _inner.UpdateMediaAsync(mediaLink, mediaStream, options, cancellationToken);
+            try
+            {
+                return await _inner.UpdateMediaAsync(mediaLink, mediaStream, options, cancellationToken);
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
@@ -2063,7 +2707,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertAttachmentAsync(attachmentsLink, mediaStream, options, requestOptions, cancellationToken);
+                return ProcessResponse(await _inner.UpsertAttachmentAsync(attachmentsLink, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -2077,7 +2721,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertAttachmentAsync(documentLink, attachment, options, cancellationToken);
+                return ProcessResponse(await _inner.UpsertAttachmentAsync(documentLink, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -2091,7 +2735,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertAttachmentAsync(documentUri, mediaStream, options, requestOptions, cancellationToken);
+                return ProcessResponse(await _inner.UpsertAttachmentAsync(documentUri, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -2105,7 +2749,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertAttachmentAsync(documentUri, attachment, options, cancellationToken);
+                return ProcessResponse(await _inner.UpsertAttachmentAsync(documentUri, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -2119,7 +2763,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertDocumentAsync(collectionLink, document, options, disableAutomaticIdGeneration, cancellationToken);
+                return ProcessResponse(await _inner.UpsertDocumentAsync(collectionLink, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -2133,7 +2777,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertDocumentAsync(documentCollectionUri, document, options, disableAutomaticIdGeneration, cancellationToken);
+                return ProcessResponse(await _inner.UpsertDocumentAsync(documentCollectionUri, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
             }
             catch (System.Exception ex)
             {
@@ -2147,7 +2791,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertPermissionAsync(userLink, permission, options);
+                return ProcessResponse(await _inner.UpsertPermissionAsync(userLink, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2161,7 +2805,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertPermissionAsync(userUri, permission, options);
+                return ProcessResponse(await _inner.UpsertPermissionAsync(userUri, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2175,7 +2819,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertStoredProcedureAsync(collectionLink, storedProcedure, options);
+                return ProcessResponse(await _inner.UpsertStoredProcedureAsync(collectionLink, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2189,7 +2833,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertStoredProcedureAsync(documentCollectionUri, storedProcedure, options);
+                return ProcessResponse(await _inner.UpsertStoredProcedureAsync(documentCollectionUri, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2203,7 +2847,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertTriggerAsync(collectionLink, trigger, options);
+                return ProcessResponse(await _inner.UpsertTriggerAsync(collectionLink, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2217,7 +2861,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertTriggerAsync(documentCollectionUri, trigger, options);
+                return ProcessResponse(await _inner.UpsertTriggerAsync(documentCollectionUri, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2231,7 +2875,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertUserAsync(databaseLink, user, options);
+                return ProcessResponse(await _inner.UpsertUserAsync(databaseLink, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2245,7 +2889,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertUserAsync(databaseUri, user, options);
+                return ProcessResponse(await _inner.UpsertUserAsync(databaseUri, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2259,7 +2903,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertUserDefinedFunctionAsync(collectionLink, function, options);
+                return ProcessResponse(await _inner.UpsertUserDefinedFunctionAsync(collectionLink, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2273,7 +2917,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return await _inner.UpsertUserDefinedFunctionAsync(documentCollectionUri, function, options);
+                return ProcessResponse(await _inner.UpsertUserDefinedFunctionAsync(documentCollectionUri, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
@@ -2285,7 +2929,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         void System.IDisposable.Dispose()
         {
-            ((System.IDisposable)_inner).Dispose();
+            try
+            {
+                ((System.IDisposable)_inner).Dispose();
+            }
+            catch (System.Exception ex)
+            {
+                ProcessException(ex);
+                throw;
+            }
         }
     }
 }

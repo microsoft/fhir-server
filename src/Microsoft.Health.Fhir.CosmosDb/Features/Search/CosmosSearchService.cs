@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
@@ -23,14 +22,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
     {
         private readonly CosmosDataStore _cosmosDataStore;
         private readonly IQueryBuilder _queryBuilder;
-        private readonly IContinuationTokenCache _continuationTokenCache;
 
         public CosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             CosmosDataStore cosmosDataStore,
             IQueryBuilder queryBuilder,
-            IBundleFactory bundleFactory,
-            IContinuationTokenCache continuationTokenCache)
+            IBundleFactory bundleFactory)
             : base(searchOptionsFactory, bundleFactory, cosmosDataStore)
         {
             EnsureArg.IsNotNull(cosmosDataStore, nameof(cosmosDataStore));
@@ -38,7 +35,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             _cosmosDataStore = cosmosDataStore;
             _queryBuilder = queryBuilder;
-            _continuationTokenCache = continuationTokenCache;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(
@@ -66,18 +62,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            string ct = null;
-
-            if (!string.IsNullOrEmpty(searchOptions.ContinuationToken))
-            {
-                ct = await _continuationTokenCache.GetContinuationTokenAsync(searchOptions.ContinuationToken, cancellationToken);
-            }
-
             var feedOptions = new FeedOptions
             {
                 EnableCrossPartitionQuery = true,
                 MaxItemCount = searchOptions.MaxItemCount,
-                RequestContinuation = ct,
+                RequestContinuation = searchOptions.ContinuationToken,
             };
 
             if (searchOptions.CountOnly)
@@ -106,17 +95,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 CosmosResourceWrapper[] wrappers = fetchedResults
                     .Select(r => r.GetPropertyValue<CosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
 
-                string continuationTokenId = null;
-
-                // TODO: Eventually, we will need to take a snapshot of the search and manage the continuation
-                // tokens ourselves since there might be multiple continuation token involved depending on
-                // the search.
-                if (!string.IsNullOrEmpty(fetchedResults.ResponseContinuation))
-                {
-                    continuationTokenId = await _continuationTokenCache.SaveContinuationTokenAsync(fetchedResults.ResponseContinuation, cancellationToken);
-                }
-
-                return new SearchResult(wrappers, continuationTokenId);
+                return new SearchResult(wrappers, fetchedResults.ResponseContinuation);
             }
         }
     }

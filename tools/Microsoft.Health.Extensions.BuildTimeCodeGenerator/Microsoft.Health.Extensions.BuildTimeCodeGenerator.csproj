@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Ensure.That" Version="8.0.0" />
+    <PackageReference Include="Ensure.That" Version="8.1.0" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.1.3" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="2.9.0" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.0-beta009" />

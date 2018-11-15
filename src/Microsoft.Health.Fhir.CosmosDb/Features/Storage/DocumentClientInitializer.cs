@@ -13,7 +13,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Consistency;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -91,10 +90,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // if the values don't always have complete 7 digits, the comparison might not work properly.
             serializerSettings.Converters.Add(new IsoDateTimeConverter { DateTimeFormat = "o" });
 
-            return new DocumentClientWithExceptionHandler(
-                new DocumentClientWithConsistencyLevelFromContext(
-                    new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
-                    _fhirRequestContextAccessor));
+            return new FhirDocumentClient(
+                new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
+                _fhirRequestContextAccessor,
+                configuration.ContinuationTokenSizeLimitInKb);
         }
 
         /// <summary>
