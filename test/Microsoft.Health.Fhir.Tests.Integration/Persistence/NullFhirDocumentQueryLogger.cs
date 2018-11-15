@@ -9,9 +9,9 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class NullCosmosDocumentQueryLogger : ICosmosDocumentQueryLogger
+    public class NullFhirDocumentQueryLogger : IFhirDocumentQueryLogger
     {
-        public static ICosmosDocumentQueryLogger Instance { get; } = new NullCosmosDocumentQueryLogger();
+        public static IFhirDocumentQueryLogger Instance { get; } = new NullFhirDocumentQueryLogger();
 
         public void LogQueryExecution(Guid queryId, SqlQuerySpec sqlQuerySpec, string continuationToken, int? maxItemCount)
         {
