@@ -13,6 +13,13 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
 {
     public class GetResourceRequest : IRequest<GetResourceResponse>, IRequireCapability
     {
+        public GetResourceRequest(ResourceKey resourceKey)
+        {
+            EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
+
+            ResourceKey = resourceKey;
+        }
+
         public GetResourceRequest(string type, string id)
         {
             EnsureArg.IsNotNull(type, nameof(type));
