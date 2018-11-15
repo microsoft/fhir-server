@@ -3,14 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Routing
+using EnsureThat;
+using Hl7.Fhir.Model;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
-    internal class KnownActionParameterNames
+    public class CompartmentResourceResponse
     {
-        public const string ResourceType = "type";
-        public const string Resource = "resource";
-        public const string Id = "id";
-        public const string Vid = "vid";
-        public const string CompartmentType = "compartmentType";
+        public CompartmentResourceResponse(Bundle bundle)
+        {
+            EnsureArg.IsNotNull(bundle, nameof(bundle));
+
+            Bundle = bundle;
+        }
+
+        public Bundle Bundle { get; }
     }
 }

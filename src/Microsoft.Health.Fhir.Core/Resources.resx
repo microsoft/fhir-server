@@ -157,6 +157,12 @@
   <data name="CompartmentDefinitionIsDupe" xml:space="preserve">
     <value>bundle.entry[{0}].resource has duplicate compartment definitions.</value>
   </data>
+  <data name="CompartmentIdIsInvalid" xml:space="preserve">
+    <value>Compartment id is null or empty.</value>
+  </data>
+  <data name="CompartmentTypeIsInvalid" xml:space="preserve">
+    <value>Compartment type {0} is invalid.</value>
+  </data>
   <data name="CompositeSeparatorNotFound" xml:space="preserve">
     <value>The composite separator cannot be found.</value>
   </data>

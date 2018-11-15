@@ -15,9 +15,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
     {
         public static async Task DeleteAllResources(this FhirClient client, ResourceType resourceType)
         {
+            await DeleteAllResources(client, resourceType, null);
+        }
+
+        public static async Task DeleteAllResources(this FhirClient client, ResourceType resourceType, string searchUrl)
+        {
             while (true)
             {
-                Bundle bundle = await client.SearchAsync(resourceType, count: 100);
+                Bundle bundle = await client.SearchAsync(resourceType, searchUrl, count: 100);
 
                 if (!bundle.Entry.Any())
                 {

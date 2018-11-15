@@ -178,6 +178,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Compartment id is null or empty..
+        /// </summary>
+        internal static string CompartmentIdIsInvalid {
+            get {
+                return ResourceManager.GetString("CompartmentIdIsInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Compartment type {0} is invalid..
+        /// </summary>
+        internal static string CompartmentTypeIsInvalid {
+            get {
+                return ResourceManager.GetString("CompartmentTypeIsInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The composite separator cannot be found..
         /// </summary>
         internal static string CompositeSeparatorNotFound {

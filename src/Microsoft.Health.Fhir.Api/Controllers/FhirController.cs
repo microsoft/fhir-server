@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -359,6 +360,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchByResourceType(string type)
         {
+            return await PerformSearch(type, GetQueriesForSearch());
+        }
+
+        private IReadOnlyList<Tuple<string, string>> GetQueriesForSearch()
+        {
             IReadOnlyList<Tuple<string, string>> queries = Array.Empty<Tuple<string, string>>();
 
             if (Request.Query != null)
@@ -367,7 +373,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
             }
 
-            return await PerformSearch(type, queries);
+            return queries;
         }
 
         /// <summary>
@@ -400,6 +406,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     queries.AddRange(source.SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)));
                 }
             }
+        }
+
+        /// <summary>
+        /// Searches by compartment.
+        /// </summary>
+        /// <param name="compartmentType">The compartment type.</param>
+        /// <param name="id">The identifier.</param>
+        /// <param name="type">The resource type.</param>
+        [HttpGet]
+        [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.SearchCompartmentByResourceType)]
+        [AuditEventSubType(AuditEventSubType.Search)]
+        public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentType, string id, string type)
+        {
+            var queries = GetQueriesForSearch();
+            return await PerformCompartmentSearch(compartmentType, id, type, queries);
+        }
+
+        private async Task<IActionResult> PerformCompartmentSearch(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)
+        {
+            var response = await _mediator.Send(new CompartmentResourceRequest(compartmentType, compartmentId, resourceType, queries), HttpContext.RequestAborted);
+
+            return FhirResult.Create(response.Bundle);
         }
 
         private async Task<IActionResult> PerformSearch(string type, IReadOnlyList<Tuple<string, string>> queries)
