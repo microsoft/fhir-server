@@ -161,28 +161,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             options.UnsupportedSearchParams = unsupportedSearchParameters;
 
-            options.CompartmentType = null;
-
-            // Initialize enum to undefined value
-            var parsedCompartmentType = (CompartmentType)(-1);
-
-            if (!string.IsNullOrWhiteSpace(compartmentType) &&
-    !Enum.TryParse(compartmentType, out parsedCompartmentType))
+            if (!string.IsNullOrWhiteSpace(compartmentType))
             {
-                throw new NotSupportedException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
-            }
+                if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
+                {
+                    if (string.IsNullOrWhiteSpace(compartmentId))
+                    {
+                        throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
+                    }
 
-            if (Enum.IsDefined(typeof(CompartmentType), parsedCompartmentType))
-            {
-                options.CompartmentType = parsedCompartmentType;
+                    options.CompartmentType = parsedCompartmentType;
+                    options.CompartmentId = compartmentId;
+                }
+                else
+                {
+                    throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+                }
             }
-
-            if (options.CompartmentType != null && string.IsNullOrWhiteSpace(compartmentId))
-            {
-                throw new NotSupportedException(Core.Resources.CompartmentIdIsInvalid);
-            }
-
-            options.CompartmentId = compartmentId;
 
             return options;
         }
