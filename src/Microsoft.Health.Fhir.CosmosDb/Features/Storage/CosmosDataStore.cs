@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public sealed class CosmosDataStore : IDataStore, IContinuationTokenCache, IProvideCapability
     {
         private readonly IScoped<IDocumentClient> _documentClient;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosDataStore> _logger;
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _documentClient = documentClient;
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _collectionUri = cosmosDataStoreConfiguration.RelativeCollectionUri;
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
@@ -135,26 +137,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
-            var id = !string.IsNullOrEmpty(key.VersionId) ? $"{key.Id}_{key.VersionId}" : key.Id;
+            bool isVersionedRead = !string.IsNullOrEmpty(key.VersionId);
 
-            _logger.LogDebug($"Get {key.ResourceType}/{id}");
-
-            var sqlParameterCollection = new SqlParameterCollection(new[]
+            if (isVersionedRead)
             {
-                new SqlParameter("@id", id),
-                new SqlParameter("@resourceId", key.Id),
-                new SqlParameter("@version", key.VersionId),
-            });
+                var sqlParameterCollection = new SqlParameterCollection(new[]
+                {
+                    new SqlParameter("@resourceId", key.Id),
+                    new SqlParameter("@version", key.VersionId),
+                });
 
-            var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.id = @id or (r.id = @resourceId and r.version = @version)", sqlParameterCollection);
+                var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.resourceId = @resourceId and r.version = @version", sqlParameterCollection);
 
-            var executor = CreateDocumentQuery<CosmosResourceWrapper>(
-                sqlQuerySpec,
-                new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) });
+                var executor = CreateDocumentQuery<CosmosResourceWrapper>(
+                    sqlQuerySpec,
+                    new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) });
 
-            var result = await executor.ExecuteNextAsync<CosmosResourceWrapper>(cancellationToken);
+                var result = await executor.ExecuteNextAsync<CosmosResourceWrapper>(cancellationToken);
 
-            return result.FirstOrDefault();
+                return result.FirstOrDefault();
+            }
+
+            try
+            {
+                return await _documentClient.Value.ReadDocumentAsync<CosmosResourceWrapper>(
+                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _cosmosDataStoreConfiguration.CollectionId, key.Id),
+                    new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
+                    cancellationToken);
+            }
+            catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
         }
 
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
