@@ -13,6 +13,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
     public class CompartmentResourceTypesRouteConstraint : IRouteConstraint
     {
+        private readonly ResourceTypesRouteConstraint _resourceTypesRouteConstraint;
+
+        public CompartmentResourceTypesRouteConstraint()
+        {
+            _resourceTypesRouteConstraint = new ResourceTypesRouteConstraint();
+        }
+
         public bool Match(HttpContext httpContext, IRouter route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection)
         {
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
@@ -21,8 +28,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             EnsureArg.IsNotNull(values, nameof(values));
 
             if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj) &&
-                    resourceTypeObj is string resourceType &&
-                    !string.IsNullOrEmpty(resourceType))
+                resourceTypeObj is string resourceType &&
+                !string.IsNullOrEmpty(resourceType))
             {
                 // Don't validate wild card.
                 if (resourceType == "*")
@@ -30,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     return true;
                 }
 
-                return new ResourceTypesRouteConstraint().Match(httpContext, route, routeKey, values, routeDirection);
+                return _resourceTypesRouteConstraint.Match(httpContext, route, routeKey, values, routeDirection);
             }
 
             return false;

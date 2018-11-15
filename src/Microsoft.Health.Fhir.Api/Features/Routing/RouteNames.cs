@@ -27,6 +27,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         internal const string SearchAllResourcesPost = "SearchAllResourcesPost";
 
-        internal const string ReadCompartmentByResourceType = "ReadCompartmentByResourceType";
+        internal const string SearchCompartmentByResourceType = "SearchCompartmentByResourceType";
     }
 }

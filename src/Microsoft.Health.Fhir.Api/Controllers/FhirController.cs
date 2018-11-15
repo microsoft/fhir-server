@@ -409,13 +409,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /// <summary>
-        /// Reads the specified resource.
+        /// Searches by compartment.
         /// </summary>
         /// <param name="compartmentType">The compartment type.</param>
         /// <param name="id">The identifier.</param>
         /// <param name="type">The resource type.</param>
         [HttpGet]
-        [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.ReadCompartmentByResourceType)]
+        [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.SearchCompartmentByResourceType)]
         [AuditEventSubType(AuditEventSubType.Search)]
         public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentType, string id, string type)
         {
