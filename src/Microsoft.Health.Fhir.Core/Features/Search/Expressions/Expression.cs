@@ -222,6 +222,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new StringExpression(StringOperator.Equals, fieldName, componentIndex, value, ignoreCase);
         }
 
+        /// <summary>
+        /// Creates a <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.
+        /// </summary>
+        /// <param name="compartmentType">The compartment type.</param>
+        /// <param name="compartmentId">The compartment id.</param>
+        /// <returns>A <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.</returns>
+        public static CompartmentSearchExpression CompartmentSearch(CompartmentType compartmentType, string compartmentId)
+        {
+            return new CompartmentSearchExpression(compartmentType, compartmentId);
+        }
+
         protected internal abstract void AcceptVisitor(IExpressionVisitor visitor);
     }
 }
