@@ -347,11 +347,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         private void AppendArrayContainsFilter(string name, string value)
         {
             _queryBuilder
-                    .Append("ARRAY_CONTAINS(")
-                    .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
-                    .Append(", ")
-                    .Append(_queryParameterManager.AddOrGetParameterMapping(value))
-                    .AppendLine(")");
+                .Append("ARRAY_CONTAINS(")
+                .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
+                .Append(", ")
+                .Append(_queryParameterManager.AddOrGetParameterMapping(value))
+                .AppendLine(")");
         }
     }
 }
