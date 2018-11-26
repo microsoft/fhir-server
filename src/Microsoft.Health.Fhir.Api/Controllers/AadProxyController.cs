@@ -83,8 +83,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = "state")] string state,
             [FromQuery(Name = "aud")] string aud)
         {
-            // TODO: Deal with scopes for v2.0
-
             EnsureArg.IsNotNull(responseType, nameof(responseType));
             EnsureArg.IsNotNull(clientId, nameof(clientId));
             EnsureArg.IsNotNull(redirectUri, nameof(redirectUri));
@@ -99,11 +97,35 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
                 Uri.EscapeDataString(Base64Encode(redirectUri.ToString())) + "/" + Uri.EscapeDataString(launch));
 
-            string newQueryString = $"resource={aud}&response_type={responseType}&redirect_uri={callbackUrl.ToString()}&client_id={clientId}";
-
-            if (!string.IsNullOrEmpty(scope))
+            string newQueryString = $"response_type={responseType}&redirect_uri={callbackUrl.ToString()}&client_id={clientId}";
+            if (!_isAadV2)
             {
-                _logger.LogInformation("Scopes are ignored in v1.0 endpoint");
+                newQueryString += $"&resource={aud}";
+            }
+            else
+            {
+                // Azure AD v2.0 uses fully qualified scopes and does not allow '/' (slash)
+                // We add qualification to scopes and replace '/' -> '$'
+
+                EnsureArg.IsNotNull(scope, nameof(scope));
+                var scopes = scope.Split(' ');
+                string newScopes = string.Empty;
+                string[] wellKnownScopes = { "profile", "openid", "email", "offline_access" };
+
+                foreach (var s in scopes)
+                {
+                    if (wellKnownScopes.Contains(s))
+                    {
+                        newScopes += $"{s} ";
+                    }
+                    else
+                    {
+                        newScopes += $"{aud}/{s.Replace('/', '$')} ";
+                    }
+                }
+
+                newScopes = newScopes.TrimEnd(' ');
+                newQueryString += $"&scope={Uri.EscapeDataString(newScopes)}";
             }
 
             if (!string.IsNullOrEmpty(state))
@@ -188,6 +210,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 tokenResponse["patient"] = decodedCompoundCode["patient"];
             }
 
+            // Replace fully qualifies scopes with short scopes and replace $
+            string[] scopes = tokenResponse["scope"].ToString().Split(' ');
+            string newScopes = string.Empty;
+
+            foreach (var s in scopes)
+            {
+                if (IsAbsoluteUrl(s))
+                {
+                    Uri scopeUri = new Uri(s);
+                    newScopes += $"{scopeUri.Segments.Last().Replace('$', '/')} ";
+                }
+                else
+                {
+                    newScopes += $"{s} ";
+                }
+            }
+
+            newScopes = newScopes.TrimEnd(' ');
+            tokenResponse["scope"] = newScopes;
+
             return new ContentResult()
             {
                 Content = tokenResponse.ToString(Newtonsoft.Json.Formatting.None),
@@ -206,6 +248,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             var base64EncodedBytes = System.Convert.FromBase64String(base64EncodedData);
             return System.Text.Encoding.UTF8.GetString(base64EncodedBytes);
+        }
+
+        private static bool IsAbsoluteUrl(string url)
+        {
+            Uri result;
+            return Uri.TryCreate(url, UriKind.Absolute, out result);
         }
     }
 }

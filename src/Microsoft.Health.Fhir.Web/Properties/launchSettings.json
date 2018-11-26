@@ -24,6 +24,15 @@
             "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
         },
       "applicationUrl": "https://localhost:44348/"
+    },
+    "AADAuth": {
+      "commandName": "Project",
+      "launchBrowser": true,
+        "environmentVariables": {
+            "ASPNETCORE_ENVIRONMENT": "development"
+        },
+      "applicationUrl": "https://localhost:44348/"
     }
+
   }
 }
