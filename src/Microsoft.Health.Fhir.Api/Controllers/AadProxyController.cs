@@ -31,6 +31,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly string _aadAuthorizeEndpoint;
         private readonly string _aadTokenEndpoint;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AadProxyController" /> class.
+        /// </summary>
+        /// <param name="securityConfiguration">Security configuration parameters.</param>
+        /// <param name="httpClientFactory">HTTP Client Factory.</param>
+        /// <param name="logger">The logger.</param>
         public AadProxyController(IOptions<SecurityConfiguration> securityConfiguration, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
@@ -73,6 +79,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Proxies a request to the Azure AD authorize endpoint.
+        /// </summary>
+        /// <param name="responseType">response_type URL parameter.</param>
+        /// <param name="clientId">client_id URL parameter.</param>
+        /// <param name="redirectUri">redirect_uri URL parameter.</param>
+        /// <param name="launch">launch (launch context)URL parameter.</param>
+        /// <param name="scope">scope URL parameter.</param>
+        /// <param name="state">state URL parameter.</param>
+        /// <param name="aud">aud (audience) URL parameter.</param>
         [HttpGet("authorize")]
         public ActionResult Authorize(
             [FromQuery(Name = "response_type")] string responseType,
@@ -136,6 +152,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return RedirectPermanent($"{_aadAuthorizeEndpoint}?{newQueryString}");
         }
 
+        /// <summary>
+        /// Callback function for receiving code from AAD
+        /// </summary>
+        /// <param name="encodedRedirect">Base64 encoded redirect URL on the app.</param>
+        /// <param name="launchContext">The base64 encoded launch context</param>
+        /// <param name="code">Authorization code.</param>
+        /// <param name="state">state URL parameter.</param>
+        /// <param name="sessionState">session_state URL parameter.</param>
+        /// <param name="error">error URL parameter.</param>
+        /// <param name="errorDescription">error_description URL parameter.</param>
         [HttpGet("callback/{encodedRedirect}/{launchContext}")]
         public ActionResult Callback(
             string encodedRedirect,
@@ -153,14 +179,30 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return RedirectPermanent($"{redirectUrl.ToString()}?error={error}&error_description={errorDescription}");
             }
 
-            // TODO: We should try-catch this
-            JObject launchParameters = JObject.Parse(Base64Decode(launchContext));
-            launchParameters.Add("code", code);
-            var compoundCode = Uri.EscapeDataString(Base64Encode(launchParameters.ToString(Newtonsoft.Json.Formatting.None)));
+            string compoundCode;
+            try
+            {
+                JObject launchParameters = JObject.Parse(Base64Decode(launchContext));
+                launchParameters.Add("code", code);
+                compoundCode = Uri.EscapeDataString(Base64Encode(launchParameters.ToString(Newtonsoft.Json.Formatting.None)));
+            }
+            catch
+            {
+                _logger.LogError("Error parsing launch parameters.");
+                throw;
+            }
 
             return RedirectPermanent($"{redirectUrl.ToString()}?code={compoundCode}&state={state}&session_state={sessionState}");
         }
 
+        /// <summary>
+        /// Proxies a (POST) request to the AAD token endpoint
+        /// </summary>
+        /// <param name="grantType">grant_type request parameter.</param>
+        /// <param name="compoundCode">The base64 encoded code and launch context</param>
+        /// <param name="redirectUri">redirect_uri request parameter.</param>
+        /// <param name="clientId">client_id request parameter.</param>
+        /// <param name="clientSecret">client_secret request parameter.</param>
         [HttpPost("token")]
         public async Task<ActionResult> Token(
             [FromForm(Name = "grant_type")] string grantType,
@@ -169,24 +211,35 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromForm(Name = "client_id")] string clientId,
             [FromForm(Name = "client_secret")] string clientSecret)
         {
-            // TODO: Ensure args
-            // TODO: Do we need to add state variables here?
-            // TODO: Deal with client secret in basic auth header
-            // TODO: Deal with query url encoded parameters
-            // TODO: Add try-catch
+            EnsureArg.IsNotNull(grantType, nameof(grantType));
+            EnsureArg.IsNotNull(compoundCode, nameof(compoundCode));
+            EnsureArg.IsNotNull(redirectUri, nameof(redirectUri));
+            EnsureArg.IsNotNull(clientId, nameof(clientId));
 
-            var decodedCompoundCode = JObject.Parse(Base64Decode(compoundCode));
-            var code = decodedCompoundCode["code"].ToString();
+            JObject decodedCompoundCode;
+            string code;
+            string launch;
 
-            decodedCompoundCode.Remove("code");
-            _logger.LogInformation(decodedCompoundCode.ToString(Newtonsoft.Json.Formatting.None));
-            var launch = Base64Encode(decodedCompoundCode.ToString(Newtonsoft.Json.Formatting.None));
+            try
+            {
+                decodedCompoundCode = JObject.Parse(Base64Decode(compoundCode));
+                code = decodedCompoundCode["code"].ToString();
+                decodedCompoundCode.Remove("code");
+                launch = Base64Encode(decodedCompoundCode.ToString(Newtonsoft.Json.Formatting.None));
+            }
+            catch
+            {
+                _logger.LogError("Error decoding compound code");
+                throw;
+            }
 
             Uri callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
                 Base64Encode(redirectUri.ToString()) + "/" + launch);
 
             var client = _httpClientFactory.CreateClient();
+
+            // TODO: Deal with client secret in basic auth header
 
             var content = new FormUrlEncodedContent(
                 new[]
@@ -200,15 +253,44 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var response = await client.PostAsync(new Uri(_aadTokenEndpoint), content);
 
-            // TODO: Handle possible error messages from AAD
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ContentResult()
+                {
+                    Content = await response.Content.ReadAsStringAsync(),
+                    StatusCode = (int)response.StatusCode,
+                    ContentType = "application/json",
+                };
+            }
 
             var tokenResponse = JObject.Parse(await response.Content.ReadAsStringAsync());
 
-            // TODO: Merge AAD token response with additional fields from compound code
             if (decodedCompoundCode["patient"] != null)
             {
                 tokenResponse["patient"] = decodedCompoundCode["patient"];
             }
+
+            if (decodedCompoundCode["encounter"] != null)
+            {
+                tokenResponse["encounter"] = decodedCompoundCode["encounter"];
+            }
+
+            if (decodedCompoundCode["practitioner"] != null)
+            {
+                tokenResponse["practitoner"] = decodedCompoundCode["practitioner"];
+            }
+
+            if (decodedCompoundCode["need_patient_banner"] != null)
+            {
+                tokenResponse["need_patient_banner"] = decodedCompoundCode["need_patient_banner"];
+            }
+
+            if (decodedCompoundCode["smart_style_url"] != null)
+            {
+                tokenResponse["smart_style_url"] = decodedCompoundCode["smart_style_url"];
+            }
+
+            tokenResponse["client_id"] = clientId;
 
             // Replace fully qualifies scopes with short scopes and replace $
             string[] scopes = tokenResponse["scope"].ToString().Split(' ');
@@ -223,7 +305,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
                 else
                 {
-                    newScopes += $"{s} ";
+                    newScopes += $"{s.Replace('$', '/')} ";
                 }
             }
 
