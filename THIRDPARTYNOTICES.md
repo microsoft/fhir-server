@@ -1,10 +1,10 @@
-# Third party notices
+﻿# Third party notices
 
 Do Not Translate or Localize
 
 This file is based on or incorporates material from the projects listed below (Third Party IP). The original copyright notice and the license under which Microsoft received such Third Party IP, are set forth below. Such licenses and notices are provided for informational purposes only. Microsoft licenses the Third Party IP to you under the licensing terms for the Microsoft product. Microsoft reserves all other rights not expressly granted under this agreement, whether by implication, estoppel or otherwise.
 
-## AngleSharp 0.9.10
+## AngleSharp 0.9.11
 * Component Source:   https://github.com/AngleSharp/AngleSharp/
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -79,7 +79,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## FluentValidation 8.0.100
+## FluentValidation 8.0.101
 * Component Source:   https://github.com/JeremySkinner/fluentvalidation/
 * Component Copyright and License:
   >                                  Apache License

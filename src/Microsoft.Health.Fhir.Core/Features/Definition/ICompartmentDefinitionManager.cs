@@ -4,17 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search
+namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
-    /// <summary>
-    /// Provides search indices.
-    /// </summary>
-    public interface ISupportSearchIndices
+    public interface ICompartmentDefinitionManager
     {
-        /// <summary>
-        /// Gets search indices.
-        /// </summary>
-        IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; }
+        bool TryGetSearchParams(ResourceType resourceType, CompartmentType compartmentType, out HashSet<string> searchParams);
     }
 }

@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// </summary>
         /// <param name="urlHelperFactory">The ASP.NET Core URL helper factory.</param>
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
-        /// <param name="actionContextAccessor">The ASP.NET Core Action context accesor.</param>
+        /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         public UrlResolver(IUrlHelperFactory urlHelperFactory, IHttpContextAccessor httpContextAccessor, IActionContextAccessor actionContextAccessor)
         {
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));

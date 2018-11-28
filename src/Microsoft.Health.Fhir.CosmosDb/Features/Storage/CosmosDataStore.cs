@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -17,23 +16,22 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public sealed class CosmosDataStore : IDataStore, IContinuationTokenCache, IProvideCapability
+    public sealed class CosmosDataStore : IDataStore, IProvideCapability
     {
         private readonly IScoped<IDocumentClient> _documentClient;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
+        private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosDataStore> _logger;
         private readonly Uri _collectionUri;
         private readonly UpsertWithHistory _upsertWithHistoryProc;
@@ -48,21 +46,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration</param>
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
+        /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         public CosmosDataStore(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
+            RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
+            EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
+            _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _documentClient = documentClient;
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _collectionUri = cosmosDataStoreConfiguration.RelativeCollectionUri;
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
@@ -83,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
-                UpsertWithHistoryModel response = await RetryExceptionPolicy.CreateRetryPolicy().ExecuteAsync(
+                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async () => await _upsertWithHistoryProc.Execute(
                         _documentClient.Value,
                         _collectionUri,
@@ -130,26 +133,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
-            var id = !string.IsNullOrEmpty(key.VersionId) ? $"{key.Id}_{key.VersionId}" : key.Id;
+            bool isVersionedRead = !string.IsNullOrEmpty(key.VersionId);
 
-            _logger.LogDebug($"Get {key.ResourceType}/{id}");
-
-            var sqlParameterCollection = new SqlParameterCollection(new[]
+            if (isVersionedRead)
             {
-                new SqlParameter("@id", id),
-                new SqlParameter("@resourceId", key.Id),
-                new SqlParameter("@version", key.VersionId),
-            });
+                var sqlParameterCollection = new SqlParameterCollection(new[]
+                {
+                    new SqlParameter("@resourceId", key.Id),
+                    new SqlParameter("@version", key.VersionId),
+                });
 
-            var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.id = @id or (r.id = @resourceId and r.version = @version)", sqlParameterCollection);
+                var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.resourceId = @resourceId and r.version = @version", sqlParameterCollection);
 
-            var executor = CreateDocumentQuery<CosmosResourceWrapper>(
-                sqlQuerySpec,
-                new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) });
+                var executor = CreateDocumentQuery<CosmosResourceWrapper>(
+                    sqlQuerySpec,
+                    new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) });
 
-            var result = await executor.ExecuteNextAsync<CosmosResourceWrapper>(cancellationToken);
+                var result = await executor.ExecuteNextAsync<CosmosResourceWrapper>(cancellationToken);
 
-            return result.FirstOrDefault();
+                return result.FirstOrDefault();
+            }
+
+            try
+            {
+                return await _documentClient.Value.ReadDocumentAsync<CosmosResourceWrapper>(
+                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _cosmosDataStoreConfiguration.CollectionId, key.Id),
+                    new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
+                    cancellationToken);
+            }
+            catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
         }
 
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
@@ -160,7 +175,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
 
-                StoredProcedureResponse<IList<string>> response = await RetryExceptionPolicy.CreateRetryPolicy().ExecuteAsync(
+                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async () => await _hardDelete.Execute(
                         _documentClient.Value,
                         _collectionUri,
@@ -192,65 +207,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CosmosQueryContext context = new CosmosQueryContext(_collectionUri, sqlQuerySpec, feedOptions);
 
             return _cosmosDocumentQueryFactory.Create<T>(_documentClient.Value, context);
-        }
-
-        public async Task<string> GetContinuationTokenAsync(string id, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(id, nameof(id));
-
-            var ctQuery = new SqlQuerySpec(
-                "SELECT * FROM root r WHERE r.id = @id",
-                new SqlParameterCollection(new[] { new SqlParameter("@id", id) }));
-
-            var ctOptions = new FeedOptions
-            {
-                PartitionKey = new PartitionKey(ContinuationToken.ContinuationTokenPartition),
-            };
-
-            IDocumentQuery<ContinuationToken> cosmosDocumentQuery = CreateDocumentQuery<ContinuationToken>(ctQuery, ctOptions);
-
-            using (cosmosDocumentQuery)
-            {
-                var response = await cosmosDocumentQuery.ExecuteNextAsync(cancellationToken);
-                ContinuationToken result = response.SingleOrDefault();
-
-                if (result == null)
-                {
-                    _logger.LogError("Continuation token does not exist in CosmosDb.");
-
-                    throw new InvalidSearchOperationException(Core.Resources.InvalidContinuationToken);
-                }
-
-                return result.Token;
-            }
-        }
-
-        public async Task<string> SaveContinuationTokenAsync(string continuationToken, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(continuationToken, nameof(continuationToken));
-
-            using (_logger.BeginTimedScope($"{nameof(CosmosDataStore)}.{nameof(SaveContinuationTokenAsync)}"))
-            {
-                var tokenCacheStopwatch = new Stopwatch();
-                tokenCacheStopwatch.Start();
-
-                var savedCt = new ContinuationToken(continuationToken);
-
-                var requestOptions = new RequestOptions
-                {
-                    PartitionKey = new PartitionKey(ContinuationToken.ContinuationTokenPartition),
-                };
-
-                var response = await _documentClient.Value.UpsertDocumentAsync(
-                    _collectionUri,
-                    savedCt,
-                    requestOptions,
-                    true);
-
-                _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
-
-                return savedCt.Id;
-            }
         }
 
         private static string GetValue(HttpStatusCode type)

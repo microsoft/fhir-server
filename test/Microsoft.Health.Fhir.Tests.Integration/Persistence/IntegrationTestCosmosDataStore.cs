@@ -13,14 +13,13 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Continuation;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class IntegrationTestCosmosDataStore : IDataStore, IContinuationTokenCache, IDisposable
+    public class IntegrationTestCosmosDataStore : IDataStore, IDisposable
     {
         private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStore _dataStore;
@@ -53,8 +52,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration).GetAwaiter().GetResult();
 
-            var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(NullCosmosDocumentQueryLogger.Instance);
-            _dataStore = new CosmosDataStore(new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, cosmosDocumentQueryFactory, NullLogger<CosmosDataStore>.Instance);
+            var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
+            _dataStore = new CosmosDataStore(
+                new NonDisposingScope(_documentClient),
+                _cosmosDataStoreConfiguration,
+                cosmosDocumentQueryFactory,
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
+                NullLogger<CosmosDataStore>.Instance);
         }
 
         public void Dispose()
@@ -81,16 +85,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
         {
             await _dataStore.HardDeleteAsync(key, cancellationToken);
-        }
-
-        public Task<string> GetContinuationTokenAsync(string id, CancellationToken cancellationToken = default)
-        {
-            return _dataStore.GetContinuationTokenAsync(id, cancellationToken);
-        }
-
-        public Task<string> SaveContinuationTokenAsync(string continuationToken, CancellationToken cancellationToken = default)
-        {
-            return _dataStore.SaveContinuationTokenAsync(continuationToken, cancellationToken);
         }
     }
 }

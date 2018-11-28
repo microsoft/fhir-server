@@ -52,8 +52,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
         [Theory]
         [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/DocumentReference-relationship].component is null or empty.")]
-        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Group-characteristic-value].component[1].definition.reference is null or empty, or is not pointing to a valid SearchParameter resource.")]
-        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-code-value-quantity].component[0] cannot be pointing to a composite SearchParameter.")]
+        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Group-characteristic-value].component[1].definition.reference is null or empty or does not refer to a valid SearchParameter resource.")]
+        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-code-value-quantity].component[0] cannot refer to a composite SearchParameter.")]
         [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-code-value-string].component[1].expression is null or empty.")]
         [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-device].resource.base is not defined.")]
         [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-related].resource.expression is null or empty.")]

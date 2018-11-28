@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -54,6 +55,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             { StringOperator.NotEndsWith, "NOT ENDSWITH" },
             { StringOperator.NotStartsWith, "NOT STARTSWITH" },
             { StringOperator.StartsWith, "STARTSWITH" },
+        };
+
+        private static readonly Dictionary<CompartmentType, string> CompartmentTypeToParamName = new Dictionary<CompartmentType, string>
+        {
+            { CompartmentType.Device, KnownResourceWrapperProperties.Device },
+            { CompartmentType.Encounter, KnownResourceWrapperProperties.Encounter },
+            { CompartmentType.Patient, KnownResourceWrapperProperties.Patient },
+            { CompartmentType.Practitioner, KnownResourceWrapperProperties.Practitioner },
+            { CompartmentType.RelatedPerson, KnownResourceWrapperProperties.RelatedPerson },
         };
 
         private readonly StringBuilder _queryBuilder;
@@ -160,7 +170,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public void Visit(ChainedExpression expression)
         {
-            // TODO: This will be removed once it's impelmented.
+            // TODO: This will be removed once it's implemented.
             throw new SearchOperationNotSupportedException("ChainedExpression is not supported.");
         }
 
@@ -261,6 +271,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             }
         }
 
+        public void Visit(CompartmentSearchExpression expression)
+        {
+            AppendArrayContainsFilter(GetCompartmentIndicesParamName(expression.CompartmentType), expression.CompartmentId);
+        }
+
+        private static string GetCompartmentIndicesParamName(CompartmentType compartmentType)
+        {
+            Debug.Assert(CompartmentTypeToParamName.ContainsKey(compartmentType), $"CompartmentType {compartmentType} should have a corresponding index param");
+            return $"{KnownResourceWrapperProperties.CompartmentIndices}.{CompartmentTypeToParamName[compartmentType]}";
+        }
+
         private void VisitBinary(string fieldName, BinaryOperator op, object value)
         {
             string paramName = AddParameterMapping(value);
@@ -321,6 +342,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             }
 
             return _queryParameterManager.AddOrGetParameterMapping(value);
+        }
+
+        private void AppendArrayContainsFilter(string name, string value)
+        {
+            _queryBuilder
+                .Append("ARRAY_CONTAINS(")
+                .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
+                .Append(", ")
+                .Append(_queryParameterManager.AddOrGetParameterMapping(value))
+                .AppendLine(")");
         }
     }
 }

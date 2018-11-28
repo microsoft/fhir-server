@@ -11,9 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Scripting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using IDocumentClient = Microsoft.Azure.Documents.IDocumentClient;
 
@@ -24,48 +22,20 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
     /// we set ConsistencyLevel and/or SessionToken on <see cref="FeedOptions" /> or <see cref="RequestOptions"/>
     /// parameters based on HTTP request headers, and we set the session consistency output header based on the response.
     /// </summary>
-    internal class DocumentClientWithConsistencyLevelFromContextGenerator : ICodeGenerator
+    internal class FhirDocumentClientGenerator : DocumentClientGenerator
     {
-        public MemberDeclarationSyntax Generate(string typeName)
+        internal override CSharpSyntaxRewriter CreateSyntaxRewriter(Compilation compilation, SemanticModel semanticModel)
         {
-            // First generate a basic class that implements the interfaces and delegates to an inner field.
-            var generator = new DelegatingInterfaceImplementationGenerator(
-                typeModifiers: TokenList(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.PartialKeyword)),
-                constructorModifiers: TokenList(Token(SyntaxKind.PrivateKeyword)),
-                typeof(IDocumentClient),
-                typeof(IDisposable));
-
-            MemberDeclarationSyntax declaration = generator.Generate(typeName);
-
-            // Assembling a CSharpCompilation for .NET core is non-trivial. The scripting API takes care of
-            // this for us, so we just use it instead of constructing one ourselves.
-
-            ScriptOptions scriptOptions = ScriptOptions.Default.WithReferences(typeof(IDocumentClient).Assembly);
-            Compilation compilation = CSharpScript.Create(declaration.NormalizeWhitespace().ToString(), scriptOptions).GetCompilation();
-
-            // Ensure that there are no complication errors. Any errors would lead to the ConsistencyLevelRewriter behaving unpredictably.
-
-            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToImmutableArray();
-            if (errors.Any())
-            {
-                throw new InvalidOperationException($"Unexpected error diagnostics:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}");
-            }
-
-            // Now rewrite the code with logic specific to this generator
-
-            SyntaxTree syntaxTree = compilation.SyntaxTrees.Single();
-
-            var rewriter = new ConsistencyLevelRewriter(compilation, compilation.GetSemanticModel(syntaxTree));
-            var rewrittenCompilationUnit = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
-            return rewrittenCompilationUnit.Members.Single();
+            return new ConsistencyLevelRewriter(compilation, semanticModel);
         }
 
         private class ConsistencyLevelRewriter : CSharpSyntaxRewriter
         {
             private readonly SemanticModel _semanticModel;
             private readonly INamedTypeSymbol _taskTypeSymbol;
-            private readonly INamedTypeSymbol[] _optionTypeSymbols;
-            private readonly INamedTypeSymbol[] _responseTypeSymbols;
+            private readonly INamedTypeSymbol _taskOfTTypeSymbol;
+            private readonly ImmutableHashSet<INamedTypeSymbol> _optionTypeSymbols;
+            private readonly ImmutableHashSet<INamedTypeSymbol> _responseTypeSymbols;
             private readonly HashSet<string> _methodsWithOptionOverloads;
 
             public ConsistencyLevelRewriter(Compilation compilation, SemanticModel semanticModel)
@@ -79,9 +49,10 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                         g.Select(m => m.GetParameters().Any(p => optionParameterTypes.Contains(p.ParameterType))).Distinct().Count() > 1)
                     .Select(g => g.Key).ToHashSet();
 
-                _taskTypeSymbol = compilation.GetTypeByMetadataName(typeof(Task<>).FullName);
-                _optionTypeSymbols = optionParameterTypes.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToArray();
-                _responseTypeSymbols = new[] { typeof(DocumentResponse<>), typeof(FeedResponse<>), typeof(ResourceResponse<>), typeof(StoredProcedureResponse<>) }.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToArray();
+                _taskTypeSymbol = compilation.GetTypeByMetadataName(typeof(Task).FullName);
+                _taskOfTTypeSymbol = compilation.GetTypeByMetadataName(typeof(Task<>).FullName);
+                _optionTypeSymbols = optionParameterTypes.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToImmutableHashSet();
+                _responseTypeSymbols = new[] { typeof(DocumentResponse<>), typeof(FeedResponse<>), typeof(ResourceResponse<>), typeof(StoredProcedureResponse<>) }.Select(t => compilation.GetTypeByMetadataName(t.FullName)).ToImmutableHashSet();
                 _semanticModel = semanticModel;
             }
 
@@ -112,17 +83,46 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     return IncompleteMember();
                 }
 
-                if (_semanticModel.GetTypeInfo(node.ReturnType).Type is INamedTypeSymbol type &&
-                    type.ConstructedFrom.Equals(_taskTypeSymbol) &&
-                    type.TypeArguments[0] is INamedTypeSymbol argumentType &&
-                    argumentType.IsGenericType &&
-                    _responseTypeSymbols.Contains(argumentType.ConstructedFrom))
+                var returnTypeSymbol = _semanticModel.GetTypeInfo(node.ReturnType).Type as INamedTypeSymbol;
+
+                bool isAsync = returnTypeSymbol != null &&
+                               (returnTypeSymbol.Equals(_taskTypeSymbol) || returnTypeSymbol.ConstructedFrom.Equals(_taskOfTTypeSymbol));
+
+                if (isAsync)
                 {
                     visitedNode = visitedNode.AddModifiers(Token(SyntaxKind.AsyncKeyword));
                     var invocation = visitedNode.DescendantNodes().OfType<InvocationExpressionSyntax>().First();
-                    visitedNode = visitedNode.ReplaceNode(invocation, InvocationExpression(IdentifierName("ProcessResponse")).AddArgumentListArguments(Argument(AwaitExpression(invocation))));
+                    visitedNode = visitedNode.ReplaceNode(invocation, AwaitExpression(invocation));
+                }
 
-                    return visitedNode;
+                // wrap with try/catch
+
+                visitedNode = visitedNode.WithBody(Block(TryStatement(
+                    block: visitedNode.Body,
+                    catches: SingletonList(
+                        CatchClause()
+                            .WithDeclaration(
+                                CatchDeclaration(
+                                        IdentifierName("System.Exception"))
+                                    .WithIdentifier(
+                                        Identifier("ex")))
+                            .WithBlock(
+                                Block(
+                                    SeparatedList(
+                                        new StatementSyntax[]
+                                        {
+                                            ExpressionStatement(InvocationExpression(IdentifierName("ProcessException")).AddArgumentListArguments(Argument(IdentifierName("ex")))),
+                                            ThrowStatement(),
+                                        })))),
+                    @finally: null)));
+
+                if (isAsync &&
+                    returnTypeSymbol.TypeArguments.FirstOrDefault() is INamedTypeSymbol argumentType &&
+                    argumentType.IsGenericType &&
+                    _responseTypeSymbols.Contains(argumentType.ConstructedFrom))
+                {
+                    var awaitSyntax = visitedNode.DescendantNodes().OfType<AwaitExpressionSyntax>().First();
+                    visitedNode = visitedNode.ReplaceNode(awaitSyntax, InvocationExpression(IdentifierName("ProcessResponse")).AddArgumentListArguments(Argument(awaitSyntax)));
                 }
 
                 return visitedNode;

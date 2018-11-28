@@ -26,8 +26,8 @@
     <EmbeddedResource Include="Views\_ViewStart.cshtml" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Ensure.That" Version="8.0.0" />
-    <PackageReference Include="FluentValidation" Version="8.0.100" />
+    <PackageReference Include="Ensure.That" Version="8.1.0" />
+    <PackageReference Include="FluentValidation" Version="8.0.101" />
     <PackageReference Include="MediatR" Version="5.1.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="5.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="2.1.2" />
@@ -39,7 +39,7 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="2.1.1" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02" />
-    <PackageReference Include="StyleCop.Analyzers" Version="1.1.0-beta009" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.1-beta.61" />
     <PackageReference Include="Microsoft.AspNetCore.Hosting" Version="2.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc" Version="2.1.3" />
   </ItemGroup>

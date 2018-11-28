@@ -9,9 +9,9 @@ using Microsoft.Azure.Documents;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Logger used for logging <see cref="CosmosDocumentQuery{T}"/>.
+    /// Logger used for logging <see cref="FhirDocumentQuery{T}"/>.
     /// </summary>
-    public interface ICosmosDocumentQueryLogger
+    public interface IFhirDocumentQueryLogger
     {
         /// <summary>
         /// Logs the query execution.
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Logs the query execution result.
         /// </summary>
         /// <param name="queryId">The query id for correlating query execution.</param>
-        /// <param name="activityId">The activity id retured by the Cosmos DB.</param>
+        /// <param name="activityId">The activity id returned by the Cosmos DB.</param>
         /// <param name="requestCharge">The request charge for the execution.</param>
         /// <param name="continuationToken">The continuation token for paging.</param>
         /// <param name="eTag">The ETag for the result.</param>

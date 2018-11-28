@@ -13,7 +13,7 @@ The FHIR server supports token based (JWT) authorization. If authorization is en
 
 To use the FHIR server with AAD authentication, two Azure Active Directory (AAD) Applications must be registered, one for the FHIR server itself and one for each client accessing the FHIR server. Please refer to the AAD documentation for details on the [Web application to Web API scenario](https://docs.microsoft.com/en-us/azure/active-directory/develop/authentication-scenarios#web-application-to-web-api).
 
-Both AAD Applications can be registered using the Azure Portal. Please refer to the [AAD Application registration documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-v1-integrate-apps-with-azure-ad) and the [portal application registration notes in this repository](PortalAppRegistrations.md).
+Both AAD Applications can be registered using the Azure Portal. Please refer to the [AAD Application registration documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-v1-integrate-apps-with-azure-ad) and the [portal application registration notes in this repository](PortalAppRegistration.md).
 
 You can also register the AAD Applications using the [AzureAD PowerShell module](https://docs.microsoft.com/en-us/powershell/module/azuread/). This repository includes a PowerShell module with some wrapper functions that help with the AAD Application registration process.
 
@@ -56,6 +56,10 @@ To deploy the backend Cosmos DB, Azure Web App, and FHIR server code, use the bu
 
 <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank">
     <img src="https://azuredeploy.net/deploybutton.png"/>
+</a>
+
+<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank"> 
+    <img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazuregov.png">
 </a>
 
 The template can also be deployed using PowerShell. Here is an example of how the authorization details from above can be provided:

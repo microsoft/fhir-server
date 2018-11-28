@@ -12,7 +12,6 @@ using EnsureThat;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -132,13 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                // Create the list of searchable values.
-                foreach (IEnumerable<ISearchValue> compositeSearchValues in componentValues.CartesianProduct())
-                {
-                    yield return new SearchIndexEntry(
-                        searchParameter.Name,
-                        new CompositeSearchValue(compositeSearchValues.ToArray()));
-                }
+                yield return new SearchIndexEntry(searchParameter.Name, new CompositeSearchValue(componentValues));
             }
         }
 

@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR opeation over <paramref name="expressions"/>.
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of OR on all <paramref name="expressions"/>.</returns>
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR opeation over <paramref name="expressions"/>.
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical OR operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="expressions">The expressions.</param>
         /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of OR on all <paramref name="expressions"/>.</returns>
@@ -220,6 +220,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public static StringExpression StringEquals(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
         {
             return new StringExpression(StringOperator.Equals, fieldName, componentIndex, value, ignoreCase);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.
+        /// </summary>
+        /// <param name="compartmentType">The compartment type.</param>
+        /// <param name="compartmentId">The compartment id.</param>
+        /// <returns>A <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.</returns>
+        public static CompartmentSearchExpression CompartmentSearch(CompartmentType compartmentType, string compartmentId)
+        {
+            return new CompartmentSearchExpression(compartmentType, compartmentId);
         }
 
         protected internal abstract void AcceptVisitor(IExpressionVisitor visitor);

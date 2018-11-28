@@ -116,11 +116,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         public static IEnumerable<object[]> GetParameterOutOfRangeData()
         {
             yield return new object[] { ParamNameYear, 0, 1, 1, 1, 1, 1, 0m, 60 }; // Year cannot be less than 1.
-            yield return new object[] { ParamNameYear, 10000, 1, 1, 1, 1, 1, 0m, 60 }; // Year cannot be greather than 9999.
+            yield return new object[] { ParamNameYear, 10000, 1, 1, 1, 1, 1, 0m, 60 }; // Year cannot be greater than 9999.
             yield return new object[] { ParamNameMonth, 2017, 0, 1, 1, 1, 1, 0m, 60 }; // Month cannot be less than 1.
             yield return new object[] { ParamNameMonth, 2017, 13, 1, 1, 1, 1, 0m, 60 }; // Month cannot be greater than 12.
             yield return new object[] { ParamNameDay, 2017, 1, 0, 1, 1, 1, 0m, 60 }; // Day cannot be less than 1.
-            yield return new object[] { ParamNameDay, 2017, 1, 32, 1, 1, 1, 0m, 60 }; // Day cannot be greather 31 in January.
+            yield return new object[] { ParamNameDay, 2017, 1, 32, 1, 1, 1, 0m, 60 }; // Day cannot be greater 31 in January.
             yield return new object[] { ParamNameDay, 2001, 2, 29, 1, 1, 1, 0m, 60 }; // Day cannot be greater than 28 in non-leap year.
             yield return new object[] { ParamNameDay, 2000, 2, 30, 1, 1, 1, 0m, 60 }; // Day cannot be greater than 29 in leap year.
             yield return new object[] { ParamNameHour, 2017, 1, 1, -1, 1, 1, 0m, 60 }; // Hour cannot be less than 0.

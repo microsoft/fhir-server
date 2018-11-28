@@ -138,6 +138,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData(nameof(FhirController.SearchByResourceTypePost), AuditEventSubType.SearchType)]
         [InlineData(nameof(FhirController.Search), AuditEventSubType.SearchSystem)]
         [InlineData(nameof(FhirController.SearchPost), AuditEventSubType.SearchSystem)]
+        [InlineData(nameof(FhirController.SearchCompartmentByResourceType), AuditEventSubType.Search)]
         public void GivenAFhirRequest_WhenExecutingAnValidAction_ThenCorrectRequestSubTypeMustBeSet(string methodName, string auditEventSubType)
         {
             var executingContext = new ActionExecutingContext(
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             descriptor.MethodInfo = typeof(FilterTestsHelper).GetMethod("MethodWithNoAttribute");
 
             var excp = Assert.Throws<NotSupportedException>(() => _filter.OnActionExecuting(executingContext));
-            Assert.Contains(excp.Message, "Audit Event Sub Type is not set for method MethodWithNoAttribute");
+            Assert.Contains(excp.Message, "Audit Event Sub Type is not set for method MethodWithNoAttribute.");
         }
     }
 }

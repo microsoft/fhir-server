@@ -11,5 +11,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Resource = "resource";
         public const string Id = "id";
         public const string Vid = "vid";
+        public const string CompartmentType = "compartmentType";
     }
 }

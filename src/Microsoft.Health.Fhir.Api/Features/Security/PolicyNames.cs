@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 {
     public static class PolicyNames
     {
-        public const string FhirPolicy = "Fhir Policy";
+        public const string FhirPolicy = "FHIR Policy";
 
         public const string ReadPolicy = "Read";
 

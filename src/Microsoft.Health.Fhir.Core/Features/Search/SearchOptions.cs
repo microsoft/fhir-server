@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search

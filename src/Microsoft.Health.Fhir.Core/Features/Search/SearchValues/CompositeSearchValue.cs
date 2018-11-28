@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// Initializes a new instance of the <see cref="CompositeSearchValue"/> class.
         /// </summary>
         /// <param name="components">The composite component values.</param>
-        public CompositeSearchValue(IReadOnlyList<ISearchValue> components)
+        public CompositeSearchValue(IReadOnlyList<IReadOnlyList<ISearchValue>> components)
         {
             EnsureArg.IsNotNull(components, nameof(components));
             EnsureArg.HasItems(components, nameof(components));
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <summary>
         /// Gets the composite component values.
         /// </summary>
-        public IReadOnlyList<ISearchValue> Components { get; }
+        public IReadOnlyList<IReadOnlyList<ISearchValue>> Components { get; }
 
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => false;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public override string ToString()
         {
-            return string.Join("$", Components);
+            return string.Join(" $ ", Components.Select(component => string.Join(", ", component.Select(v => $"({v})"))));
         }
     }
 }

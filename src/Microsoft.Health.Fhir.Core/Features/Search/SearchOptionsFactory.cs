@@ -44,6 +44,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
+            return Create(null, null, resourceType, queryParameters);
+        }
+
+        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
             var options = new SearchOptions();
 
             string continuationToken = null;
@@ -133,6 +138,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         }
                     })
                 .Where(item => item != null));
+
+            if (!string.IsNullOrWhiteSpace(compartmentType))
+            {
+                if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
+                {
+                    if (string.IsNullOrWhiteSpace(compartmentId))
+                    {
+                        throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
+                    }
+
+                    searchExpressions.Add(Expression.CompartmentSearch(parsedCompartmentType, compartmentId));
+                }
+                else
+                {
+                    throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+                }
+            }
 
             if (searchExpressions.Count == 1)
             {

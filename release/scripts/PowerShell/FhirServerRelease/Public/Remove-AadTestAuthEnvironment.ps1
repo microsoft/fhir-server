@@ -16,7 +16,10 @@ function Remove-AadTestAuthEnvironment {
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [string]$EnvironmentName
+        [string]$EnvironmentName,
+        
+        [Parameter(Mandatory = $false )]
+        [String]$WebAppSuffix = "azurewebsites.net"
     )
 
     Set-StrictMode -Version Latest
@@ -33,7 +36,7 @@ function Remove-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $fhirServiceAudience = Get-ServiceAudience $EnvironmentName
+    $fhirServiceAudience = Get-ServiceAudience -EnvironmentName $EnvironmentName -WebAppSuffix $WebAppSuffix
 
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 

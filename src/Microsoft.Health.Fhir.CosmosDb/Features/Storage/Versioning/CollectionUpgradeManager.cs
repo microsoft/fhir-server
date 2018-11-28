@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             {
                 using (var distributedLock = _lockFactory.Create(documentClient, _configuration.RelativeCollectionUri, $"UpgradeLock:{CollectionSettingsVersion}"))
                 {
-                    _logger.LogDebug("Attempting to aquire upgrade lock");
+                    _logger.LogDebug("Attempting to acquire upgrade lock");
 
                     await distributedLock.AcquireLock(cancellationTokenSource.Token);
 

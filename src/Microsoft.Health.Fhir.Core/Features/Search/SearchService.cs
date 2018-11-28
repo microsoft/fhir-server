@@ -56,6 +56,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return _bundleFactory.CreateSearchBundle(resourceType, searchOptions.UnsupportedSearchParams, result);
         }
 
+        /// <inheritdoc />
+        public async Task<Bundle> SearchCompartmentAsync(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, CancellationToken cancellationToken)
+        {
+            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+
+            // Execute the actual search.
+            SearchResult result = await SearchInternalAsync(searchOptions, cancellationToken);
+
+            return _bundleFactory.CreateSearchBundle(resourceType, searchOptions.UnsupportedSearchParams, result);
+        }
+
         public async Task<Bundle> SearchHistoryAsync(
             string resourceType,
             string resourceId,

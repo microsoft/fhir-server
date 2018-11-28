@@ -243,11 +243,133 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams);
         }
 
+        [Theory]
+        [InlineData(ResourceType.Patient, CompartmentType.Patient, "123")]
+        [InlineData(ResourceType.Appointment, CompartmentType.Device, "abc")]
+        [InlineData(ResourceType.Patient, CompartmentType.Encounter, "aaa")]
+        [InlineData(ResourceType.Condition, CompartmentType.Practitioner, "9aa")]
+        [InlineData(ResourceType.Patient, CompartmentType.RelatedPerson, "fdsfasfasfdas")]
+        [InlineData(ResourceType.Claim, CompartmentType.Encounter, "ksd;/fkds;kfsd;kf")]
+        public void GivenAValidCompartmentSearch_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(ResourceType resourceType, CompartmentType compartmentType, string compartmentId)
+        {
+            SearchOptions options = CreateSearchOptions(
+                resourceType: resourceType.ToString(),
+                queryParameters: null,
+                compartmentType.ToString(),
+                compartmentId);
+
+            Assert.NotNull(options);
+            ValidateMultiaryExpression(
+                options.Expression,
+                MultiaryOperator.And,
+                e => ValidateResourceTypeSearchParameterExpression(e, resourceType.ToString()),
+                e => ValidateCompartmentSearchExpression(e, compartmentType, compartmentId));
+        }
+
+        [Theory]
+        [InlineData(CompartmentType.Patient, "123")]
+        [InlineData(CompartmentType.Device, "abc")]
+        [InlineData(CompartmentType.Encounter, "aaa")]
+        [InlineData(CompartmentType.Practitioner, "9aa")]
+        [InlineData(CompartmentType.RelatedPerson, "fdsfasfasfdas")]
+        [InlineData(CompartmentType.Encounter, "ksd;/fkds;kfsd;kf")]
+        public void GivenAValidCompartmentSearchWithNullResourceType_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(CompartmentType compartmentType, string compartmentId)
+        {
+            SearchOptions options = CreateSearchOptions(
+                resourceType: null,
+                queryParameters: null,
+                compartmentType.ToString(),
+                compartmentId);
+
+            Assert.NotNull(options);
+            ValidateCompartmentSearchExpression(options.Expression, compartmentType, compartmentId);
+        }
+
+        [Theory]
+        [InlineData(ResourceType.Patient, CompartmentType.Patient, "123")]
+        [InlineData(ResourceType.Appointment, CompartmentType.Device, "abc")]
+        [InlineData(ResourceType.Patient, CompartmentType.Encounter, "aaa")]
+        [InlineData(ResourceType.Condition, CompartmentType.Practitioner, "945934-5934")]
+        [InlineData(ResourceType.Patient, CompartmentType.RelatedPerson, "hgdfhdfgdf")]
+        [InlineData(ResourceType.Claim, CompartmentType.Encounter, "ksd;/fkds;kfsd;kf")]
+        public void GivenSearchParamsWithValidCompartmentSearch_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(ResourceType resourceType, CompartmentType compartmentType, string compartmentId)
+        {
+            const string paramName1 = "address-city";
+            const string paramName2 = "address-state";
+            const string value1 = "Seattle";
+            const string value2 = "WA";
+
+            Expression expression1 = Substitute.For<Expression>();
+            Expression expression2 = Substitute.For<Expression>();
+
+            _expressionParser.Parse(resourceType, paramName1, value1).Returns(expression1);
+            _expressionParser.Parse(resourceType, paramName2, value2).Returns(expression2);
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(paramName1, value1),
+                Tuple.Create(paramName2, value2),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: resourceType.ToString(),
+                queryParameters: queryParameters,
+                compartmentType.ToString(),
+                compartmentId);
+
+            Assert.NotNull(options);
+            Assert.NotNull(options.Expression);
+
+            ValidateMultiaryExpression(
+                options.Expression,
+                MultiaryOperator.And,
+                e => ValidateResourceTypeSearchParameterExpression(e, resourceType.ToString()),
+                e => Assert.Equal(expression1, e),
+                e => Assert.Equal(expression2, e),
+                e => ValidateCompartmentSearchExpression(e, compartmentType, compartmentId));
+        }
+
+        [Theory]
+        [InlineData("abc")]
+        [InlineData("12223a2424")]
+        [InlineData("fsdfsdf")]
+        [InlineData("patients")]
+        [InlineData("encounter")]
+        [InlineData("Devices")]
+        public void GivenInvalidCompartmentType_WhenCreated_ThenExceptionShouldBeThrown(string invalidCompartmentType)
+        {
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
+                resourceType: null,
+                queryParameters: null,
+                invalidCompartmentType,
+                "123"));
+
+            Assert.Equal(exception.Message, $"Compartment type {invalidCompartmentType} is invalid.");
+        }
+
+        [Theory]
+        [InlineData("    ")]
+        [InlineData("")]
+        [InlineData("       ")]
+        [InlineData("\t\t")]
+        public void GivenInvalidCompartmentId_WhenCreated_ThenExceptionShouldBeThrown(string invalidCompartmentId)
+        {
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
+                resourceType: ResourceType.Claim.ToString(),
+                queryParameters: null,
+                CompartmentType.Patient.ToString(),
+                invalidCompartmentId));
+
+            Assert.Equal("Compartment id is null or empty.", exception.Message);
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
-            IReadOnlyList<Tuple<string, string>> queryParameters = null)
+            IReadOnlyList<Tuple<string, string>> queryParameters = null,
+            string compartmentType = null,
+            string compartmentId = null)
         {
-            return _factory.Create(resourceType, queryParameters);
+            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters);
         }
     }
 }
