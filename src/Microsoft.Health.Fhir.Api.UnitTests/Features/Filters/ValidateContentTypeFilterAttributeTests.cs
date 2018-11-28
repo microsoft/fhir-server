@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Theory]
+        [InlineData("application/blah")]
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
         public async Task GivenARequestWithNotAllowedAcceptHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string acceptHeader)
