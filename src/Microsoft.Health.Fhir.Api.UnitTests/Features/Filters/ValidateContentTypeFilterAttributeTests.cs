@@ -79,7 +79,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Theory]
-        [InlineData("application/blah")]
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
         public async Task GivenARequestWithNotAllowedAcceptHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string acceptHeader)
@@ -118,6 +117,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("application/fhir+xml")]
         [InlineData("")]
         public async Task GivenARequestWithNotAllowedContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string contentTypeHeader)
+        {
+            var filter = CreateFilter();
+
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.Method = HttpMethod.Post.ToString();
+            context.HttpContext.Request.Headers.Add("Content-Type", contentTypeHeader);
+
+            await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
+        }
+
+        [Theory]
+        [InlineData(@"\W|_" + "application/fhir+json")]
+        public async Task GivenARequestWithInvalidContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string contentTypeHeader)
         {
             var filter = CreateFilter();
 

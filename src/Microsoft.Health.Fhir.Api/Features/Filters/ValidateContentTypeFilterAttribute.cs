@@ -44,20 +44,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 if (contextHttpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
                 {
-                    var resourceFormat = ContentType.GetResourceFormatFromContentType(headerValue[0]);
-
-                    if (!await _contentTypeService.IsFormatSupportedAsync(resourceFormat))
+                    try
                     {
-                        string routeName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
+                        var resourceFormat = ContentType.GetResourceFormatFromContentType(headerValue[0]);
 
-                        switch (routeName)
+                        if (!await _contentTypeService.IsFormatSupportedAsync(resourceFormat))
                         {
-                            case RouteNames.SearchResourcesPost:
-                            case RouteNames.SearchAllResourcesPost:
-                                break;
-                            default:
-                                throw new UnsupportedMediaTypeException(Resources.UnsupportedContentTypeHeader);
+                            string routeName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
+
+                            switch (routeName)
+                            {
+                                case RouteNames.SearchResourcesPost:
+                                case RouteNames.SearchAllResourcesPost:
+                                    break;
+                                default:
+                                    throw new UnsupportedMediaTypeException(Resources.UnsupportedContentTypeHeader);
+                            }
                         }
+                    }
+                    catch (NullReferenceException)
+                    {
+                        throw new UnsupportedMediaTypeException(Resources.UnsupportedContentTypeHeader);
                     }
                 }
                 else
