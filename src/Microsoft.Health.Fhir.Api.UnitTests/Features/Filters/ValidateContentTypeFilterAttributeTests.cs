@@ -130,7 +130,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Theory]
-        [InlineData(@"\W|_" + "application/fhir+json")]
+        [InlineData("\"application/fhir+json")]
+        [InlineData("]application/fhir+json")]
+        [InlineData("application\blah")]
         public async Task GivenARequestWithInvalidContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string contentTypeHeader)
         {
             var filter = CreateFilter();
