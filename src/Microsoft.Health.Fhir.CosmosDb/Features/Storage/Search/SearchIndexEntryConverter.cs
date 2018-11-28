@@ -42,15 +42,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             try
             {
                 generatedObjects = generator.Generate(searchIndexEntry);
+
+                foreach (JObject generatedObj in generatedObjects)
+                {
+                    generatedObj.WriteTo(writer);
+                }
             }
             finally
             {
                 CachedGenerators.Enqueue(generator);
-            }
-
-            foreach (JObject generatedObj in generatedObjects)
-            {
-                generatedObj.WriteTo(writer);
             }
         }
     }

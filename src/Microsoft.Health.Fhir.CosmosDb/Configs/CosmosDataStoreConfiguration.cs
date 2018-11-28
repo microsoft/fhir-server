@@ -39,5 +39,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         public int DataMigrationBatchSize { get; set; } = 100;
 
         public CosmosDataStoreRetryOptions RetryOptions { get; } = new CosmosDataStoreRetryOptions();
+
+        public int? ContinuationTokenSizeLimitInKb { get; set; }
     }
 }

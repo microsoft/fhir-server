@@ -3,9 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Persistence;
 using Xunit;
@@ -20,32 +18,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             : base(dataStore)
         {
             _dataStore = dataStore;
-        }
-
-        [Fact]
-        public async Task GivenAContinuationToken_WhenGettingAnId_ThenTheOriginalTokenIsHashed()
-        {
-            var ct = Guid.NewGuid().ToString();
-
-            var id = await _dataStore.SaveContinuationTokenAsync(ct);
-
-            var result = await _dataStore.GetContinuationTokenAsync(id);
-
-            Assert.Equal(ct, result);
-        }
-
-        [Fact]
-        public async Task GivenAnEmptyContinuationToken_WhenGettingAnId_ThenAnErrorShouldBeThrown()
-        {
-            await Assert.ThrowsAsync<ArgumentNullException>(async () => await _dataStore.SaveContinuationTokenAsync(null));
-        }
-
-        [Fact]
-        public async Task GivenACorruptContinuationTokenId_WhenGettingAContinuationToken_ThenAnErrorIsThrown()
-        {
-            var corrupt = Guid.NewGuid().ToString();
-
-            await Assert.ThrowsAnyAsync<InvalidSearchOperationException>(async () => await _dataStore.GetContinuationTokenAsync(corrupt));
         }
 
         [Fact]

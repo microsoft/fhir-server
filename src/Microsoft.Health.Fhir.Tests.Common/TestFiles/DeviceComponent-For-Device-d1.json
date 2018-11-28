@@ -1,0 +1,56 @@
+{
+  "resourceType": "DeviceComponent",
+  "id": "example",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: example</p><p><b>identifier</b>: 0</p><p><b>type</b>: MDC_DEV_ANALY_SAT_O2_MDS <span>(Details : {urn:iso:std:iso:11073:10101 code '2000' = '2000', given as 'MDC_DEV_ANALY_SAT_O2_MDS'})</span></p><p><b>lastSystemChange</b>: 07/10/2014 2:45:00 PM</p><p><b>source</b>: <a>Device/d1</a></p><p><b>parent</b>: <a>DeviceComponent/dc1</a></p><p><b>operationalStatus</b>: Off <span>(Details : {urn:iso:std:iso:11073:10101 code 'off' = 'off', given as 'Off'})</span></p><p><b>parameterGroup</b>: Miscellaneous Parameter Group <span>(Details : {urn:iso:std:iso:11073:10101 code 'miscellaneous' = 'miscellaneous', given as 'Miscellaneous Parameter Group'})</span></p><p><b>measurementPrinciple</b>: optical</p><p><b>languageCode</b>: en-US <span>(Details : {http://tools.ietf.org/html/bcp47 code 'en-US' = 'en-US)</span></p></div>"
+  },
+  "identifier": {
+    "value": "0"
+  },
+  "type": {
+    "coding": [
+      {
+        "system": "urn:iso:std:iso:11073:10101",
+        "code": "2000",
+        "display": "MDC_DEV_ANALY_SAT_O2_MDS"
+      }
+    ]
+  },
+  "lastSystemChange": "2014-10-07T14:45:00Z",
+  "source": {
+    "reference": "Device/d1"
+  },
+  "parent": {
+    "reference": "DeviceComponent/dc1"
+  },
+  "operationalStatus": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:11073:10101",
+          "code": "off",
+          "display": "Off"
+        }
+      ]
+    }
+  ],
+  "parameterGroup": {
+    "coding": [
+      {
+        "system": "urn:iso:std:iso:11073:10101",
+        "code": "miscellaneous",
+        "display": "Miscellaneous Parameter Group"
+      }
+    ]
+  },
+  "measurementPrinciple": "optical",
+  "languageCode": {
+    "coding": [
+      {
+        "system": "http://tools.ietf.org/html/bcp47",
+        "code": "en-US"
+      }
+    ]
+  }
+}

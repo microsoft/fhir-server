@@ -30,6 +30,8 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string HistoryInstance = "history-instance";
 
+        public const string Search = "search";
+
         public const string SearchType = "search-type";
 
         public const string SearchSystem = "search-system";
