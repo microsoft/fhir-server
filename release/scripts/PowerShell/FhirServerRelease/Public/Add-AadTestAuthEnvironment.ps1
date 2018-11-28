@@ -31,10 +31,10 @@ function Add-AadTestAuthEnvironment {
         [String]$WebAppSuffix = "azurewebsites.net",
 
         [Parameter(Mandatory = $false)]
-        [string]$ResourceGroupName,
+        [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName
+        [string]$KeyVaultName = "$EnvironmentName-ts"
     )
     
     Set-StrictMode -Version Latest
@@ -58,15 +58,6 @@ function Add-AadTestAuthEnvironment {
     Write-Host "Setting up Test Authorization Environment for AAD"
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
-
-    if(!$ResourceGroupName) {
-        $ResourceGroupName = $EnvironmentName
-    }
-    
-    if(!$KeyVaultName){
-        $KeyVaultName = "$EnvironmentName-ts"
-    }
-
 
     $keyVault = Get-AzureRmKeyVault -VaultName $KeyVaultName
 
