@@ -139,6 +139,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     })
                 .Where(item => item != null));
 
+            if (!string.IsNullOrWhiteSpace(compartmentType))
+            {
+                if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
+                {
+                    if (string.IsNullOrWhiteSpace(compartmentId))
+                    {
+                        throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
+                    }
+
+                    searchExpressions.Add(Expression.CompartmentSearch(parsedCompartmentType, compartmentId));
+                }
+                else
+                {
+                    throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+                }
+            }
+
             if (searchExpressions.Count == 1)
             {
                 options.Expression = searchExpressions[0];
@@ -155,24 +172,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             options.UnsupportedSearchParams = unsupportedSearchParameters;
-
-            if (!string.IsNullOrWhiteSpace(compartmentType))
-            {
-                if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
-                {
-                    if (string.IsNullOrWhiteSpace(compartmentId))
-                    {
-                        throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
-                    }
-
-                    options.CompartmentType = parsedCompartmentType;
-                    options.CompartmentId = compartmentId;
-                }
-                else
-                {
-                    throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
-                }
-            }
 
             return options;
         }
