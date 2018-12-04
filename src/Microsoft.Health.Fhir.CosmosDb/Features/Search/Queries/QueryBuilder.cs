@@ -3,11 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Azure.Documents;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -148,9 +145,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 _queryBuilder
                     .Append("(")
-                    .Append("IS_DEFINED(").Append(SearchValueConstants.RootAliasName).Append(".isSystem)")
-                    .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false))
-                    .Append(" OR ")
                     .Append(SearchValueConstants.RootAliasName).Append(".isSystem")
                     .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false))
                     .AppendLine(")");
