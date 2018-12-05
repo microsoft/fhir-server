@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
@@ -24,6 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     /// </summary>
     public class UrlResolver : IUrlResolver
     {
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IUrlHelperFactory _urlHelperFactory;
 
         // If we update the search implementation to not use these, we should remove
@@ -35,15 +38,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <summary>
         /// Initializes a new instance of the <see cref="UrlResolver"/> class.
         /// </summary>
+        /// <param name="fhirRequestContextAccessor">The FHIR request context accessor.</param>
         /// <param name="urlHelperFactory">The ASP.NET Core URL helper factory.</param>
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
-        public UrlResolver(IUrlHelperFactory urlHelperFactory, IHttpContextAccessor httpContextAccessor, IActionContextAccessor actionContextAccessor)
+        public UrlResolver(
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IUrlHelperFactory urlHelperFactory,
+            IHttpContextAccessor httpContextAccessor,
+            IActionContextAccessor actionContextAccessor)
         {
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
 
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
@@ -101,15 +111,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
-        /// <inheritdoc />
-        public Uri ResolveSearchUrl(string resourceType, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
+        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
         {
-            return ResolveRouteUrl(string.IsNullOrEmpty(resourceType) ? RouteNames.SearchAllResources : RouteNames.SearchResources, unsupportedSearchParams, continuationToken);
-        }
+            string routeName = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
 
-        public Uri ResolveRouteUrl(string routeName, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
-        {
-            EnsureArg.IsNotNullOrEmpty(routeName, nameof(routeName));
+            Debug.Assert(!string.IsNullOrWhiteSpace(routeName), "The routeName should not be null or empty.");
 
             var routeValues = new RouteValueDictionary();
 
