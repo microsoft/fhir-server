@@ -44,11 +44,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             SetUpEnvironmentVariables();
 
-            _environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
+            string environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
 
-            if (string.IsNullOrWhiteSpace(_environmentUrl))
+            if (string.IsNullOrWhiteSpace(environmentUrl))
             {
-                _environmentUrl = "http://localhost/";
+                environmentUrl = "http://localhost/";
 
                 StartInMemoryServer(targetProjectParentDirectory);
 
@@ -57,8 +57,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
             else
             {
+                if (environmentUrl.Last() != '/')
+                {
+                    environmentUrl = $"{environmentUrl}/";
+                }
+
                 _messageHandler = new HttpClientHandler();
             }
+
+            _environmentUrl = environmentUrl;
 
             HttpClient = new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
@@ -73,6 +80,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public FhirClient FhirClient { get; }
 
         public Lazy<FhirClient> FhirXmlClient { get; set; }
+
+        public string GenerateFullUrl(string relativeUrl)
+        {
+            return $"{_environmentUrl}{relativeUrl}";
+        }
 
         private void StartInMemoryServer(string targetProjectParentDirectory)
         {
