@@ -1,4 +1,4 @@
-# Third party notices
+﻿# Third party notices
 
 Do Not Translate or Localize
 
@@ -292,7 +292,7 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## IdentityServer4 2.2.0
+## IdentityServer4 2.3.0
 * Component Source:   https://github.com/IdentityServer/IdentityServer4
 * Component Copyright and License:
   >                                  Apache License
