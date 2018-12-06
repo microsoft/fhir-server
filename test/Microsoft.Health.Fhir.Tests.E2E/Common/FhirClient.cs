@@ -24,7 +24,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public class FhirClient
     {
-        private readonly ResourceFormat _format;
         private readonly Dictionary<string, string> _bearerTokens = new Dictionary<string, string>();
         private readonly string _contentType;
 
@@ -38,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public FhirClient(HttpClient httpClient, ResourceFormat format)
         {
             HttpClient = httpClient;
-            _format = format;
+            Format = format;
 
             if (format == ResourceFormat.Json)
             {
@@ -74,10 +73,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
 
             _mediaType = MediaTypeWithQualityHeaderValue.Parse(_contentType);
-            SetupAuthenticationAsync(TestApplications.ServiceClient).GetAwaiter().GetResult();
         }
 
-        public ResourceFormat Format => _format;
+        public ResourceFormat Format { get; }
 
         public (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) SecuritySettings { get; private set; }
 
@@ -102,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return CreateAsync(resource.ResourceType.ToString(), resource);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource)
+        public virtual async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource)
             where T : Resource
         {
             var message = new HttpRequestMessage(HttpMethod.Post, uri);
@@ -147,7 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion);
         }
 
-        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)
+        public async virtual Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)
             where T : Resource
         {
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
@@ -194,7 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true");
         }
 
-        public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null)
+        public virtual Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -218,7 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return SearchAsync(sb.ToString());
         }
 
-        public async Task<FhirResponse<Bundle>> SearchAsync(string url)
+        public virtual async Task<FhirResponse<Bundle>> SearchAsync(string url)
         {
             var message = new HttpRequestMessage(HttpMethod.Get, url);
             message.Headers.Accept.Add(_mediaType);
@@ -230,7 +228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, params (string key, string value)[] body)
+        public virtual async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, params (string key, string value)[] body)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}_search")
             {

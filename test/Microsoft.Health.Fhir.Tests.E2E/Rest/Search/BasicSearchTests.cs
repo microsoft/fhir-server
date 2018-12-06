@@ -9,19 +9,18 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture<Startup>>
+    public class BasicSearchTests : SearchTestsBase<SearchTestFixture>
     {
-        public BasicSearchTests(HttpIntegrationTestFixture<Startup> fixture)
+        public BasicSearchTests(SearchTestFixture fixture)
             : base(fixture)
         {
-            // Delete all patients before starting the test.
-            Client.DeleteAllResources(ResourceType.Patient).Wait();
+            // Sets a new session id for each test.
+            fixture.TestSessionId = Guid.NewGuid().ToString();
         }
 
         [Fact]
@@ -34,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Williamas"),
                 p => SetPatientInfo(p, "Seattle", "Jones"));
 
-            Bundle bundle = await Client.SearchAsync("Patient?address-city=seattle&family=Jones");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, "Patient?address-city=seattle&family=Jones");
 
             ValidateBundle(bundle, patients[2]);
 
@@ -58,6 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+
             await Client.CreateAsync(Samples.GetDefaultObservation());
             await Client.CreateAsync(Samples.GetDefaultOrganization());
 

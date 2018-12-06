@@ -11,6 +11,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Rest\Xml\**" />
+    <EmbeddedResource Remove="Rest\Xml\**" />
+    <None Remove="Rest\Xml\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <AdditionalFiles Include="..\..\stylecop.json" />
   </ItemGroup>
 
@@ -40,9 +46,6 @@
   <ItemGroup>
     <None Update="Properties\launchSettings.json">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="xunit.runner.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <Import Project="Microsoft.AspNetCore.Mvc.Testing.targets" />

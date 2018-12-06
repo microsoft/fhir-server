@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -92,19 +91,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         private async Task SearchAndValidate(string queryValue, string[] expectedObservationNames)
         {
-            Bundle bundle = await SearchAsync(queryValue);
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, queryValue);
 
             Observation[] expected = expectedObservationNames.Select(name => Fixture.Observations[name]).ToArray();
 
             ValidateBundle(bundle, expected);
-        }
-
-        private async Task<Bundle> SearchAsync(string queryValue)
-        {
-            // Append the test session id.
-            return await Client.SearchAsync(
-                ResourceType.Observation,
-                $"identifier={Fixture.TestSessionId}&{queryValue}");
         }
     }
 }
