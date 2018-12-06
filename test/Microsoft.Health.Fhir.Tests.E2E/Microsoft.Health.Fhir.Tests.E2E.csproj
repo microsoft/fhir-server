@@ -23,6 +23,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="2.1.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.9.0" />
+    <PackageReference Include="selenium.chrome.webdriver" Version="2.43" />
+    <PackageReference Include="selenium.webdriver" Version="3.141.0" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.1-beta.61" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
@@ -35,6 +37,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj" />
+    <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
   </ItemGroup>
 
   <ItemGroup>
