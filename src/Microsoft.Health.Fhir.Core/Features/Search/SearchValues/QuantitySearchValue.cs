@@ -64,21 +64,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 throw new FormatException(Core.Resources.MoreThanTwoTokenSeparatorSpecified);
             }
 
-            try
+            decimal quantity;
+            if (decimal.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out quantity) == false)
             {
-                decimal quantity = decimal.Parse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture);
-                string system = parts.Count > 1 ? parts[1] : string.Empty;
-                string code = parts.Count > 2 ? parts[2] : string.Empty;
+                throw new BadRequestException(Core.Resources.MalformedSearchValue);
+            }
 
-                return new QuantitySearchValue(
-                    system.UnescapeSearchParameterValue(),
-                    code.UnescapeSearchParameterValue(),
-                    quantity);
-            }
-            catch
-            {
-                throw new BadRequestException($"Malformed search value \"{parts[0]}\"");
-            }
+            string system = parts.Count > 1 ? parts[1] : string.Empty;
+            string code = parts.Count > 2 ? parts[2] : string.Empty;
+
+            return new QuantitySearchValue(
+                system.UnescapeSearchParameterValue(),
+                code.UnescapeSearchParameterValue(),
+                quantity);
         }
 
         /// <inheritdoc />

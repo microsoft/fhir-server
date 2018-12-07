@@ -326,4 +326,7 @@
   <data name="WeakETagFormatRequired" xml:space="preserve">
     <value>WeakETag must be in the weak ETag format.</value>
   </data>
+    <data name="MalformedSearchValue" xml:space="preserve">
+    <value>Malformed search value \"{parts[0]}\".</value>
+  </data>
 </root>
