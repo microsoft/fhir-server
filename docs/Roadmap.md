@@ -56,6 +56,12 @@ Extensions are not yet supported. Documents with extensions will get stored and 
 ## Profiling
 Profiling is not supported yet, but the project aims to support storing profiles and validating against stored profiles.
 
+## Batch/Transaction
+currently there is no support for batch/transaction (https://www.hl7.org/fhir/http.html#transaction). This is something we are investigating and expect to support in future releases.
+
+## Conditional updates
+This is currently not supported and partialy ties to supporting transactions. Our roadmap includes support for conditional updates.
+
 ## FHIR Versions
 The FHIR Server currently supports FHIR 3.0.1 but the intention is to support multiple versions in the future.
 
