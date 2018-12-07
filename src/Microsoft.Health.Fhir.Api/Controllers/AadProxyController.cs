@@ -212,9 +212,33 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromForm(Name = "client_secret")] string clientSecret)
         {
             EnsureArg.IsNotNull(grantType, nameof(grantType));
+            EnsureArg.IsNotNull(clientId, nameof(clientId));
+
+            var client = _httpClientFactory.CreateClient();
+
+            // TODO: This hack should be handled more generically
+            if (grantType != "authorization_code")
+            {
+                List<KeyValuePair<string, string>> fields = new List<KeyValuePair<string, string>>();
+                foreach (var f in Request.Form)
+                {
+                    fields.Add(new KeyValuePair<string, string>(f.Key, f.Value));
+                }
+
+                var passThroughContent = new FormUrlEncodedContent(fields);
+
+                var passThroughResponse = await client.PostAsync(new Uri(_aadTokenEndpoint), passThroughContent);
+
+                return new ContentResult()
+                {
+                    Content = await passThroughResponse.Content.ReadAsStringAsync(),
+                    StatusCode = (int)passThroughResponse.StatusCode,
+                    ContentType = "application/json",
+                };
+            }
+
             EnsureArg.IsNotNull(compoundCode, nameof(compoundCode));
             EnsureArg.IsNotNull(redirectUri, nameof(redirectUri));
-            EnsureArg.IsNotNull(clientId, nameof(clientId));
 
             JObject decodedCompoundCode;
             string code;
@@ -236,8 +260,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             Uri callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
                 Base64Encode(redirectUri.ToString()) + "/" + launch);
-
-            var client = _httpClientFactory.CreateClient();
 
             // TODO: Deal with client secret in basic auth header
 
