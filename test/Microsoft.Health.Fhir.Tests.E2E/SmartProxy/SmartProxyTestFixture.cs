@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             _environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
             SmartLauncherUrl = "https://localhost:" + Port.ToString();
 
+            Environment.SetEnvironmentVariable("ClientId", TestApplications.NativeClient.ClientId);
+
             var builder = WebHost.CreateDefaultBuilder()
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {

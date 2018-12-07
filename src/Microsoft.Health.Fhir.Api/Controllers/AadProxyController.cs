@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var client = _httpClientFactory.CreateClient();
 
-            // TODO: This hack should be handled more generically
+            // TODO: Add handling of 'aud' -> 'resource'
             if (grantType != "authorization_code")
             {
                 List<KeyValuePair<string, string>> fields = new List<KeyValuePair<string, string>>();
