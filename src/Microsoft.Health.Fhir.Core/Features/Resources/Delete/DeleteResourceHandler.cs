@@ -18,17 +18,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 {
     public class DeleteResourceHandler : BaseResourceHandler, IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>
     {
-        private readonly IDataStore _dataStore;
-
         public DeleteResourceHandler(
             IDataStore dataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory)
-            : base(conformanceProvider, resourceWrapperFactory)
+            : base(dataStore, conformanceProvider, resourceWrapperFactory)
         {
-            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
-
-            _dataStore = dataStore;
         }
 
         public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest message, CancellationToken cancellationToken)
@@ -46,11 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
             if (message.HardDelete)
             {
-                await _dataStore.HardDeleteAsync(key, cancellationToken);
+                await DataStore.HardDeleteAsync(key, cancellationToken);
             }
             else
             {
-                ResourceWrapper existing = await _dataStore.GetAsync(key, cancellationToken);
+                ResourceWrapper existing = await DataStore.GetAsync(key, cancellationToken);
 
                 version = existing?.Version;
 
@@ -63,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
                     bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    UpsertOutcome result = await _dataStore.UpsertAsync(
+                    UpsertOutcome result = await DataStore.UpsertAsync(
                         deletedWrapper,
                         WeakETag.FromVersionId(existing.Version),
                         allowCreate: true,

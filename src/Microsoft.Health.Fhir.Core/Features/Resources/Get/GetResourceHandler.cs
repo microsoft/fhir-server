@@ -18,17 +18,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 {
     public class GetResourceHandler : BaseResourceHandler, IRequestHandler<GetResourceRequest, GetResourceResponse>
     {
-        private readonly IDataStore _dataStore;
-
         public GetResourceHandler(
             IDataStore dataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory)
-            : base(conformanceProvider, resourceWrapperFactory)
+            : base(dataStore, conformanceProvider, resourceWrapperFactory)
         {
-            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
-
-            _dataStore = dataStore;
         }
 
         public async Task<GetResourceResponse> Handle(GetResourceRequest message, CancellationToken cancellationToken)
@@ -37,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 
             var key = message.ResourceKey;
 
-            var currentDoc = await _dataStore.GetAsync(key, cancellationToken);
+            var currentDoc = await DataStore.GetAsync(key, cancellationToken);
 
             if (currentDoc == null)
             {

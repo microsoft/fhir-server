@@ -31,7 +31,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 {
-    public class FhirRepositoryTests
+    public class ResourceHandlerTests
     {
         private readonly IDataStore _dataStore;
         private readonly IConformanceProvider _conformanceProvider;
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         private readonly CapabilityStatement _conformanceStatement;
         private Mediator _mediator;
 
-        public FhirRepositoryTests()
+        public ResourceHandlerTests()
         {
             _dataStore = Substitute.For<IDataStore>();
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();

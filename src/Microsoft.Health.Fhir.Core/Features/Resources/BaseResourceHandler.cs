@@ -16,17 +16,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
         protected BaseResourceHandler(
+            IDataStore dataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory)
         {
+            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
             EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
 
             ConformanceProvider = conformanceProvider;
+            DataStore = dataStore;
             _resourceWrapperFactory = resourceWrapperFactory;
         }
 
         protected Lazy<IConformanceProvider> ConformanceProvider { get; }
+
+        protected IDataStore DataStore { get; }
 
         protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted)
         {

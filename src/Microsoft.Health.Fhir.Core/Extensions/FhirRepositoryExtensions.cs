@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var result = await mediator.Send(new DeleteResourceRequest(key, hardDelete), cancellationToken);
 
-            return result.Key;
+            return result.ResourceKey;
         }
     }
 }
