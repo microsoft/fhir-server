@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             decimal quantity;
             if (decimal.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out quantity) == false)
             {
-                throw new BadRequestException(Core.Resources.MalformedSearchValue);
+                throw new BadRequestException(string.Format(Core.Resources.MalformedSearchValue, parts[0]));
             }
 
             string system = parts.Count > 1 ? parts[1] : string.Empty;
