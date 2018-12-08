@@ -42,7 +42,7 @@
         },
         "allowedOrigins": {
             "type": "array",
-            "defaultValue": [],
+            "defaultValue": [ "https://localhost:6001" ],
             "metadata": {
                 "description": "CORS Allowed Origins"
             }
@@ -188,8 +188,10 @@
             "properties": {
                 "clientAffinityEnabled": false,
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-                "cors": {
-                    "allowedOrigins": "[parameters('allowedOrigins')]"
+                "siteConfig": {
+                    "cors": {
+                        "allowedOrigins": "[parameters('allowedOrigins')]"
+                    }
                 }
             },
             "dependsOn": [
