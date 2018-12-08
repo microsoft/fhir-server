@@ -109,8 +109,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 driver.FindElementByName("passwd").SendKeys(testUserPassword);
                 Advance();
 
-                // Consent
-                // Advance();
+                // Consent, should only be done if we can find the button
+                try
+                {
+                    var button = driver.FindElementById("idSIButton9");
+                    Advance();
+                }
+                catch (NoSuchElementException)
+                {
+                    // Nothing to do, we are assuming that we are at the SMART App screen.
+                }
 
                 var tokenResponseElement = driver.FindElement(By.Id("tokenresponsefield"));
                 var tokenResponseText = tokenResponseElement.GetAttribute("value");
