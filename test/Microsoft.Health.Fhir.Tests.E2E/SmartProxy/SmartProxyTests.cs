@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Newtonsoft.Json.Linq;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using Xunit;
@@ -57,6 +58,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
             using (var driver = new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options))
             {
+                driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+
                 void Advance()
                 {
                     while (true)
@@ -93,45 +96,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 // Launcher opens a new tab, switch to it
                 driver.SwitchTo().Window(driver.WindowHandles[1]);
 
-                var driverUrl = driver.Url;
+                int waitCount = 0;
                 while (!driver.Url.StartsWith($"https://login.microsoftonline.com"))
                 {
-                    driverUrl = driver.Url;
-                    Thread.Sleep(TimeSpan.FromMilliseconds(100));
+                    Thread.Sleep(TimeSpan.FromMilliseconds(1000));
+                    Assert.InRange(waitCount++, 0, 10);
                 }
 
-                driver.SwitchTo().ActiveElement().SendKeys(testUserName);
+                driver.FindElementByName("loginfmt").SendKeys(testUserName);
                 Advance();
 
                 driver.FindElementByName("passwd").SendKeys(testUserPassword);
                 Advance();
 
-                /*
-                driver.Navigate().GoToUrl($"https://localhost:{_server.Port}/Home/About");
+                // Consent
+                // Advance();
 
-                while (!driver.Url.StartsWith($"https://localhost:{_server.Port}/Home/About"))
+                var tokenResponseElement = driver.FindElement(By.Id("tokenresponsefield"));
+                var tokenResponseText = tokenResponseElement.GetAttribute("value");
+
+                // It can take some time for the token to apear, we will wait
+                waitCount = 0;
+                while (string.IsNullOrWhiteSpace(tokenResponseText))
                 {
-
-                    Thread.Sleep(TimeSpan.FromMilliseconds(100));
-
+                    Thread.Sleep(TimeSpan.FromMilliseconds(1000));
+                    tokenResponseText = tokenResponseElement.GetAttribute("value");
+                    Assert.InRange(waitCount++, 0, 10);
                 }
 
-                var element = driver.FindElement(By.Id("tokenfield"));
-                String elementval = element.GetAttribute("value");
-
+                var tokenResponse = JObject.Parse(tokenResponseElement.GetAttribute("value"));
                 var jwtHandler = new JwtSecurityTokenHandler();
-
-                Assert.True(jwtHandler.CanReadToken(elementval));
-
-                var token = jwtHandler.ReadJwtToken(elementval);
+                Assert.True(jwtHandler.CanReadToken(tokenResponse["access_token"].ToString()));
+                var token = jwtHandler.ReadJwtToken(tokenResponse["access_token"].ToString());
                 var aud = token.Claims.Where(c => c.Type == "aud");
-
                 Assert.Single(aud);
-
                 var tokenAudience = aud.First().Value;
-
-                Assert.Equal(_config["FhirServerUrl"], tokenAudience);
-                */
+                Assert.Equal(Environment.GetEnvironmentVariable("TestEnvironmentUrl"), tokenAudience);
             }
         }
     }
