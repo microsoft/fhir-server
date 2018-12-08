@@ -141,6 +141,9 @@ function Add-AadTestAuthEnvironment {
             
         if ($publicClient) {
             Grant-ClientAppAdminConsent -AppId $aadClientApplication.AppId -TenantAdminCredential $TenantAdminCredential
+
+            # The public client (native app) is being used as SMART on FHIR client app in testing.
+            New-FhirServerSmartClientReplyUrl -AppId $aadClientApplication.AppId -FhirServerUrl $fhirServiceAudience -ReplyUrl "https://localhost:6001/sample-app/"
         }
 
         $environmentClientApplications += @{

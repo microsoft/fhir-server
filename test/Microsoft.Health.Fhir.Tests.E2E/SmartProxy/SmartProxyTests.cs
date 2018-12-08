@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
         {
             ChromeOptions options = new ChromeOptions();
 
-            // options.AddArgument("--headless");
+            options.AddArgument("--headless");
             options.AddArgument("--disable-gpu");
             options.AddArgument("--incognito");
 

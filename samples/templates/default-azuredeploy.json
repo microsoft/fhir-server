@@ -40,6 +40,13 @@
             ],
             "defaultValue": "S1"
         },
+        "allowedOrigins": {
+            "type": "array",
+            "defaultValue": [],
+            "metadata": {
+                "description": "CORS Allowed Origins"
+            }
+        },
         "securityAuthenticationAuthority": {
             "type": "string",
             "defaultValue": "",
@@ -52,6 +59,13 @@
             "defaultValue": "",
             "metadata": {
                 "description": "Audience (aud) to validate in JWT"
+            }
+        },
+        "enableAadProxy": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Enable Azure AAD SMART on FHIR Proxy"
             }
         },
         "repositoryUrl": {
@@ -127,6 +141,7 @@
             "WEBSITE_NODE_DEFAULT_VERSION": "6.9.4",
             "KeyVault:Endpoint": "[variables('keyvaultEndpoint')]",
             "FhirServer:Security:Enabled": "[variables('securityAuthenticationEnabled')]",
+            "FhirServer:Security:EnableAadProxy": "[parameters('enableAadProxy')]",
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]"
         },
@@ -172,7 +187,10 @@
             },
             "properties": {
                 "clientAffinityEnabled": false,
-                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]"
+                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
+                "cors": {
+                    "allowedOrigins": "[parameters('allowedOrigins')]"
+                }
             },
             "dependsOn": [
                 "nestedTemplate"
