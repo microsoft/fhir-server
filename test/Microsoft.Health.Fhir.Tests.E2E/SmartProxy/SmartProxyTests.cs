@@ -52,11 +52,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             options.AddArgument("--disable-gpu");
             options.AddArgument("--incognito");
 
+            options.AcceptInsecureCertificates = true;
+
             FhirResponse<Patient> response = await _fixture.FhirClient.CreateAsync(Samples.GetDefaultPatient());
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Patient patient = response.Resource;
 
-            using (var driver = new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options))
+            // VSTS Hosted agents set the ChromeWebDriver Env, locally that is not the case
+            // https://docs.microsoft.com/en-us/azure/devops/pipelines/test/continuous-test-selenium?view=vsts#decide-how-you-will-deploy-and-test-your-app
+            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ChromeWebDriver")))
+            {
+                Environment.SetEnvironmentVariable("ChromeWebDriver", Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
+            }
+
+            using (var driver = new ChromeDriver(Environment.GetEnvironmentVariable("ChromeWebDriver"), options))
             {
                 driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(20);
 
