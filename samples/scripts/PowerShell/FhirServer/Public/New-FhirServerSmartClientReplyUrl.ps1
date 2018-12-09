@@ -38,14 +38,20 @@ function New-FhirServerSmartClientReplyUrl {
         return
     }
 
-    $origReplyUrls = $appReg.ReplyUrls;
+    $origReplyUrls = $appReg.ReplyUrls
+    
+    # Form new reply URL: https://fhir-server/<base64 encoded reply url>/*
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($ReplyUrl)
+    $encodedText =[Convert]::ToBase64String($bytes)
+    $newReplyUrl = $FhirServerUrl + "/AadProxy/callback/" + $encodedText + "/*"
 
     # Add Reply URL if not already in the list 
-
-    if ($origReplyUrls -NotContains $ReplyUrl) {
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($ReplyUrl)
-        $encodedText =[Convert]::ToBase64String($bytes)
-        $origReplyUrls.Add($FhirServerUrl + "/AadProxy/callback/" + $encodedText + "/*")
+    if ($origReplyUrls -NotContains $newReplyUrl) {
+        $origReplyUrls.Add($newReplyUrl)
         Set-AzureADApplication -ObjectId $appReg.ObjectId -ReplyUrls $origReplyUrls
+    }
+    else
+    {
+        Write-Host "Skipping Reply URL add. Already added."
     }
 }
