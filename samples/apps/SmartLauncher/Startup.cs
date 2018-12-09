@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using Microsoft.Extensions.FileProviders;
+using System.Reflection;
 
 namespace SmartLauncher
 {
@@ -36,7 +38,8 @@ namespace SmartLauncher
             }
 
             app.UseDefaultFiles();
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions { FileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly()) });
+            //app.UseStaticFiles();
 
             app.Map("/config", a =>
             {
