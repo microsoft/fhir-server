@@ -5,10 +5,13 @@
     <script src="js/fhir-client.js"></script>
     <script>
 
-     $.getJSON( '/config', function (appConfig) {
+    var launchUri = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    var redirectUri = launchUri.replace("launch.html","index.html");
+    $.getJSON( '/config', function (appConfig) {
         FHIR.oauth2.authorize({
             "client_id": appConfig.ClientId,
-            "scope"    : "openid profile"
+            "scope"    : "openid profile",
+            "redirect_uri": redirectUri
             });
     });
     </script>

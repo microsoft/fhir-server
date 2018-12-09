@@ -38,8 +38,7 @@ namespace SmartLauncher
             }
 
             app.UseDefaultFiles();
-            app.UseStaticFiles(new StaticFileOptions { FileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly()) });
-            //app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions { FileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), "SmartLauncher.wwwroot") });
 
             app.Map("/config", a =>
             {

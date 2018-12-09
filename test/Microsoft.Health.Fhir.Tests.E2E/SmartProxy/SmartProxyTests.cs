@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
             using (var driver = new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options))
             {
-                driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+                driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(20);
 
                 void Advance()
                 {

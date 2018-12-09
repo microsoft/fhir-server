@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
@@ -29,7 +30,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
         public SmartProxyTestFixture()
         {
             _environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
-            SmartLauncherUrl = "https://localhost:" + Port.ToString();
+            var baseUrl = "https://localhost:" + Port.ToString();
+            SmartLauncherUrl = baseUrl + "/index.html";
 
             Environment.SetEnvironmentVariable("FhirServerUrl", _environmentUrl);
             Environment.SetEnvironmentVariable("ClientId", TestApplications.NativeClient.ClientId);
@@ -38,11 +40,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             var builder = WebHost.CreateDefaultBuilder()
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {
-                    config.AddJsonFile("appsettings.json");
                     config.AddEnvironmentVariables();
                 })
                 .UseStartup<SmartLauncher.Startup>()
-                .UseUrls(SmartLauncherUrl);
+                .UseUrls(baseUrl);
 
             WebServer = builder.Build();
             WebServer.Start();

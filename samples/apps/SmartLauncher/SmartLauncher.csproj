@@ -7,18 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="wwwroot/sampleapp/js/fhir-client.js">
-      <Link>sampleapp/js/fhir-client.js</Link>
-   </EmbeddedResource>
-    <EmbeddedResource Include="wwwroot/sampleapp/launch.html">
-      <Link>sampleapp/launch.html</Link>
-    </EmbeddedResource>
-    <EmbeddedResource Include="wwwroot/sampleapp/index.html">
-      <Link>sampleapp/index.html</Link>
-    </EmbeddedResource>
-    <EmbeddedResource Include="wwwroot/index.html">
-      <Link>index.html</Link>
-    </EmbeddedResource>
+    <EmbeddedResource Include="wwwroot/sampleapp/js/fhir-client.js" />
+    <EmbeddedResource Include="wwwroot/sampleapp/launch.html" />
+    <EmbeddedResource Include="wwwroot/sampleapp/index.html" />
+    <EmbeddedResource Include="wwwroot/index.html" />
   </ItemGroup>
 
 <!--
