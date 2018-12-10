@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
-        public Bundle CreateSearchBundle(string resourceType, IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result)
+        public Bundle CreateSearchBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParameters, SearchResult result)
         {
             // Create the bundle from the result.
             var bundle = new Bundle();
@@ -56,19 +56,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (result.ContinuationToken != null)
                 {
-                    bundle.NextLink = _urlResolver.ResolveSearchUrl(
-                        resourceType,
-                        unsupportedSearchParams,
+                    bundle.NextLink = _urlResolver.ResolveRouteUrl(
+                        unsupportedSearchParameters,
                         result.ContinuationToken);
                 }
             }
 
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveSearchUrl(resourceType, unsupportedSearchParams);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(unsupportedSearchParameters);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.Searchset;
-            bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta
             {
                 LastUpdated = Clock.UtcNow,
@@ -77,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return bundle;
         }
 
-        public Bundle CreateHistoryBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result)
+        public Bundle CreateHistoryBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParameters, SearchResult result)
         {
             // Create the bundle from the result.
             var bundle = new Bundle();
@@ -111,18 +109,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (result.ContinuationToken != null)
                 {
                     bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                        _fhirRequestContextAccessor.FhirRequestContext.RouteName,
-                        unsupportedSearchParams,
+                        unsupportedSearchParameters,
                         result.ContinuationToken);
                 }
             }
 
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(_fhirRequestContextAccessor.FhirRequestContext.RouteName, unsupportedSearchParams);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(unsupportedSearchParameters);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.History;
-            bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta
             {
                 LastUpdated = Clock.UtcNow,

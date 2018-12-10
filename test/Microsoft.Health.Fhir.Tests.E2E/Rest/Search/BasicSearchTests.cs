@@ -34,9 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Williamas"),
                 p => SetPatientInfo(p, "Seattle", "Jones"));
 
-            Bundle bundle = await Client.SearchAsync("Patient?address-city=seattle&family=Jones");
-
-            ValidateBundle(bundle, patients[2]);
+            await ExecuteAndValidateBundle("Patient?address-city=seattle&family=Jones", patients[2]);
 
             void SetPatientInfo(Patient patient, string city, string family)
             {
@@ -61,9 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await Client.CreateAsync(Samples.GetDefaultObservation());
             await Client.CreateAsync(Samples.GetDefaultOrganization());
 
-            Bundle bundle = await Client.SearchAsync("Patient");
-
-            ValidateBundle(bundle, patients);
+            await ExecuteAndValidateBundle("Patient", patients);
         }
 
         [Fact]
@@ -73,11 +69,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p => p.Gender = AdministrativeGender.Female)).Single();
             Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p => { })).Single();
 
-            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "gender:missing=true"), unspecifiedPatient);
-            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "gender:missing=false"), femalePatient);
+            await ExecuteAndValidateBundle("Patient?gender:missing=true", unspecifiedPatient);
+            await ExecuteAndValidateBundle("Patient?gender:missing=false", femalePatient);
 
-            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "_type:missing=true"));
-            ValidateBundle(await Client.SearchAsync(ResourceType.Patient, "_type:missing=false"), femalePatient, unspecifiedPatient);
+            await ExecuteAndValidateBundle("Patient?_type:missing=true");
+            await ExecuteAndValidateBundle("Patient?_type:missing=false", femalePatient, unspecifiedPatient);
         }
 
         [Fact]
@@ -89,25 +85,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Observation observation = (await Client.CreateAsync(Samples.GetDefaultObservation())).Resource;
             Organization organization = (await Client.CreateAsync(Samples.GetDefaultOrganization())).Resource;
 
-            Bundle bundle = await Client.SearchAsync("?_type=Patient");
-            ValidateBundle(bundle, patients);
-            bundle = await Client.SearchPostAsync(null, ("_type", "Patient"));
-            ValidateBundle(bundle, patients);
+            await ExecuteAndValidateBundle("?_type=Patient", patients);
+
+            Bundle bundle = await Client.SearchPostAsync(null, ("_type", "Patient"));
+            ValidateBundle(bundle, "_search", patients);
 
             bundle = await Client.SearchAsync("?_type=Observation,Patient");
             Assert.True(bundle.Entry.Count > patients.Length);
             bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"));
             Assert.True(bundle.Entry.Count > patients.Length);
 
-            bundle = await Client.SearchAsync($"?_type=Observation,Patient&_id={observation.Id}");
-            ValidateBundle(bundle, observation);
+            await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={observation.Id}", observation);
             bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"), ("_id", observation.Id));
-            ValidateBundle(bundle, observation);
+            ValidateBundle(bundle, "_search", observation);
 
-            bundle = await Client.SearchAsync($"?_type=Observation,Patient&_id={organization.Id}");
-            ValidateBundle(bundle);
+            await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={organization.Id}");
             bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"), ("_id", organization.Id));
-            ValidateBundle(bundle);
+            ValidateBundle(bundle, "_search");
         }
 
         [Fact]
@@ -124,6 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Search with count = 2, which should results in 5 pages.
             string url = $"Patient?_count={count}";
+            string baseUrl = Fixture.GenerateFullUrl(url);
 
             int loop = 1;
 
@@ -142,6 +137,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 url = bundle.NextLink?.ToString();
 
+                if (url != null)
+                {
+                    Assert.StartsWith(baseUrl, url);
+                }
+
                 loop++;
             }
 
@@ -159,6 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Search with count = 2, which should results in 5 pages.
             string url = "Patient?_count=2";
+            string baseUrl = Fixture.GenerateFullUrl(url);
 
             int loop = 1;
 
@@ -174,6 +175,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 results.Entry.AddRange(bundle.Entry);
 
                 url = bundle.NextLink?.ToString();
+
+                if (url != null)
+                {
+                    Assert.StartsWith(baseUrl, url);
+                }
 
                 loop++;
             }
@@ -201,11 +207,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             resourceToUpdate.Status = ObservationStatus.Corrected;
             var updatedResource = await Client.UpdateAsync(resourceToUpdate);
 
-            // Search for the given coding
-            Bundle bundle = await Client.SearchAsync($"Observation?code={testCoding.System}|{testCoding.Code}");
-
-            // The only thing returned should be the updated resource
-            ValidateBundle(bundle, updatedResource);
+            // Search for the given coding. The only thing returned should be the updated resource
+            await ExecuteAndValidateBundle($"Observation?code={testCoding.System}|{testCoding.Code}", updatedResource);
         }
     }
 }

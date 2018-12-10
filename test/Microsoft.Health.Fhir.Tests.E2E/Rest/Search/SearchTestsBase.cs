@@ -5,6 +5,8 @@
 
 using System;
 using System.Linq;
+using System.Net;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
@@ -23,6 +25,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         protected TFixture Fixture { get; }
 
         protected FhirClient Client => Fixture.FhirClient;
+
+        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, params Resource[] expectedResources)
+        {
+            return await ExecuteAndValidateBundle(searchUrl, searchUrl, expectedResources);
+        }
+
+        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, params Resource[] expectedResources)
+        {
+            Bundle bundle = await Client.SearchAsync(searchUrl);
+
+            ValidateBundle(bundle, selfLink, expectedResources);
+
+            return bundle;
+        }
+
+        protected void ValidateBundle(Bundle bundle, string selfLink, params Resource[] expectedResources)
+        {
+            ValidateBundle(bundle, expectedResources);
+
+            var actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri);
+
+            Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
+        }
 
         protected void ValidateBundle(Bundle bundle, params Resource[] expectedResources)
         {

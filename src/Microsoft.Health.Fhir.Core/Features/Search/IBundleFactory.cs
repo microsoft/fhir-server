@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public interface IBundleFactory
     {
-        Bundle CreateSearchBundle(string resourceType, IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result);
+        Bundle CreateSearchBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result);
 
         Bundle CreateHistoryBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result);
     }

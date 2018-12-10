@@ -30,21 +30,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         Uri ResolveResourceUrl(Resource resource, bool includeVersion = false);
 
         /// <summary>
-        /// Resolves the search URL.
-        /// </summary>
-        /// <param name="resourceType">The resource type route segment, or null if the search is across all resource types.</param>
-        /// <param name="unsupportedSearchParams">A list of unsupported search parameters.</param>
-        /// <param name="continuationToken">The continuation token.</param>
-        /// <returns>The search URL.</returns>
-        Uri ResolveSearchUrl(string resourceType, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
-
-        /// <summary>
         /// Resolves the URL for the specified route
         /// </summary>
-        /// <param name="routeName">Name of the route</param>
         /// <param name="unsupportedSearchParams">A list of unsupported search parameters.</param>
         /// <param name="continuationToken">The continuation token.</param>
         /// <returns>The URL.</returns>
-        Uri ResolveRouteUrl(string routeName, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
+        Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
     }
 }
