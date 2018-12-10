@@ -90,10 +90,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             await SetupAuthenticationAsync(clientApplication, user);
         }
 
-        public async Task RunAsClientApplication(TestApplication clientApplication)
+        public async Task RunAsClientApplication(TestApplication clientApplication, AuthenticationScenarios scenario = AuthenticationScenarios.VALIDAUTH)
         {
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication);
+            await SetupAuthenticationAsync(clientApplication, null, scenario);
         }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource)
@@ -268,9 +268,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
+        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null, AuthenticationScenarios scnerio = AuthenticationScenarios.VALIDAUTH)
         {
             await GetSecuritySettings("metadata");
+
+            ConfigureSecuritySettings(scnerio);
 
             if (SecuritySettings.SecurityEnabled)
             {
@@ -285,6 +287,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
         }
 
+        private void ConfigureSecuritySettings(AuthenticationScenarios scnerio)
+        {
+            if (scnerio == AuthenticationScenarios.NOAUTH)
+            {
+                SecuritySettings = (true, null, null);
+            }
+
+            if (scnerio == AuthenticationScenarios.VALIDAUTHWRONGAUTHORITY)
+            {
+                SecuritySettings = (true, SecuritySettings.AuthorizeUrl, null);
+            }
+        }
+
         private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
         {
             var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
@@ -293,8 +308,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
 
-            var bearerToken = tokenJson["access_token"].Value<string>();
-            return bearerToken;
+            if (tokenJson["access_token"] != null)
+            {
+                return tokenJson["access_token"].Value<string>();
+            }
+            else if (tokenJson["error"] != null)
+            {
+                return null;
+            }
+
+            return null;
         }
 
         private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)

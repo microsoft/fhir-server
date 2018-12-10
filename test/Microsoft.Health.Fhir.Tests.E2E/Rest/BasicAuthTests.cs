@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
+        private const string UnauthorizedMessage = "Unauthorized: Authentication failed.";
 
         public BasicAuthTests(HttpIntegrationTestFixture<Startup> fixture)
         {
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenCreatingAResource_GivenAUserWithNoCreatePermissions_TheServerShouldReturnForbidden()
         {
-            await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.ServiceClient);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
@@ -139,6 +140,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(createdResource.Id, updatedResource.Id);
             Assert.NotEqual(createdResource.Meta.VersionId, updatedResource.Meta.VersionId);
             Assert.NotEqual(createdResource.Meta.LastUpdated, updatedResource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenGettingAResource_GivenAUserWithInvalidAuthToken_TheServerShouldReturnUnAuthorized()
+        {
+            await Client.RunAsClientApplication(TestApplications.InvalidClient, AuthenticationScenarios.INVALIDAUTH);
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            Assert.Equal(UnauthorizedMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenGettingAResource_GivenAUserWithValidAuthTokenWrongAuthority_TheServerShouldReturnUnAuthorized()
+        {
+            await Client.RunAsClientApplication(TestApplications.NativeClient, AuthenticationScenarios.VALIDAUTHWRONGAUTHORITY);
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            Assert.Equal(UnauthorizedMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenGettingAResource_GivenAUserWithNoAuthToken_TheServerShouldReturnUnAuthorized()
+        {
+            await Client.RunAsClientApplication(TestApplications.NativeClient, AuthenticationScenarios.NOAUTH);
+
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            Assert.Equal(UnauthorizedMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
         }
     }
 }
