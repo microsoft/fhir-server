@@ -121,9 +121,7 @@ namespace Microsoft.Health.Fhir.Web
                 return configurationBuilder;
             }
 
-            testEnvironmentFilePath = testEnvironmentFilePath.Replace('\\', Path.DirectorySeparatorChar);
-            testEnvironmentFilePath = Path.GetFullPath(testEnvironmentFilePath);
-            testEnvironmentFilePath = Path.GetFullPath(normalizedPath);
+            testEnvironmentFilePath = Path.GetFullPath(testEnvironmentFilePath.Replace('\\', Path.DirectorySeparatorChar));
             if (!File.Exists(testEnvironmentFilePath))
             {
                 return configurationBuilder;
