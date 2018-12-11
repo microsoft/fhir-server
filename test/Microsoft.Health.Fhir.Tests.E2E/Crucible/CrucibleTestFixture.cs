@@ -182,6 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "history001/HI08",
             "history001/HI10",
             "history001/HI11",
+            "readtest/R005",
             "resourcetest_adverseevent/X010_AdverseEvent",
             "resourcetest_adverseevent/X020_AdverseEvent",
             "resourcetest_claim/X010_Claim",
