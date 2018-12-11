@@ -233,6 +233,12 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        internal static string MalformedSearchValue {
+            get {
+                return ResourceManager.GetString("MalformedSearchValue", resourceCulture);
+            }
+        }
+        
         internal static string ModifierNotSupported {
             get {
                 return ResourceManager.GetString("ModifierNotSupported", resourceCulture);
@@ -458,12 +464,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string WeakETagFormatRequired {
             get {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
-            }
-        }
-        
-        internal static string MalformedSearchValue {
-            get {
-                return ResourceManager.GetString("MalformedSearchValue", resourceCulture);
             }
         }
     }
