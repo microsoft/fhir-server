@@ -65,7 +65,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 defaultSecond: 59,
                 defaultFraction: 0.9999999m,
                 defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
-
         }
 
         /// <summary>
