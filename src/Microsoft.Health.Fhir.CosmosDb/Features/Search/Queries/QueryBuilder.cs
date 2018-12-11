@@ -139,7 +139,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryBuilder
                     .Append(" WHERE ")
                     .Append(SearchValueConstants.RootAliasName).Append(".isSystem")
-                    .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false));
+                    .Append(" = ")
+                    .AppendLine(_queryParameterManager.AddOrGetParameterMapping(false));
             }
         }
     }
