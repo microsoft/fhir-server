@@ -59,8 +59,8 @@ Profiling is not supported yet, but the project aims to support storing profiles
 ## Batch/Transaction
 Currently there is no support for batch/transaction (https://www.hl7.org/fhir/http.html#transaction). This is something we are investigating and expect to support in future releases.
 
-## Conditional updates
-This is currently not supported and partially ties to supporting transactions. Our roadmap includes support for conditional updates.
+## Conditional operations
+Conditional operations (update, delete, create) are currently not supported. This partially ties to supporting transactions. Our roadmap includes support for conditional operations.
 
 ## FHIR Versions
 The FHIR Server currently supports FHIR 3.0.1 but the intention is to support multiple versions in the future.
