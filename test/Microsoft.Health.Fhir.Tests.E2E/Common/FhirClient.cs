@@ -287,16 +287,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
         }
 
-        private void ConfigureSecuritySettings(AuthenticationScenarios scnerio)
+        private void ConfigureSecuritySettings(AuthenticationScenarios authenticationscenario)
         {
-            if (scnerio == AuthenticationScenarios.NOAUTH)
+            if (authenticationscenario == AuthenticationScenarios.NOAUTH)
             {
                 SecuritySettings = (true, null, null);
             }
 
-            if (scnerio == AuthenticationScenarios.VALIDAUTHWRONGAUTHORITY)
+            if (authenticationscenario == AuthenticationScenarios.INVALIDAUTH)
             {
-                SecuritySettings = (true, SecuritySettings.AuthorizeUrl, null);
+                SecuritySettings = (true, SecuritySettings.AuthorizeUrl, "invalidtoken");
+            }
+
+            if (authenticationscenario == AuthenticationScenarios.VALIDAUTHWRONGAUTHORITY)
+            {
+                SecuritySettings = (true, "invalidauthority", SecuritySettings.TokenUrl);
             }
         }
 

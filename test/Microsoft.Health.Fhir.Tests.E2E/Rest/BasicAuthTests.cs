@@ -144,6 +144,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenGettingAResource_GivenAUserWithNoAuthToken_TheServerShouldReturnUnAuthorized()
+        {
+            await Client.RunAsClientApplication(TestApplications.NativeClient, AuthenticationScenarios.NOAUTH);
+
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            Assert.Equal(UnauthorizedMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task WhenGettingAResource_GivenAUserWithInvalidAuthToken_TheServerShouldReturnUnAuthorized()
         {
             await Client.RunAsClientApplication(TestApplications.InvalidClient, AuthenticationScenarios.INVALIDAUTH);
@@ -157,17 +168,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenGettingAResource_GivenAUserWithValidAuthTokenWrongAuthority_TheServerShouldReturnUnAuthorized()
         {
             await Client.RunAsClientApplication(TestApplications.NativeClient, AuthenticationScenarios.VALIDAUTHWRONGAUTHORITY);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
-            Assert.Equal(UnauthorizedMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAUserWithNoAuthToken_TheServerShouldReturnUnAuthorized()
-        {
-            await Client.RunAsClientApplication(TestApplications.NativeClient, AuthenticationScenarios.NOAUTH);
-
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
