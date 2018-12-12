@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public void Dispose()
         {
-            _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.RelativeCollectionUri).GetAwaiter().GetResult();
+            _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.RelativeFhirCollectionUri).GetAwaiter().GetResult();
             _documentClient?.Dispose();
         }
 

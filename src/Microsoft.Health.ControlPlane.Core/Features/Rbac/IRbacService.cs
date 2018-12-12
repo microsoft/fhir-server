@@ -4,11 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
     public interface IRbacService
     {
-        IdentityProvider GetIdentityProviderAsync(string name, CancellationToken cancellationToken);
+        Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken);
+
+        Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken);
     }
 }

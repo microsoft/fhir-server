@@ -43,7 +43,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            _logger.LogInformation("Creating DocumentClient instance for {CollectionUri}", configuration.AbsoluteCollectionUri);
+            _logger.LogInformation("Creating DocumentClient instance for {CollectionUri}", configuration.AbsoluteFhirCollectionUri);
 
             var connectionPolicy = new ConnectionPolicy
             {
@@ -100,16 +100,16 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            _logger.LogInformation("Opening DocumentClient connection to {CollectionUri}", configuration.AbsoluteCollectionUri);
+            _logger.LogInformation("Opening DocumentClient connection to {CollectionUri}", configuration.AbsoluteFhirCollectionUri);
             try
             {
                 await _testProvider.PerformTest(client, configuration);
 
-                _logger.LogInformation("Established DocumentClient connection to {CollectionUri}", configuration.AbsoluteCollectionUri);
+                _logger.LogInformation("Established DocumentClient connection to {CollectionUri}", configuration.AbsoluteFhirCollectionUri);
             }
             catch (Exception e)
             {
-                _logger.LogCritical(e, "Failed to connect to DocumentClient collection {CollectionUri}", configuration.AbsoluteCollectionUri);
+                _logger.LogCritical(e, "Failed to connect to DocumentClient collection {CollectionUri}", configuration.AbsoluteFhirCollectionUri);
                 throw;
             }
         }
@@ -127,7 +127,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogInformation("Initializing Cosmos DB collection {CollectionUri}", cosmosDataStoreConfiguration.AbsoluteCollectionUri);
+                _logger.LogInformation("Initializing Cosmos DB collection {CollectionUri}", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
 
                 if (cosmosDataStoreConfiguration.AllowDatabaseCreation)
                 {
@@ -139,9 +139,10 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                     });
                 }
 
-                _logger.LogDebug("CreateDocumentCollectionIfNotExists {HostDescription}", cosmosDataStoreConfiguration.AbsoluteCollectionUri);
+                // Create the Fhir collection
+                _logger.LogDebug("CreateDocumentCollectionIfNotExists {HostDescription}", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
 
-                DocumentCollection existingDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(cosmosDataStoreConfiguration.RelativeCollectionUri);
+                DocumentCollection existingDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(cosmosDataStoreConfiguration.RelativeFhirCollectionUri);
 
                 if (existingDocumentCollection == null)
                 {
@@ -158,16 +159,39 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                     };
 
                     existingDocumentCollection = await documentClient.CreateDocumentCollectionIfNotExistsAsync(
-                        cosmosDataStoreConfiguration.RelativeDatabaseUri, cosmosDataStoreConfiguration.RelativeCollectionUri, documentCollection);
+                        cosmosDataStoreConfiguration.RelativeDatabaseUri, cosmosDataStoreConfiguration.RelativeFhirCollectionUri, documentCollection);
                 }
 
                 await _upgradeManager.SetupCollectionAsync(documentClient, existingDocumentCollection);
 
-                _logger.LogInformation("Cosmos DB collection {CollectionUri} successfully initialized", cosmosDataStoreConfiguration.AbsoluteCollectionUri);
+                // Create the Control Plane collection
+                _logger.LogDebug("CreateDocumentCollectionIfNotExists {HostDescription}", cosmosDataStoreConfiguration.AbsoluteControlPlaneCollectionUri);
+
+                DocumentCollection existingControlPlaneDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri);
+
+                if (existingControlPlaneDocumentCollection == null)
+                {
+                    var documentCollection = new DocumentCollection
+                    {
+                        Id = cosmosDataStoreConfiguration.ControlPlaneCollectionId,
+                        PartitionKey = new PartitionKeyDefinition
+                        {
+                            Paths =
+                            {
+                                $"/{KnownDocumentProperties.PartitionKey}",
+                            },
+                        },
+                    };
+
+                    existingControlPlaneDocumentCollection = await documentClient.CreateDocumentCollectionIfNotExistsAsync(
+                        cosmosDataStoreConfiguration.RelativeDatabaseUri, cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri, documentCollection);
+                }
+
+                _logger.LogInformation("Cosmos DB collection {CollectionUri} successfully initialized", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
             }
             catch (Exception ex)
             {
-                _logger.LogCritical(ex, "Cosmos DB collection {CollectionUri} initialization failed", cosmosDataStoreConfiguration.AbsoluteCollectionUri);
+                _logger.LogCritical(ex, "Cosmos DB collection {CollectionUri} initialization failed", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
                 throw;
             }
         }

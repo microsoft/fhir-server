@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
 
             await UpdateCollectionAsync(documentCollection);
 
-            await _client.Received(1).UpsertDocumentAsync(Arg.Is(_cosmosDataStoreConfiguration.RelativeCollectionUri), Arg.Is<CollectionVersion>(x => x.Version == CollectionUpgradeManager.CollectionSettingsVersion));
+            await _client.Received(1).UpsertDocumentAsync(Arg.Is(_cosmosDataStoreConfiguration.RelativeFhirCollectionUri), Arg.Is<CollectionVersion>(x => x.Version == CollectionUpgradeManager.CollectionSettingsVersion));
         }
 
         [Fact]

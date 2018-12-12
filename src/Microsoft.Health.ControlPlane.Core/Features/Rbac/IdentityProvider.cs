@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
@@ -18,7 +17,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         {
             Name = name;
             Authority = authority;
-            Audience.Concat(audience);
+            Audience.AddRange(audience);
         }
 
         public string Name { get; set; }

@@ -12,5 +12,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
     public interface IControlPlaneDataStore
     {
         Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken);
+
+        Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken);
     }
 }

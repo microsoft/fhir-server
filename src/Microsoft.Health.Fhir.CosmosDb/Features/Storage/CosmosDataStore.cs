@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
             _documentClient = documentClient;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
-            _collectionUri = cosmosDataStoreConfiguration.RelativeCollectionUri;
+            _collectionUri = cosmosDataStoreConfiguration.RelativeFhirCollectionUri;
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
         }

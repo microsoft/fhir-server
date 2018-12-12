@@ -52,7 +52,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
 
             using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
             {
-                using (var distributedLock = _lockFactory.Create(documentClient, _configuration.RelativeCollectionUri, $"UpgradeLock:{CollectionSettingsVersion}"))
+                using (var distributedLock = _lockFactory.Create(documentClient, _configuration.RelativeFhirCollectionUri, $"UpgradeLock:{CollectionSettingsVersion}"))
                 {
                     _logger.LogDebug("Attempting to acquire upgrade lock");
 
@@ -60,9 +60,9 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
 
                     foreach (var updater in _collectionUpdater)
                     {
-                        _logger.LogDebug("Running {CollectionUpdater} on {CollectionUri}", updater.GetType().Name, _configuration.AbsoluteCollectionUri);
+                        _logger.LogDebug("Running {CollectionUpdater} on {CollectionUri}", updater.GetType().Name, _configuration.AbsoluteFhirCollectionUri);
 
-                        await updater.ExecuteAsync(documentClient, collection, _configuration.RelativeCollectionUri);
+                        await updater.ExecuteAsync(documentClient, collection, _configuration.RelativeFhirCollectionUri);
                     }
 
                     await distributedLock.ReleaseLock();

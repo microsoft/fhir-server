@@ -32,9 +32,13 @@ namespace Microsoft.Health.CosmosDb.Configs
 
         public Uri RelativeDatabaseUri => string.IsNullOrEmpty(DatabaseId) ? null : UriFactory.CreateDatabaseUri(DatabaseId);
 
-        public Uri RelativeCollectionUri => string.IsNullOrEmpty(DatabaseId) || string.IsNullOrEmpty(FhirCollectionId) ? null : UriFactory.CreateDocumentCollectionUri(DatabaseId, FhirCollectionId);
+        public Uri RelativeFhirCollectionUri => string.IsNullOrEmpty(DatabaseId) || string.IsNullOrEmpty(FhirCollectionId) ? null : UriFactory.CreateDocumentCollectionUri(DatabaseId, FhirCollectionId);
 
-        public Uri AbsoluteCollectionUri => string.IsNullOrEmpty(Host) || RelativeCollectionUri == null ? null : new Uri(new Uri(Host), RelativeCollectionUri);
+        public Uri AbsoluteFhirCollectionUri => string.IsNullOrEmpty(Host) || RelativeFhirCollectionUri == null ? null : new Uri(new Uri(Host), RelativeFhirCollectionUri);
+
+        public Uri RelativeControlPlaneCollectionUri => string.IsNullOrEmpty(DatabaseId) || string.IsNullOrEmpty(ControlPlaneCollectionId) ? null : UriFactory.CreateDocumentCollectionUri(DatabaseId, ControlPlaneCollectionId);
+
+        public Uri AbsoluteControlPlaneCollectionUri => string.IsNullOrEmpty(Host) || RelativeControlPlaneCollectionUri == null ? null : new Uri(new Uri(Host), RelativeControlPlaneCollectionUri);
 
         public IList<string> PreferredLocations { get; set; }
 

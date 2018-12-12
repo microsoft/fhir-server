@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -42,7 +44,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
             _documentClient = documentClient;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
-            _collectionUri = _cosmosDataStoreConfiguration.AbsoluteCollectionUri;
+            _collectionUri = _cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _logger = logger;
         }
@@ -50,6 +52,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         public async Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(name, nameof(name));
+
             var identityProvider = await GetSystemDocumentByIdAsync<CosmosIdentityProvider>(name, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
             if (identityProvider == null)
             {
@@ -57,6 +60,15 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             }
 
             return identityProvider.ToIdentityProvider();
+        }
+
+        public async Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
+
+            var cosmosIdentityProvider = new CosmosIdentityProvider(identityProvider);
+            var resultIdentityProvider = await UpsertSystemObjectAsync(cosmosIdentityProvider, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
+            return resultIdentityProvider.ToIdentityProvider();
         }
 
         // TODO: Remove duplication between here and cosmosdatastore
@@ -95,6 +107,38 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                 }
 
                 return result;
+            }
+        }
+
+        private async Task<T> UpsertSystemObjectAsync<T>(T systemObject, string partitionKey, CancellationToken cancellationToken)
+            where T : class
+        {
+            EnsureArg.IsNotNull(systemObject, nameof(systemObject));
+            var eTagAccessCondition = new AccessCondition();
+
+            // TODO: abstract back in BeginTimedScope
+            var systemStopwatch = new Stopwatch();
+            systemStopwatch.Start();
+            var requestOptions = new RequestOptions
+            {
+                PartitionKey = new PartitionKey(partitionKey),
+                AccessCondition = eTagAccessCondition,
+            };
+            try
+            {
+                var response = await _documentClient.Value.UpsertDocumentAsync(
+                    _collectionUri,
+                    systemObject,
+                    requestOptions,
+                    true,
+                    cancellationToken);
+                _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
+                return (dynamic)response.Resource;
+            }
+            catch (DocumentClientException dce)
+            {
+                _logger.LogError(dce, "Unhandled Document Client Exception");
+                throw;
             }
         }
     }

@@ -47,7 +47,7 @@
 
 ////            if (thisVersion.Version < CollectionSettingsVersion)
 ////            {
-////                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}", _configuration.AbsoluteCollectionUri);
+////                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}", _configuration.AbsoluteFhirCollectionUri);
 
 ////                collection.IndexingPolicy = new IndexingPolicy
 ////                {

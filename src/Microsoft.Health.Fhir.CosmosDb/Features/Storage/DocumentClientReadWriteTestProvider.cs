@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var requestOptions = new RequestOptions { ConsistencyLevel = ConsistencyLevel.Session, PartitionKey = _partitionKey };
 
             ResourceResponse<Document> resourceResponse = await documentClient.UpsertDocumentAsync(
-                configuration.RelativeCollectionUri,
+                configuration.RelativeFhirCollectionUri,
                 _document,
                 requestOptions);
 
