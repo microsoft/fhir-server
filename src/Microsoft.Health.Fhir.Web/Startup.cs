@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.ControlPlane.CosmosDb.Registration;
+using Microsoft.Health.CosmosDb.Registration;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -22,9 +23,9 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public virtual void ConfigureServices(IServiceCollection services)
         {
-            services.AddFhirServer(Configuration).AddCosmosDb();
+            services.AddCosmosDb().AddCosmosControlPlane(Configuration).AddDevelopmentIdentityProvider(Configuration);
 
-            services.AddCosmosControlPlane(Configuration).AddDevelopmentIdentityProvider(Configuration);
+            services.AddFhirServer(Configuration).AddFhirServerCosmosDb();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
