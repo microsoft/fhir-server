@@ -306,7 +306,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
 
             var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), false);
 
-            Assert.NotEqual(saveResult.Resource.Meta.VersionId, deletedResourceKey.VersionId);
+            Assert.NotEqual(saveResult.Resource.Meta.VersionId, deletedResourceKey.ResourceKey.VersionId);
 
             await Assert.ThrowsAsync<ResourceGoneException>(
                 () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
 
             var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), true);
 
-            Assert.Null(deletedResourceKey.VersionId);
+            Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
             // Subsequent get should result in NotFound.
             await Assert.ThrowsAsync<ResourceNotFoundException>(
@@ -343,14 +343,14 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             // Hard-delete the resource.
             var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), true);
 
-            Assert.Null(deletedResourceKey.VersionId);
+            Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
             // Subsequent get should result in NotFound.
             await Assert.ThrowsAsync<ResourceNotFoundException>(
                 () => Mediator.GetResourceAsync(new ResourceKey<Observation>(resourceId)));
 
             // Subsequent version get should result in NotFound.
-            foreach (string versionId in new[] { createResult.Resource.VersionId, deleteResult.VersionId, updateResult.Resource.VersionId })
+            foreach (string versionId in new[] { createResult.Resource.VersionId, deleteResult.ResourceKey.VersionId, updateResult.Resource.VersionId })
             {
                 await Assert.ThrowsAsync<ResourceNotFoundException>(
                     () => Mediator.GetResourceAsync(new ResourceKey<Observation>(resourceId, versionId)));
