@@ -5,7 +5,7 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage

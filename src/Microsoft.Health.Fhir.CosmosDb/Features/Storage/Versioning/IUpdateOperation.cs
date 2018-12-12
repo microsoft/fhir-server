@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Azure.Documents;
+////using Microsoft.Azure.Documents;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
-{
-    public interface IUpdateOperation
-    {
-        void Apply(Document resource);
-    }
-}
+////namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
+////{
+////    public interface IUpdateOperation
+////    {
+////        void Apply(Document resource);
+////    }
+////}

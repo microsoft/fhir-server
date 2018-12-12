@@ -21,13 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public const string Request = "request";
 
-        public const string PartitionKey = "partitionKey";
-
         public const string Version = "version";
 
         public const string SearchIndices = "searchIndices";
-
-        public const string IsSystem = "isSystem";
 
         public const string LastModifiedClaims = "lastModifiedClaims";
 

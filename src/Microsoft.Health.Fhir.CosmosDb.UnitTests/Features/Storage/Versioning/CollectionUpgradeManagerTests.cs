@@ -10,9 +10,9 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
         {
             AllowDatabaseCreation = false,
-            CollectionId = "testcollectionid",
+            FhirCollectionId = "testcollectionid",
             ConnectionMode = ConnectionMode.Direct,
             ConnectionProtocol = Protocol.Https,
             DatabaseId = "testdatabaseid",

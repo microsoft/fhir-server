@@ -3,14 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+////using System.Threading.Tasks;
+////using Microsoft.Azure.Documents;
+////using Microsoft.Health.CosmosDb.Configs;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
-{
-    public interface IDocumentClientTestProvider
-    {
-        Task PerformTest(IDocumentClient documentClient, CosmosDataStoreConfiguration configuration);
-    }
-}
+////namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+////{
+////    public interface IDocumentClientTestProvider
+////    {
+////        Task PerformTest(IDocumentClient documentClient, CosmosDataStoreConfiguration configuration);
+////    }
+////}
