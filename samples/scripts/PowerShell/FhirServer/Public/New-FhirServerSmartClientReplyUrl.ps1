@@ -40,9 +40,10 @@ function New-FhirServerSmartClientReplyUrl {
 
     $origReplyUrls = $appReg.ReplyUrls
     
-    # Form new reply URL: https://fhir-server/<url encoded reply url>/*
-    $encodedUrl =[uri]::EscapeDataString($ReplyUrl)
-    $newReplyUrl = $FhirServerUrl.TrimEnd('/') + "/AadProxy/callback/" + $encodedUrl + "/*"
+    # Form new reply URL: https://fhir-server/<base64 encoded reply url>/*
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($ReplyUrl)
+    $encodedText =[Convert]::ToBase64String($bytes)
+    $newReplyUrl = $FhirServerUrl.TrimEnd('/') + "/AadProxy/callback/" + $encodedText + "/*"
 
     # Add Reply URL if not already in the list 
     if ($origReplyUrls -NotContains $newReplyUrl) {

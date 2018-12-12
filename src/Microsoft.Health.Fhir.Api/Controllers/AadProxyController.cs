@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             Uri callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
-                Uri.EscapeDataString(redirectUri.ToString()) + "/" + Uri.EscapeDataString(launch));
+                Uri.EscapeDataString(Base64Encode(redirectUri.ToString())) + "/" + Uri.EscapeDataString(launch));
 
             string newQueryString = $"response_type={responseType}&redirect_uri={callbackUrl.ToString()}&client_id={clientId}";
             if (!_isAadV2)
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = "error")] string error,
             [FromQuery(Name = "error_description")] string errorDescription)
         {
-            Uri redirectUrl = new Uri(encodedRedirect);
+            Uri redirectUrl = new Uri(Base64Decode(encodedRedirect));
 
             if (!string.IsNullOrEmpty(error))
             {
@@ -259,7 +259,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             Uri callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
-                Uri.EscapeDataString(redirectUri.ToString()) + "/" + launch);
+                Base64Encode(redirectUri.ToString()) + "/" + launch);
 
             // TODO: Deal with client secret in basic auth header
 
