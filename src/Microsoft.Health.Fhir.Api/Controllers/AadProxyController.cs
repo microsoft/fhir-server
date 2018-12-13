@@ -246,14 +246,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             JObject decodedCompoundCode;
             string code;
-            string launch;
-
             try
             {
                 decodedCompoundCode = JObject.Parse(Base64Decode(compoundCode));
                 code = decodedCompoundCode["code"].ToString();
-                decodedCompoundCode.Remove("code");
-                launch = Base64Encode(decodedCompoundCode.ToString(Newtonsoft.Json.Formatting.None));
             }
             catch
             {
@@ -263,7 +259,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             Uri callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
-                Base64Encode(redirectUri.ToString()) + "/" + launch);
+                Base64Encode(redirectUri.ToString()));
 
             // TODO: Deal with client secret in basic auth header
 
