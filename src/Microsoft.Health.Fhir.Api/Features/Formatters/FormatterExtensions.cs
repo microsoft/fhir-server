@@ -36,9 +36,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     .Where(x => x.GetSupportedContentTypes(preferred, typeof(Resource)) != null)
                     .ToArray();
 
+                var acceptHeadersArray = acceptHeaders.ToArray();
+
                 // Using the valid formatters, select the correct content type header for the client
-                closestClientMediaType = acceptHeaders
+                closestClientMediaType = acceptHeadersArray
                     .SelectMany(x => validFormatters.SelectMany(y => y.GetSupportedContentTypes(x, typeof(Resource)) ?? Enumerable.Empty<string>()))
+                    .Distinct()
+                    .Intersect(acceptHeadersArray)
                     .FirstOrDefault();
             }
 

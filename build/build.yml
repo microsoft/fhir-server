@@ -17,6 +17,10 @@ phases:
 
   - task: NuGetToolInstaller@0
 
+  - task: DotNetCoreInstaller@0
+    inputs:
+      version: '2.2.101' 
+
   - script: dotnet build --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) /warnaserror
     displayName: 'dotnet build $(buildConfiguration)'
 
