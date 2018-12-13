@@ -88,7 +88,7 @@
 
 
     $.getJSON( '/config', function (appConfig) {
-        $('#appurl').val(appConfig.SmartAppUrl);
+        $('#appurl').val(appConfig.DefaultSmartAppUrl);
         $('#fhirurl').val(appConfig.FhirServerUrl);
         updateLaunchQuery();
     });

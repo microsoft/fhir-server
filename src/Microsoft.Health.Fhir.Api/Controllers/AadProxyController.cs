@@ -21,6 +21,9 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
+    /// <summary>
+    /// Controller class enabling Azure Active Directory SMART on FHIR Proxy Capability
+    /// </summary>
     [Route("/AadProxy")]
     public class AadProxyController : Controller
     {
@@ -30,6 +33,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly string _aadAuthorizeEndpoint;
         private readonly string _aadTokenEndpoint;
+
+        // TODO: _launchContextFields contain a list of fields that we will transmit as part of launch context, should be configurable
+        private readonly string[] _launchContextFields = { "patient", "encounter", "practitioner", "need_patient_banner", "smart_style_url" };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AadProxyController" /> class.
@@ -220,7 +226,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var client = _httpClientFactory.CreateClient();
 
-            // TODO: Add handling of 'aud' -> 'resource'
+            // Azure AD supports client_credentials, etc.
+            // These are used in tests and may have value even when SMART proxy is used.
+            // This prevents disabling those options.
+            // TODO: Add handling of 'aud' -> 'resource', should that be an error or should translation be done?
             if (grantType != "authorization_code")
             {
                 List<KeyValuePair<string, string>> fields = new List<KeyValuePair<string, string>>();
@@ -262,7 +271,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 Base64Encode(redirectUri.ToString()));
 
             // TODO: Deal with client secret in basic auth header
-
             var content = new FormUrlEncodedContent(
                 new[]
                 {
@@ -287,29 +295,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var tokenResponse = JObject.Parse(await response.Content.ReadAsStringAsync());
 
-            if (decodedCompoundCode["patient"] != null)
+            // Handle fields passed through launch context
+            foreach (var launchField in _launchContextFields)
             {
-                tokenResponse["patient"] = decodedCompoundCode["patient"];
-            }
-
-            if (decodedCompoundCode["encounter"] != null)
-            {
-                tokenResponse["encounter"] = decodedCompoundCode["encounter"];
-            }
-
-            if (decodedCompoundCode["practitioner"] != null)
-            {
-                tokenResponse["practitoner"] = decodedCompoundCode["practitioner"];
-            }
-
-            if (decodedCompoundCode["need_patient_banner"] != null)
-            {
-                tokenResponse["need_patient_banner"] = decodedCompoundCode["need_patient_banner"];
-            }
-
-            if (decodedCompoundCode["smart_style_url"] != null)
-            {
-                tokenResponse["smart_style_url"] = decodedCompoundCode["smart_style_url"];
+                if (decodedCompoundCode[launchField] != null)
+                {
+                    tokenResponse[launchField] = decodedCompoundCode[launchField];
+                }
             }
 
             tokenResponse["client_id"] = clientId;

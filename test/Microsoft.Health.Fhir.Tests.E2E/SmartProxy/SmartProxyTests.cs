@@ -35,18 +35,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             _fixture = fixture;
         }
 
-        /* Disabling this test
         [Fact]
-        public async Task SmartLauncherShouldBeRunningAndResponding()
-        {
-            var client = new HttpClient();
-            var result = await client.GetAsync(_fixture.SmartLauncherUrl);
-            Assert.True(result.IsSuccessStatusCode);
-        }
-        */
-
-        [Fact]
-        public async Task SmartLauncherWillInitiateLaunchSequenceAndSignInAsync()
+        public async Task GivenPatientIdAndSmartAppUrl_WhenLaunchingApp_LaunchSequenceAndSignIn()
         {
             ChromeOptions options = new ChromeOptions();
 
@@ -54,6 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             options.AddArgument("--disable-gpu");
             options.AddArgument("--incognito");
 
+            // TODO: We are accepting insecure certs to make it practical to run on build systems. A valid cert should be on the build system.
             options.AcceptInsecureCertificates = true;
 
             FhirResponse<Patient> response = await _fixture.FhirClient.CreateAsync(Samples.GetDefaultPatient());
@@ -69,6 +60,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
             using (var driver = new ChromeDriver(Environment.GetEnvironmentVariable("ChromeWebDriver"), options))
             {
+                // TODO: This parameter has been set (too) conservatively to ensure that content
+                //       loads on build machines. Investigate if one could be less sensitive to that.
                 driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(30);
 
                 void Advance()
@@ -143,6 +136,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                     Assert.InRange(waitCount++, 0, 10);
                 }
 
+                // Check the token response, should have right audience
                 var tokenResponse = JObject.Parse(tokenResponseElement.GetAttribute("value"));
                 var jwtHandler = new JwtSecurityTokenHandler();
                 Assert.True(jwtHandler.CanReadToken(tokenResponse["access_token"].ToString()));
@@ -151,6 +145,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 Assert.Single(aud);
                 var tokenAudience = aud.First().Value;
                 Assert.Equal(Environment.GetEnvironmentVariable("TestEnvironmentUrl"), tokenAudience);
+
+                // Check the patient
+                var patientResponseElement = driver.FindElement(By.Id("patientfield"));
+                var patientResource = JObject.Parse(patientResponseElement.GetAttribute("value"));
+                Assert.Equal(patient.Id, patientResource["id"].ToString());
             }
         }
     }

@@ -25,7 +25,7 @@
         },
       "applicationUrl": "https://localhost:44348/"
     },
-    "AADAuth": {
+    "ExternallyDefinedAuth": {
       "commandName": "Project",
       "launchBrowser": true,
         "environmentVariables": {

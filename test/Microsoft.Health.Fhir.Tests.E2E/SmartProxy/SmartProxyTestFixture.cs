@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
             Environment.SetEnvironmentVariable("FhirServerUrl", _environmentUrl);
             Environment.SetEnvironmentVariable("ClientId", TestApplications.NativeClient.ClientId);
-            Environment.SetEnvironmentVariable("SmartAppUrl", "/sampleapp/launch.html");
+            Environment.SetEnvironmentVariable("DefaultSmartAppUrl", "/sampleapp/launch.html");
 
             var builder = WebHost.CreateDefaultBuilder()
                 .ConfigureAppConfiguration((hostingContext, config) =>
