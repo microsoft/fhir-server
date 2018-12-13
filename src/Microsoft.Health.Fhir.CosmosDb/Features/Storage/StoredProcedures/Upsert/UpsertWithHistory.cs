@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert
 {

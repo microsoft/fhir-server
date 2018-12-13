@@ -9,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.CosmosDb.Registration
@@ -47,16 +46,6 @@ namespace Microsoft.Health.CosmosDb.Registration
             services.Add<DocumentClientInitializer>()
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();
-
-            services.Add<CollectionUpgradeManager>()
-                .Singleton()
-                .AsService<IUpgradeManager>();
-
-            services.TypesInSameAssemblyAs<ICollectionUpdater>()
-                .AssignableTo<ICollectionUpdater>()
-                .Singleton()
-                .AsSelf()
-                .AsService<ICollectionUpdater>();
 
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()

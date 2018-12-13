@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Initialization;
@@ -13,6 +14,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -64,6 +66,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsFactory();
 
+            services.Add<FhirCollectionUpgradeManager>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IUpgradeManager>();
+
             services.Add<CosmosDocumentQueryFactory>()
                 .Singleton()
                 .AsService<ICosmosDocumentQueryFactory>();
@@ -75,6 +82,21 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<RetryExceptionPolicyFactory>()
                 .Singleton()
                 .AsSelf();
+
+            services.Add<FhirCollectionInitializer>()
+                .Singleton()
+                .AsSelf()
+                .AsService<ICollectionInitializer>();
+
+            services.Add<FhirCollectionSettingsUpdater>()
+                .Singleton()
+                .AsService<ICollectionUpdater>();
+
+            services.TypesInSameAssemblyAs<ICollectionUpdater>()
+                .AssignableTo<ICollectionUpdater>()
+                .Singleton()
+                .AsSelf()
+                .AsService<ICollectionUpdater>();
 
             return fhirServerBuilder;
         }

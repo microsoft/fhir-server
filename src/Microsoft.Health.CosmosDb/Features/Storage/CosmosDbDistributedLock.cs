@@ -11,6 +11,7 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.CosmosDb.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 
@@ -215,18 +216,18 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    ////try
-                    ////{
+                    try
+                    {
                         using (var scopedDocumentClient = _documentClientFactory.Invoke())
                         {
                             await scopedDocumentClient.Value.UpsertDocumentAsync(_collectionUri, _lockDocument);
                         }
 
                         break;
-                    ////}
-                    ////catch (RequestRateExceededException) // TODO: FIX THIS
-                    ////{
-                    ////}
+                    }
+                    catch (RequestRateExceededException)
+                    {
+                    }
                 }
             }
         }

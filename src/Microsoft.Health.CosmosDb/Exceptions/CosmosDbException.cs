@@ -3,17 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-////using System;
-////using Microsoft.Azure.Documents;
+using System;
 
-////namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
-////{
-////    internal interface IStoredProcedure
-////    {
-////        string FullName { get; }
-
-////        Uri GetUri(Uri collection);
-
-////        StoredProcedure AsStoredProcedure();
-////    }
-////}
+namespace Microsoft.Health.CosmosDb.Exceptions
+{
+    public class CosmosDbException : Exception
+    {
+        public string CustomExceptionMessage { get; protected set; }
+    }
+}

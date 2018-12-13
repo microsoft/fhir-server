@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
@@ -27,16 +28,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public DocumentClientProvider(
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IDocumentClientInitializer documentClientInitializer,
-            ILogger<DocumentClientProvider> logger)
+            ILogger<DocumentClientProvider> logger,
+            IEnumerable<ICollectionInitializer> collectionInitializers)
         {
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(documentClientInitializer, nameof(documentClientInitializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
 
             _documentClient = documentClientInitializer.CreateDocumentClient(cosmosDataStoreConfiguration);
 
             _initializationOperation = new RetryableInitializationOperation(
-                () => documentClientInitializer.InitializeDataStore(_documentClient, cosmosDataStoreConfiguration));
+                () => documentClientInitializer.InitializeDataStore(_documentClient, cosmosDataStoreConfiguration, collectionInitializers));
         }
 
         public IDocumentClient DocumentClient

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -119,11 +120,13 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// </summary>
         /// <param name="documentClient">The <see cref="DocumentClient"/> instance to use for initialization.</param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
+        /// <param name="collectionInitializers">Collections to initialize</param>
         /// <returns>A task</returns>
-        public async Task InitializeDataStore(IDocumentClient documentClient, CosmosDataStoreConfiguration cosmosDataStoreConfiguration)
+        public async Task InitializeDataStore(IDocumentClient documentClient, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
+            EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
 
             try
             {
@@ -139,53 +142,15 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                     });
                 }
 
-                // Create the Fhir collection
-                _logger.LogDebug("CreateDocumentCollectionIfNotExists {HostDescription}", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
-
-                DocumentCollection existingDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(cosmosDataStoreConfiguration.RelativeFhirCollectionUri);
-
-                if (existingDocumentCollection == null)
+                foreach (var collectionInitializer in collectionInitializers)
                 {
-                    var documentCollection = new DocumentCollection
-                    {
-                        Id = cosmosDataStoreConfiguration.FhirCollectionId,
-                        PartitionKey = new PartitionKeyDefinition
-                        {
-                            Paths =
-                            {
-                                $"/{KnownDocumentProperties.PartitionKey}",
-                            },
-                        },
-                    };
-
-                    existingDocumentCollection = await documentClient.CreateDocumentCollectionIfNotExistsAsync(
-                        cosmosDataStoreConfiguration.RelativeDatabaseUri, cosmosDataStoreConfiguration.RelativeFhirCollectionUri, documentCollection);
+                    // Create the Fhir collection
+                    _logger.LogDebug("CreateDocumentCollectionIfNotExists {HostDescription}", collectionInitializer.RelativeCollectionUri);
+                    await collectionInitializer.InitializeCollection(documentClient);
                 }
 
-                await _upgradeManager.SetupCollectionAsync(documentClient, existingDocumentCollection);
-
-                // Create the Control Plane collection
-                _logger.LogDebug("CreateDocumentCollectionIfNotExists {HostDescription}", cosmosDataStoreConfiguration.AbsoluteControlPlaneCollectionUri);
-
-                DocumentCollection existingControlPlaneDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri);
-
-                if (existingControlPlaneDocumentCollection == null)
-                {
-                    var documentCollection = new DocumentCollection
-                    {
-                        Id = cosmosDataStoreConfiguration.ControlPlaneCollectionId,
-                        PartitionKey = new PartitionKeyDefinition
-                        {
-                            Paths =
-                            {
-                                $"/{KnownDocumentProperties.PartitionKey}",
-                            },
-                        },
-                    };
-
-                    existingControlPlaneDocumentCollection = await documentClient.CreateDocumentCollectionIfNotExistsAsync(
-                        cosmosDataStoreConfiguration.RelativeDatabaseUri, cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri, documentCollection);
-                }
+                // TODO: BKP fix setup
+                ////await _upgradeManager.SetupCollectionAsync(documentClient, existingDocumentCollection);
 
                 _logger.LogInformation("Cosmos DB collection {CollectionUri} successfully initialized", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
             }

@@ -7,7 +7,9 @@ using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.ControlPlane.CosmosDb.Registration
 {
@@ -17,6 +19,10 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Registration
         {
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+
+            services.Add<ControlPlaneCollectionInitializer>()
+                .Singleton()
+                .AsService<ICollectionInitializer>();
 
             services.Add<ControlPlaneDataStore>()
                 .Scoped()

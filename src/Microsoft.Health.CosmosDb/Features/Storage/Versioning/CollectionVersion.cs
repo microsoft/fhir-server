@@ -9,7 +9,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
 {
     public class CollectionVersion : SystemData
     {
-        internal const string CollectionVersionPartition = "_collectionVersions";
+        public const string CollectionVersionPartition = "_collectionVersions";
 
         public CollectionVersion()
         {
