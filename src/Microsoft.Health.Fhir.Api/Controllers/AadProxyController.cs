@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 JObject launchStateParameters = JObject.Parse(Base64Decode(state));
                 JObject launchParameters = JObject.Parse(Base64Decode(launchStateParameters["l"].ToString()));
                 launchParameters.Add("code", code);
-                newState = Base64Decode(launchStateParameters["s"].ToString());
+                newState = launchStateParameters["s"].ToString();
                 compoundCode = Uri.EscapeDataString(Base64Encode(launchParameters.ToString(Newtonsoft.Json.Formatting.None)));
             }
             catch
