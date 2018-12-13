@@ -90,10 +90,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             await SetupAuthenticationAsync(clientApplication, user);
         }
 
-        public async Task RunAsClientApplication(TestApplication clientApplication, AuthenticationScenarios scenario = AuthenticationScenarios.VALIDAUTH)
+        public async Task RunAsClientApplication(TestApplication clientApplication)
         {
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication, null, scenario);
+            await SetupAuthenticationAsync(clientApplication, null);
         }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource)
@@ -268,11 +268,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null, AuthenticationScenarios scnerio = AuthenticationScenarios.VALIDAUTH)
+        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
         {
             await GetSecuritySettings("metadata");
-
-            ConfigureSecuritySettings(scnerio);
 
             if (SecuritySettings.SecurityEnabled)
             {
@@ -287,24 +285,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
         }
 
-        private void ConfigureSecuritySettings(AuthenticationScenarios authenticationscenario)
-        {
-            if (authenticationscenario == AuthenticationScenarios.NOAUTH)
-            {
-                SecuritySettings = (true, null, null);
-            }
-
-            if (authenticationscenario == AuthenticationScenarios.INVALIDAUTH)
-            {
-                SecuritySettings = (true, SecuritySettings.AuthorizeUrl, "invalidtoken");
-            }
-
-            if (authenticationscenario == AuthenticationScenarios.VALIDAUTHWRONGAUTHORITY)
-            {
-                SecuritySettings = (true, "invalidauthority", SecuritySettings.TokenUrl);
-            }
-        }
-
         private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
         {
             var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
@@ -316,10 +296,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             if (tokenJson["access_token"] != null)
             {
                 return tokenJson["access_token"].Value<string>();
-            }
-            else if (tokenJson["error"] != null)
-            {
-                return null;
             }
 
             return null;
