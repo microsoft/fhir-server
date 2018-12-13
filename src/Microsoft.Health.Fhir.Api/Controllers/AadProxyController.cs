@@ -109,9 +109,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 launch = Base64Encode("{}");
             }
 
+            JObject newStateObj = JObject.Parse("{}");
+            newStateObj.Add("s", state);
+            newStateObj.Add("l", launch);
+
+            string newState = Base64Encode(newStateObj.ToString(Newtonsoft.Json.Formatting.None));
+
             Uri callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
-                Uri.EscapeDataString(Base64Encode(redirectUri.ToString())) + "/" + Uri.EscapeDataString(launch));
+                Uri.EscapeDataString(Base64Encode(redirectUri.ToString())));
 
             string newQueryString = $"response_type={responseType}&redirect_uri={callbackUrl.ToString()}&client_id={clientId}";
             if (!_isAadV2)
@@ -144,10 +150,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 newQueryString += $"&scope={Uri.EscapeDataString(newScopes)}";
             }
 
-            if (!string.IsNullOrEmpty(state))
-            {
-                newQueryString += $"&state={state}";
-            }
+            newQueryString += $"&state={newState}";
 
             return RedirectPermanent($"{_aadAuthorizeEndpoint}?{newQueryString}");
         }
@@ -156,16 +159,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Callback function for receiving code from AAD
         /// </summary>
         /// <param name="encodedRedirect">Base64 encoded redirect URL on the app.</param>
-        /// <param name="launchContext">The base64 encoded launch context</param>
         /// <param name="code">Authorization code.</param>
         /// <param name="state">state URL parameter.</param>
         /// <param name="sessionState">session_state URL parameter.</param>
         /// <param name="error">error URL parameter.</param>
         /// <param name="errorDescription">error_description URL parameter.</param>
-        [HttpGet("callback/{encodedRedirect}/{launchContext}")]
+        [HttpGet("callback/{encodedRedirect}")]
         public ActionResult Callback(
             string encodedRedirect,
-            string launchContext,
             [FromQuery(Name = "code")] string code,
             [FromQuery(Name = "state")] string state,
             [FromQuery(Name = "session_state")] string sessionState,
@@ -180,10 +181,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             string compoundCode;
+            string newState;
             try
             {
-                JObject launchParameters = JObject.Parse(Base64Decode(launchContext));
+                JObject launchStateParameters = JObject.Parse(Base64Decode(state));
+                JObject launchParameters = JObject.Parse(Base64Decode(launchStateParameters["l"].ToString()));
                 launchParameters.Add("code", code);
+                newState = Base64Decode(launchStateParameters["s"].ToString());
                 compoundCode = Uri.EscapeDataString(Base64Encode(launchParameters.ToString(Newtonsoft.Json.Formatting.None)));
             }
             catch
@@ -192,7 +196,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw;
             }
 
-            return RedirectPermanent($"{redirectUrl.ToString()}?code={compoundCode}&state={state}&session_state={sessionState}");
+            return RedirectPermanent($"{redirectUrl.ToString()}?code={compoundCode}&state={newState}&session_state={sessionState}");
         }
 
         /// <summary>
