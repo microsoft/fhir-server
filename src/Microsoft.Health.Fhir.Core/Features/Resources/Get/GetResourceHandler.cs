@@ -3,33 +3,70 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 {
-    public class GetResourceHandler : IRequestHandler<GetResourceRequest, GetResourceResponse>
+    public class GetResourceHandler : BaseResourceHandler, IRequestHandler<GetResourceRequest, GetResourceResponse>
     {
-        private readonly IFhirRepository _repository;
-
-        public GetResourceHandler(IFhirRepository repository)
+        public GetResourceHandler(
+            IDataStore dataStore,
+            Lazy<IConformanceProvider> conformanceProvider,
+            IResourceWrapperFactory resourceWrapperFactory)
+            : base(dataStore, conformanceProvider, resourceWrapperFactory)
         {
-            EnsureArg.IsNotNull(repository, nameof(repository));
-
-            _repository = repository;
         }
 
         public async Task<GetResourceResponse> Handle(GetResourceRequest message, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            var response = await _repository.GetAsync(message.ResourceKey, cancellationToken);
+            var key = message.ResourceKey;
 
-            return new GetResourceResponse(response);
+            var currentDoc = await DataStore.GetAsync(key, cancellationToken);
+
+            if (currentDoc == null)
+            {
+                if (string.IsNullOrEmpty(key.VersionId))
+                {
+                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, key.ResourceType, key.Id));
+                }
+                else
+                {
+                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, key.ResourceType, key.Id, key.VersionId));
+                }
+            }
+
+            if (currentDoc.IsHistory &&
+                ConformanceProvider != null &&
+                await ConformanceProvider.Value.CanReadHistory(key.ResourceType, cancellationToken) == false)
+            {
+                throw new MethodNotAllowedException(string.Format(Core.Resources.ReadHistoryDisabled, key.ResourceType));
+            }
+
+            if (currentDoc.IsDeleted)
+            {
+                // As per FHIR Spec if the resource was marked as deleted on that version or the latest is marked as deleted then
+                // we need to return a resource gone message.
+                throw new ResourceGoneException(new ResourceKey(currentDoc.ResourceTypeName, currentDoc.ResourceId, currentDoc.Version));
+            }
+
+            return new GetResourceResponse(ResourceDeserializer.Deserialize(currentDoc));
+        }
+
+        protected override void AddResourceCapability(ListedCapabilityStatement statement, ResourceType resourceType)
+        {
+            statement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.Read);
+            statement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.Vread);
         }
     }
 }

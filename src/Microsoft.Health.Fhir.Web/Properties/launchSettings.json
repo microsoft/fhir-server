@@ -13,7 +13,7 @@
       "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "development",
-        "TestAuthEnvironment:FilePath": "..\\..\\testauthenvironment.json"
+        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
       }
     },
     "Microsoft.Health.Fhir.Web": {
@@ -21,7 +21,7 @@
       "launchBrowser": true,
         "environmentVariables": {
             "ASPNETCORE_ENVIRONMENT": "development",
-            "TestAuthEnvironment:FilePath": "..\\..\\testauthenvironment.json"
+            "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
         },
       "applicationUrl": "https://localhost:44348/"
     }
