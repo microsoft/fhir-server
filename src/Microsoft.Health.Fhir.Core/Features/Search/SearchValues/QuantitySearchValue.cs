@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
@@ -63,7 +64,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 throw new FormatException(Core.Resources.MoreThanTwoTokenSeparatorSpecified);
             }
 
-            decimal quantity = decimal.Parse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture);
+            decimal quantity;
+            if (!decimal.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out quantity))
+            {
+                throw new BadRequestException(string.Format(Core.Resources.MalformedSearchValue, parts[0]));
+            }
+
             string system = parts.Count > 1 ? parts[1] : string.Empty;
             string code = parts.Count > 2 ? parts[2] : string.Empty;
 
