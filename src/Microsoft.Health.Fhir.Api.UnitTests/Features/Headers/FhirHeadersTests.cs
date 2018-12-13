@@ -8,6 +8,7 @@ using System.Globalization;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
@@ -91,9 +92,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenAddingStringEtag_ThenStringETagIsReturned()
         {
-            var fhirResult = FhirResult.Create(_mockResource).SetETagHeader("etag");
+            var fhirResult = FhirResult.Create(_mockResource).SetETagHeader(WeakETag.FromVersionId("etag"));
 
-            Assert.Equal("etag", fhirResult.Headers[HeaderNames.ETag]);
+            Assert.Equal("W/\"etag\"", fhirResult.Headers[HeaderNames.ETag]);
         }
     }
 }
