@@ -10,10 +10,21 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Create;
+using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
+using Microsoft.Health.Fhir.Core.Features.Resources.Get;
+using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
+using Microsoft.Health.Fhir.Core.Messages.Create;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
 using Xunit;
@@ -57,10 +68,19 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
                     return new ResourceWrapper(resource, rawResourceFactory.Create(resource), new ResourceRequest("http://fhir", HttpMethod.Post), x.ArgAt<bool>(1), null, null, null);
                 });
 
-            FhirRepository = new FhirRepository(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory);
+            var collection = new ServiceCollection();
+
+            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory));
+            collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory));
+            collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory));
+
+            ServiceProvider services = collection.BuildServiceProvider();
+
+            Mediator = new Mediator(type => services.GetService(type));
         }
 
-        protected IFhirRepository FhirRepository { get; }
+        protected Mediator Mediator { get; }
 
         [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
@@ -68,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             var instant = DateTimeOffset.Now;
             using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
             {
-                var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+                var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
                 Assert.NotNull(saveResult);
                 Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
@@ -82,8 +102,8 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         [Fact]
         public async Task GivenAResourceId_WhenFetching_ThenTheResponseLoadsCorrectly()
         {
-            var saveResult = await FhirRepository.CreateAsync(Samples.GetJsonSample("Weight"));
-            var getResult = await FhirRepository.GetAsync(new ResourceKey("Observation", saveResult.Id));
+            var saveResult = await Mediator.CreateResourceAsync(Samples.GetJsonSample("Weight"));
+            var getResult = await Mediator.GetResourceAsync(new ResourceKey("Observation", saveResult.Id));
 
             Assert.NotNull(getResult);
             Assert.Equal(saveResult.Id, getResult.Id);
@@ -100,12 +120,12 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         [Fact]
         public async Task GivenASavedResource_WhenUpserting_ThenTheExistingResourceIsUpdated()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams");
             newResourceValues.Id = saveResult.Resource.Id;
 
-            var updateResult = await FhirRepository.UpsertAsync(newResourceValues, WeakETag.FromVersionId(saveResult.Resource.VersionId));
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.Resource.VersionId));
 
             Assert.NotNull(updateResult);
             Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
@@ -125,11 +145,11 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             weightSample.Id = exampleId;
             patientSample.Id = exampleId;
 
-            await FhirRepository.UpsertAsync(weightSample);
-            await FhirRepository.UpsertAsync(patientSample);
+            await Mediator.UpsertResourceAsync(weightSample);
+            await Mediator.UpsertResourceAsync(patientSample);
 
-            var fetchedResult1 = await FhirRepository.GetAsync(new ResourceKey<Observation>(exampleId));
-            var fetchedResult2 = await FhirRepository.GetAsync(new ResourceKey<Patient>(exampleId));
+            var fetchedResult1 = await Mediator.GetResourceAsync(new ResourceKey<Observation>(exampleId));
+            var fetchedResult2 = await Mediator.GetResourceAsync(new ResourceKey<Patient>(exampleId));
 
             Assert.Equal(weightSample.Id, fetchedResult1.Id);
             Assert.Equal(patientSample.Id, fetchedResult2.Id);
@@ -144,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
             observation.UpdateCreate = false;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
-            var ex = await Assert.ThrowsAsync<MethodNotAllowedException>(() => FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight")));
+            var ex = await Assert.ThrowsAsync<MethodNotAllowedException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight")));
 
             Assert.Equal(Resources.ResourceCreationNotAllowed, ex.Message);
         }
@@ -155,7 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
             observation.UpdateCreate = true;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
-            await Assert.ThrowsAsync<ResourceConflictException>(() => FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("junk")));
+            await Assert.ThrowsAsync<ResourceConflictException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("junk")));
         }
 
         [Fact]
@@ -164,18 +184,18 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
             observation.UpdateCreate = false;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
-            await Assert.ThrowsAsync<ResourceConflictException>(() => FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("junk")));
+            await Assert.ThrowsAsync<ResourceConflictException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("junk")));
         }
 
         [Fact]
         public async Task GivenASavedResource_WhenUpsertingWithNoVersionId_ThenTheExistingResourceIsUpdated()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams");
             newResourceValues.Id = saveResult.Resource.Id;
 
-            var updateResult = await FhirRepository.UpsertAsync(newResourceValues);
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues);
 
             Assert.NotNull(updateResult);
             Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
@@ -187,7 +207,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         [Fact]
         public async Task GivenASavedResource_WhenConcurrentlyUpsertingWithNoVersionId_ThenTheExistingResourceIsUpdated()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams");
             newResourceValues.Id = saveResult.Resource.Id;
@@ -204,7 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             var itemsToCreate = 10;
             for (int i = 0; i < itemsToCreate; i++)
             {
-                list.Add(FhirRepository.UpsertAsync(CloneResource(i)));
+                list.Add(Mediator.UpsertResourceAsync(CloneResource(i)));
             }
 
             await Task.WhenAll(list);
@@ -221,20 +241,20 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         [Fact]
         public async Task GivenASavedResource_WhenUpsertingWithIncorrectVersionId_ThenAResourceConflictIsThrown()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams");
             newResourceValues.Id = saveResult.Resource.Id;
 
-            await Assert.ThrowsAsync<ResourceConflictException>(async () => await FhirRepository.UpsertAsync(newResourceValues, WeakETag.FromVersionId("incorrectVersion")));
+            await Assert.ThrowsAsync<ResourceConflictException>(async () => await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId("incorrectVersion")));
         }
 
         [Fact]
         public async Task GivenAResourceWithNoHistory_WhenFetchingByVersionId_ThenReadWorksCorrectly()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var result = await FhirRepository.GetAsync(new ResourceKey(saveResult.Resource.TypeName, saveResult.Resource.Id, saveResult.Resource.VersionId));
+            var result = await Mediator.GetResourceAsync(new ResourceKey(saveResult.Resource.TypeName, saveResult.Resource.Id, saveResult.Resource.VersionId));
 
             Assert.NotNull(result);
             Assert.Equal(saveResult.Resource.Id, result.Id);
@@ -243,14 +263,14 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         [Fact]
         public async Task UpdatingAResource_ThenWeCanAccessHistoricValues()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams");
             newResourceValues.Id = saveResult.Resource.Id;
 
-            var updateResult = await FhirRepository.UpsertAsync(newResourceValues, WeakETag.FromVersionId(saveResult.Resource.VersionId));
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.Resource.VersionId));
 
-            var getV1Result = await FhirRepository.GetAsync(new ResourceKey<Observation>(saveResult.Resource.Id, saveResult.Resource.VersionId));
+            var getV1Result = await Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id, saveResult.Resource.VersionId));
 
             Assert.NotNull(getV1Result);
             Assert.Equal(saveResult.Resource.Id, getV1Result.Id);
@@ -268,96 +288,96 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         [Fact]
         public async Task UpdatingAResourceWithNoHistory_ThenWeCannotAccessHistoricValues()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetDefaultOrganization());
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetDefaultOrganization());
 
             var newResourceValues = Samples.GetDefaultOrganization();
             newResourceValues.Id = saveResult.Resource.Id;
 
-            var updateResult = await FhirRepository.UpsertAsync(newResourceValues, WeakETag.FromVersionId(saveResult.Resource.VersionId));
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.Resource.VersionId));
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                () => FhirRepository.GetAsync(new ResourceKey<Organization>(saveResult.Resource.Id, saveResult.Resource.VersionId)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Organization>(saveResult.Resource.Id, saveResult.Resource.VersionId)));
         }
 
         [Fact]
         public async Task WhenDeletingAResource_ThenWeGetResourceGone()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var deletedResourceKey = await FhirRepository.DeleteAsync(new ResourceKey("Observation", saveResult.Resource.Id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), false);
 
-            Assert.NotEqual(saveResult.Resource.Meta.VersionId, deletedResourceKey.VersionId);
+            Assert.NotEqual(saveResult.Resource.Meta.VersionId, deletedResourceKey.ResourceKey.VersionId);
 
             await Assert.ThrowsAsync<ResourceGoneException>(
-                () => FhirRepository.GetAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
         }
 
         [Fact]
         public async Task WhenHardDeletingAResource_ThenWeGetResourceNotFound()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var deletedResourceKey = await FhirRepository.DeleteAsync(new ResourceKey("Observation", saveResult.Resource.Id), true);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), true);
 
-            Assert.Null(deletedResourceKey.VersionId);
+            Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
             // Subsequent get should result in NotFound.
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                () => FhirRepository.GetAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
 
             // Subsequent version get should result in NotFound.
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                () => FhirRepository.GetAsync(new ResourceKey<Observation>(saveResult.Resource.Id, saveResult.Resource.Meta.VersionId)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id, saveResult.Resource.Meta.VersionId)));
         }
 
         [Fact]
         public async Task WhenHardDeletingAResource_ThenHistoryShouldBeDeleted()
         {
-            var createResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var createResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             string resourceId = createResult.Resource.Id;
 
-            var deleteResult = await FhirRepository.DeleteAsync(new ResourceKey("Observation", resourceId), false);
-            var updateResult = await FhirRepository.UpsertAsync(createResult.Resource);
+            var deleteResult = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), false);
+            var updateResult = await Mediator.UpsertResourceAsync(createResult.Resource);
 
             // Hard-delete the resource.
-            var deletedResourceKey = await FhirRepository.DeleteAsync(new ResourceKey("Observation", resourceId), true);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), true);
 
-            Assert.Null(deletedResourceKey.VersionId);
+            Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
             // Subsequent get should result in NotFound.
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                () => FhirRepository.GetAsync(new ResourceKey<Observation>(resourceId)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(resourceId)));
 
             // Subsequent version get should result in NotFound.
-            foreach (string versionId in new[] { createResult.Resource.VersionId, deleteResult.VersionId, updateResult.Resource.VersionId })
+            foreach (string versionId in new[] { createResult.Resource.VersionId, deleteResult.ResourceKey.VersionId, updateResult.Resource.VersionId })
             {
                 await Assert.ThrowsAsync<ResourceNotFoundException>(
-                    () => FhirRepository.GetAsync(new ResourceKey<Observation>(resourceId, versionId)));
+                    () => Mediator.GetResourceAsync(new ResourceKey<Observation>(resourceId, versionId)));
             }
         }
 
         [Fact]
         public async Task GivenAResourceSavedInRepository_AccessingANonValidVersion_ThenGetsNotFound()
         {
-            var saveResult = await FhirRepository.UpsertAsync(Samples.GetJsonSample("Weight"));
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                async () => { await FhirRepository.GetAsync(new ResourceKey<Observation>(saveResult.Resource.Id, Guid.NewGuid().ToString())); });
+                async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id, Guid.NewGuid().ToString())); });
         }
 
         [Fact]
         public async Task WhenGettingNonExistentResource_ThenNotFoundIsThrown()
         {
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                async () => { await FhirRepository.GetAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString())); });
+                async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString())); });
         }
 
         [Fact]
         public async Task WhenDeletingSpecificVersion_ThenMethodNotAllowedIsThrown()
         {
             await Assert.ThrowsAsync<MethodNotAllowedException>(
-                async () => { await FhirRepository.DeleteAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), false); });
+                async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), false); });
         }
 
         private async Task ExecuteAndVerifyException<TException>(Func<Task> action)
