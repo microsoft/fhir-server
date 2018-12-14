@@ -3,17 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using Microsoft.Azure.Documents;
+using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 
-namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
+namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning
 {
-    public interface IStoredProcedure
+    public interface IControlPlaneCollectionUpdater : ICollectionUpdater
     {
-        string FullName { get; }
-
-        Uri GetUri(Uri collection);
-
-        StoredProcedure AsStoredProcedure();
     }
 }

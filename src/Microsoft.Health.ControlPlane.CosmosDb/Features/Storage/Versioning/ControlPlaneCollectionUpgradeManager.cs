@@ -14,9 +14,9 @@ using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
+namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning
 {
-    public class FhirCollectionUpgradeManager : IUpgradeManager
+    public class ControlPlaneCollectionUpgradeManager : IUpgradeManager
     {
         private readonly IEnumerable<ICollectionUpdater> _collectionUpdater;
         private readonly CosmosDataStoreConfiguration _configuration;
@@ -28,13 +28,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         internal const int CollectionSettingsVersion = 1;
 
         private readonly ICosmosDbDistributedLockFactory _lockFactory;
-        private readonly ILogger<FhirCollectionUpgradeManager> _logger;
+        private readonly ILogger<ControlPlaneCollectionUpgradeManager> _logger;
 
-        public FhirCollectionUpgradeManager(
-            IEnumerable<IFhirCollectionUpdater> collectionUpdater,
+        public ControlPlaneCollectionUpgradeManager(
+            IEnumerable<IControlPlaneCollectionUpdater> collectionUpdater,
             CosmosDataStoreConfiguration configuration,
             ICosmosDbDistributedLockFactory lockFactory,
-            ILogger<FhirCollectionUpgradeManager> logger)
+            ILogger<ControlPlaneCollectionUpgradeManager> logger)
         {
             EnsureArg.IsNotNull(collectionUpdater, nameof(collectionUpdater));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
             using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
             {
-                using (var distributedLock = _lockFactory.Create(documentClient, _configuration.RelativeFhirCollectionUri, $"UpgradeLock:{CollectionSettingsVersion}"))
+                using (var distributedLock = _lockFactory.Create(documentClient, _configuration.RelativeControlPlaneCollectionUri, $"UpgradeLock:{CollectionSettingsVersion}"))
                 {
                     _logger.LogDebug("Attempting to acquire upgrade lock");
 
@@ -62,9 +62,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
                     foreach (var updater in _collectionUpdater)
                     {
-                        _logger.LogDebug("Running {CollectionUpdater} on {CollectionUri}", updater.GetType().Name, _configuration.AbsoluteFhirCollectionUri);
+                        _logger.LogDebug("Running {CollectionUpdater} on {CollectionUri}", updater.GetType().Name, _configuration.AbsoluteControlPlaneCollectionUri);
 
-                        await updater.ExecuteAsync(documentClient, collection, _configuration.RelativeFhirCollectionUri);
+                        await updater.ExecuteAsync(documentClient, collection, _configuration.RelativeControlPlaneCollectionUri);
                     }
 
                     await distributedLock.ReleaseLock();

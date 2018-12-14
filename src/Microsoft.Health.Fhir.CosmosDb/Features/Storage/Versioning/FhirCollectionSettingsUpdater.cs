@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     /// <summary>
     /// Updates a document collection to the latest index
     /// </summary>
-    public sealed class FhirCollectionSettingsUpdater : ICollectionUpdater
+    public sealed class FhirCollectionSettingsUpdater : IFhirCollectionUpdater
     {
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;

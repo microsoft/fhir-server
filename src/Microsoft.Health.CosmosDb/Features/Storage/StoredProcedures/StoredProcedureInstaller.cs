@@ -30,7 +30,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
             }
         }
 
-        private static IEnumerable<IStoredProcedure> GetStoredProcedures()
+        public virtual IEnumerable<IStoredProcedure> GetStoredProcedures()
         {
             var buildInProcs = typeof(IStoredProcedure).Assembly
                 .GetTypes()
