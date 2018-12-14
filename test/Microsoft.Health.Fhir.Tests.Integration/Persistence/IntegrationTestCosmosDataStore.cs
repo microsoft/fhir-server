@@ -5,12 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -40,10 +42,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
             };
 
+            var fhirStoredProcs = typeof(IFhirStoredProcedure).Assembly
+                .GetTypes()
+                .Where(x => !x.IsAbstract && typeof(IFhirStoredProcedure).IsAssignableFrom(x))
+                .ToArray()
+                .Select(type => (IFhirStoredProcedure)Activator.CreateInstance(type));
+
             var updaters = new IFhirCollectionUpdater[]
             {
                 new FhirCollectionSettingsUpdater(NullLogger<FhirCollectionSettingsUpdater>.Instance, _cosmosDataStoreConfiguration),
-                new FhirStoredProcedureInstaller(new List<IFhirStoredProcedure>()),
+                new FhirStoredProcedureInstaller(fhirStoredProcs),
             };
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<IDocumentClient>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
@@ -53,7 +61,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var documentClientInitializer = new DocumentClientInitializer(testProvider, NullLogger<DocumentClientInitializer>.Instance, upgradeManager);
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
-            documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer>()).GetAwaiter().GetResult();
+            var fhirCollectionInitializer = new FhirCollectionInitializer(_cosmosDataStoreConfiguration, upgradeManager);
+            documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }).GetAwaiter().GetResult();
 
             var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
             var fhirRequestContextAccessor = new FhirRequestContextAccessor();
