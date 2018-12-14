@@ -19,7 +19,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
-using NonDisposingScope = Microsoft.Health.Fhir.CosmosDb.Features.Storage.NonDisposingScope;
+using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {

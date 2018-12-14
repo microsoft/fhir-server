@@ -9,6 +9,7 @@ using System.Net;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 

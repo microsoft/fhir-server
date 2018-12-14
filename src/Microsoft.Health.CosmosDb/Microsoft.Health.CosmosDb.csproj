@@ -22,4 +22,10 @@
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="EnterpriseLibrary.TransientFaultHandling.Core">
+      <HintPath>..\..\..\..\Users\brpoll\.nuget\packages\enterpriselibrary.transientfaulthandling.core\1.2.0\lib\netstandard1.0\EnterpriseLibrary.TransientFaultHandling.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

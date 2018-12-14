@@ -9,7 +9,6 @@ using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Health;
-using Microsoft.Health.Fhir.Core.Features.Initialization;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -46,44 +45,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<DocumentClientProvider>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IStartable>() // so that it starts initializing ASAP
-                .AsService<IRequireInitializationOnFirstRequest>(); // so that web requests block on its initialization.
-
-            services.Add<DocumentClientReadWriteTestProvider>()
-                .Singleton()
-                .AsService<IDocumentClientTestProvider>();
-
-            // Register IDocumentClient
-            // We are intentionally not registering IDocumentClient directly, because
-            // we want this codebase to support different configurations, where the
-            // lifetime of the document clients can be managed outside of the IoC
-            // container, which will automatically dispose it if exposed as a scoped
-            // service or as transient but consumed from another scoped service.
-
-            services.Add(sp => sp.GetService<DocumentClientProvider>().CreateDocumentClientScope())
-                .Transient()
-                .AsSelf()
-                .AsFactory();
-
             services.Add<FhirCollectionUpgradeManager>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IUpgradeManager>();
 
-            services.Add<CosmosDocumentQueryFactory>()
-                .Singleton()
-                .AsService<ICosmosDocumentQueryFactory>();
-
             services.Add<FhirDocumentQueryLogger>()
                 .Singleton()
                 .AsService<IFhirDocumentQueryLogger>();
-
-            services.Add<RetryExceptionPolicyFactory>()
-                .Singleton()
-                .AsSelf();
 
             services.Add<FhirCollectionInitializer>()
                 .Singleton()

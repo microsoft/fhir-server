@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
-using NonDisposingScope = Microsoft.Health.Fhir.CosmosDb.Features.Storage.NonDisposingScope;
+using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {

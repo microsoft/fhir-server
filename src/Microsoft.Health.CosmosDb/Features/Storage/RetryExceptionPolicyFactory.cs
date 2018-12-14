@@ -8,7 +8,7 @@ using EnsureThat;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     public class RetryExceptionPolicyFactory
     {

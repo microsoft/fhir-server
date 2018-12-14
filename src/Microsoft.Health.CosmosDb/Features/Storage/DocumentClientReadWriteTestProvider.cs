@@ -7,10 +7,9 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.CosmosDb.Configs;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     public class DocumentClientReadWriteTestProvider : IDocumentClientTestProvider
     {

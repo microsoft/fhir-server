@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Storage
 {
-    internal static class CosmosDbHeaders
+    public static class CosmosDbHeaders
     {
         public const string ConsistencyLevel = "x-ms-consistency-level";
 

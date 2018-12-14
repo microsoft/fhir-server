@@ -10,11 +10,9 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.CosmosDb.Configs;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Initialization;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     /// <summary>
     /// Provides an <see cref="IDocumentClient"/> instance that is opened and whose collection has been properly initialized for use.

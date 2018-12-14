@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     /// <summary>
     /// Encapsulates a thread-safe, retryable asynchronous initialization operation that is lazily invoked.

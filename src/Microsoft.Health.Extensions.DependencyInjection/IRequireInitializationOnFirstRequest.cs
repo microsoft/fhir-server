@@ -5,7 +5,7 @@
 
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.Initialization
+namespace Microsoft.Health.Extensions.DependencyInjection
 {
     /// <summary>
     /// Implementations of this interface registered in the IoC container will have <see cref="EnsureInitialized"/> called on them

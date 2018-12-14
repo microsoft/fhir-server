@@ -8,7 +8,7 @@ using System.Net;
 using Microsoft.Azure.Documents;
 using Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     internal class RetryExceptionPolicy : ITransientErrorDetectionStrategy
     {

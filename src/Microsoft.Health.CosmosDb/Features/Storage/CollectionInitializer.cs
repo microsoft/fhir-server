@@ -7,6 +7,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
@@ -19,6 +20,8 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         public Uri RelativeCollectionUri { get; set; }
 
         public int? InitialCollectionThroughput { get; set; }
+
+        public IUpgradeManager UpgradeManager { get; set; }
 
         public virtual async Task<DocumentCollection> InitializeCollection(IDocumentClient documentClient)
         {
@@ -43,6 +46,8 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                 existingDocumentCollection = await documentClient.CreateDocumentCollectionIfNotExistsAsync(
                     RelativeDatabaseUri, RelativeCollectionUri, documentCollection, requestOptions);
             }
+
+            await UpgradeManager.SetupCollectionAsync(documentClient, existingDocumentCollection);
 
             return existingDocumentCollection;
         }

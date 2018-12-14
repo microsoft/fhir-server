@@ -12,7 +12,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
-using Microsoft.Health.Fhir.Core.Features.Initialization;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
