@@ -6,31 +6,19 @@
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Linq;
-using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.Core.Features.Context;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Factory for creating the <see cref="FhirDocumentQuery{T}"/>.
+    /// Factory for creating the <see cref="IDocumentQuery{T}"/>.
     /// </summary>
     public class CosmosDocumentQueryFactory : ICosmosDocumentQueryFactory
     {
-        private readonly IFhirDocumentQueryLogger _logger;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosDocumentQueryFactory"/> class.
         /// </summary>
-        /// <param name="fhirRequestContextAccessor">The request context accessor</param>
-        /// <param name="logger">The logger.</param>
-        public CosmosDocumentQueryFactory(IFhirRequestContextAccessor fhirRequestContextAccessor, IFhirDocumentQueryLogger logger)
+        public CosmosDocumentQueryFactory()
         {
-            EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-
-            _logger = logger;
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         /// <inheritdoc />
@@ -39,17 +27,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(context, nameof(context));
 
-            IDocumentQuery<T> documentQuery = documentClient.CreateDocumentQuery<T>(
+            return documentClient.CreateDocumentQuery<T>(
                 context.CollectionUri,
                 context.SqlQuerySpec,
                 context.FeedOptions)
                 .AsDocumentQuery();
-
-            return new FhirDocumentQuery<T>(
-                context,
-                documentQuery,
-                _fhirRequestContextAccessor,
-                _logger);
         }
     }
 }

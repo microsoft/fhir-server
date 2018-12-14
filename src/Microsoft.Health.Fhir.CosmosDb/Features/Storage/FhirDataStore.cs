@@ -27,19 +27,19 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public sealed class CosmosDataStore : IDataStore, IProvideCapability
+    public sealed class FhirDataStore : IDataStore, IProvideCapability
     {
         private readonly IScoped<IDocumentClient> _documentClient;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
-        private readonly ILogger<CosmosDataStore> _logger;
+        private readonly ILogger<FhirDataStore> _logger;
         private readonly Uri _collectionUri;
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CosmosDataStore"/> class.
+        /// Initializes a new instance of the <see cref="FhirDataStore"/> class.
         /// </summary>
         /// <param name="documentClient">
         /// A function that returns an <see cref="IDocumentClient"/>.
@@ -49,12 +49,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
-        public CosmosDataStore(
+        public FhirDataStore(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
-            ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
+            FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
-            ILogger<CosmosDataStore> logger)
+            ILogger<FhirDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));

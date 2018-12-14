@@ -41,7 +41,7 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.Add<CosmosDataStore>()
+            services.Add<FhirDataStore>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -103,6 +103,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsService<IFhirStoredProcedure>();
+
+            services.Add<FhirCosmosDocumentQueryFactory>()
+                .Singleton()
+                .AsSelf();
 
             ////services.TypesInSameAssemblyAs<ICollectionUpdater>()
             ////    .AssignableTo<ICollectionUpdater>()

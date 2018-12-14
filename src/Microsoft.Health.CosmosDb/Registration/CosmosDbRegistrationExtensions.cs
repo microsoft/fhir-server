@@ -43,6 +43,10 @@ namespace Microsoft.Health.CosmosDb.Registration
                 .Singleton()
                 .AsSelf();
 
+            services.Add<CosmosDocumentQueryFactory>()
+                .Singleton()
+                .AsService<ICosmosDocumentQueryFactory>();
+
             services.Add<DocumentClientInitializer>()
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();

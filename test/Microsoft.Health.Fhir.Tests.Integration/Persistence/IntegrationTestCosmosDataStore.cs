@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class IntegrationTestCosmosDataStore : IDataStore, IDisposable
     {
         private readonly IDocumentClient _documentClient;
-        private readonly CosmosDataStore _dataStore;
+        private readonly FhirDataStore _dataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 
         public IntegrationTestCosmosDataStore()
@@ -57,13 +57,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer>()).GetAwaiter().GetResult();
 
-            var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
-            _dataStore = new CosmosDataStore(
+            var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
+            _dataStore = new FhirDataStore(
                 new NonDisposingScope(_documentClient),
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
-                NullLogger<CosmosDataStore>.Instance);
+                NullLogger<FhirDataStore>.Instance);
         }
 
         public void Dispose()

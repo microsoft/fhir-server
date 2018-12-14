@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,7 +24,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
     public class ControlPlaneDataStore : IControlPlaneDataStore
     {
         private readonly IScoped<IDocumentClient> _documentClient;
-        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly ILogger<ControlPlaneDataStore> _logger;
         private readonly Uri _collectionUri;
@@ -42,8 +40,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _documentClient = documentClient;
-            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
-            _collectionUri = _cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri;
+            _collectionUri = cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _logger = logger;
         }
@@ -70,16 +67,14 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return resultIdentityProvider.ToIdentityProvider();
         }
 
-        // TODO: Remove duplication between here and cosmosdatastore
         internal IDocumentQuery<T> CreateDocumentQuery<T>(
             SqlQuerySpec sqlQuerySpec,
             FeedOptions feedOptions = null)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
-            CosmosQueryContext context = new CosmosQueryContext(_collectionUri, sqlQuerySpec, feedOptions);
+            var context = new CosmosQueryContext(_collectionUri, sqlQuerySpec, feedOptions);
 
-            // TODO: Remove Fhir specifics here, or overload for non fhir
             return _cosmosDocumentQueryFactory.Create<T>(_documentClient.Value, context);
         }
 
@@ -115,9 +110,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(systemObject, nameof(systemObject));
             var eTagAccessCondition = new AccessCondition();
 
-            // TODO: abstract back in BeginTimedScope
-            var systemStopwatch = new Stopwatch();
-            systemStopwatch.Start();
             var requestOptions = new RequestOptions
             {
                 PartitionKey = new PartitionKey(partitionKey),
