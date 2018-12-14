@@ -11,8 +11,6 @@ using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
-using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -58,11 +56,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer>()).GetAwaiter().GetResult();
 
             var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
+            var fhirRequestContextAccessor = new FhirRequestContextAccessor();
+
             _dataStore = new FhirDataStore(
                 new NonDisposingScope(_documentClient),
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
+                fhirRequestContextAccessor,
                 NullLogger<FhirDataStore>.Instance);
         }
 

@@ -130,7 +130,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogInformation("Initializing Cosmos DB collection {CollectionUri}", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
+                _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
 
                 if (cosmosDataStoreConfiguration.AllowDatabaseCreation)
                 {
@@ -149,14 +149,11 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                     await collectionInitializer.InitializeCollection(documentClient);
                 }
 
-                // TODO: BKP fix setup
-                ////await _upgradeManager.SetupCollectionAsync(documentClient, existingDocumentCollection);
-
-                _logger.LogInformation("Cosmos DB collection {CollectionUri} successfully initialized", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
+                _logger.LogInformation("Cosmos DB Database {DatabaseId} and collections successfully initialized", cosmosDataStoreConfiguration.DatabaseId);
             }
             catch (Exception ex)
             {
-                _logger.LogCritical(ex, "Cosmos DB collection {CollectionUri} initialization failed", cosmosDataStoreConfiguration.AbsoluteFhirCollectionUri);
+                _logger.LogCritical(ex, "Cosmos DB Database {DatabaseId} and collections initialization failed", cosmosDataStoreConfiguration.DatabaseId);
                 throw;
             }
         }

@@ -20,6 +20,7 @@ using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class FhirDataStore : IDataStore, IProvideCapability
     {
-        private readonly IScoped<IDocumentClient> _documentClient;
+        private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -48,12 +49,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cosmosDataStoreConfiguration">The data store configuration</param>
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
+        /// <param name="fhirRequestContextAccessor">The fhir request context accessor.</param>
         /// <param name="logger">The logger instance.</param>
         public FhirDataStore(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
             ILogger<FhirDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
@@ -65,7 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
-            _documentClient = documentClient;
+            _documentClient = new FhirDocumentClient(documentClient.Value, fhirRequestContextAccessor, cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb);
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _collectionUri = cosmosDataStoreConfiguration.RelativeFhirCollectionUri;
             _upsertWithHistoryProc = new UpsertWithHistory();
@@ -89,7 +92,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async () => await _upsertWithHistoryProc.Execute(
-                        _documentClient.Value,
+                        _documentClient,
                         _collectionUri,
                         cosmosWrapper,
                         weakETag?.VersionId,
@@ -157,7 +160,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                return await _documentClient.Value.ReadDocumentAsync<CosmosResourceWrapper>(
+                return await _documentClient.ReadDocumentAsync<CosmosResourceWrapper>(
                     UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _cosmosDataStoreConfiguration.FhirCollectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);
@@ -178,7 +181,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async () => await _hardDelete.Execute(
-                        _documentClient.Value,
+                        _documentClient,
                         _collectionUri,
                         key),
                     cancellationToken);
@@ -207,7 +210,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             CosmosQueryContext context = new CosmosQueryContext(_collectionUri, sqlQuerySpec, feedOptions);
 
-            return _cosmosDocumentQueryFactory.Create<T>(_documentClient.Value, context);
+            return _cosmosDocumentQueryFactory.Create<T>(_documentClient, context);
         }
 
         private static string GetValue(HttpStatusCode type)
