@@ -22,8 +22,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(controlPlaneCollectionUpgradeManager, nameof(controlPlaneCollectionUpgradeManager));
 
             CollectionId = cosmosDataStoreConfiguration.ControlPlaneCollectionId;
+            InitialCollectionThroughput = cosmosDataStoreConfiguration.InitialControlPlaneCollectionThroughput;
             RelativeCollectionUri = cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri;
             RelativeDatabaseUri = cosmosDataStoreConfiguration.RelativeDatabaseUri;
+
             _controlPlaneCollectionUpgradeManager = controlPlaneCollectionUpgradeManager;
         }
 

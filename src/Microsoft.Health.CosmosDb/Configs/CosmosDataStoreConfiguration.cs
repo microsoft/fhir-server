@@ -18,9 +18,15 @@ namespace Microsoft.Health.CosmosDb.Configs
 
         public string DatabaseId { get; set; }
 
+        public int? InitialDatabaseThroughput { get; set; }
+
         public string FhirCollectionId { get; set; }
 
+        public int? InitialFhirCollectionThroughput { get; set; }
+
         public string ControlPlaneCollectionId { get; set; }
+
+        public int? InitialControlPlaneCollectionThroughput { get; set; }
 
         public ConnectionMode ConnectionMode { get; set; } = ConnectionMode.Direct;
 

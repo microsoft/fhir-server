@@ -135,10 +135,13 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                 {
                     _logger.LogDebug("CreateDatabaseIfNotExists {DatabaseId})", cosmosDataStoreConfiguration.DatabaseId);
 
-                    await documentClient.CreateDatabaseIfNotExistsAsync(new Database
-                    {
-                        Id = cosmosDataStoreConfiguration.DatabaseId,
-                    });
+                    var options = new RequestOptions { OfferThroughput = cosmosDataStoreConfiguration.InitialDatabaseThroughput };
+                    await documentClient.CreateDatabaseIfNotExistsAsync(
+                        new Database
+                        {
+                            Id = cosmosDataStoreConfiguration.DatabaseId,
+                        },
+                        options);
                 }
 
                 foreach (var collectionInitializer in collectionInitializers)

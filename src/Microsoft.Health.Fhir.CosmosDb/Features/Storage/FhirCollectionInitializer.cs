@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(fhirCollectionUpgradeManager, nameof(fhirCollectionUpgradeManager));
 
             CollectionId = cosmosDataStoreConfiguration.FhirCollectionId;
+            InitialCollectionThroughput = cosmosDataStoreConfiguration.InitialFhirCollectionThroughput;
             RelativeCollectionUri = cosmosDataStoreConfiguration.RelativeFhirCollectionUri;
             RelativeDatabaseUri = cosmosDataStoreConfiguration.RelativeDatabaseUri;
 

@@ -12,7 +12,6 @@ using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;

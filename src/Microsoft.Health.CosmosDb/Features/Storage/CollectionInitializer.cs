@@ -6,6 +6,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
+using Microsoft.Azure.Documents.Client;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
@@ -16,6 +17,8 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         public Uri RelativeDatabaseUri { get; set; }
 
         public Uri RelativeCollectionUri { get; set; }
+
+        public int? InitialCollectionThroughput { get; set; }
 
         public virtual async Task<DocumentCollection> InitializeCollection(IDocumentClient documentClient)
         {
@@ -35,8 +38,10 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                     },
                 };
 
+                var requestOptions = new RequestOptions { OfferThroughput = InitialCollectionThroughput };
+
                 existingDocumentCollection = await documentClient.CreateDocumentCollectionIfNotExistsAsync(
-                    RelativeDatabaseUri, RelativeCollectionUri, documentCollection);
+                    RelativeDatabaseUri, RelativeCollectionUri, documentCollection, requestOptions);
             }
 
             return existingDocumentCollection;
