@@ -108,12 +108,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            ////services.TypesInSameAssemblyAs<ICollectionUpdater>()
-            ////    .AssignableTo<ICollectionUpdater>()
-            ////    .Singleton()
-            ////    .AsSelf()
-            ////    .AsService<ICollectionUpdater>();
-
             return fhirServerBuilder;
         }
 
