@@ -12,9 +12,11 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Newtonsoft.Json.Linq;
@@ -24,6 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// <summary>
     /// Controller class enabling Azure Active Directory SMART on FHIR Proxy Capability
     /// </summary>
+    [TypeFilter(typeof(AadProxyFeatureFilterAttribute))]
     [Route("/AadProxy")]
     public class AadProxyController : Controller
     {
