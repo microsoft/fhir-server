@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         private readonly CosmosDataStoreConfiguration _configuration;
         private static readonly RangeIndex DefaultStringRangeIndex = new RangeIndex(DataType.String, -1);
 
-        private const int CollectionSettingsVersion = 1;
+        private const int CollectionSettingsVersion = 2;
 
         public CollectionSettingsUpdater(ILogger<CollectionSettingsUpdater> logger, CosmosDataStoreConfiguration configuration)
         {
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                         Indexes = new Collection<Index>
                         {
                             new RangeIndex(DataType.Number, -1),
-                            new HashIndex(DataType.String, 3),
+                            new RangeIndex(DataType.String, -1),
                         },
                     },
                     new IncludedPath
