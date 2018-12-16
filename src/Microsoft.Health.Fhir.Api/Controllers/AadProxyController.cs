@@ -76,12 +76,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 var openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
 
-                _aadTokenEndpoint = openIdConfiguration.Property("token_endpoint")?.Value<string>();
-                _aadAuthorizeEndpoint = openIdConfiguration.Property("authorization_endpoint")?.Value<string>();
-
-                if (string.IsNullOrEmpty(_aadTokenEndpoint) || string.IsNullOrEmpty(_aadAuthorizeEndpoint))
+                try
                 {
-                    logger.LogError($"There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".");
+                    _aadTokenEndpoint = openIdConfiguration["token_endpoint"].Value<string>();
+                    _aadAuthorizeEndpoint = openIdConfiguration["authorization_endpoint"].Value<string>();
+                }
+                catch (ArgumentNullException ex)
+                {
+                    logger.LogError($"{ex.Message}, There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".");
                     throw new OpenIdConfigurationException();
                 }
             }
