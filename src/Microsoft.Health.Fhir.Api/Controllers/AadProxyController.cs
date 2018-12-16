@@ -238,6 +238,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // Azure AD supports client_credentials, etc.
             // These are used in tests and may have value even when SMART proxy is used.
             // This prevents disabling those options.
+            // TODO: This should probably removed. 
+            //       If somebody is accessing the IDP through this endpoint, all things not SMART on FHIR should be errors. 
+            //       For now, we will keep it to keep the E2E tests from failing. 
             // TODO: Add handling of 'aud' -> 'resource', should that be an error or should translation be done?
             if (grantType != "authorization_code")
             {
