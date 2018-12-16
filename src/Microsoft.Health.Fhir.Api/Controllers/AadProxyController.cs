@@ -87,6 +87,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new OpenIdConfigurationException();
                 }
             }
+            else
+            {
+                throw new OpenIdConfigurationException();
+            }
         }
 
         /// <summary>
@@ -141,22 +145,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
                 EnsureArg.IsNotNull(scope, nameof(scope));
                 var scopes = scope.Split(' ');
-                string newScopes = string.Empty;
+                StringBuilder scopesBuilder = new StringBuilder();
                 string[] wellKnownScopes = { "profile", "openid", "email", "offline_access" };
 
                 foreach (var s in scopes)
                 {
                     if (wellKnownScopes.Contains(s))
                     {
-                        newScopes += $"{s} ";
+                        scopesBuilder.Append($"{s} ");
                     }
                     else
                     {
-                        newScopes += $"{aud}/{s.Replace('/', '$')} ";
+                        scopesBuilder.Append($"{aud}/{s.Replace('/', '$')} ");
                     }
                 }
 
-                newScopes = newScopes.TrimEnd(' ');
+                var newScopes = scopesBuilder.ToString().TrimEnd(' ');
                 newQueryString += $"&scope={Uri.EscapeDataString(newScopes)}";
             }
 
