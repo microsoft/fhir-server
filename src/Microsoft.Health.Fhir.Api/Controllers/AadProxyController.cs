@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -115,18 +116,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (string.IsNullOrEmpty(launch))
             {
-                launch = Base64Encode("{}");
+                launch = Base64UrlEncoder.Encode("{}");
             }
 
             JObject newStateObj = JObject.Parse("{}");
             newStateObj.Add("s", state);
             newStateObj.Add("l", launch);
 
-            string newState = Base64Encode(newStateObj.ToString(Newtonsoft.Json.Formatting.None));
+            string newState = Base64UrlEncoder.Encode(newStateObj.ToString(Newtonsoft.Json.Formatting.None));
 
             Uri callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
-                Uri.EscapeDataString(Base64Encode(redirectUri.ToString())));
+                Base64UrlEncoder.Encode(redirectUri.ToString()));
 
             string newQueryString = $"response_type={responseType}&redirect_uri={callbackUrl.ToString()}&client_id={clientId}";
             if (!_isAadV2)
@@ -167,7 +168,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Callback function for receiving code from AAD
         /// </summary>
-        /// <param name="encodedRedirect">Base64 encoded redirect URL on the app.</param>
+        /// <param name="encodedRedirect">Base64url encoded redirect URL on the app.</param>
         /// <param name="code">Authorization code.</param>
         /// <param name="state">state URL parameter.</param>
         /// <param name="sessionState">session_state URL parameter.</param>
@@ -182,7 +183,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = "error")] string error,
             [FromQuery(Name = "error_description")] string errorDescription)
         {
-            Uri redirectUrl = new Uri(Base64Decode(encodedRedirect));
+            Uri redirectUrl = new Uri(Base64UrlEncoder.Decode(encodedRedirect));
 
             if (!string.IsNullOrEmpty(error))
             {
@@ -193,11 +194,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string newState;
             try
             {
-                JObject launchStateParameters = JObject.Parse(Base64Decode(state));
-                JObject launchParameters = JObject.Parse(Base64Decode(launchStateParameters["l"].ToString()));
+                JObject launchStateParameters = JObject.Parse(Base64UrlEncoder.Decode(state));
+                JObject launchParameters = JObject.Parse(Base64UrlEncoder.Decode(launchStateParameters["l"].ToString()));
                 launchParameters.Add("code", code);
                 newState = launchStateParameters["s"].ToString();
-                compoundCode = Uri.EscapeDataString(Base64Encode(launchParameters.ToString(Newtonsoft.Json.Formatting.None)));
+                compoundCode = Base64UrlEncoder.Encode(launchParameters.ToString(Newtonsoft.Json.Formatting.None));
             }
             catch
             {
@@ -212,7 +213,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Proxies a (POST) request to the AAD token endpoint
         /// </summary>
         /// <param name="grantType">grant_type request parameter.</param>
-        /// <param name="compoundCode">The base64 encoded code and launch context</param>
+        /// <param name="compoundCode">The base64url encoded code and launch context</param>
         /// <param name="redirectUri">redirect_uri request parameter.</param>
         /// <param name="clientId">client_id request parameter.</param>
         /// <param name="clientSecret">client_secret request parameter.</param>
@@ -260,7 +261,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string code;
             try
             {
-                decodedCompoundCode = JObject.Parse(Base64Decode(compoundCode));
+                decodedCompoundCode = JObject.Parse(Base64UrlEncoder.Decode(compoundCode));
                 code = decodedCompoundCode["code"].ToString();
             }
             catch
@@ -271,7 +272,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             Uri callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
-                Base64Encode(redirectUri.ToString()));
+                Base64UrlEncoder.Encode(redirectUri.ToString()));
 
             // TODO: Deal with client secret in basic auth header
             var content = new FormUrlEncodedContent(
@@ -335,18 +336,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 StatusCode = (int)response.StatusCode,
                 ContentType = "application/json",
             };
-        }
-
-        private static string Base64Encode(string plainText)
-        {
-            var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
-            return System.Convert.ToBase64String(plainTextBytes);
-        }
-
-        private static string Base64Decode(string base64EncodedData)
-        {
-            var base64EncodedBytes = System.Convert.FromBase64String(base64EncodedData);
-            return System.Text.Encoding.UTF8.GetString(base64EncodedBytes);
         }
 
         private static bool IsAbsoluteUrl(string url)
