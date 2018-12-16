@@ -133,10 +133,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
                 Base64UrlEncoder.Encode(redirectUri.ToString()));
 
-            string newQueryString = $"response_type={responseType}&redirect_uri={callbackUrl.ToString()}&client_id={clientId}";
+            StringBuilder queryStringBuilder = new StringBuilder();
+            queryStringBuilder.Append($"response_type={responseType}&redirect_uri={callbackUrl.ToString()}&client_id={clientId}");
             if (!_isAadV2)
             {
-                newQueryString += $"&resource={aud}";
+                queryStringBuilder.Append($"&resource={aud}");
             }
             else
             {
@@ -161,12 +162,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
 
                 var newScopes = scopesBuilder.ToString().TrimEnd(' ');
-                newQueryString += $"&scope={Uri.EscapeDataString(newScopes)}";
+                queryStringBuilder.Append($"&scope={Uri.EscapeDataString(newScopes)}");
             }
 
-            newQueryString += $"&state={newState}";
+            queryStringBuilder.Append($"&state={newState}");
 
-            return Redirect($"{_aadAuthorizeEndpoint}?{newQueryString}");
+            return Redirect($"{_aadAuthorizeEndpoint}?{queryStringBuilder.ToString()}");
         }
 
         /// <summary>
@@ -316,23 +317,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // Replace fully qualifies scopes with short scopes and replace $
             string[] scopes = tokenResponse["scope"].ToString().Split(' ');
-            string newScopes = string.Empty;
+            StringBuilder scopesBuilder = new StringBuilder();
 
             foreach (var s in scopes)
             {
                 if (IsAbsoluteUrl(s))
                 {
                     Uri scopeUri = new Uri(s);
-                    newScopes += $"{scopeUri.Segments.Last().Replace('$', '/')} ";
+                    scopesBuilder.Append($"{scopeUri.Segments.Last().Replace('$', '/')} ");
                 }
                 else
                 {
-                    newScopes += $"{s.Replace('$', '/')} ";
+                    scopesBuilder.Append($"{s.Replace('$', '/')} ");
                 }
             }
 
-            newScopes = newScopes.TrimEnd(' ');
-            tokenResponse["scope"] = newScopes;
+            tokenResponse["scope"] = scopesBuilder.ToString().TrimEnd(' ');
 
             return new ContentResult()
             {
