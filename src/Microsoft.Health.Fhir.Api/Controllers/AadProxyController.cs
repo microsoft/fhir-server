@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             newQueryString += $"&state={newState}";
 
-            return RedirectPermanent($"{_aadAuthorizeEndpoint}?{newQueryString}");
+            return Redirect($"{_aadAuthorizeEndpoint}?{newQueryString}");
         }
 
         /// <summary>
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (!string.IsNullOrEmpty(error))
             {
-                return RedirectPermanent($"{redirectUrl.ToString()}?error={error}&error_description={errorDescription}");
+                return Redirect($"{redirectUrl.ToString()}?error={error}&error_description={errorDescription}");
             }
 
             string compoundCode;
