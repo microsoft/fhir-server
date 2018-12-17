@@ -13,12 +13,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         NOAUTH,
 
         /// <summary>
-        /// Represents a scenario when an invalid auth (wrong username or password) is provided.
+        /// Represents a scenario when an invalid auth (wrong username/password or expired token) is provided.
         /// </summary>
         INVALIDAUTH,
 
         /// <summary>
-        /// Represents a scenario when an valid auth is provided but wrong authority
+        /// Represents a scenario when a client with wrong audience is provided
         /// </summary>
         AUTHWITHWRONGAUDIENCE,
 
