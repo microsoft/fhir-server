@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenCreatingAResource_GivenAUserWithNoCreatePermissions_TheServerShouldReturnForbidden()
         {
-            await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.ServiceClient);
+            await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAClientWithNoAuthToken_TheServerShouldReturnUnAuthorized()
+        public async Task WhenCreatingAResource_GivenAClientWithNoAuthToken_TheServerShouldReturnUnauthorized()
         {
             await Client.RunAsClientApplication(TestApplications.InvalidClient);
 
@@ -139,10 +139,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAClientWithInvalidAuthToken_TheServerShouldReturnUnAuthorized()
+        public async Task WhenCreatingAResource_GivenAClientWithInvalidAuthToken_TheServerShouldReturnUnauthorized()
         {
-            await Client.RunAsClientApplication(TestApplications.ServiceClient);
-            Client.HttpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Invalidtoken);
+            await Client.RunAsClientApplication(TestApplications.InvalidClient);
+            Client.SetBearerToken(Invalidtoken);
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            Assert.Equal(UnauthorizedMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenCreatingAResource_GivenAClientWithWrongAudience_TheServerShouldReturnUnauthorized()
+        {
+            await Client.RunAsClientApplication(TestApplications.WrongAudienceClient, AuthenticationScenarios.AUTHWITHWRONGAUDIENCE);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
@@ -163,17 +173,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(createdResource.Id, readResource.Id);
             Assert.Equal(createdResource.Meta.VersionId, readResource.Meta.VersionId);
             Assert.Equal(createdResource.Meta.LastUpdated, readResource.Meta.LastUpdated);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAClientWithWrongAudienceAuthToken_TheServerShouldReturnUnAuthorized()
-        {
-            DevelopmentIdentityProviderConfiguration.Audience = "fhir-ai";
-            await Client.RunAsClientApplication(TestApplications.NativeClient);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
-            Assert.Equal(UnauthorizedMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
         }
     }
 }

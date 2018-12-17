@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Web
 {
     public class DevelopmentIdentityProviderConfiguration
     {
-        public static string Audience { get; set; } = "fhir-api";
+        public const string Audience = "fhir-api";
 
         public bool Enabled { get; set; }
 
