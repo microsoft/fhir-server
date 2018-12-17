@@ -288,9 +288,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user, AuthenticationScenarios authenticationScenarios)
         {
-            List<KeyValuePair<string, string>> appSecuritySettings = ConfigureAppSecuritySettings(clientApplication, authenticationScenarios);
-
-            var formContent = new FormUrlEncodedContent(user == null ? appSecuritySettings : GetUserSecuritySettings(clientApplication, user));
+            var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication, authenticationScenarios) : GetUserSecuritySettings(clientApplication, user));
 
             HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
@@ -304,7 +302,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return null;
         }
 
-        private List<KeyValuePair<string, string>> ConfigureAppSecuritySettings(TestApplication clientApplication, AuthenticationScenarios authenticationScenarios)
+        private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication, AuthenticationScenarios authenticationScenarios)
         {
             string scope = authenticationScenarios == AuthenticationScenarios.AUTHWITHWRONGAUDIENCE ? clientApplication.ClientId : AuthenticationSettings.Scope;
             string resource = authenticationScenarios == AuthenticationScenarios.AUTHWITHWRONGAUDIENCE ? clientApplication.ClientId : AuthenticationSettings.Resource;
@@ -316,18 +314,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 new KeyValuePair<string, string>("grant_type", clientApplication.GrantType),
                 new KeyValuePair<string, string>("scope", scope),
                 new KeyValuePair<string, string>("resource", resource),
-            };
-        }
-
-        private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)
-        {
-            return new List<KeyValuePair<string, string>>
-            {
-                new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
-                new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
-                new KeyValuePair<string, string>("grant_type", clientApplication.GrantType),
-                new KeyValuePair<string, string>("scope", clientApplication.ClientId),
-                new KeyValuePair<string, string>("resource", clientApplication.ClientId),
             };
         }
 
