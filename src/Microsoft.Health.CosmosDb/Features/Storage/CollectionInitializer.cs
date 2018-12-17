@@ -8,45 +8,46 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
-    public class CollectionInitializer : ICollectionInitializer
+    public abstract class CollectionInitializer : ICollectionInitializer
     {
-        public CollectionInitializer(string collectionId, Uri relativeDatabaseUri, Uri relativeCollectionUri, int? initialCollectionThroughput, IUpgradeManager upgradeManager)
+        private readonly string _collectionId;
+        private readonly Uri _relativeDatabaseUri;
+        private readonly Uri _relativeCollectionUri;
+        private readonly int? _initialCollectionThroughput;
+        private readonly IUpgradeManager _upgradeManager;
+        private readonly ILogger<CollectionInitializer> _logger;
+
+        protected CollectionInitializer(string collectionId, Uri relativeDatabaseUri, Uri relativeCollectionUri, int? initialCollectionThroughput, IUpgradeManager upgradeManager, ILogger<CollectionInitializer> logger)
         {
             EnsureArg.IsNotNull(collectionId, nameof(collectionId));
             EnsureArg.IsNotNull(relativeDatabaseUri, nameof(relativeDatabaseUri));
             EnsureArg.IsNotNull(relativeCollectionUri, nameof(relativeCollectionUri));
             EnsureArg.IsNotNull(upgradeManager, nameof(upgradeManager));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            CollectionId = collectionId;
-            RelativeDatabaseUri = relativeDatabaseUri;
-            RelativeCollectionUri = relativeCollectionUri;
-            InitialCollectionThroughput = initialCollectionThroughput;
-            UpgradeManager = upgradeManager;
+            _collectionId = collectionId;
+            _relativeDatabaseUri = relativeDatabaseUri;
+            _relativeCollectionUri = relativeCollectionUri;
+            _initialCollectionThroughput = initialCollectionThroughput;
+            _upgradeManager = upgradeManager;
+            _logger = logger;
         }
-
-        public string CollectionId { get; set; }
-
-        public Uri RelativeDatabaseUri { get; set; }
-
-        public Uri RelativeCollectionUri { get; set; }
-
-        public int? InitialCollectionThroughput { get; set; }
-
-        public IUpgradeManager UpgradeManager { get; set; }
 
         public virtual async Task<DocumentCollection> InitializeCollection(IDocumentClient documentClient)
         {
-            DocumentCollection existingDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(RelativeCollectionUri);
+            DocumentCollection existingDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(_relativeCollectionUri);
 
             if (existingDocumentCollection == null)
             {
+                _logger.LogDebug("Creating document collection if not exits: {collectionId}", _collectionId);
                 var documentCollection = new DocumentCollection
                 {
-                    Id = CollectionId,
+                    Id = _collectionId,
                     PartitionKey = new PartitionKeyDefinition
                     {
                         Paths =
@@ -56,13 +57,13 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                     },
                 };
 
-                var requestOptions = new RequestOptions { OfferThroughput = InitialCollectionThroughput };
+                var requestOptions = new RequestOptions { OfferThroughput = _initialCollectionThroughput };
 
                 existingDocumentCollection = await documentClient.CreateDocumentCollectionIfNotExistsAsync(
-                    RelativeDatabaseUri, RelativeCollectionUri, documentCollection, requestOptions);
+                    _relativeDatabaseUri, _relativeCollectionUri, documentCollection, requestOptions);
             }
 
-            await UpgradeManager.SetupCollectionAsync(documentClient, existingDocumentCollection);
+            await _upgradeManager.SetupCollectionAsync(documentClient, existingDocumentCollection);
 
             return existingDocumentCollection;
         }

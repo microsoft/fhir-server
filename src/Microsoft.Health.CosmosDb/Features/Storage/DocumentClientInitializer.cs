@@ -146,8 +146,6 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
 
                 foreach (var collectionInitializer in collectionInitializers)
                 {
-                    // Create the Fhir collection
-                    _logger.LogDebug("CreateDocumentCollectionIfNotExists {HostDescription}", collectionInitializer.RelativeCollectionUri);
                     await collectionInitializer.InitializeCollection(documentClient);
                 }
 

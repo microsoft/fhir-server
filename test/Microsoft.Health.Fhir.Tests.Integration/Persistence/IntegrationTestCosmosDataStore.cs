@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var documentClientInitializer = new DocumentClientInitializer(testProvider, NullLogger<DocumentClientInitializer>.Instance, upgradeManager);
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
-            var fhirCollectionInitializer = new FhirCollectionInitializer(_cosmosDataStoreConfiguration, upgradeManager);
+            var fhirCollectionInitializer = new FhirCollectionInitializer(_cosmosDataStoreConfiguration, upgradeManager, NullLogger<FhirCollectionInitializer>.Instance);
             documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }).GetAwaiter().GetResult();
 
             var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
