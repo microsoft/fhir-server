@@ -5,6 +5,7 @@
 
 using System;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
@@ -13,6 +14,20 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     public class CollectionInitializer : ICollectionInitializer
     {
+        public CollectionInitializer(string collectionId, Uri relativeDatabaseUri, Uri relativeCollectionUri, int? initialCollectionThroughput, IUpgradeManager upgradeManager)
+        {
+            EnsureArg.IsNotNull(collectionId, nameof(collectionId));
+            EnsureArg.IsNotNull(relativeDatabaseUri, nameof(relativeDatabaseUri));
+            EnsureArg.IsNotNull(relativeCollectionUri, nameof(relativeCollectionUri));
+            EnsureArg.IsNotNull(upgradeManager, nameof(upgradeManager));
+
+            CollectionId = collectionId;
+            RelativeDatabaseUri = relativeDatabaseUri;
+            RelativeCollectionUri = relativeCollectionUri;
+            InitialCollectionThroughput = initialCollectionThroughput;
+            UpgradeManager = upgradeManager;
+        }
+
         public string CollectionId { get; set; }
 
         public Uri RelativeDatabaseUri { get; set; }
