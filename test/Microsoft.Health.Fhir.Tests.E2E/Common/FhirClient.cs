@@ -90,10 +90,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             await SetupAuthenticationAsync(clientApplication, user);
         }
 
-        public async Task RunAsClientApplication(TestApplication clientApplication)
+        public async Task RunAsClientApplication(TestApplication clientApplication, AuthenticationScenarios authenticationScenarios = AuthenticationScenarios.VALIDAUTH)
         {
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication, null);
+            await SetupAuthenticationAsync(clientApplication, null, authenticationScenarios);
         }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource)
@@ -268,16 +268,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
+        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null, AuthenticationScenarios authenticationScenarios = AuthenticationScenarios.VALIDAUTH)
         {
             await GetSecuritySettings("metadata");
 
             if (SecuritySettings.SecurityEnabled)
             {
                 var tokenKey = $"{clientApplication.ClientId}:{(user == null ? string.Empty : user.UserId)}";
+
                 if (!_bearerTokens.TryGetValue(tokenKey, out string bearerToken))
                 {
-                    bearerToken = await GetBearerToken(clientApplication, user);
+                    bearerToken = await GetBearerToken(clientApplication, user, authenticationScenarios);
                     _bearerTokens[tokenKey] = bearerToken;
                 }
 
@@ -285,9 +286,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
         }
 
-        private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
+        private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user, AuthenticationScenarios authenticationScenarios)
         {
-            var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
+            List<KeyValuePair<string, string>> appSecuritySettings = ConfigureAppSecuritySettings(clientApplication, authenticationScenarios);
+
+            var formContent = new FormUrlEncodedContent(user == null ? appSecuritySettings : GetUserSecuritySettings(clientApplication, user));
 
             HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
@@ -301,6 +304,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return null;
         }
 
+        private List<KeyValuePair<string, string>> ConfigureAppSecuritySettings(TestApplication clientApplication, AuthenticationScenarios authenticationScenarios)
+        {
+            string scope = authenticationScenarios == AuthenticationScenarios.AUTHWITHWRONGAUDIENCE ? clientApplication.ClientId : AuthenticationSettings.Scope;
+            string resource = authenticationScenarios == AuthenticationScenarios.AUTHWITHWRONGAUDIENCE ? clientApplication.ClientId : AuthenticationSettings.Resource;
+
+            return new List<KeyValuePair<string, string>>
+            {
+                new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
+                new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
+                new KeyValuePair<string, string>("grant_type", clientApplication.GrantType),
+                new KeyValuePair<string, string>("scope", scope),
+                new KeyValuePair<string, string>("resource", resource),
+            };
+        }
+
         private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)
         {
             return new List<KeyValuePair<string, string>>
@@ -308,8 +326,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
                 new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
                 new KeyValuePair<string, string>("grant_type", clientApplication.GrantType),
-                new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
-                new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
+                new KeyValuePair<string, string>("scope", clientApplication.ClientId),
+                new KeyValuePair<string, string>("resource", clientApplication.ClientId),
             };
         }
 
@@ -346,6 +364,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
 
             SecuritySettings = (false, null, null);
+        }
+
+        public void SetBearerToken(string invalidToken)
+        {
+            HttpClient.SetBearerToken(invalidToken);
         }
     }
 }
