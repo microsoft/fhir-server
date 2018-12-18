@@ -31,7 +31,7 @@
     <div class="row">
         <h2>Launch context</h2>
         <div class="form-group col-xs-8">
-            <textarea class="form-control" rows="5" id="launchContext" >
+            <textarea class="form-control" rows="5" id="launchContext" readonly>
                 
             </textarea>
         </div>
@@ -40,7 +40,7 @@
     <div class="row">
             <h2>Launch URL</h2>
             <div class="form-group col-xs-8">
-                <input type=text class="form-control disabled" id="launchUrl" />
+                <input type=text class="form-control disabled" id="launchUrl" readonly />
                 <button id="launchButton" style="margin-top: 5px;" class="btn btn-success" onclick="window.open($('#launchUrl').val(),'_blank')">Launch</button>
             </div>
     </div>

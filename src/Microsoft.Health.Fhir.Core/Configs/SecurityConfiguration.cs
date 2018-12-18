@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         public bool Enabled { get; set; }
 
-        public bool EnableAadProxy { get; set; }
+        public bool EnableAadSmartOnFhirProxy { get; set; }
 
         public AuthenticationConfiguration Authentication { get; set; } = new AuthenticationConfiguration();
 

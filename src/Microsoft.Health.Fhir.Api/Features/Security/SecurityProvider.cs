@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         {
             if (_securityConfiguration.Enabled)
             {
-                if (_securityConfiguration.EnableAadProxy)
+                if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                 {
                     statement.AddProxyOAuthSecurityService(_urlResolver.ResolveMetadataUrl(false));
                 }

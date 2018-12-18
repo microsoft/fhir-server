@@ -17,6 +17,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.IdentityModel.Tokens;
@@ -27,9 +28,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// <summary>
     /// Controller class enabling Azure Active Directory SMART on FHIR Proxy Capability
     /// </summary>
-    [TypeFilter(typeof(AadProxyFeatureFilterAttribute))]
-    [Route("/AadProxy")]
-    public class AadProxyController : Controller
+    [TypeFilter(typeof(AadSmartOnFhirProxyFeatureFilterAttribute))]
+    [Route("AadSmartOnFhirProxy")]
+    public class AadSmartOnFhirProxyController : Controller
     {
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly bool _isAadV2;
@@ -42,12 +43,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly string[] _launchContextFields = { "patient", "encounter", "practitioner", "need_patient_banner", "smart_style_url" };
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AadProxyController" /> class.
+        /// Initializes a new instance of the <see cref="AadSmartOnFhirProxyController" /> class.
         /// </summary>
         /// <param name="securityConfiguration">Security configuration parameters.</param>
         /// <param name="httpClientFactory">HTTP Client Factory.</param>
         /// <param name="logger">The logger.</param>
-        public AadProxyController(IOptions<SecurityConfiguration> securityConfiguration, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
+        public AadSmartOnFhirProxyController(IOptions<SecurityConfiguration> securityConfiguration, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
 
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /// <summary>
-        /// Proxies a request to the Azure AD authorize endpoint.
+        /// Redirects request to the Azure AD authorize endpoint with adjusted parameters.
         /// </summary>
         /// <param name="responseType">response_type URL parameter.</param>
         /// <param name="clientId">client_id URL parameter.</param>
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string newState = Base64UrlEncoder.Encode(newStateObj.ToString(Newtonsoft.Json.Formatting.None));
 
             Uri callbackUrl = new Uri(
-                Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
+                Request.Scheme + "://" + Request.Host + "/AadSmartOnFhirProxy/callback/" +
                 Base64UrlEncoder.Encode(redirectUri.ToString()));
 
             StringBuilder queryStringBuilder = new StringBuilder();
@@ -279,7 +280,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             Uri callbackUrl = new Uri(
-                Request.Scheme + "://" + Request.Host + "/AadProxy/callback/" +
+                Request.Scheme + "://" + Request.Host + "/AadSmartOnFhirProxy/callback/" +
                 Base64UrlEncoder.Encode(redirectUri.ToString()));
 
             // TODO: Deal with client secret in basic auth header

@@ -18,18 +18,18 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
-    public class AadProxyFeatureFilterAttribute : ActionFilterAttribute
+    public class AadSmartOnFhirProxyFeatureFilterAttribute : ActionFilterAttribute
     {
         private readonly SecurityConfiguration _securityConfiguration;
 
-        public AadProxyFeatureFilterAttribute(IOptions<SecurityConfiguration> securityConfiguration)
+        public AadSmartOnFhirProxyFeatureFilterAttribute(IOptions<SecurityConfiguration> securityConfiguration)
         {
             _securityConfiguration = securityConfiguration.Value;
         }
 
         public override void OnActionExecuting(ActionExecutingContext filterContext)
         {
-            if (!_securityConfiguration.EnableAadProxy)
+            if (!_securityConfiguration.EnableAadSmartOnFhirProxy)
             {
                 filterContext.Result = new UnauthorizedResult();
             }

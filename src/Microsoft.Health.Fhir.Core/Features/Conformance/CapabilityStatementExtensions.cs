@@ -94,8 +94,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             security.Service.Add(Constants.RestfulSecurityServiceOAuth);
             var baseurl = metadataUri.Scheme + "://" + metadataUri.Authority;
-            var tokenEndpoint = $"{baseurl}/AadProxy/token";
-            var authorizationEndpoint = $"{baseurl}/AadProxy/authorize";
+            var tokenEndpoint = $"{baseurl}/AadSmartOnFhirProxy/token";
+            var authorizationEndpoint = $"{baseurl}/AadSmartOnFhirProxy/authorize";
 
             var smartExtension = new Extension()
             {

@@ -13,7 +13,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="wwwroot/sampleapp/js/fhir-client.js" />
     <EmbeddedResource Include="wwwroot/sampleapp/launch.html" />
     <EmbeddedResource Include="wwwroot/sampleapp/index.html" />
     <EmbeddedResource Include="wwwroot/index.html" />

@@ -47,7 +47,7 @@ function New-FhirServerSmartClientReplyUrl {
     $encodedText = $encodedText.Replace('/','_');
     $encodedText = $encodedText.Replace('+','-');
     
-    $newReplyUrl = $FhirServerUrl.TrimEnd('/') + "/AadProxy/callback/" + $encodedText
+    $newReplyUrl = $FhirServerUrl.TrimEnd('/') + "/AadSmartOnFhirProxy/callback/" + $encodedText
 
     # Add Reply URL if not already in the list 
     if ($origReplyUrls -NotContains $newReplyUrl) {

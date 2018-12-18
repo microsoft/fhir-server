@@ -61,7 +61,7 @@
                 "description": "Audience (aud) to validate in JWT"
             }
         },
-        "enableAadProxy": {
+        "enableAadSmartOnFhirProxy": {
             "type": "bool",
             "defaultValue": true,
             "metadata": {
@@ -141,7 +141,7 @@
             "WEBSITE_NODE_DEFAULT_VERSION": "6.9.4",
             "KeyVault:Endpoint": "[variables('keyvaultEndpoint')]",
             "FhirServer:Security:Enabled": "[variables('securityAuthenticationEnabled')]",
-            "FhirServer:Security:EnableAadProxy": "[parameters('enableAadProxy')]",
+            "FhirServer:Security:EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]"
         },
