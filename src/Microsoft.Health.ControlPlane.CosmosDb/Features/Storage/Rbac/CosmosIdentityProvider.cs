@@ -16,7 +16,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         public CosmosIdentityProvider(IdentityProvider identityProvider)
             : base(identityProvider.Name, identityProvider.Authority, identityProvider.Audience, identityProvider.Version)
         {
-            ETag = $"\"{identityProvider.Version}\"";
         }
 
         [JsonConstructor]
