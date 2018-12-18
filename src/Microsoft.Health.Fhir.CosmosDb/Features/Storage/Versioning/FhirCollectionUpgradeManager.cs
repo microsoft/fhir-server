@@ -20,15 +20,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     {
         private readonly IEnumerable<ICollectionUpdater> _collectionUpdater;
         private readonly CosmosDataStoreConfiguration _configuration;
+        private readonly ICosmosDbDistributedLockFactory _lockFactory;
+        private readonly ILogger<FhirCollectionUpgradeManager> _logger;
 
         /// <summary>
         /// This integer should be incremented when changing any value in the
         /// UpdateIndexAsync function
         /// </summary>
         internal const int CollectionSettingsVersion = 1;
-
-        private readonly ICosmosDbDistributedLockFactory _lockFactory;
-        private readonly ILogger<FhirCollectionUpgradeManager> _logger;
 
         public FhirCollectionUpgradeManager(
             IEnumerable<IFhirCollectionUpdater> collectionUpdater,

@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                 // See: https://docs.microsoft.com/en-us/azure/cosmos-db/time-to-live
                 collection.DefaultTimeToLive = -1;
 
-                var response = await client.ReplaceDocumentCollectionAsync(collection);
+                await client.ReplaceDocumentCollectionAsync(collection);
 
                 thisVersion.Version = CollectionSettingsVersion;
                 await client.UpsertDocumentAsync(relativeCollectionUri, thisVersion);

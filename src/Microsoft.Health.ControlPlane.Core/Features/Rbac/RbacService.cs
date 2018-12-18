@@ -12,7 +12,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
     public class RbacService : IRbacService
     {
-        private IControlPlaneDataStore _controlPlaneDataStore;
+        private readonly IControlPlaneDataStore _controlPlaneDataStore;
 
         public RbacService(IControlPlaneDataStore controlPlaneDataStore)
         {

@@ -66,7 +66,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
             // Assumed convention is the stored proc is in the same directory as the cs file
             var resourceName = $"{GetType().Namespace}.{Name}.js";
 
-            using (Stream resourceStream = Assembly.GetAssembly(GetType()).GetManifestResourceStream(resourceName))
+            using (Stream resourceStream = GetType().Assembly.GetManifestResourceStream(resourceName))
             using (var reader = new StreamReader(resourceStream))
             {
                 return reader.ReadToEnd();

@@ -13,13 +13,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
 {
     public class ControlPlaneModule : IStartupModule
     {
-        private FhirServerConfiguration _fhirServerConfiguration;
-
         public ControlPlaneModule(FhirServerConfiguration fhirServerConfiguration)
         {
             EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
-
-            _fhirServerConfiguration = fhirServerConfiguration;
         }
 
         /// <inheritdoc />

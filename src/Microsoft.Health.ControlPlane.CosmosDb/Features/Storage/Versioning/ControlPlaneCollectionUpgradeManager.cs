@@ -20,15 +20,14 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning
     {
         private readonly IEnumerable<ICollectionUpdater> _collectionUpdater;
         private readonly CosmosDataStoreConfiguration _configuration;
+        private readonly ICosmosDbDistributedLockFactory _lockFactory;
+        private readonly ILogger<ControlPlaneCollectionUpgradeManager> _logger;
 
         /// <summary>
         /// This integer should be incremented when changing any value in the
         /// UpdateIndexAsync function
         /// </summary>
         internal const int CollectionSettingsVersion = 1;
-
-        private readonly ICosmosDbDistributedLockFactory _lockFactory;
-        private readonly ILogger<ControlPlaneCollectionUpgradeManager> _logger;
 
         public ControlPlaneCollectionUpgradeManager(
             IEnumerable<IControlPlaneCollectionUpdater> collectionUpdater,
