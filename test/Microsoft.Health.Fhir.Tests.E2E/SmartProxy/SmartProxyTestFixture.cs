@@ -30,29 +30,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
         public SmartProxyTestFixture()
         {
             _environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
-            var baseUrl = "https://localhost:" + Port.ToString();
-            SmartLauncherUrl = baseUrl + "/index.html";
 
-            Environment.SetEnvironmentVariable("FhirServerUrl", _environmentUrl);
-            Environment.SetEnvironmentVariable("ClientId", TestApplications.NativeClient.ClientId);
-            Environment.SetEnvironmentVariable("DefaultSmartAppUrl", "/sampleapp/launch.html");
+            // Only set up test fixture if running against remote server
+            if (!string.IsNullOrWhiteSpace(_environmentUrl))
+            {
+                var baseUrl = "https://localhost:" + Port.ToString();
+                SmartLauncherUrl = baseUrl + "/index.html";
 
-            var builder = WebHost.CreateDefaultBuilder()
-                .ConfigureAppConfiguration((hostingContext, config) =>
-                {
-                    config.AddEnvironmentVariables();
-                })
-                .UseStartup<SmartLauncher.Startup>()
-                .UseUrls(baseUrl);
+                Environment.SetEnvironmentVariable("FhirServerUrl", _environmentUrl);
+                Environment.SetEnvironmentVariable("ClientId", TestApplications.NativeClient.ClientId);
+                Environment.SetEnvironmentVariable("DefaultSmartAppUrl", "/sampleapp/launch.html");
 
-            WebServer = builder.Build();
-            WebServer.Start();
+                var builder = WebHost.CreateDefaultBuilder()
+                    .ConfigureAppConfiguration((hostingContext, config) =>
+                    {
+                        config.AddEnvironmentVariables();
+                    })
+                    .UseStartup<SmartLauncher.Startup>()
+                    .UseUrls(baseUrl);
 
-            // _server = new TestServer(builder);
+                WebServer = builder.Build();
+                WebServer.Start();
 
-            HttpClient = new HttpClient() { BaseAddress = new Uri(_environmentUrl) };
+                HttpClient = new HttpClient() { BaseAddress = new Uri(_environmentUrl) };
 
-            FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
+                FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
+            }
         }
 
         public IWebHost WebServer { get; private set; }
