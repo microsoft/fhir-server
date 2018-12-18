@@ -14,7 +14,6 @@ using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -25,7 +24,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     {
         private readonly ILogger<CollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
-        private static readonly RangeIndex DefaultStringRangeIndex = new RangeIndex(DataType.String, -1);
 
         private const int CollectionSettingsVersion = 2;
 
@@ -62,8 +60,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                             new RangeIndex(DataType.String, -1),
                         },
                     },
-                    GenerateIncludedPathForSearchIndexEntryField(SearchValueConstants.DateTimeStartName, DefaultStringRangeIndex),
-                    GenerateIncludedPathForSearchIndexEntryField(SearchValueConstants.DateTimeEndName, DefaultStringRangeIndex),
                 },
                     ExcludedPaths = new Collection<ExcludedPath>
                 {
