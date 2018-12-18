@@ -62,14 +62,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                             new RangeIndex(DataType.String, -1),
                         },
                     },
-                    new IncludedPath
-                    {
-                        Path = $"/{KnownResourceWrapperProperties.LastModified}/?",
-                        Indexes = new Collection<Index>
-                        {
-                            DefaultStringRangeIndex,
-                        },
-                    },
                     GenerateIncludedPathForSearchIndexEntryField(SearchValueConstants.DateTimeStartName, DefaultStringRangeIndex),
                     GenerateIncludedPathForSearchIndexEntryField(SearchValueConstants.DateTimeEndName, DefaultStringRangeIndex),
                 },
