@@ -4,11 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 
-namespace Microsoft.Health.CosmosDb.Exceptions
+namespace Microsoft.Health.Abstractions.Exceptions
 {
-    public class CosmosDbException : Exception
+    public class MicrosoftHealthException : Exception
     {
-        public string CustomExceptionMessage { get; protected set; }
+        public MicrosoftHealthException(string message)
+            : base(message)
+        {
+            Debug.Assert(!string.IsNullOrEmpty(message), "Message should not be empty");
+        }
     }
 }

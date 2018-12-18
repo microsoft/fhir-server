@@ -4,29 +4,22 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Core.Exceptions
+namespace Microsoft.Health.Abstractions.Exceptions
 {
     /// <summary>
     /// An exception indicating that the request rate has exceeded the maximum API request rate.
     /// </summary>
-    public class RequestRateExceededException : FhirException
+    public class RequestRateExceededException : MicrosoftHealthException
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RequestRateExceededException"/> class.
         /// </summary>
         /// <param name="retryAfter">The amount of time the client should wait before retrying again.</param>
         public RequestRateExceededException(TimeSpan? retryAfter)
+            : base(Resources.RequestRateExceeded)
         {
             RetryAfter = retryAfter;
-
-            Issues.Add(new OperationOutcome.IssueComponent
-            {
-                Severity = OperationOutcome.IssueSeverity.Error,
-                Code = OperationOutcome.IssueType.Throttled,
-                Diagnostics = Resources.RequestRateExceeded,
-            });
         }
 
         /// <summary>

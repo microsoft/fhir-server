@@ -3,16 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.CosmosDb.Exceptions
+using System;
+
+namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
-    /// <summary>
-    /// An exception indicating that the request rate has exceeded the maximum API request rate.
-    /// </summary>
-    public class RequestRateExceededException : CosmosDbException
+    public abstract class ControlPlaneException : Exception
     {
-        public RequestRateExceededException()
+        protected ControlPlaneException(string message)
+            : base(message)
         {
-            CustomExceptionMessage = "request rate exceeded";
         }
     }
 }

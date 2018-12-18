@@ -4,12 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -38,70 +40,110 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context?.Exception is FhirException fhirException)
+            if (context?.Exception == null)
             {
-                FhirResult fhirResult = FhirResult.Create(
-                    new OperationOutcome
+                return;
+            }
+
+            switch (context?.Exception)
+            {
+                case FhirException fhirException:
+                    var fhirResult = FhirResult.Create(
+                        new OperationOutcome
+                        {
+                            Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                            Issue = fhirException.Issues.ToList(),
+                        }, HttpStatusCode.BadRequest);
+
+                    switch (fhirException)
                     {
-                        Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                        Issue = fhirException.Issues.ToList(),
-                    }, HttpStatusCode.BadRequest);
+                        case ResourceGoneException resourceGoneException:
+                            fhirResult.StatusCode = HttpStatusCode.Gone;
+                            if (!string.IsNullOrEmpty(resourceGoneException.DeletedResource?.VersionId))
+                            {
+                                fhirResult.SetETagHeader(WeakETag.FromVersionId(resourceGoneException.DeletedResource.VersionId));
+                            }
 
-                switch (fhirException)
-                {
-                    case ResourceGoneException resourceGoneException:
-                        fhirResult.StatusCode = HttpStatusCode.Gone;
-                        if (!string.IsNullOrEmpty(resourceGoneException.DeletedResource?.VersionId))
-                        {
-                            fhirResult.SetETagHeader(WeakETag.FromVersionId(resourceGoneException.DeletedResource.VersionId));
-                        }
+                            break;
+                        case ResourceNotFoundException _:
+                            fhirResult.StatusCode = HttpStatusCode.NotFound;
+                            break;
+                        case MethodNotAllowedException _:
+                            fhirResult.StatusCode = HttpStatusCode.MethodNotAllowed;
+                            break;
+                        case ServiceUnavailableException _:
+                        case OpenIdConfigurationException _:
+                            fhirResult.StatusCode = HttpStatusCode.ServiceUnavailable;
+                            break;
+                        case ResourceNotValidException _:
+                        case BadRequestException _:
+                            fhirResult.StatusCode = HttpStatusCode.BadRequest;
+                            break;
+                        case ResourceConflictException _:
+                            fhirResult.StatusCode = HttpStatusCode.Conflict;
+                            break;
+                        case UnsupportedMediaTypeException _:
+                            fhirResult.StatusCode = HttpStatusCode.UnsupportedMediaType;
+                            break;
+                        case PreconditionFailedException _:
+                            fhirResult.StatusCode = HttpStatusCode.PreconditionFailed;
+                            break;
+                        case InvalidSearchOperationException _:
+                        case SearchOperationNotSupportedException _:
+                            fhirResult.StatusCode = HttpStatusCode.Forbidden;
+                            break;
+                        case UnsupportedConfigurationException _:
+                            fhirResult.StatusCode = HttpStatusCode.InternalServerError;
+                            break;
+                    }
 
-                        break;
-                    case ResourceNotFoundException _:
-                        fhirResult.StatusCode = HttpStatusCode.NotFound;
-                        break;
-                    case MethodNotAllowedException _:
-                        fhirResult.StatusCode = HttpStatusCode.MethodNotAllowed;
-                        break;
-                    case ServiceUnavailableException _:
-                    case OpenIdConfigurationException _:
-                        fhirResult.StatusCode = HttpStatusCode.ServiceUnavailable;
-                        break;
-                    case ResourceNotValidException _:
-                    case BadRequestException _:
-                        fhirResult.StatusCode = HttpStatusCode.BadRequest;
-                        break;
-                    case ResourceConflictException _:
-                        fhirResult.StatusCode = HttpStatusCode.Conflict;
-                        break;
-                    case UnsupportedMediaTypeException _:
-                        fhirResult.StatusCode = HttpStatusCode.UnsupportedMediaType;
-                        break;
-                    case PreconditionFailedException _:
-                        fhirResult.StatusCode = HttpStatusCode.PreconditionFailed;
-                        break;
-                    case InvalidSearchOperationException _:
-                    case SearchOperationNotSupportedException _:
-                        fhirResult.StatusCode = HttpStatusCode.Forbidden;
-                        break;
-                    case UnsupportedConfigurationException _:
-                        fhirResult.StatusCode = HttpStatusCode.InternalServerError;
-                        break;
-                    case RequestRateExceededException ex:
-                        fhirResult.StatusCode = HttpStatusCode.TooManyRequests;
+                    context.Result = fhirResult;
+                    context.ExceptionHandled = true;
+                    break;
+                case MicrosoftHealthException microsoftHealthException:
 
-                        if (ex.RetryAfter != null)
-                        {
-                            fhirResult.Headers.Add(
-                                RetryAfterHeaderName,
-                                ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
-                        }
+                    FhirResult cosmosResult;
 
-                        break;
-                }
+                    switch (microsoftHealthException)
+                    {
+                        case RequestRateExceededException ex:
+                            cosmosResult = FhirResult.Create(
+                                new OperationOutcome
+                                {
+                                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                                    Issue = new List<OperationOutcome.IssueComponent>
+                                    {
+                                        new OperationOutcome.IssueComponent
+                                        {
+                                            Severity = OperationOutcome.IssueSeverity.Error,
+                                            Code = OperationOutcome.IssueType.Throttled,
+                                            Diagnostics = ex.Message,
+                                        },
+                                    },
+                                }, HttpStatusCode.BadRequest);
+                            cosmosResult.StatusCode = HttpStatusCode.TooManyRequests;
 
-                context.Result = fhirResult;
-                context.ExceptionHandled = true;
+                            if (ex.RetryAfter != null)
+                            {
+                                cosmosResult.Headers.Add(
+                                    RetryAfterHeaderName,
+                                    ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
+                            }
+
+                            break;
+                        default:
+                            cosmosResult = FhirResult.Create(
+                                new OperationOutcome
+                                {
+                                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                                }, HttpStatusCode.BadRequest);
+                            cosmosResult.StatusCode = HttpStatusCode.BadRequest;
+                            break;
+                    }
+
+                    context.Result = cosmosResult;
+                    context.ExceptionHandled = true;
+                    break;
             }
         }
     }

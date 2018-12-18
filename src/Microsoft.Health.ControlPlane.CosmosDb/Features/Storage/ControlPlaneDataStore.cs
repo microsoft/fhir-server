@@ -12,6 +12,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.ControlPlane.Core.Features.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             var identityProvider = await GetSystemDocumentByIdAsync<CosmosIdentityProvider>(name, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
             if (identityProvider == null)
             {
-                throw new Exception("Invalid role name");
+                throw new IdentityProviderNotFoundException(name);
             }
 
             return identityProvider.ToIdentityProvider();
