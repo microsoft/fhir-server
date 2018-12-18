@@ -4,18 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.ControlPlane;
 
-namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
+namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 {
     public static class CosmosIdentityProviderExtensions
     {
         public static IdentityProvider ToIdentityProvider(this CosmosIdentityProvider cosmosIdentityProvider)
         {
-            return new IdentityProvider(cosmosIdentityProvider.Name, cosmosIdentityProvider.Authority, cosmosIdentityProvider.Audience)
-            {
-                Version = cosmosIdentityProvider.ETag.Trim('"'),
-            };
+            return new IdentityProvider(
+                cosmosIdentityProvider.Name,
+                cosmosIdentityProvider.Authority,
+                cosmosIdentityProvider.Audience,
+                cosmosIdentityProvider.ETag.Trim('"'));
         }
     }
 }

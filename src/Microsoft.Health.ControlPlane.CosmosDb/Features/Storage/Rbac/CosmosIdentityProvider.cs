@@ -7,15 +7,16 @@ using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.ControlPlane
+namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 {
     public class CosmosIdentityProvider : IdentityProvider
     {
         internal const string IdentityProviderPartition = "_identityProviders";
 
         public CosmosIdentityProvider(IdentityProvider identityProvider)
-            : base(identityProvider.Name, identityProvider.Authority, identityProvider.Audience)
+            : base(identityProvider.Name, identityProvider.Authority, identityProvider.Audience, identityProvider.Version)
         {
+            ETag = $"\"{identityProvider.Version}\"";
         }
 
         [JsonConstructor]
@@ -34,5 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.ControlPlane
 
         [JsonProperty(KnownDocumentProperties.IsSystem)]
         public bool IsSystem { get; } = true;
+
+        public override string Version => ETag;
     }
 }

@@ -14,10 +14,10 @@ using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
+using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.ControlPlane;
 
 namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 {

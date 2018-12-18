@@ -4,28 +4,35 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
     public class IdentityProvider
     {
-        public IdentityProvider()
+        [JsonConstructor]
+        protected IdentityProvider()
         {
         }
 
-        public IdentityProvider(string name, string authority, List<string> audience)
+        public IdentityProvider(string name, string authority, IReadOnlyList<string> audience, string version)
         {
             Name = name;
             Authority = authority;
-            Audience.AddRange(audience);
+            Audience = audience;
+            Version = version;
         }
 
-        public string Name { get; set; }
+        [JsonProperty("Name")]
+        public string Name { get; protected set; }
 
-        public string Authority { get; set; }
+        [JsonProperty("Authority")]
+        public string Authority { get; protected set; }
 
-        public List<string> Audience { get; } = new List<string>();
+        [JsonProperty("Audience")]
+        public IReadOnlyList<string> Audience { get; protected set; }
 
-        public string Version { get; set; }
+        [JsonProperty("Version")]
+        public virtual string Version { get; protected set; }
     }
 }
