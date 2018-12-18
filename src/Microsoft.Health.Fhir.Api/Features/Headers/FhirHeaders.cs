@@ -50,16 +50,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             return fhirResult;
         }
 
-        public static FhirResult SetETagHeader(this FhirResult fhirResult, string eTag)
-        {
-            if (!string.IsNullOrWhiteSpace(eTag))
-            {
-                fhirResult.Headers.Add(HeaderNames.ETag, eTag);
-            }
-
-            return fhirResult;
-        }
-
         public static FhirResult SetLastModifiedHeader(this FhirResult fhirResult)
         {
             var resource = fhirResult.Resource;

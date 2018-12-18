@@ -65,16 +65,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 defaultSecond: 59,
                 defaultFraction: 0.9999999m,
                 defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
-
-            if (Start > End)
-            {
-                string message = $"The evaluated value of parameter '{nameof(startDateTime)}' cannot be greater than the evaluated value of parameter '{nameof(endDateTime)}'. " +
-                    $"The parameter '{nameof(startDateTime)}' evaluated to '{Start:o}' and the parameter '{nameof(endDateTime)}' evaluated to '{End:o}'.";
-
-                throw new ArgumentOutOfRangeException(
-                    nameof(startDateTime),
-                    message);
-            }
         }
 
         /// <summary>

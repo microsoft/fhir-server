@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddScoped<IFhirRepository, FhirRepository>();
             services.AddSingleton<IRawResourceFactory, RawResourceFactory>();
             services.AddSingleton<IResourceWrapperFactory, ResourceWrapperFactory>();
             services.AddSingleton<IClaimsIndexer, ClaimsIndexer>();
