@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -85,6 +86,10 @@ namespace Microsoft.Extensions.DependencyInjection
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();
 
+                    app.UseFhirRequestContext();
+
+                    app.UseMiddleware<AuditLogMiddleware>();
+
                     if (env.IsDevelopment())
                     {
                         app.UseDeveloperExceptionPage();
@@ -103,8 +108,6 @@ namespace Microsoft.Extensions.DependencyInjection
                     }
 
                     app.UseAuthentication();
-
-                    app.UseFhirRequestContext();
 
                     next(app);
                 };
