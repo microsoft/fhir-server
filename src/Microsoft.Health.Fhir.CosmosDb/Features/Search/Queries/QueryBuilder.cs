@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendSelectFromRoot();
                 }
 
-                AppendSystemDataFilter("WHERE");
+                AppendSystemDataFilter();
 
                 var expressionQueryBuilder = new ExpressionQueryBuilder(
                     _queryBuilder,
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendSelectFromRoot();
 
-                AppendSystemDataFilter("WHERE");
+                AppendSystemDataFilter();
 
                 var expressionQueryBuilder = new ExpressionQueryBuilder(
                     _queryBuilder,
@@ -134,23 +134,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
             }
 
-            private void AppendSystemDataFilter(string keyword = null)
+            private void AppendSystemDataFilter()
             {
-                // Ensure that we exclude system metadata
-
-                if (!string.IsNullOrEmpty(keyword))
-                {
-                    _queryBuilder.Append(keyword).Append(" ");
-                }
-
                 _queryBuilder
-                    .Append("(")
-                    .Append("IS_DEFINED(").Append(SearchValueConstants.RootAliasName).Append(".isSystem)")
-                    .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false))
-                    .Append(" OR ")
+                    .Append(" WHERE ")
                     .Append(SearchValueConstants.RootAliasName).Append(".isSystem")
-                    .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false))
-                    .AppendLine(")");
+                    .Append(" = ")
+                    .AppendLine(_queryParameterManager.AddOrGetParameterMapping(false));
             }
         }
     }
