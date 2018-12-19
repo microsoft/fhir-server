@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
                 AllowDatabaseCreation = false,
-                FhirCollectionId = "testcollectionid",
                 ConnectionMode = Azure.Documents.Client.ConnectionMode.Direct,
                 ConnectionProtocol = Azure.Documents.Client.Protocol.Https,
                 DatabaseId = "testdatabaseid",

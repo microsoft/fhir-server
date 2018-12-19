@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             services.AddCosmosDb().AddCosmosControlPlane(Configuration).AddDevelopmentIdentityProvider(Configuration);
 
-            services.AddFhirServer(Configuration).AddFhirServerCosmosDb();
+            services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

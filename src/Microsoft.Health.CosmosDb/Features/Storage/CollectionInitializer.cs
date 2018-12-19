@@ -9,11 +9,12 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
-    public abstract class CollectionInitializer : ICollectionInitializer
+    public class CollectionInitializer : ICollectionInitializer
     {
         private readonly string _collectionId;
         private readonly Uri _relativeDatabaseUri;
@@ -22,23 +23,22 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         private readonly IUpgradeManager _upgradeManager;
         private readonly ILogger<CollectionInitializer> _logger;
 
-        protected CollectionInitializer(string collectionId, Uri relativeDatabaseUri, Uri relativeCollectionUri, int? initialCollectionThroughput, IUpgradeManager upgradeManager, ILogger<CollectionInitializer> logger)
+        public CollectionInitializer(string collectionId, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, int? initialCollectionThroughput, IUpgradeManager upgradeManager, ILogger<CollectionInitializer> logger)
         {
             EnsureArg.IsNotNull(collectionId, nameof(collectionId));
-            EnsureArg.IsNotNull(relativeDatabaseUri, nameof(relativeDatabaseUri));
-            EnsureArg.IsNotNull(relativeCollectionUri, nameof(relativeCollectionUri));
+            EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(upgradeManager, nameof(upgradeManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _collectionId = collectionId;
-            _relativeDatabaseUri = relativeDatabaseUri;
-            _relativeCollectionUri = relativeCollectionUri;
+            _relativeDatabaseUri = cosmosDataStoreConfiguration.RelativeDatabaseUri;
+            _relativeCollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionId);
             _initialCollectionThroughput = initialCollectionThroughput;
             _upgradeManager = upgradeManager;
             _logger = logger;
         }
 
-        public virtual async Task<DocumentCollection> InitializeCollection(IDocumentClient documentClient)
+        public async Task<DocumentCollection> InitializeCollection(IDocumentClient documentClient)
         {
             DocumentCollection existingDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(_relativeCollectionUri);
 

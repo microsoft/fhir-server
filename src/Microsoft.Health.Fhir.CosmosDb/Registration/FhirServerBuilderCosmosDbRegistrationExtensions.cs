@@ -4,12 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.CosmosDb;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
@@ -25,20 +30,24 @@ namespace Microsoft.Extensions.DependencyInjection
         /// Adds Cosmos Db as the data store for the FHIR server.
         /// </summary>
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
+        /// <param name="configuration">The configuration for the server</param>
         /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddFhirServerCosmosDb(this IFhirServerBuilder fhirServerBuilder)
+        public static IFhirServerBuilder AddFhirServerCosmosDb(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
 
             return fhirServerBuilder
-                .AddCosmosDbPersistence()
+                .AddCosmosDbPersistence(configuration)
                 .AddCosmosDbSearch()
                 .AddCosmosDbHealthCheck();
         }
 
-        private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder)
+        private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
         {
             IServiceCollection services = fhirServerBuilder.Services;
+
+            services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("FhirServer:CosmosDb").Bind(cosmosCollectionConfiguration));
 
             services.Add<FhirDataStore>()
                 .Scoped()
@@ -54,9 +63,22 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsService<IFhirDocumentQueryLogger>();
 
-            services.Add<FhirCollectionInitializer>()
+            services.Add<CollectionInitializer>(sp =>
+                {
+                    var config = sp.GetService<CosmosDataStoreConfiguration>();
+                    var upgradeManager = sp.GetService<FhirCollectionUpgradeManager>();
+                    var loggerFactory = sp.GetService<ILoggerFactory>();
+                    var namedCosmosCollectionConfiguration = sp.GetService<IOptionsMonitor<CosmosCollectionConfiguration>>();
+                    var cosmosCollectionConfiguration = namedCosmosCollectionConfiguration.Get(Constants.CollectionConfigurationName);
+
+                    return new CollectionInitializer(
+                        cosmosCollectionConfiguration.CollectionId,
+                        config,
+                        cosmosCollectionConfiguration.InitialCollectionThroughput,
+                        upgradeManager,
+                        loggerFactory.CreateLogger<CollectionInitializer>());
+                })
                 .Singleton()
-                .AsSelf()
                 .AsService<ICollectionInitializer>();
 
             services.Add<FhirCollectionSettingsUpdater>()

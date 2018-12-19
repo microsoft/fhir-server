@@ -35,16 +35,12 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             _upgradeManager = upgradeManager;
         }
 
-        /// <summary>
-        /// Creates am unopened <see cref="DocumentClient"/> based on the given <see cref="CosmosDataStoreConfiguration"/>.
-        /// </summary>
-        /// <param name="configuration">The endpoint and collection settings</param>
-        /// <returns>A <see cref="DocumentClient"/> instance</returns>
+        /// <inheritdoc />
         public IDocumentClient CreateDocumentClient(CosmosDataStoreConfiguration configuration)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            _logger.LogInformation("Creating DocumentClient instance for {CollectionUri}", configuration.AbsoluteFhirCollectionUri);
+            _logger.LogInformation("Creating DocumentClient instance for {DatabaseUrl}", configuration.RelativeDatabaseUri);
 
             var connectionPolicy = new ConnectionPolicy
             {
@@ -89,38 +85,27 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             return new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel);
         }
 
-        /// <summary>
-        /// Perform a trivial query to establish a connection.
-        /// DocumentClient.OpenAsync() is not supported when a token is used as the access key.
-        /// </summary>
-        /// <param name="client">The document client</param>
-        /// <param name="configuration">The data store config</param>
-        public async Task OpenDocumentClient(IDocumentClient client, CosmosDataStoreConfiguration configuration)
+        /// <inheritdoc />
+        public async Task OpenDocumentClient(IDocumentClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            _logger.LogInformation("Opening DocumentClient connection to {CollectionUri}", configuration.AbsoluteFhirCollectionUri);
+            _logger.LogInformation("Opening DocumentClient connection to {CollectionUri}", configuration.GetAbsoluteCollectionUri(cosmosCollectionConfiguration.CollectionId));
             try
             {
-                await _testProvider.PerformTest(client, configuration);
+                await _testProvider.PerformTest(client, configuration, cosmosCollectionConfiguration);
 
-                _logger.LogInformation("Established DocumentClient connection to {CollectionUri}", configuration.AbsoluteFhirCollectionUri);
+                _logger.LogInformation("Established DocumentClient connection to {CollectionUri}", configuration.GetAbsoluteCollectionUri(cosmosCollectionConfiguration.CollectionId));
             }
             catch (Exception e)
             {
-                _logger.LogCritical(e, "Failed to connect to DocumentClient collection {CollectionUri}", configuration.AbsoluteFhirCollectionUri);
+                _logger.LogCritical(e, "Failed to connect to DocumentClient collection {CollectionUri}", configuration.GetAbsoluteCollectionUri(cosmosCollectionConfiguration.CollectionId));
                 throw;
             }
         }
 
-        /// <summary>
-        /// Ensures that the necessary database and collection exist with the proper indexing policy and stored procedures
-        /// </summary>
-        /// <param name="documentClient">The <see cref="DocumentClient"/> instance to use for initialization.</param>
-        /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
-        /// <param name="collectionInitializers">Collections to initialize</param>
-        /// <returns>A task</returns>
+        /// <inheritdoc />
         public async Task InitializeDataStore(IDocumentClient documentClient, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));

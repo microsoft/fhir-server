@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
@@ -20,6 +21,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning
     {
         private readonly IEnumerable<ICollectionUpdater> _collectionUpdater;
         private readonly CosmosDataStoreConfiguration _configuration;
+        private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly ICosmosDbDistributedLockFactory _lockFactory;
         private readonly ILogger<ControlPlaneCollectionUpgradeManager> _logger;
 
@@ -33,16 +35,19 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning
             IEnumerable<IControlPlaneCollectionUpdater> collectionUpdater,
             CosmosDataStoreConfiguration configuration,
             ICosmosDbDistributedLockFactory lockFactory,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ILogger<ControlPlaneCollectionUpgradeManager> logger)
         {
             EnsureArg.IsNotNull(collectionUpdater, nameof(collectionUpdater));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(lockFactory, nameof(lockFactory));
+            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _collectionUpdater = collectionUpdater;
             _configuration = configuration;
             _lockFactory = lockFactory;
+            _collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
             _logger = logger;
         }
 
@@ -53,7 +58,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning
 
             using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
             {
-                using (var distributedLock = _lockFactory.Create(documentClient, _configuration.RelativeControlPlaneCollectionUri, $"UpgradeLock:{CollectionSettingsVersion}"))
+                using (var distributedLock = _lockFactory.Create(documentClient, _configuration.GetRelativeCollectionUri(_collectionConfiguration.CollectionId), $"UpgradeLock:{CollectionSettingsVersion}"))
                 {
                     _logger.LogDebug("Attempting to acquire upgrade lock");
 
@@ -61,9 +66,9 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning
 
                     foreach (var updater in _collectionUpdater)
                     {
-                        _logger.LogDebug("Running {CollectionUpdater} on {CollectionUri}", updater.GetType().Name, _configuration.AbsoluteControlPlaneCollectionUri);
+                        _logger.LogDebug("Running {CollectionUpdater} on {CollectionUri}", updater.GetType().Name, _configuration.GetAbsoluteCollectionUri(_collectionConfiguration.CollectionId));
 
-                        await updater.ExecuteAsync(documentClient, collection, _configuration.RelativeControlPlaneCollectionUri);
+                        await updater.ExecuteAsync(documentClient, collection, _configuration.GetRelativeCollectionUri(_collectionConfiguration.CollectionId));
                     }
 
                     await distributedLock.ReleaseLock();

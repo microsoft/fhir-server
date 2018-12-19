@@ -5,8 +5,12 @@
 
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.ControlPlane.CosmosDb;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -20,7 +24,23 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            services.Add<ControlPlaneCollectionInitializer>()
+            services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("ControlPlane:CosmosDb").Bind(cosmosCollectionConfiguration));
+
+            services.Add<CollectionInitializer>(sp =>
+                {
+                    var config = sp.GetService<CosmosDataStoreConfiguration>();
+                    var upgradeManager = sp.GetService<ControlPlaneCollectionUpgradeManager>();
+                    var loggerFactory = sp.GetService<ILoggerFactory>();
+                    var namedCosmosCollectionConfiguration = sp.GetService<IOptionsMonitor<CosmosCollectionConfiguration>>();
+                    var cosmosCollectionConfiguration = namedCosmosCollectionConfiguration.Get(Constants.CollectionConfigurationName);
+
+                    return new CollectionInitializer(
+                        cosmosCollectionConfiguration.CollectionId,
+                        config,
+                        cosmosCollectionConfiguration.InitialCollectionThroughput,
+                        upgradeManager,
+                        loggerFactory.CreateLogger<CollectionInitializer>());
+                })
                 .Singleton()
                 .AsService<ICollectionInitializer>();
 

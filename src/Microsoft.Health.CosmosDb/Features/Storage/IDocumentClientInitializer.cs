@@ -28,7 +28,8 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// </summary>
         /// <param name="client">The document client</param>
         /// <param name="configuration">The data store config</param>
-        Task OpenDocumentClient(IDocumentClient client, CosmosDataStoreConfiguration configuration);
+        /// <param name="cosmosCollectionConfiguration">The collection configuration for the query to use</param>
+        Task OpenDocumentClient(IDocumentClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
 
         /// <summary>
         /// Ensures that the necessary database and collection exist with the proper indexing policy and stored procedures

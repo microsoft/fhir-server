@@ -12,6 +12,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -26,17 +27,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     {
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
+        private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private static readonly RangeIndex DefaultStringRangeIndex = new RangeIndex(DataType.String, -1);
 
         private const int CollectionSettingsVersion = 1;
 
-        public FhirCollectionSettingsUpdater(ILogger<FhirCollectionSettingsUpdater> logger, CosmosDataStoreConfiguration configuration)
+        public FhirCollectionSettingsUpdater(
+            CosmosDataStoreConfiguration configuration,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
+            ILogger<FhirCollectionSettingsUpdater> logger)
         {
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _logger = logger;
             _configuration = configuration;
+            _collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
+            _logger = logger;
         }
 
         public async Task ExecuteAsync(IDocumentClient client, DocumentCollection collection, Uri relativeCollectionUri)
@@ -48,7 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
             if (thisVersion.Version < CollectionSettingsVersion)
             {
-                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}", _configuration.AbsoluteFhirCollectionUri);
+                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}", _configuration.GetAbsoluteCollectionUri(_collectionConfiguration.CollectionId));
 
                 collection.IndexingPolicy = new IndexingPolicy
                 {

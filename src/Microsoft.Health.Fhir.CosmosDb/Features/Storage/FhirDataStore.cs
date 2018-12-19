@@ -15,6 +15,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -32,6 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
+        private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<FhirDataStore> _logger;
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="fhirRequestContextAccessor">The fhir request context accessor.</param>
+        /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="logger">The logger instance.</param>
         public FhirDataStore(
             IScoped<IDocumentClient> documentClient,
@@ -57,20 +60,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ILogger<FhirDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
+            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
+
+            _collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
 
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _documentClient = new FhirDocumentClient(documentClient.Value, fhirRequestContextAccessor, cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb);
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
-            _collectionUri = cosmosDataStoreConfiguration.RelativeFhirCollectionUri;
+            _collectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(_collectionConfiguration.CollectionId);
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
         }
@@ -161,7 +168,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 return await _documentClient.ReadDocumentAsync<FhirCosmosResourceWrapper>(
-                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _cosmosDataStoreConfiguration.FhirCollectionId, key.Id),
+                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);
             }
