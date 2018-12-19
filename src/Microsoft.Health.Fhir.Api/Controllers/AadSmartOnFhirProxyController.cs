@@ -348,8 +348,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static bool IsAbsoluteUrl(string url)
         {
-            Uri result;
-            return Uri.TryCreate(url, UriKind.Absolute, out result);
+            return Uri.TryCreate(url, UriKind.Absolute, out _);
         }
     }
 }
