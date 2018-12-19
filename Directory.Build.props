@@ -4,7 +4,6 @@
         <WarningsAsErrors />
         <DebugType>Full</DebugType>
         <LangVersion>7.3</LangVersion>
-        <RuntimeFrameworkVersion>2.1.6</RuntimeFrameworkVersion>
         <HighEntropyVA>true</HighEntropyVA>
         <EnableSourceLink Condition="$([MSBuild]::IsOSPlatform('osx'))">false</EnableSourceLink>
         <EnableSourceControlManagerQueries>$(EnableSourceLink)</EnableSourceControlManagerQueries>
