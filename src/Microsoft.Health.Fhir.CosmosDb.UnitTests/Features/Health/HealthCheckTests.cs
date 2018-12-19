@@ -24,15 +24,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         private readonly IDocumentClientTestProvider _testProvider = Substitute.For<IDocumentClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb", FhirCollectionId = "mycoll" };
 
-        private readonly CosmosHealthCheck _healthCheck;
+        private readonly FhirCosmosHealthCheck _healthCheck;
 
         public HealthCheckTests()
         {
-            _healthCheck = new CosmosHealthCheck(
+            _healthCheck = new FhirCosmosHealthCheck(
                 new NonDisposingScope(_documentClient),
                 _configuration,
                 _testProvider,
-                NullLogger<CosmosHealthCheck>.Instance);
+                NullLogger<FhirCosmosHealthCheck>.Instance);
         }
 
         [Fact]

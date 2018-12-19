@@ -5,14 +5,13 @@
 
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
 
-namespace Microsoft.Health.ControlPlane.CosmosDb.Registration
+namespace Microsoft.Extensions.DependencyInjection
 {
     public static class ControlPlaneCosmosDbRegistrationExtensions
     {

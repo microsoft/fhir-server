@@ -6,7 +6,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.ControlPlane.CosmosDb.Registration;
 using Microsoft.Health.CosmosDb.Registration;
 
 namespace Microsoft.Health.Fhir.Web

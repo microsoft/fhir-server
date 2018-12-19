@@ -19,7 +19,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
-    public static class CosmosDbFhirServerBuilderExtensions
+    public static class FhirServerBuilderCosmosDbRegistrationExtensions
     {
         /// <summary>
         /// Adds Cosmos Db as the data store for the FHIR server.
@@ -84,7 +84,7 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             // We can move to framework such as https://github.com/dotnet-architecture/HealthChecks
             // once they are released to do health check on multiple dependencies.
-            fhirServerBuilder.Services.Add<CosmosHealthCheck>()
+            fhirServerBuilder.Services.Add<FhirCosmosHealthCheck>()
                 .Scoped()
                 .AsSelf()
                 .AsService<IHealthCheck>();
@@ -94,7 +94,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IFhirServerBuilder AddCosmosDbSearch(this IFhirServerBuilder fhirServerBuilder)
         {
-            fhirServerBuilder.Services.Add<CosmosSearchService>()
+            fhirServerBuilder.Services.Add<FhirCosmosSearchService>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();

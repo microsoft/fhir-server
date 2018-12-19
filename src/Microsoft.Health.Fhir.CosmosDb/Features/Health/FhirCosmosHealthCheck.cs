@@ -19,25 +19,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
     /// <summary>
     /// Checks for the FHIR service health.
     /// </summary>
-    public class CosmosHealthCheck : IHealthCheck
+    public class FhirCosmosHealthCheck : IHealthCheck
     {
         private readonly IScoped<IDocumentClient> _documentClient;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly IDocumentClientTestProvider _testProvider;
-        private readonly ILogger<CosmosHealthCheck> _logger;
+        private readonly ILogger<FhirCosmosHealthCheck> _logger;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CosmosHealthCheck"/> class.
+        /// Initializes a new instance of the <see cref="FhirCosmosHealthCheck"/> class.
         /// </summary>
         /// <param name="documentClient">The document client factory/</param>
         /// <param name="configuration">The CosmosDB configuration.</param>
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
-        public CosmosHealthCheck(
+        public FhirCosmosHealthCheck(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration configuration,
             IDocumentClientTestProvider testProvider,
-            ILogger<CosmosHealthCheck> logger)
+            ILogger<FhirCosmosHealthCheck> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(configuration, nameof(configuration));

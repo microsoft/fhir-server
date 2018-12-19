@@ -14,9 +14,9 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    internal class CosmosResourceWrapper : ResourceWrapper
+    internal class FhirCosmosResourceWrapper : ResourceWrapper
     {
-        public CosmosResourceWrapper(ResourceWrapper resource)
+        public FhirCosmosResourceWrapper(ResourceWrapper resource)
             : this(
                   EnsureArg.IsNotNull(resource, nameof(resource)).ResourceId,
                   resource.Version,
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
         }
 
-        public CosmosResourceWrapper(
+        public FhirCosmosResourceWrapper(
             string resourceId,
             string versionId,
             string resourceTypeName,
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [JsonConstructor]
-        protected CosmosResourceWrapper()
+        protected FhirCosmosResourceWrapper()
         {
         }
 

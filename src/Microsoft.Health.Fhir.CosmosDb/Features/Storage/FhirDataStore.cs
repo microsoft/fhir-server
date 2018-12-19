@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            var cosmosWrapper = new CosmosResourceWrapper(resource);
+            var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
 
             try
             {
@@ -149,18 +149,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.resourceId = @resourceId and r.version = @version", sqlParameterCollection);
 
-                var executor = CreateDocumentQuery<CosmosResourceWrapper>(
+                var executor = CreateDocumentQuery<FhirCosmosResourceWrapper>(
                     sqlQuerySpec,
                     new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) });
 
-                var result = await executor.ExecuteNextAsync<CosmosResourceWrapper>(cancellationToken);
+                var result = await executor.ExecuteNextAsync<FhirCosmosResourceWrapper>(cancellationToken);
 
                 return result.FirstOrDefault();
             }
 
             try
             {
-                return await _documentClient.ReadDocumentAsync<CosmosResourceWrapper>(
+                return await _documentClient.ReadDocumentAsync<FhirCosmosResourceWrapper>(
                     UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _cosmosDataStoreConfiguration.FhirCollectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);

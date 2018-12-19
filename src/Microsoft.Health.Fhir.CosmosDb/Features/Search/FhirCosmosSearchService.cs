@@ -18,12 +18,12 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
-    public class CosmosSearchService : SearchService
+    public class FhirCosmosSearchService : SearchService
     {
         private readonly FhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
 
-        public CosmosSearchService(
+        public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             FhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
@@ -92,8 +92,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 FeedResponse<Document> fetchedResults = await documentQuery.ExecuteNextAsync<Document>(cancellationToken);
 
-                CosmosResourceWrapper[] wrappers = fetchedResults
-                    .Select(r => r.GetPropertyValue<CosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
+                FhirCosmosResourceWrapper[] wrappers = fetchedResults
+                    .Select(r => r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
 
                 return new SearchResult(wrappers, fetchedResults.ResponseContinuation);
             }
