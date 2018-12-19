@@ -42,6 +42,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		testauthenvironment.json = testauthenvironment.json
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{B5F2D2DF-D0C7-4861-8259-F6A041DB9854}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "apps", "apps", "{80E8C5D3-E02C-49C0-969B-0C3A02FA1FF4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartLauncher", "samples\apps\SmartLauncher\SmartLauncher.csproj", "{49CA3B9D-7A22-43E0-A434-B0EC38D119A5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -104,6 +110,10 @@ Global
 		{CA276939-8071-4734-9FE4-ADC825B72116}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CA276939-8071-4734-9FE4-ADC825B72116}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CA276939-8071-4734-9FE4-ADC825B72116}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49CA3B9D-7A22-43E0-A434-B0EC38D119A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49CA3B9D-7A22-43E0-A434-B0EC38D119A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49CA3B9D-7A22-43E0-A434-B0EC38D119A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49CA3B9D-7A22-43E0-A434-B0EC38D119A5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -123,6 +133,8 @@ Global
 		{E2C2B117-32CD-449F-A4A8-4C8BA874D693} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{CA276939-8071-4734-9FE4-ADC825B72116} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{80E8C5D3-E02C-49C0-969B-0C3A02FA1FF4} = {B5F2D2DF-D0C7-4861-8259-F6A041DB9854}
+		{49CA3B9D-7A22-43E0-A434-B0EC38D119A5} = {80E8C5D3-E02C-49C0-969B-0C3A02FA1FF4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
