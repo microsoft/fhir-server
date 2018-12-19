@@ -40,6 +40,13 @@
             ],
             "defaultValue": "S1"
         },
+        "allowedOrigins": {
+            "type": "array",
+            "defaultValue": [],
+            "metadata": {
+                "description": "CORS Allowed Origins"
+            }
+        },
         "securityAuthenticationAuthority": {
             "type": "string",
             "defaultValue": "",
@@ -52,6 +59,13 @@
             "defaultValue": "",
             "metadata": {
                 "description": "Audience (aud) to validate in JWT"
+            }
+        },
+        "enableAadSmartOnFhirProxy": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Enable Azure AAD SMART on FHIR Proxy"
             }
         },
         "repositoryUrl": {
@@ -107,6 +121,13 @@
             "metadata": {
                 "description": "Additional configuration properties for the FHIR server. In the form {\"path1\":\"value1\",\"path2\":\"value2\"}"
             }
+        },
+        "solutionType": {
+            "type": "string",
+            "defaultValue": "FhirServerCosmosDB",
+            "metadata": {
+                "description": "The type of the solution"
+            }
         }
     },
     "variables": {
@@ -127,6 +148,7 @@
             "WEBSITE_NODE_DEFAULT_VERSION": "6.9.4",
             "KeyVault:Endpoint": "[variables('keyvaultEndpoint')]",
             "FhirServer:Security:Enabled": "[variables('securityAuthenticationEnabled')]",
+            "FhirServer:Security:EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]"
         },
@@ -150,6 +172,9 @@
                             "apiVersion": "2015-08-01",
                             "name": "[variables('appServicePlanName')]",
                             "type": "Microsoft.Web/serverfarms",
+                            "tags": {
+                                "FhirServerSolution": "[parameters('solutionType')]"
+                            },
                             "location": "[resourceGroup().location]",
                             "sku": {
                                 "name": "[parameters('appServicePlanSku')]"
@@ -166,13 +191,21 @@
             "apiVersion": "2015-08-01",
             "type": "Microsoft.Web/sites",
             "name": "[variables('serviceName')]",
+            "tags": {
+                "FhirServerSolution": "[parameters('solutionType')]"
+            },
             "location": "[resourceGroup().location]",
             "identity": {
                 "type": "SystemAssigned"
             },
             "properties": {
                 "clientAffinityEnabled": false,
-                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]"
+                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
+                "siteConfig": {
+                    "cors": {
+                        "allowedOrigins": "[parameters('allowedOrigins')]"
+                    }
+                }
             },
             "dependsOn": [
                 "nestedTemplate"
@@ -226,7 +259,8 @@
             "kind": "web",
             "tags": {
                 "[concat('hidden-link:', resourceId('Microsoft.Web/sites', variables('serviceName')))]": "Resource",
-                "displayName": "AppInsightsComponent"
+                "displayName": "AppInsightsComponent",
+                "FhirServerSolution": "[parameters('solutionType')]"
             },
             "properties": {
                 "Application_Type": "web",
@@ -236,6 +270,9 @@
         {
             "apiVersion": "2015-04-08",
             "type": "Microsoft.DocumentDb/databaseAccounts",
+            "tags": {
+                "FhirServerSolution": "[parameters('solutionType')]"
+            },
             "name": "[variables('serviceName')]",
             "location": "[resourceGroup().location]",
             "properties": {
@@ -255,7 +292,9 @@
             "name": "[variables('serviceName')]",
             "apiVersion": "2015-06-01",
             "location": "[resourceGroup().location]",
-            "tags": {},
+            "tags": {
+                "FhirServerSolution": "[parameters('solutionType')]"
+            },
             "properties": {
                 "sku": {
                     "family": "A",
