@@ -4,6 +4,7 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <IsPackable>true</IsPackable>
     <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
+    <UserSecretsId>29a71f18-2146-4ff0-a511-da3cf615d951</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
