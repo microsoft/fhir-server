@@ -68,28 +68,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, $"There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".");
-                    throw new OpenIdConfigurationException();
+                    if (ex is HttpRequestException || ex is OperationCanceledException)
+                    {
+                        logger.LogWarning(ex, $"There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".");
+                        throw new OpenIdConfigurationException();
+                    }
+
+                    throw;
                 }
             }
 
-            if (openIdConfigurationResponse.IsSuccessStatusCode)
-            {
-                var openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+            openIdConfigurationResponse.EnsureSuccessStatusCode();
 
-                try
-                {
-                    _aadTokenEndpoint = openIdConfiguration["token_endpoint"].Value<string>();
-                    _aadAuthorizeEndpoint = openIdConfiguration["authorization_endpoint"].Value<string>();
-                }
-                catch (ArgumentNullException ex)
-                {
-                    logger.LogError($"{ex.Message}, There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".");
-                    throw new OpenIdConfigurationException();
-                }
-            }
-            else
+            var openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            try
             {
+                _aadTokenEndpoint = openIdConfiguration["token_endpoint"].Value<string>();
+                _aadAuthorizeEndpoint = openIdConfiguration["authorization_endpoint"].Value<string>();
+            }
+            catch (ArgumentNullException ex)
+            {
+                logger.LogError($"{ex.Message}, There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".");
                 throw new OpenIdConfigurationException();
             }
         }
@@ -209,10 +209,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             catch
             {
                 _logger.LogError("Error parsing launch parameters.");
-                throw;
+                return BadRequest("Invalid launch context parameters");
             }
 
-            return RedirectPermanent($"{redirectUrl.ToString()}?code={compoundCode}&state={newState}&session_state={sessionState}");
+            return Redirect($"{redirectUrl.ToString()}?code={compoundCode}&state={newState}&session_state={sessionState}");
         }
 
         /// <summary>
@@ -276,7 +276,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             catch
             {
                 _logger.LogError("Error decoding compound code");
-                throw;
+                return BadRequest("Invalid compound authorization code");
             }
 
             Uri callbackUrl = new Uri(
