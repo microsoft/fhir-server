@@ -42,7 +42,7 @@
         },
         "allowedOrigins": {
             "type": "array",
-            "defaultValue": [ "https://localhost:6001" ],
+            "defaultValue": [],
             "metadata": {
                 "description": "CORS Allowed Origins"
             }
@@ -63,7 +63,7 @@
         },
         "enableAadSmartOnFhirProxy": {
             "type": "bool",
-            "defaultValue": true,
+            "defaultValue": false,
             "metadata": {
                 "description": "Enable Azure AAD SMART on FHIR Proxy"
             }
