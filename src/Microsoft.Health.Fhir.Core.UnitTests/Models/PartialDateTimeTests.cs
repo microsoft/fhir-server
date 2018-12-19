@@ -5,12 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Threading;
 using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Models
 {
-    public class PartialDateTimeTests
+    public class PartialDateTimeTests : IDisposable
     {
         private const string ParamNameYear = "year";
         private const string ParamNameMonth = "month";
@@ -32,6 +34,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         private static readonly TimeSpan DefaultUtcOffset = TimeSpan.FromMinutes(60);
 
         private PartialDateTimeBuilder _builder = new PartialDateTimeBuilder();
+
+        private CultureInfo _originalCulture;
+
+        public PartialDateTimeTests()
+        {
+            _originalCulture = Thread.CurrentThread.CurrentCulture;
+        }
 
         public static IEnumerable<object[]> GetParameterPreviousParamNullData()
         {
@@ -408,6 +417,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
 
             Assert.NotNull(dateTime);
             Assert.Equal(expected, dateTime.ToString());
+        }
+
+        public void Dispose()
+        {
+            Thread.CurrentThread.CurrentCulture = _originalCulture;
         }
 
         private class PartialDateTimeBuilder
