@@ -14,7 +14,6 @@ using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -25,9 +24,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     {
         private readonly ILogger<CollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
-        private static readonly RangeIndex DefaultStringRangeIndex = new RangeIndex(DataType.String, -1);
 
-        private const int CollectionSettingsVersion = 1;
+        private const int CollectionSettingsVersion = 2;
 
         public CollectionSettingsUpdater(ILogger<CollectionSettingsUpdater> logger, CosmosDataStoreConfiguration configuration)
         {
@@ -52,34 +50,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                 collection.IndexingPolicy = new IndexingPolicy
                 {
                     IncludedPaths = new Collection<IncludedPath>
-                {
-                    new IncludedPath
                     {
-                        Path = "/*",
-                        Indexes = new Collection<Index>
+                        new IncludedPath
                         {
-                            new RangeIndex(DataType.Number, -1),
-                            new HashIndex(DataType.String, 3),
+                            Path = "/*",
+                            Indexes = new Collection<Index>
+                            {
+                                new RangeIndex(DataType.Number, -1),
+                                new RangeIndex(DataType.String, -1),
+                            },
                         },
                     },
-                    new IncludedPath
-                    {
-                        Path = $"/{KnownResourceWrapperProperties.LastModified}/?",
-                        Indexes = new Collection<Index>
-                        {
-                            DefaultStringRangeIndex,
-                        },
-                    },
-                    GenerateIncludedPathForSearchIndexEntryField(SearchValueConstants.DateTimeStartName, DefaultStringRangeIndex),
-                    GenerateIncludedPathForSearchIndexEntryField(SearchValueConstants.DateTimeEndName, DefaultStringRangeIndex),
-                },
                     ExcludedPaths = new Collection<ExcludedPath>
-                {
-                    new ExcludedPath
                     {
-                        Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
+                        new ExcludedPath
+                        {
+                            Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
+                        },
                     },
-                },
                 };
 
                 // Setting the DefaultTTL to -1 means that by default all documents in the collection will live forever

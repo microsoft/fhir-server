@@ -20,10 +20,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         private readonly CosmosDataStoreConfiguration _configuration;
 
         /// <summary>
-        /// This integer should be incremented when changing any value in the
-        /// UpdateIndexAsync function
+        /// This integer should be incremented when changing any configuration in the
+        /// CollectionSettingsUpdater.
         /// </summary>
-        internal const int CollectionSettingsVersion = 1;
+        internal const int CollectionSettingsVersion = 2;
 
         private readonly ICosmosDbDistributedLockFactory _lockFactory;
         private readonly ILogger<CollectionUpgradeManager> _logger;
