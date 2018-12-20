@@ -20,20 +20,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     public class CosmosSearchService : SearchService
     {
-        private readonly CosmosDataStore _cosmosDataStore;
+        private readonly FhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
 
         public CosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
-            CosmosDataStore cosmosDataStore,
+            FhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
             IBundleFactory bundleFactory)
-            : base(searchOptionsFactory, bundleFactory, cosmosDataStore)
+            : base(searchOptionsFactory, bundleFactory, fhirDataStore)
         {
-            EnsureArg.IsNotNull(cosmosDataStore, nameof(cosmosDataStore));
+            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
 
-            _cosmosDataStore = cosmosDataStore;
+            _fhirDataStore = fhirDataStore;
             _queryBuilder = queryBuilder;
         }
 
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.CountOnly)
             {
-                IDocumentQuery<int> documentCountQuery = _cosmosDataStore.CreateDocumentQuery<int>(sqlQuerySpec, feedOptions);
+                IDocumentQuery<int> documentCountQuery = _fhirDataStore.CreateDocumentQuery<int>(sqlQuerySpec, feedOptions);
 
                 using (documentCountQuery)
                 {
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 }
             }
 
-            IDocumentQuery<Document> documentQuery = _cosmosDataStore.CreateDocumentQuery<Document>(
+            IDocumentQuery<Document> documentQuery = _fhirDataStore.CreateDocumentQuery<Document>(
                 sqlQuerySpec,
                 feedOptions);
 

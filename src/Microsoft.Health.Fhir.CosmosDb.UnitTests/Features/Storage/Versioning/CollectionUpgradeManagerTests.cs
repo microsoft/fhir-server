@@ -10,8 +10,9 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
 using Xunit;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
         {
             AllowDatabaseCreation = false,
-            CollectionId = "testcollectionid",
+            FhirCollectionId = "testcollectionid",
             ConnectionMode = ConnectionMode.Direct,
             ConnectionProtocol = Protocol.Https,
             DatabaseId = "testdatabaseid",
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             PreferredLocations = null,
         };
 
-        private readonly CollectionUpgradeManager _manager;
+        private readonly FhirCollectionUpgradeManager _manager;
         private readonly IDocumentClient _client;
 
         public CollectionUpgradeManagerTests()
@@ -51,8 +52,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
 
             collectionVersionWrappers.AsDocumentQuery().ExecuteNextAsync<CollectionVersion>().Returns(new FeedResponse<CollectionVersion>(new List<CollectionVersion>()));
 
-            var updaters = new ICollectionUpdater[] { new CollectionSettingsUpdater(NullLogger<CollectionSettingsUpdater>.Instance, _cosmosDataStoreConfiguration), };
-            _manager = new CollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, factory, NullLogger<CollectionUpgradeManager>.Instance);
+            var updaters = new IFhirCollectionUpdater[] { new FhirCollectionSettingsUpdater(NullLogger<FhirCollectionSettingsUpdater>.Instance, _cosmosDataStoreConfiguration), };
+            _manager = new FhirCollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, factory, NullLogger<FhirCollectionUpgradeManager>.Instance);
         }
 
         [Fact]
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
 
             await UpdateCollectionAsync(documentCollection);
 
-            await _client.Received(1).UpsertDocumentAsync(Arg.Is(_cosmosDataStoreConfiguration.RelativeCollectionUri), Arg.Is<CollectionVersion>(x => x.Version == CollectionUpgradeManager.CollectionSettingsVersion));
+            await _client.Received(1).UpsertDocumentAsync(Arg.Is(_cosmosDataStoreConfiguration.RelativeFhirCollectionUri), Arg.Is<CollectionVersion>(x => x.Version == FhirCollectionUpgradeManager.CollectionSettingsVersion));
         }
 
         [Fact]

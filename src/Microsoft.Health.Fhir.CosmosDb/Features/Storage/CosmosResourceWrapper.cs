@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
@@ -69,6 +70,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         [JsonProperty("_etag")]
         public string ETag { get; protected set; }
+
+        [JsonProperty(KnownDocumentProperties.IsSystem)]
+        public bool IsSystem { get; } = false;
 
         [JsonProperty("version")]
         public override string Version

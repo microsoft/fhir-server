@@ -299,6 +299,9 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to Resource creation is not allowed..
+        /// </summary>
         internal static string RequestRateExceeded {
             get {
                 return ResourceManager.GetString("RequestRateExceeded", resourceCulture);

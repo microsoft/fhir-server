@@ -8,10 +8,11 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert
 {
-    internal class UpsertWithHistory : StoredProcedureBase
+    internal class UpsertWithHistory : StoredProcedureBase, IFhirStoredProcedure
     {
         public async Task<UpsertWithHistoryModel> Execute(IDocumentClient client, Uri collection, CosmosResourceWrapper resource, string matchVersionId, bool allowCreate, bool keepHistory)
         {

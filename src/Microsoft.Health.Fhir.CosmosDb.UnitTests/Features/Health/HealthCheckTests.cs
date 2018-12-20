@@ -7,13 +7,14 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Health;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
+using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
     {
         private readonly IDocumentClient _documentClient = Substitute.For<IDocumentClient>();
         private readonly IDocumentClientTestProvider _testProvider = Substitute.For<IDocumentClientTestProvider>();
-        private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb", CollectionId = "mycoll" };
+        private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb", FhirCollectionId = "mycoll" };
 
         private readonly CosmosHealthCheck _healthCheck;
 

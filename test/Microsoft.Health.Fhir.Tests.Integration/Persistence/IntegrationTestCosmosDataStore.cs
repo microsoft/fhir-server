@@ -4,25 +4,29 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
+using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class IntegrationTestCosmosDataStore : IDataStore, IDisposable
     {
         private readonly IDocumentClient _documentClient;
-        private readonly CosmosDataStore _dataStore;
+        private readonly FhirDataStore _dataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 
         public IntegrationTestCosmosDataStore()
@@ -32,38 +36,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Host = Environment.GetEnvironmentVariable("CosmosDb:Host") ?? CosmosDbLocalEmulator.Host,
                 Key = Environment.GetEnvironmentVariable("CosmosDb:Key") ?? CosmosDbLocalEmulator.Key,
                 DatabaseId = Environment.GetEnvironmentVariable("CosmosDb:DatabaseId") ?? "FhirTests",
-                CollectionId = Guid.NewGuid().ToString(),
+                FhirCollectionId = Guid.NewGuid().ToString(),
                 AllowDatabaseCreation = true,
                 PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
             };
 
-            var updaters = new ICollectionUpdater[]
+            var fhirStoredProcs = typeof(IFhirStoredProcedure).Assembly
+                .GetTypes()
+                .Where(x => !x.IsAbstract && typeof(IFhirStoredProcedure).IsAssignableFrom(x))
+                .ToArray()
+                .Select(type => (IFhirStoredProcedure)Activator.CreateInstance(type));
+
+            var updaters = new IFhirCollectionUpdater[]
             {
-                new CollectionSettingsUpdater(NullLogger<CollectionSettingsUpdater>.Instance, _cosmosDataStoreConfiguration),
-                new StoredProcedureInstaller(),
+                new FhirCollectionSettingsUpdater(NullLogger<FhirCollectionSettingsUpdater>.Instance, _cosmosDataStoreConfiguration),
+                new FhirStoredProcedureInstaller(fhirStoredProcs),
             };
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<IDocumentClient>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
 
-            var upgradeManager = new CollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
+            var upgradeManager = new FhirCollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, dbLock, NullLogger<FhirCollectionUpgradeManager>.Instance);
             IDocumentClientTestProvider testProvider = new DocumentClientReadWriteTestProvider();
 
-            var documentClientInitializer = new DocumentClientInitializer(testProvider, NullLogger<DocumentClientInitializer>.Instance, upgradeManager, Substitute.For<IFhirRequestContextAccessor>());
+            var documentClientInitializer = new DocumentClientInitializer(testProvider, NullLogger<DocumentClientInitializer>.Instance, upgradeManager);
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
-            documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration).GetAwaiter().GetResult();
+            var fhirCollectionInitializer = new FhirCollectionInitializer(_cosmosDataStoreConfiguration, upgradeManager, NullLogger<FhirCollectionInitializer>.Instance);
+            documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }).GetAwaiter().GetResult();
 
-            var cosmosDocumentQueryFactory = new CosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
-            _dataStore = new CosmosDataStore(
+            var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
+            var fhirRequestContextAccessor = new FhirRequestContextAccessor();
+
+            _dataStore = new FhirDataStore(
                 new NonDisposingScope(_documentClient),
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
-                NullLogger<CosmosDataStore>.Instance);
+                fhirRequestContextAccessor,
+                NullLogger<FhirDataStore>.Instance);
         }
 
         public void Dispose()
         {
-            _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.RelativeCollectionUri).GetAwaiter().GetResult();
+            _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.RelativeFhirCollectionUri).GetAwaiter().GetResult();
             _documentClient?.Dispose();
         }
 
