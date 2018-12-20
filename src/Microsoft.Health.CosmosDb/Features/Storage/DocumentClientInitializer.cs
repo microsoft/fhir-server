@@ -12,7 +12,6 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.CosmosDb.Configs;
-using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -22,17 +21,14 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
     {
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly ILogger<DocumentClientInitializer> _logger;
-        private readonly IUpgradeManager _upgradeManager;
 
-        public DocumentClientInitializer(IDocumentClientTestProvider testProvider, ILogger<DocumentClientInitializer> logger, IUpgradeManager upgradeManager)
+        public DocumentClientInitializer(IDocumentClientTestProvider testProvider, ILogger<DocumentClientInitializer> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(upgradeManager, nameof(upgradeManager));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
 
             _testProvider = testProvider;
             _logger = logger;
-            _upgradeManager = upgradeManager;
         }
 
         /// <inheritdoc />

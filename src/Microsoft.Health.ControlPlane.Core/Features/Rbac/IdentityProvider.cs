@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
@@ -17,6 +18,11 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public IdentityProvider(string name, string authority, IReadOnlyList<string> audience, string version)
         {
+            EnsureArg.IsNotNull(name, nameof(name));
+            EnsureArg.IsNotNull(authority, nameof(authority));
+            EnsureArg.IsNotNull(audience, nameof(audience));
+            EnsureArg.IsNot(version, nameof(version));
+
             Name = name;
             Authority = authority;
             Audience = audience;

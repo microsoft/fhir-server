@@ -70,6 +70,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
             var cosmosIdentityProvider = new CosmosIdentityProvider(identityProvider);
             var resultIdentityProvider = await UpsertSystemObjectAsync(cosmosIdentityProvider, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
+
             return resultIdentityProvider.ToIdentityProvider();
         }
 
@@ -88,19 +89,24 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(id, nameof(id));
             EnsureArg.IsNotNull(partitionKey, nameof(partitionKey));
+
             var documentQuery = new SqlQuerySpec(
                 "SELECT * FROM root r WHERE r.id = @id",
                 new SqlParameterCollection(new[] { new SqlParameter("@id", id) }));
+
             var feedOptions = new FeedOptions
             {
                 PartitionKey = new PartitionKey(partitionKey),
             };
+
             IDocumentQuery<T> cosmosDocumentQuery =
                 CreateDocumentQuery<T>(documentQuery, feedOptions);
+
             using (cosmosDocumentQuery)
             {
-                var response = await cosmosDocumentQuery.ExecuteNextAsync(cancellationToken);
+                FeedResponse<dynamic> response = await cosmosDocumentQuery.ExecuteNextAsync(cancellationToken);
                 var result = response.SingleOrDefault();
+
                 if (result == null)
                 {
                     _logger.LogError($"{typeof(T)} with id {id} was not found in Cosmos DB.");
@@ -121,16 +127,18 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                 PartitionKey = new PartitionKey(partitionKey),
                 AccessCondition = eTagAccessCondition,
             };
+
             try
             {
-                var response = await _documentClient.Value.UpsertDocumentAsync(
+                ResourceResponse<Document> response = await _documentClient.Value.UpsertDocumentAsync(
                     _collectionUri,
                     systemObject,
                     requestOptions,
                     true,
                     cancellationToken);
                 _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
-                return (dynamic)response.Resource;
+
+                return (T)(dynamic)response.Resource;
             }
             catch (DocumentClientException dce)
             {
