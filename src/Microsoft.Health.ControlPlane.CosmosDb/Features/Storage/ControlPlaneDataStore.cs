@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.ControlPlane.Core.Features.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
@@ -57,6 +58,28 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             }
 
             return identityProvider.ToIdentityProvider();
+        }
+
+        public async Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(name, nameof(name));
+
+            var role = await GetSystemDocumentByIdAsync<CosmosRole>(name, CosmosRole.RolePartition, cancellationToken);
+            if (role == null)
+            {
+                throw new RoleNotFoundException(name);
+            }
+
+            return role.ToRole();
+        }
+
+        public async Task<Role> UpsertRoleAsync(Role role, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(role, nameof(role));
+
+            var cosmosRole = new CosmosRole(role);
+            var resultRole = await UpsertSystemObjectAsync(cosmosRole, CosmosRole.RolePartition, cancellationToken);
+            return resultRole.ToRole();
         }
 
         public async Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken)

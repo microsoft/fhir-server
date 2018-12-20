@@ -68,5 +68,13 @@ namespace Microsoft.Health.ControlPlane.Core {
                 return ResourceManager.GetString("IdentityProviderNotFound", resourceCulture);
             }
         }
+
+        internal static string RoleNotFound
+        {
+            get
+            {
+                return ResourceManager.GetString("RoleNotFound", resourceCulture);
+            }
+        }
     }
 }

@@ -9,11 +9,10 @@ using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
-    // TODO: Remove before PR
-    [Route("Admin/IdentityProvider/")]
     public class ControlPlaneController : Controller
     {
         private readonly IRbacService _rbacService;
@@ -26,11 +25,39 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpGet]
-        [Route("{IdentityProviderName}")]
+        [Route("Admin/IdentityProvider/{IdentityProviderName}")]
         [AllowAnonymous]
         public async Task<IActionResult> Index(string identityProviderName, CancellationToken cancellationToken)
         {
             var response = await _rbacService.GetIdentityProviderAsync(identityProviderName, cancellationToken);
+            return Ok(response);
+        }
+
+        [HttpGet]
+        [Route("Admin/Roles/{RoleName}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetRole(string roleName, CancellationToken cancellationToken)
+        {
+            var response = await _rbacService.GetRoleAsync(roleName, cancellationToken);
+            return Ok(response);
+        }
+
+        [HttpPut]
+        [Route("Admin/Roles")]
+        [AllowAnonymous]
+        public async Task<IActionResult> UpdateRole([FromBody] Role role, CancellationToken cancellationToken)
+        {
+            var response = await _rbacService.UpsertRoleAsync(role, cancellationToken);
+            return Ok(response);
+        }
+
+
+        [HttpPost]
+        [Route("Admin/Roles")]
+        [AllowAnonymous]
+        public async Task<IActionResult> CreateRole([FromBody] Role role, CancellationToken cancellationToken)
+        {
+            var response = await _rbacService.UpsertRoleAsync(role, cancellationToken);
             return Ok(response);
         }
     }

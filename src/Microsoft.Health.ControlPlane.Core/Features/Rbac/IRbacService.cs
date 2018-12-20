@@ -5,6 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
@@ -13,5 +14,9 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken);
 
         Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken);
+
+        Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken);
+
+        Task<Role> UpsertRoleAsync(Role role, CancellationToken cancellationToken);
     }
 }
