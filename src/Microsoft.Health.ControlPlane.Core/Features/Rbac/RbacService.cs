@@ -41,5 +41,10 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         {
             return await _controlPlaneDataStore.UpsertRoleAsync(role, cancellationToken);
         }
+
+        public async Task<Role> AddRoleAsync(Role role, CancellationToken cancellationToken)
+        {
+            return await _controlPlaneDataStore.AddRoleAsync(role, cancellationToken);
+        }
     }
 }

@@ -19,5 +19,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
         Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken);
 
         Task<Role> UpsertRoleAsync(Role role, CancellationToken cancellationToken);
+
+        Task<Role> AddRoleAsync(Role role, CancellationToken cancellationToken);
     }
 }

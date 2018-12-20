@@ -82,6 +82,24 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return resultRole.ToRole();
         }
 
+        public async Task<Role> AddRoleAsync(Role role, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(role, nameof(role));
+
+            var cosmosRole = new CosmosRole(role);
+            var resultRole = await UpsertSystemObjectAsync(cosmosRole, CosmosRole.RolePartition, cancellationToken);
+            return resultRole.ToRole();
+        }
+
+        public async Task<Role> DeleteRoleAsync(Role role, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(role, nameof(role));
+
+            var cosmosRole = new CosmosRole(role);
+            var resultRole = await DeleteSystemObjectAsync(cosmosRole);
+            return resultRole.ToRole();
+        }
+
         public async Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
@@ -147,6 +165,59 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                     requestOptions,
                     true,
                     cancellationToken);
+                _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
+                return (dynamic)response.Resource;
+            }
+            catch (DocumentClientException dce)
+            {
+                _logger.LogError(dce, "Unhandled Document Client Exception");
+                throw;
+            }
+        }
+
+        private async Task<T> AddSystemObjectAsync<T>(T systemObject, string partitionKey, CancellationToken cancellationToken)
+           where T : class
+        {
+            EnsureArg.IsNotNull(systemObject, nameof(systemObject));
+            var eTagAccessCondition = new AccessCondition();
+
+            var requestOptions = new RequestOptions
+            {
+                PartitionKey = new PartitionKey(partitionKey),
+                AccessCondition = eTagAccessCondition,
+            };
+            try
+            {
+                var response = await _documentClient.Value.CreateDocumentAsync(
+                    _collectionUri,
+                    systemObject,
+                    requestOptions,
+                    true,
+                    cancellationToken);
+                _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
+                return (dynamic)response.Resource;
+            }
+            catch (DocumentClientException dce)
+            {
+                _logger.LogError(dce, "Unhandled Document Client Exception");
+                throw;
+            }
+        }
+
+        private async Task<T> DeleteSystemObjectAsync<T>(T systemObject, string partitionKey, CancellationToken cancellationToken)
+           where T : class
+        {
+            EnsureArg.IsNotNull(systemObject, nameof(systemObject));
+            var eTagAccessCondition = new AccessCondition();
+
+            var requestOptions = new RequestOptions
+            {
+                PartitionKey = new PartitionKey(partitionKey),
+                AccessCondition = eTagAccessCondition,
+            };
+            try
+            {
+                var response = await _documentClient.Value.DeleteDocumentAsync(_collectionUri);
                 _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
                 return (dynamic)response.Resource;
             }

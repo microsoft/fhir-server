@@ -51,13 +51,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return Ok(response);
         }
 
-
         [HttpPost]
         [Route("Admin/Roles")]
         [AllowAnonymous]
         public async Task<IActionResult> CreateRole([FromBody] Role role, CancellationToken cancellationToken)
         {
-            var response = await _rbacService.UpsertRoleAsync(role, cancellationToken);
+            var response = await _rbacService.AddRoleAsync(role, cancellationToken);
             return Ok(response);
         }
     }
