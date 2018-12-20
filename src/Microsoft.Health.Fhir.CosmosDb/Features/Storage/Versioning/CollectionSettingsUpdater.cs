@@ -50,24 +50,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                 collection.IndexingPolicy = new IndexingPolicy
                 {
                     IncludedPaths = new Collection<IncludedPath>
-                {
-                    new IncludedPath
                     {
-                        Path = "/*",
-                        Indexes = new Collection<Index>
+                        new IncludedPath
                         {
-                            new RangeIndex(DataType.Number, -1),
-                            new RangeIndex(DataType.String, -1),
+                            Path = "/*",
+                            Indexes = new Collection<Index>
+                            {
+                                new RangeIndex(DataType.Number, -1),
+                                new RangeIndex(DataType.String, -1),
+                            },
                         },
                     },
-                },
                     ExcludedPaths = new Collection<ExcludedPath>
-                {
-                    new ExcludedPath
                     {
-                        Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
+                        new ExcludedPath
+                        {
+                            Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
+                        },
                     },
-                },
                 };
 
                 // Setting the DefaultTTL to -1 means that by default all documents in the collection will live forever
