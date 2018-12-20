@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             _fixture = fixture;
         }
 
-        [Fact(Skip = "because")]
+        [Fact]
         public async Task GivenPatientIdAndSmartAppUrl_WhenLaunchingApp_LaunchSequenceAndSignIn()
         {
             // There is no remote FHIR server. Skip test
