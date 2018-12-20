@@ -4,14 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 
-namespace Microsoft.Health.CosmosDb.Registration
+namespace Microsoft.Extensions.DependencyInjection
 {
     public static class CosmosDbRegistrationExtensions
     {
@@ -25,6 +25,11 @@ namespace Microsoft.Health.CosmosDb.Registration
         public static IServiceCollection AddCosmosDb(this IServiceCollection services, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(services, nameof(services));
+
+            if (services.Any(x => x.ImplementationType == typeof(DocumentClientProvider)))
+            {
+                return services;
+            }
 
             services.Add(provider =>
                 {
@@ -76,10 +81,6 @@ namespace Microsoft.Health.CosmosDb.Registration
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()
                 .AsService<ICosmosDbDistributedLockFactory>();
-
-            services.Add<CosmosDocumentQueryFactory>()
-                .Singleton()
-                .AsService<ICosmosDocumentQueryFactory>();
 
             services.Add<RetryExceptionPolicyFactory>()
                 .Singleton()

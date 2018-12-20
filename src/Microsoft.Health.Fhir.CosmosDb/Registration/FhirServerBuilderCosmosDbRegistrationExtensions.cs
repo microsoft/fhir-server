@@ -47,6 +47,8 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             IServiceCollection services = fhirServerBuilder.Services;
 
+            services.AddCosmosDb();
+
             services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("FhirServer:CosmosDb").Bind(cosmosCollectionConfiguration));
 
             services.Add<FhirDataStore>()

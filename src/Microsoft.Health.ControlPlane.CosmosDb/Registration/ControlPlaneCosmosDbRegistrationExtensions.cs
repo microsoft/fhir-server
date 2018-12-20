@@ -19,10 +19,12 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class ControlPlaneCosmosDbRegistrationExtensions
     {
-        public static IServiceCollection AddCosmosControlPlane(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddControlPlaneCosmosDb(this IServiceCollection services, IConfiguration configuration)
         {
             EnsureArg.IsNotNull(services, nameof(services));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+
+            services.AddCosmosDb();
 
             services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("ControlPlane:CosmosDb").Bind(cosmosCollectionConfiguration));
 
