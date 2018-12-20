@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -13,6 +14,7 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
@@ -142,6 +144,11 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             }
             catch (DocumentClientException dce)
             {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
                 _logger.LogError(dce, "Unhandled Document Client Exception");
                 throw;
             }
