@@ -16,7 +16,11 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+<<<<<<< HEAD:src/Microsoft.Health.Fhir.CosmosDb/Features/Storage/Versioning/FhirCollectionSettingsUpdater.cs
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
+=======
+using Microsoft.Health.Fhir.CosmosDb.Configs;
+>>>>>>> origin:src/Microsoft.Health.Fhir.CosmosDb/Features/Storage/Versioning/CollectionSettingsUpdater.cs
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -27,8 +31,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     {
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
+<<<<<<< HEAD:src/Microsoft.Health.Fhir.CosmosDb/Features/Storage/Versioning/FhirCollectionSettingsUpdater.cs
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private static readonly RangeIndex DefaultStringRangeIndex = new RangeIndex(DataType.String, -1);
+=======
+>>>>>>> origin:src/Microsoft.Health.Fhir.CosmosDb/Features/Storage/Versioning/CollectionSettingsUpdater.cs
 
         private const int CollectionSettingsVersion = 2;
 

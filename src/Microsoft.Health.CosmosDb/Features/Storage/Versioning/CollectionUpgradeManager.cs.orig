@@ -20,7 +20,17 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
     {
         private readonly IEnumerable<ICollectionUpdater> _collectionUpdater;
         private readonly CosmosDataStoreConfiguration _configuration;
+<<<<<<< HEAD:src/Microsoft.Health.CosmosDb/Features/Storage/Versioning/CollectionUpgradeManager.cs
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
+=======
+
+        /// <summary>
+        /// This integer should be incremented when changing any configuration in the
+        /// CollectionSettingsUpdater.
+        /// </summary>
+        internal const int CollectionSettingsVersion = 2;
+
+>>>>>>> origin:src/Microsoft.Health.Fhir.CosmosDb/Features/Storage/Versioning/CollectionUpgradeManager.cs
         private readonly ICosmosDbDistributedLockFactory _lockFactory;
         private readonly ILogger<CollectionUpgradeManager> _logger;
 
@@ -44,7 +54,6 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
             _logger = logger;
         }
 
-        // This integer should be incremented in the derived instance when changing any configuration in the derived CollectionUpgradeManager
         public virtual int CollectionSettingsVersion => 0;
 
         public async Task SetupCollectionAsync(IDocumentClient documentClient, DocumentCollection collection)
