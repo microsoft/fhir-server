@@ -30,7 +30,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         public string PartitionKey { get; } = IdentityProviderPartition;
 
         [JsonProperty("_etag")]
-        public string ETag { get; protected set; }
+        public virtual string ETag { get; protected set; }
 
         [JsonProperty(KnownDocumentProperties.IsSystem)]
         public bool IsSystem { get; } = true;

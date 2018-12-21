@@ -30,13 +30,13 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         }
 
         [JsonProperty("name")]
-        public string Name { get; protected set; }
+        public virtual string Name { get; protected set; }
 
         [JsonProperty("authority")]
-        public string Authority { get; protected set; }
+        public virtual string Authority { get; protected set; }
 
         [JsonProperty("audience")]
-        public IReadOnlyList<string> Audience { get; protected set; }
+        public virtual IReadOnlyList<string> Audience { get; protected set; }
 
         [JsonProperty("version")]
         public virtual string Version { get; protected set; }

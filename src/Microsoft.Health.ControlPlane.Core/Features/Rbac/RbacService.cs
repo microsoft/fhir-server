@@ -23,11 +23,15 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public async Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+
             return await _controlPlaneDataStore.GetIdentityProviderAsync(name, cancellationToken);
         }
 
         public async Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
+
             return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, cancellationToken);
         }
     }
