@@ -36,7 +36,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
-            IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ILogger<ControlPlaneDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));

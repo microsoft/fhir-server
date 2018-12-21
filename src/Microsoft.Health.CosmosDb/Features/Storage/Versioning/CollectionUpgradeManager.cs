@@ -44,7 +44,9 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
             _logger = logger;
         }
 
-        // This integer should be incremented in the derived instance when changing any configuration in the derived CollectionUpgradeManager
+        /// <summary>
+        /// This integer should be incremented in the derived instance when changing any configuration in the derived CollectionUpgradeManager
+        /// </summary>
         public virtual int CollectionSettingsVersion => 0;
 
         public async Task SetupCollectionAsync(IDocumentClient documentClient, DocumentCollection collection)

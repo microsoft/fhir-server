@@ -29,6 +29,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         {
         }
 
-        public override int CollectionSettingsVersion => 1;
+        public override int CollectionSettingsVersion => 2;
     }
 }
