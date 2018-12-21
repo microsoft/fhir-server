@@ -16,7 +16,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -28,7 +27,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
-        private static readonly RangeIndex DefaultStringRangeIndex = new RangeIndex(DataType.String, -1);
 
         private const int CollectionSettingsVersion = 2;
 
@@ -103,15 +101,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             var result = await query.ExecuteNextAsync<CollectionVersion>();
 
             return result.FirstOrDefault() ?? new CollectionVersion();
-        }
-
-        private static IncludedPath GenerateIncludedPathForSearchIndexEntryField(string fieldName, params Index[] indices)
-        {
-            return new IncludedPath
-            {
-                Path = $"/{KnownResourceWrapperProperties.SearchIndices}/[]/{fieldName}/?",
-                Indexes = new Collection<Index>(indices),
-            };
         }
     }
 }
