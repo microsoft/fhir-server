@@ -33,9 +33,9 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         {
             var identityProviderName = "aad";
 
-            await _rbacService.GetIdentityProviderAsync(identityProviderName, CancellationToken.None);
+            var identityProvider = await _rbacService.GetIdentityProviderAsync(identityProviderName, CancellationToken.None);
 
-            await _controlPlaneDataStore.Received(1).GetIdentityProviderAsync(identityProviderName, Arg.Any<CancellationToken>());
+            Assert.Same(_identityProvider, identityProvider);
         }
 
         [Fact]
@@ -43,9 +43,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         {
             var identityProvider = await _rbacService.UpsertIdentityProviderAsync(_identityProvider, CancellationToken.None);
 
-            await _controlPlaneDataStore.Received(1).UpsertIdentityProviderAsync(_identityProvider, Arg.Any<CancellationToken>());
-
-            Assert.Equal(_identityProvider.Name, identityProvider.Name);
+            Assert.Same(_identityProvider, identityProvider);
         }
     }
 }
