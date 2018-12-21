@@ -135,8 +135,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             new OperationOutcome
                             {
                                 Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                            }, HttpStatusCode.BadRequest);
-                        healthExceptionResult.StatusCode = HttpStatusCode.BadRequest;
+                            }, HttpStatusCode.InternalServerError);
+                        healthExceptionResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
                 }
 

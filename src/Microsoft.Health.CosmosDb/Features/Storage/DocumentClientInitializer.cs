@@ -87,16 +87,18 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            _logger.LogInformation("Opening DocumentClient connection to {CollectionUri}", configuration.GetAbsoluteCollectionUri(cosmosCollectionConfiguration.CollectionId));
+            Uri absoluteCollectionUri = configuration.GetAbsoluteCollectionUri(cosmosCollectionConfiguration.CollectionId);
+
+            _logger.LogInformation("Opening DocumentClient connection to {CollectionUri}", absoluteCollectionUri);
             try
             {
                 await _testProvider.PerformTest(client, configuration, cosmosCollectionConfiguration);
 
-                _logger.LogInformation("Established DocumentClient connection to {CollectionUri}", configuration.GetAbsoluteCollectionUri(cosmosCollectionConfiguration.CollectionId));
+                _logger.LogInformation("Established DocumentClient connection to {CollectionUri}", absoluteCollectionUri);
             }
             catch (Exception e)
             {
-                _logger.LogCritical(e, "Failed to connect to DocumentClient collection {CollectionUri}", configuration.GetAbsoluteCollectionUri(cosmosCollectionConfiguration.CollectionId));
+                _logger.LogCritical(e, "Failed to connect to DocumentClient collection {CollectionUri}", absoluteCollectionUri);
                 throw;
             }
         }

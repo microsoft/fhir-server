@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
         }
 
-        [JsonProperty("id")]
+        [JsonProperty(KnownDocumentProperties.Id)]
         public string Id
         {
             get
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        [JsonProperty("_etag")]
+        [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; protected set; }
 
         [JsonProperty(KnownDocumentProperties.IsSystem)]
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices, ItemConverterType = typeof(SearchIndexEntryConverter))]
         public override IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
 
-        [JsonProperty("partitionKey")]
+        [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey => ToResourceKey().ToPartitionKey();
 
         internal string GetETagOrVersion()

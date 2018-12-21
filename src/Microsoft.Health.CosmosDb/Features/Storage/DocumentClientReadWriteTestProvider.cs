@@ -43,7 +43,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                 Id = "__healthcheck__";
             }
 
-            [JsonProperty("partitionKey")]
+            [JsonProperty(KnownDocumentProperties.PartitionKey)]
             public string PartitionKey { get; } = "__healthcheck__";
         }
     }
