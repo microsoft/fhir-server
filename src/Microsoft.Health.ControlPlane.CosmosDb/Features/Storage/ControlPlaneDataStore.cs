@@ -87,7 +87,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(role, nameof(role));
 
             var cosmosRole = new CosmosRole(role);
-            var resultRole = await UpsertSystemObjectAsync(cosmosRole, CosmosRole.RolePartition, cancellationToken);
+            var resultRole = await AddSystemObjectAsync(cosmosRole, CosmosRole.RolePartition, cancellationToken);
             return resultRole.ToRole();
         }
 
@@ -204,20 +204,15 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             }
         }
 
-        private async Task<T> DeleteSystemObjectAsync<T>(T systemObject, string partitionKey, CancellationToken cancellationToken)
+        private async Task<T> DeleteSystemObjectAsync<T>(T systemObject)
            where T : class
         {
             EnsureArg.IsNotNull(systemObject, nameof(systemObject));
             var eTagAccessCondition = new AccessCondition();
 
-            var requestOptions = new RequestOptions
-            {
-                PartitionKey = new PartitionKey(partitionKey),
-                AccessCondition = eTagAccessCondition,
-            };
             try
             {
-                var response = await _documentClient.Value.DeleteDocumentAsync(_collectionUri);
+                var response = await _documentClient.Value.DeleteDocumentCollectionAsync(_collectionUri);
                 _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
                 return (dynamic)response.Resource;
             }
