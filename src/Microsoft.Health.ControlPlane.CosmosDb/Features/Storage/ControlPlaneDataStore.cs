@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +30,8 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly ILogger<ControlPlaneDataStore> _logger;
         private readonly Uri _collectionUri;
+        private readonly string _collectionId;
+        private readonly string _databaseId;
 
         public ControlPlaneDataStore(
             IScoped<IDocumentClient> documentClient,
@@ -43,6 +46,8 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
             _documentClient = documentClient;
             _collectionUri = cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri;
+            _collectionId = cosmosDataStoreConfiguration.ControlPlaneCollectionId;
+            _databaseId = cosmosDataStoreConfiguration.DatabaseId;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _logger = logger;
         }
@@ -65,12 +70,39 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(name, nameof(name));
 
             var role = await GetSystemDocumentByIdAsync<CosmosRole>(name, CosmosRole.RolePartition, cancellationToken);
+
             if (role == null)
             {
                 throw new RoleNotFoundException(name);
             }
 
             return role.ToRole();
+        }
+
+        public async Task<string> DeleteRoleAsync(string name)
+        {
+            EnsureArg.IsNotNull(name, nameof(name));
+
+            var response = await DeleteSystemDocumentByIdAsync<CosmosRole>(name, CosmosRole.RolePartition);
+
+            if (response == null)
+            {
+                throw new RoleNotFoundException(name);
+            }
+
+            return response;
+        }
+
+        public async Task<IEnumerable<Role>> GetRoleAllAsync(CancellationToken cancellationToken)
+        {
+            var role = await GetSystemDocumentAllAsync<CosmosRole>(cancellationToken);
+
+            if (role == null)
+            {
+                throw new RoleNotFoundException("all");
+            }
+
+            return role.ToRoleList();
         }
 
         public async Task<Role> UpsertRoleAsync(Role role, CancellationToken cancellationToken)
@@ -87,16 +119,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(role, nameof(role));
 
             var cosmosRole = new CosmosRole(role);
-            var resultRole = await UpsertSystemObjectAsync(cosmosRole, CosmosRole.RolePartition, cancellationToken);
-            return resultRole.ToRole();
-        }
-
-        public async Task<Role> DeleteRoleAsync(Role role, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(role, nameof(role));
-
-            var cosmosRole = new CosmosRole(role);
-            var resultRole = await DeleteSystemObjectAsync(cosmosRole);
+            var resultRole = await AddSystemObjectAsync(cosmosRole, CosmosRole.RolePartition, cancellationToken);
             return resultRole.ToRole();
         }
 
@@ -124,9 +147,11 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(id, nameof(id));
             EnsureArg.IsNotNull(partitionKey, nameof(partitionKey));
+
             var documentQuery = new SqlQuerySpec(
                 "SELECT * FROM root r WHERE r.id = @id",
                 new SqlParameterCollection(new[] { new SqlParameter("@id", id) }));
+
             var feedOptions = new FeedOptions
             {
                 PartitionKey = new PartitionKey(partitionKey),
@@ -140,6 +165,32 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                 if (result == null)
                 {
                     _logger.LogError($"{typeof(T)} with id {id} was not found in Cosmos DB.");
+                }
+
+                return result;
+            }
+        }
+
+        private async Task<IEnumerable<T>> GetSystemDocumentAllAsync<T>(CancellationToken cancellationToken)
+        {
+            var documentQuery = new SqlQuerySpec(
+                "SELECT * FROM root");
+
+            var feedOptions = new FeedOptions
+            {
+                EnableCrossPartitionQuery = true,
+                MaxItemCount = 10,
+            };
+
+            IDocumentQuery<T> cosmosDocumentQuery =
+                CreateDocumentQuery<T>(documentQuery, feedOptions);
+            using (cosmosDocumentQuery)
+            {
+                var response = await cosmosDocumentQuery.ExecuteNextAsync(cancellationToken);
+                var result = (dynamic)response;
+                if (result == null)
+                {
+                    _logger.LogError("Results were not found in Cosmos DB.");
                 }
 
                 return result;
@@ -204,22 +255,25 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             }
         }
 
-        private async Task<T> DeleteSystemObjectAsync<T>(T systemObject, string partitionKey, CancellationToken cancellationToken)
-           where T : class
+        private async Task<string> DeleteSystemDocumentByIdAsync<T>(string id, string partitionKey)
         {
-            EnsureArg.IsNotNull(systemObject, nameof(systemObject));
+            EnsureArg.IsNotNull(id, nameof(id));
+            EnsureArg.IsNotNull(partitionKey, nameof(partitionKey));
             var eTagAccessCondition = new AccessCondition();
 
-            var requestOptions = new RequestOptions
-            {
-                PartitionKey = new PartitionKey(partitionKey),
-                AccessCondition = eTagAccessCondition,
-            };
             try
             {
-                var response = await _documentClient.Value.DeleteDocumentAsync(_collectionUri);
-                _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
-                return (dynamic)response.Resource;
+                var documentUri = UriFactory.CreateDocumentUri(_databaseId, _collectionId, id);
+
+                var requestOptions = new RequestOptions
+                {
+                    PartitionKey = new PartitionKey(partitionKey),
+                    AccessCondition = eTagAccessCondition,
+                };
+
+                var response = await _documentClient.Value.DeleteDocumentAsync(documentUri.ToString(), requestOptions);
+
+                return "success";
             }
             catch (DocumentClientException dce)
             {
