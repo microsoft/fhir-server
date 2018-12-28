@@ -9,11 +9,12 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete
 {
-    internal class HardDelete : StoredProcedureBase
+    internal class HardDelete : StoredProcedureBase, IFhirStoredProcedure
     {
         public async Task<StoredProcedureResponse<IList<string>>> Execute(IDocumentClient client, Uri collection, ResourceKey key)
         {

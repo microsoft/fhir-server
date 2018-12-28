@@ -7,4 +7,5 @@ using System.Resources;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Integration")]
 [assembly: NeutralResourcesLanguage("en-us")]

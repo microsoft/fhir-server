@@ -25,8 +25,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         private class QueryBuilderHelper
         {
-            private StringBuilder _queryBuilder;
-            private QueryParameterManager _queryParameterManager;
+            private readonly StringBuilder _queryBuilder;
+            private readonly QueryParameterManager _queryParameterManager;
 
             public QueryBuilderHelper()
             {

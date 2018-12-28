@@ -21,9 +21,9 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public virtual void ConfigureServices(IServiceCollection services)
         {
-            services.AddFhirServer(Configuration).AddCosmosDb();
+            services.AddControlPlaneCosmosDb(Configuration).AddDevelopmentIdentityProvider(Configuration);
 
-            services.AddDevelopmentIdentityProvider(Configuration);
+            services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
