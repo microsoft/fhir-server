@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -59,13 +61,24 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return identityProvider.ToIdentityProvider();
         }
 
-        public async Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken)
+        public async Task<IEnumerable<IdentityProvider>> GetAllIdentityProvidersAsync(CancellationToken cancellationToken)
+        {
+            return await GetSystemDocumentsByIdAsync<CosmosIdentityProvider>(null, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
+        }
+
+        public async Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string versionIdETag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
 
             var cosmosIdentityProvider = new CosmosIdentityProvider(identityProvider);
-            var resultIdentityProvider = await UpsertSystemObjectAsync(cosmosIdentityProvider, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
-            return resultIdentityProvider.ToIdentityProvider();
+            var resultIdentityProvider = await UpsertSystemObjectAsync(cosmosIdentityProvider, CosmosIdentityProvider.IdentityProviderPartition, versionIdETag, cancellationToken);
+            return new UpsertResponse<IdentityProvider>(resultIdentityProvider.ControlPlaneResource.ToIdentityProvider(), resultIdentityProvider.OutcomeType, resultIdentityProvider.ETag);
+        }
+
+        public async Task DeleteIdentityProviderAsync(string name, string eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(name, nameof(name));
+            await DeleteSystemDocumentsByIdAsync<IdentityProvider>(name, CosmosIdentityProvider.IdentityProviderPartition, eTag, cancellationToken);
         }
 
         internal IDocumentQuery<T> CreateDocumentQuery<T>(
@@ -82,10 +95,32 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         private async Task<T> GetSystemDocumentByIdAsync<T>(string id, string partitionKey, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(id, nameof(id));
+            var response = await GetSystemDocumentsByIdAsync<T>(id, partitionKey, cancellationToken);
+            var result = response.SingleOrDefault();
+            if (result == null)
+            {
+                _logger.LogError($"{typeof(T)} with id {id} was not found in Cosmos DB.");
+            }
+
+            return result;
+        }
+
+        private async Task<IEnumerable<T>> GetSystemDocumentsByIdAsync<T>(string id, string partitionKey, CancellationToken cancellationToken)
+        {
+            FeedResponse<Document> response = await GetSystemDocuments<T>(id, partitionKey, cancellationToken);
+            return response.Select(r => r.GetPropertyValue<T>("r"));
+        }
+
+        private async Task<FeedResponse<Document>> GetSystemDocuments<T>(string id, string partitionKey, CancellationToken cancellationToken)
+        {
             EnsureArg.IsNotNull(partitionKey, nameof(partitionKey));
-            var documentQuery = new SqlQuerySpec(
-                "SELECT * FROM root r WHERE r.id = @id",
+
+            var documentQuery = string.IsNullOrWhiteSpace(id)
+                ? new SqlQuerySpec("SELECT r, r._self FROM root r")
+                : new SqlQuerySpec(
+                "SELECT r, r._self FROM root r WHERE r.id = @id",
                 new SqlParameterCollection(new[] { new SqlParameter("@id", id) }));
+
             var feedOptions = new FeedOptions
             {
                 PartitionKey = new PartitionKey(partitionKey),
@@ -94,28 +129,17 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                 CreateDocumentQuery<T>(documentQuery, feedOptions);
             using (cosmosDocumentQuery)
             {
-                var response = await cosmosDocumentQuery.ExecuteNextAsync(cancellationToken);
-                var result = response.SingleOrDefault();
-                if (result == null)
-                {
-                    _logger.LogError($"{typeof(T)} with id {id} was not found in Cosmos DB.");
-                }
-
-                return result;
+                FeedResponse<Document> response = await cosmosDocumentQuery.ExecuteNextAsync<Document>(cancellationToken);
+                return response;
             }
         }
 
-        private async Task<T> UpsertSystemObjectAsync<T>(T systemObject, string partitionKey, CancellationToken cancellationToken)
+        private async Task<UpsertResponse<T>> UpsertSystemObjectAsync<T>(T systemObject, string partitionKey, string eTag,  CancellationToken cancellationToken)
             where T : class
         {
             EnsureArg.IsNotNull(systemObject, nameof(systemObject));
-            var eTagAccessCondition = new AccessCondition();
+            RequestOptions requestOptions = GetRequestOptions(partitionKey, eTag);
 
-            var requestOptions = new RequestOptions
-            {
-                PartitionKey = new PartitionKey(partitionKey),
-                AccessCondition = eTagAccessCondition,
-            };
             try
             {
                 var response = await _documentClient.Value.UpsertDocumentAsync(
@@ -125,7 +149,55 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                     true,
                     cancellationToken);
                 _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
-                return (dynamic)response.Resource;
+
+                var outcomeType = response.StatusCode == HttpStatusCode.Created ? UpsertOutcomeType.Created : UpsertOutcomeType.Updated;
+                return new UpsertResponse<T>((T)(dynamic)response.Resource, outcomeType, response.Resource.ETag);
+            }
+            catch (DocumentClientException dce)
+            {
+                _logger.LogError(dce, "Unhandled Document Client Exception");
+                throw;
+            }
+        }
+
+        private static RequestOptions GetRequestOptions(string partitionKey, string eTag)
+        {
+            var eTagAccessCondition = new AccessCondition();
+
+            if (!string.IsNullOrWhiteSpace(eTag))
+            {
+                eTagAccessCondition.Type = AccessConditionType.IfMatch;
+                eTagAccessCondition.Condition = eTag;
+            }
+
+            var requestOptions = new RequestOptions
+            {
+                PartitionKey = new PartitionKey(partitionKey),
+                AccessCondition = eTagAccessCondition,
+            };
+            return requestOptions;
+        }
+
+        private async Task DeleteSystemDocumentsByIdAsync<T>(string id, string partitionKey, string eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(id, nameof(id));
+            FeedResponse<Document> response = await GetSystemDocuments<T>(id, partitionKey, cancellationToken);
+            var document = response.SingleOrDefault();
+
+            if (document == null)
+            {
+                throw new IdentityProviderNotFoundException(id);
+            }
+
+            RequestOptions requestOptions = GetRequestOptions(partitionKey, eTag);
+
+            try
+            {
+                var deleteResponse = await _documentClient.Value.DeleteDocumentAsync(
+                    document.SelfLink,
+                    requestOptions,
+                    cancellationToken);
+                _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", deleteResponse.RequestCharge, deleteResponse.RequestLatency);
             }
             catch (DocumentClientException dce)
             {

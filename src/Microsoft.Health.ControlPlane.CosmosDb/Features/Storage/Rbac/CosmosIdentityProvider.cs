@@ -16,7 +16,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         public CosmosIdentityProvider(IdentityProvider identityProvider)
             : base(identityProvider.Name, identityProvider.Authority, identityProvider.Audience, identityProvider.Version)
         {
-            ETag = $"\"{identityProvider.Version}\"";
         }
 
         [JsonConstructor]
@@ -30,12 +29,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         [JsonProperty("partitionKey")]
         public string PartitionKey { get; } = IdentityProviderPartition;
 
-        [JsonProperty("_etag")]
-        public string ETag { get; protected set; }
-
         [JsonProperty(KnownDocumentProperties.IsSystem)]
         public bool IsSystem { get; } = true;
-
-        public override string Version => ETag;
     }
 }
