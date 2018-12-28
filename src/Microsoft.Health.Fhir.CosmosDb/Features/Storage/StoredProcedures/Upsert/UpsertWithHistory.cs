@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upser
 {
     internal class UpsertWithHistory : StoredProcedureBase, IFhirStoredProcedure
     {
-        public async Task<UpsertWithHistoryModel> Execute(IDocumentClient client, Uri collection, CosmosResourceWrapper resource, string matchVersionId, bool allowCreate, bool keepHistory)
+        public async Task<UpsertWithHistoryModel> Execute(IDocumentClient client, Uri collection, FhirCosmosResourceWrapper resource, string matchVersionId, bool allowCreate, bool keepHistory)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(collection, nameof(collection));

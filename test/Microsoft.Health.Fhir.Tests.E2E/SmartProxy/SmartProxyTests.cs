@@ -8,20 +8,15 @@ using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Newtonsoft.Json.Linq;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
@@ -44,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 return;
             }
 
-            ChromeOptions options = new ChromeOptions();
+            var options = new ChromeOptions();
 
             options.AddArgument("--headless");
             options.AddArgument("--disable-gpu");
@@ -133,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 var tokenResponseElement = driver.FindElement(By.Id("tokenresponsefield"));
                 var tokenResponseText = tokenResponseElement.GetAttribute("value");
 
-                // It can take some time for the token to apear, we will wait
+                // It can take some time for the token to appear, we will wait
                 waitCount = 0;
                 while (string.IsNullOrWhiteSpace(tokenResponseText))
                 {
@@ -147,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 var jwtHandler = new JwtSecurityTokenHandler();
                 Assert.True(jwtHandler.CanReadToken(tokenResponse["access_token"].ToString()));
                 var token = jwtHandler.ReadJwtToken(tokenResponse["access_token"].ToString());
-                var aud = token.Claims.Where(c => c.Type == "aud");
+                var aud = token.Claims.Where(c => c.Type == "aud").ToList();
                 Assert.Single(aud);
                 var tokenAudience = aud.First().Value;
                 Assert.Equal(Environment.GetEnvironmentVariable("TestEnvironmentUrl"), tokenAudience);

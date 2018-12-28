@@ -14,6 +14,8 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
@@ -35,15 +37,19 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ILogger<ControlPlaneDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
+            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            var collectionConfig = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
+
             _documentClient = documentClient;
-            _collectionUri = cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri;
+            _collectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfig.CollectionId);
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _logger = logger;
         }
@@ -125,8 +131,10 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             {
                 PartitionKey = new PartitionKey(partitionKey),
             };
+
             IDocumentQuery<T> cosmosDocumentQuery =
                 CreateDocumentQuery<T>(documentQuery, feedOptions);
+
             using (cosmosDocumentQuery)
             {
                 FeedResponse<Document> response = await cosmosDocumentQuery.ExecuteNextAsync<Document>(cancellationToken);
@@ -201,6 +209,11 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             }
             catch (DocumentClientException dce)
             {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
                 _logger.LogError(dce, "Unhandled Document Client Exception");
                 throw;
             }

@@ -12,9 +12,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     /// To be replaced by the BulkExecutor API:
     /// https://docs.microsoft.com/en-us/dotnet/api/microsoft.azure.cosmosdb.bulkexecutor.bulkupdate.setupdateoperation-1?view=azure-dotnet
     /// </summary>
-    internal class UpdateOperation : IUpdateOperation
+    internal class FhirUpdateOperation : IUpdateOperation
     {
-        public UpdateOperation(string property, object value)
+        public FhirUpdateOperation(string property, object value)
         {
             EnsureArg.IsNotNullOrEmpty(property, nameof(property));
 

@@ -3,16 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Diagnostics;
+using EnsureThat;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
     public class IdentityProviderNotFoundException : ControlPlaneException
     {
         public IdentityProviderNotFoundException(string name)
-            : base(string.Format(Resources.IdentityProviderNotFound, name))
+            : base(ValidateAndFormatMessage(name))
         {
-            Debug.Assert(!string.IsNullOrEmpty(name), "Identity provider name should not be empty");
+        }
+
+        private static string ValidateAndFormatMessage(string name)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+
+            return string.Format(Resources.IdentityProviderNotFound, name);
         }
     }
 }

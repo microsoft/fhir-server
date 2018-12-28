@@ -3,11 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -22,7 +18,7 @@ namespace SmartLauncher
     {
         public Startup(IConfiguration configuration)
         {
-            this.Configuration = configuration;
+            Configuration = configuration;
         }
 
         public IConfiguration Configuration { get; }
@@ -48,8 +44,8 @@ namespace SmartLauncher
             {
                 a.Run(async (context) =>
                 {
-                    SmartLauncherConfig config = new SmartLauncherConfig();
-                    this.Configuration.Bind(config);
+                    var config = new SmartLauncherConfig();
+                    Configuration.Bind(config);
                     await context.Response.WriteAsync(JsonConvert.SerializeObject(config));
                 });
             });

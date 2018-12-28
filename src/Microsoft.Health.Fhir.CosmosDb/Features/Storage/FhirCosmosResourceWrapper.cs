@@ -14,9 +14,9 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    internal class CosmosResourceWrapper : ResourceWrapper
+    internal class FhirCosmosResourceWrapper : ResourceWrapper
     {
-        public CosmosResourceWrapper(ResourceWrapper resource)
+        public FhirCosmosResourceWrapper(ResourceWrapper resource)
             : this(
                   EnsureArg.IsNotNull(resource, nameof(resource)).ResourceId,
                   resource.Version,
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
         }
 
-        public CosmosResourceWrapper(
+        public FhirCosmosResourceWrapper(
             string resourceId,
             string versionId,
             string resourceTypeName,
@@ -50,11 +50,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [JsonConstructor]
-        protected CosmosResourceWrapper()
+        protected FhirCosmosResourceWrapper()
         {
         }
 
-        [JsonProperty("id")]
+        [JsonProperty(KnownDocumentProperties.Id)]
         public string Id
         {
             get
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        [JsonProperty("_etag")]
+        [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; protected set; }
 
         [JsonProperty(KnownDocumentProperties.IsSystem)]
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices, ItemConverterType = typeof(SearchIndexEntryConverter))]
         public override IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
 
-        [JsonProperty("partitionKey")]
+        [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey => ToResourceKey().ToPartitionKey();
 
         internal string GetETagOrVersion()

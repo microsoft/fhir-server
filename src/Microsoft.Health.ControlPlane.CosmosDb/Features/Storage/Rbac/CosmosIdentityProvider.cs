@@ -23,10 +23,10 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         {
         }
 
-        [JsonProperty("id")]
+        [JsonProperty(KnownDocumentProperties.Id)]
         public string Id => Name;
 
-        [JsonProperty("partitionKey")]
+        [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey { get; } = IdentityProviderPartition;
 
         [JsonProperty(KnownDocumentProperties.IsSystem)]

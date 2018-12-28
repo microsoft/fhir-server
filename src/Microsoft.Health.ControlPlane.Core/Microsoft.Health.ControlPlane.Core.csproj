@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Abstractions\Microsoft.Health.Abstractions.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
   </ItemGroup>
 

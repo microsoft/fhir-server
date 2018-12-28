@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -19,28 +20,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
     /// <summary>
     /// Checks for the FHIR service health.
     /// </summary>
-    public class CosmosHealthCheck : IHealthCheck
+    public class FhirCosmosHealthCheck : IHealthCheck
     {
         private readonly IScoped<IDocumentClient> _documentClient;
         private readonly CosmosDataStoreConfiguration _configuration;
+        private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly IDocumentClientTestProvider _testProvider;
-        private readonly ILogger<CosmosHealthCheck> _logger;
+        private readonly ILogger<FhirCosmosHealthCheck> _logger;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CosmosHealthCheck"/> class.
+        /// Initializes a new instance of the <see cref="FhirCosmosHealthCheck"/> class.
         /// </summary>
         /// <param name="documentClient">The document client factory/</param>
         /// <param name="configuration">The CosmosDB configuration.</param>
+        /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
-        public CosmosHealthCheck(
+        public FhirCosmosHealthCheck(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration configuration,
+            IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             IDocumentClientTestProvider testProvider,
-            ILogger<CosmosHealthCheck> logger)
+            ILogger<FhirCosmosHealthCheck> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -49,6 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
             EnsureArg.IsNotNull(_documentClient, optsFn: options => options.WithMessage("Factory returned null."));
 
             _configuration = configuration;
+            _collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
             _testProvider = testProvider;
             _logger = logger;
         }
@@ -59,7 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
             {
                 // Make a non-invasive query to make sure we can reach the data store.
 
-                await _testProvider.PerformTest(_documentClient.Value, _configuration);
+                await _testProvider.PerformTest(_documentClient.Value, _configuration, _collectionConfiguration);
 
                 return HealthCheckResult.Healthy("Successfully connected to the data store.");
             }
