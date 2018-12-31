@@ -7,11 +7,10 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-namespace Microsoft.Health.Fhir.Api.Features.Logging
+namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     public class AuditLogMiddleware
     {

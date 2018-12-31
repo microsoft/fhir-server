@@ -5,10 +5,9 @@
 
 using System.Collections.Generic;
 using System.Security.Claims;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;

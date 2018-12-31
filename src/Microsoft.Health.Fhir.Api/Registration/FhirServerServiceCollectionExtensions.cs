@@ -11,10 +11,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
-using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection

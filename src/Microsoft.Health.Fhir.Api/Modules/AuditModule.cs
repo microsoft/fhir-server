@@ -6,8 +6,8 @@
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Api.Features.Logging;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {

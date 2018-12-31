@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 
-namespace Microsoft.Health.Fhir.Api.Features.Logging
+namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     public class AuditLogger : IAuditLogger
     {

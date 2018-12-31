@@ -6,7 +6,7 @@
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 

@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Logging
+namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     public enum AuditAction
     {
