@@ -90,10 +90,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             await SetupAuthenticationAsync(clientApplication, user);
         }
 
-        public async Task RunAsClientApplication(TestApplication clientApplication, AuthenticationScenarios authenticationScenarios = AuthenticationScenarios.VALIDAUTH)
+        public async Task RunAsClientApplication(TestApplication clientApplication)
         {
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication, null, authenticationScenarios);
+            await SetupAuthenticationAsync(clientApplication, null);
         }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource)
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null, AuthenticationScenarios authenticationScenarios = AuthenticationScenarios.VALIDAUTH)
+        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
         {
             await GetSecuritySettings("metadata");
 
@@ -278,7 +278,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
                 if (!_bearerTokens.TryGetValue(tokenKey, out string bearerToken))
                 {
-                    bearerToken = await GetBearerToken(clientApplication, user, authenticationScenarios);
+                    bearerToken = await GetBearerToken(clientApplication, user);
                     _bearerTokens[tokenKey] = bearerToken;
                 }
 
@@ -286,13 +286,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
         }
 
-        private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user, AuthenticationScenarios authenticationScenarios)
+        private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
         {
-            var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication, authenticationScenarios) : GetUserSecuritySettings(clientApplication, user));
+            var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
 
             HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
             var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
+
+            if (clientApplication.Equals(TestApplications.InvalidClient))
+            {
+                return null;
+            }
 
             if (tokenJson["access_token"] != null)
             {
@@ -302,10 +307,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return null;
         }
 
-        private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication, AuthenticationScenarios authenticationScenarios)
+        private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)
         {
-            string scope = authenticationScenarios == AuthenticationScenarios.AUTHWITHWRONGAUDIENCE ? clientApplication.ClientId : AuthenticationSettings.Scope;
-            string resource = authenticationScenarios == AuthenticationScenarios.AUTHWITHWRONGAUDIENCE ? clientApplication.ClientId : AuthenticationSettings.Resource;
+            string scope = clientApplication == TestApplications.WrongAudienceClient ? clientApplication.ClientId : AuthenticationSettings.Scope;
+            string resource = clientApplication == TestApplications.WrongAudienceClient ? clientApplication.ClientId : AuthenticationSettings.Resource;
 
             return new List<KeyValuePair<string, string>>
             {
@@ -350,11 +355,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
 
             SecuritySettings = (false, null, null);
-        }
-
-        public void SetBearerToken(string invalidToken)
-        {
-            HttpClient.SetBearerToken(invalidToken);
         }
     }
 }
