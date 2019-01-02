@@ -23,6 +23,8 @@ namespace Microsoft.Health.Fhir.Web
 {
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
+        private const string WRONGAUDIENCECLIENT = "wrongaudienceclient";
+
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
         /// </summary>
@@ -54,7 +56,7 @@ namespace Microsoft.Health.Fhir.Web
                             UserClaims = { authorizationConfiguration.RolesClaim },
                         },
                         new ApiResource(
-                        "wrongaudienceclient",
+                        WRONGAUDIENCECLIENT,
                         claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
                         {
                             UserClaims = { authorizationConfiguration.RolesClaim },
