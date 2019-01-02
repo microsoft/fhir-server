@@ -12,13 +12,13 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
     /// </summary>
     public abstract class SystemData
     {
-        [JsonProperty("id")]
+        [JsonProperty(KnownDocumentProperties.Id)]
         public string Id { get; set; }
 
-        [JsonProperty("_etag")]
+        [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; set; }
 
-        [JsonProperty("_ts")]
+        [JsonProperty(KnownDocumentProperties.Timestamp)]
         public long DocumentTimestamp { get; set; }
 
         /// <summary>
@@ -27,7 +27,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         [JsonProperty(KnownDocumentProperties.IsSystem)]
         public bool IsSystem { get; } = true;
 
-        [JsonProperty("_selfLink")]
+        [JsonProperty(KnownDocumentProperties.SelfLink)]
         public string SelfLink { get; set; }
     }
 }

@@ -6,7 +6,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
 using Xunit;
 
@@ -14,7 +13,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 {
     public class DocumentClientInitializerTests
     {
-        private readonly DocumentClientInitializer _documentClientInitializer = new DocumentClientInitializer(Substitute.For<IDocumentClientTestProvider>(), NullLogger<DocumentClientInitializer>.Instance, Substitute.For<IUpgradeManager>());
+        private readonly DocumentClientInitializer _documentClientInitializer = new DocumentClientInitializer(Substitute.For<IDocumentClientTestProvider>(), NullLogger<DocumentClientInitializer>.Instance);
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 
         public DocumentClientInitializerTests()
@@ -22,7 +21,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
                 AllowDatabaseCreation = false,
-                FhirCollectionId = "testcollectionid",
                 ConnectionMode = Azure.Documents.Client.ConnectionMode.Direct,
                 ConnectionProtocol = Azure.Documents.Client.Protocol.Https,
                 DatabaseId = "testdatabaseid",

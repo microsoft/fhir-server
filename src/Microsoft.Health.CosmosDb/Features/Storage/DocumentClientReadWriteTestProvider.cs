@@ -22,12 +22,12 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             _partitionKey = new PartitionKey(_document.PartitionKey);
         }
 
-        public async Task PerformTest(IDocumentClient documentClient, CosmosDataStoreConfiguration configuration)
+        public async Task PerformTest(IDocumentClient documentClient, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
         {
             var requestOptions = new RequestOptions { ConsistencyLevel = ConsistencyLevel.Session, PartitionKey = _partitionKey };
 
             ResourceResponse<Document> resourceResponse = await documentClient.UpsertDocumentAsync(
-                configuration.RelativeFhirCollectionUri,
+                configuration.GetRelativeCollectionUri(cosmosCollectionConfiguration.CollectionId),
                 _document,
                 requestOptions);
 
@@ -43,7 +43,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
                 Id = "__healthcheck__";
             }
 
-            [JsonProperty("partitionKey")]
+            [JsonProperty(KnownDocumentProperties.PartitionKey)]
             public string PartitionKey { get; } = "__healthcheck__";
         }
     }
