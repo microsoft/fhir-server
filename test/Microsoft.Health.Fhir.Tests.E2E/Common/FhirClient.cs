@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public async Task RunAsClientApplication(TestApplication clientApplication)
         {
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication, null);
+            await SetupAuthenticationAsync(clientApplication);
         }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource)
