@@ -39,8 +39,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             if (_securityConfiguration.Enabled)
             {
-                services.AddSingleton<FhirJwtBearerEvents>();
-
                 services.AddAuthentication(options =>
                     {
                         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -52,7 +50,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         options.Authority = _securityConfiguration.Authentication.Authority;
                         options.Audience = _securityConfiguration.Authentication.Audience;
                         options.RequireHttpsMetadata = true;
-                        options.EventsType = typeof(FhirJwtBearerEvents);
                     });
 
                 services.AddAuthorization(options => options.AddPolicy(PolicyNames.FhirPolicy, builder =>

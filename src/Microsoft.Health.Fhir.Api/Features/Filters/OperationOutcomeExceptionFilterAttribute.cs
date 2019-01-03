@@ -11,6 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -85,6 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         fhirResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:
+                    case AuditException _:
                         fhirResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
                     case RequestRateExceededException ex:

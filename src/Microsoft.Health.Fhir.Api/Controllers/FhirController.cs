@@ -19,7 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="resource">The resource.</param>
         [HttpPost]
         [Route(KnownRoutes.ResourceType)]
-        [AuditEventSubType(AuditEventSubType.Create)]
+        [AuditEventType(AuditEventSubType.Create)]
         [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPut]
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
-        [AuditEventSubType(AuditEventSubType.Update)]
+        [AuditEventType(AuditEventSubType.Update)]
         [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> Update([FromBody] Resource resource)
         {
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="id">The identifier.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeById, Name = RouteNames.ReadResource)]
-        [AuditEventSubType(AuditEventSubType.Read)]
+        [AuditEventType(AuditEventSubType.Read)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Read(string type, string id)
         {
@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="ct">Continuation token.</param>
         [HttpGet]
         [Route(KnownRoutes.History, Name = RouteNames.History)]
-        [AuditEventSubType(AuditEventSubType.HistorySystem)]
+        [AuditEventType(AuditEventSubType.HistorySystem)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SystemHistory(
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="ct">Continuation token.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeHistory, Name = RouteNames.HistoryType)]
-        [AuditEventSubType(AuditEventSubType.HistoryType)]
+        [AuditEventType(AuditEventSubType.HistoryType)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> TypeHistory(
             string type,
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="ct">Continuation token.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeByIdHistory, Name = RouteNames.HistoryTypeId)]
-        [AuditEventSubType(AuditEventSubType.HistoryInstance)]
+        [AuditEventType(AuditEventSubType.HistoryInstance)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> History(
             string type,
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="vid">The versionId.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeByIdAndVid, Name = RouteNames.ReadResourceWithVersionRoute)]
-        [AuditEventSubType(AuditEventSubType.VRead)]
+        [AuditEventType(AuditEventSubType.VRead)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> VRead(string type, string id, string vid)
         {
@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="hardDelete">A flag indicating whether to hard-delete the resource or not.</param>
         [HttpDelete]
         [Route(KnownRoutes.ResourceTypeById)]
-        [AuditEventSubType(AuditEventSubType.Delete)]
+        [AuditEventType(AuditEventSubType.Delete)]
         public async Task<IActionResult> Delete(string type, string id, [FromQuery]bool hardDelete)
         {
             string policy = PolicyNames.WritePolicy;
@@ -331,7 +331,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Searches across all resource types.
         /// </summary>
         [Route("", Name = RouteNames.SearchAllResources)]
-        [AuditEventSubType(AuditEventSubType.SearchSystem)]
+        [AuditEventType(AuditEventSubType.SearchSystem)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Search()
         {
@@ -343,7 +343,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         [HttpPost]
         [Route(KnownRoutes.Search, Name = RouteNames.SearchAllResourcesPost)]
-        [AuditEventSubType(AuditEventSubType.SearchSystem)]
+        [AuditEventType(AuditEventSubType.SearchSystem)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchPost()
         {
@@ -356,7 +356,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="type">The resource type.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceType, Name = RouteNames.SearchResources)]
-        [AuditEventSubType(AuditEventSubType.SearchType)]
+        [AuditEventType(AuditEventSubType.SearchType)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchByResourceType(string type)
         {
@@ -382,7 +382,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="type">The resource type.</param>
         [HttpPost]
         [Route(KnownRoutes.ResourceTypeSearch, Name = RouteNames.SearchResourcesPost)]
-        [AuditEventSubType(AuditEventSubType.SearchType)]
+        [AuditEventType(AuditEventSubType.SearchType)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchByResourceTypePost(string type)
         {
@@ -416,7 +416,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="type">The resource type.</param>
         [HttpGet]
         [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.SearchCompartmentByResourceType)]
-        [AuditEventSubType(AuditEventSubType.Search)]
+        [AuditEventType(AuditEventSubType.Search)]
         public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentType, string id, string type)
         {
             var queries = GetQueriesForSearch();

@@ -88,8 +88,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     app.UseFhirRequestContext();
 
-                    app.UseMiddleware<AuditLogMiddleware>();
-
                     if (env.IsDevelopment())
                     {
                         app.UseDeveloperExceptionPage();
@@ -106,6 +104,10 @@ namespace Microsoft.Extensions.DependencyInjection
                         // This middleware will capture any handled error with the status code between 400 and 599 that hasn't had a body or content-type set. (i.e. 404 on unknown routes)
                         app.UseStatusCodePagesWithReExecute("/CustomError", "?statusCode={0}");
                     }
+
+                    // The audit module needs to come after the exception handler because we need to catch
+                    // the response before it gets converted to custom error.
+                    app.UseAudit();
 
                     app.UseAuthentication();
 
