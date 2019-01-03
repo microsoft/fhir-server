@@ -15,8 +15,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public FhirCollectionInitializer(CosmosDataStoreConfiguration cosmosDataStoreConfiguration, FhirCollectionUpgradeManager fhirCollectionUpgradeManager, ILogger<FhirCollectionInitializer> logger)
             : base(
                 cosmosDataStoreConfiguration.FhirCollectionId,
-                cosmosDataStoreConfiguration.RelativeDatabaseUri,
-                cosmosDataStoreConfiguration.RelativeFhirCollectionUri,
+                cosmosDataStoreConfiguration,
                 cosmosDataStoreConfiguration.InitialFhirCollectionThroughput,
                 fhirCollectionUpgradeManager,
                 logger)

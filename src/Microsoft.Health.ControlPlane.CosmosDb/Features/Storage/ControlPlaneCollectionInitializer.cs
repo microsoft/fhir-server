@@ -15,8 +15,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         public ControlPlaneCollectionInitializer(CosmosDataStoreConfiguration cosmosDataStoreConfiguration, ControlPlaneCollectionUpgradeManager controlPlaneCollectionUpgradeManager, ILogger<ControlPlaneCollectionInitializer> logger)
             : base(
                 cosmosDataStoreConfiguration.ControlPlaneCollectionId,
-                cosmosDataStoreConfiguration.RelativeDatabaseUri,
-                cosmosDataStoreConfiguration.RelativeControlPlaneCollectionUri,
+                cosmosDataStoreConfiguration,
                 cosmosDataStoreConfiguration.InitialControlPlaneCollectionThroughput,
                 controlPlaneCollectionUpgradeManager,
                 logger)

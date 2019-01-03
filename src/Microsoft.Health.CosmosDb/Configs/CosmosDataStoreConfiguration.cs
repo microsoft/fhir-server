@@ -27,7 +27,6 @@ namespace Microsoft.Health.CosmosDb.Configs
         public string ControlPlaneCollectionId { get; set; }
 
         public int? InitialControlPlaneCollectionThroughput { get; set; }
-        public int? InitialDatabaseThroughput { get; set; }
 
         public ConnectionMode ConnectionMode { get; set; } = ConnectionMode.Direct;
 
