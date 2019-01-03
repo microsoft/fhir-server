@@ -165,7 +165,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                 CreateDocumentQuery<T>(documentQuery, feedOptions);
             using (cosmosDocumentQuery)
             {
-                var response = await cosmosDocumentQuery.ExecuteNextAsync(cancellationToken);
+                FeedResponse<dynamic> response = await cosmosDocumentQuery.ExecuteNextAsync(cancellationToken);
                 var result = response.SingleOrDefault();
                 if (result == null)
                 {
@@ -215,12 +215,12 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             };
             try
             {
-                var response = await _documentClient.Value.UpsertDocumentAsync(
-                    _collectionUri,
-                    systemObject,
-                    requestOptions,
-                    true,
-                    cancellationToken);
+                ResourceResponse<Document> response = await _documentClient.Value.UpsertDocumentAsync(
+                   _collectionUri,
+                   systemObject,
+                   requestOptions,
+                   true,
+                   cancellationToken);
                 _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
                 return (dynamic)response.Resource;
             }
@@ -244,7 +244,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             };
             try
             {
-                var response = await _documentClient.Value.CreateDocumentAsync(
+                ResourceResponse<Document> response = await _documentClient.Value.CreateDocumentAsync(
                     _collectionUri,
                     systemObject,
                     requestOptions,
@@ -276,7 +276,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                     AccessCondition = eTagAccessCondition,
                 };
 
-                var response = await _documentClient.Value.DeleteDocumentAsync(documentUri.ToString(), requestOptions);
+                await _documentClient.Value.DeleteDocumentAsync(documentUri.ToString(), requestOptions);
 
                 return "success";
             }
