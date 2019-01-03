@@ -140,6 +140,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedFieldName, mfExpression.FieldName);
         }
 
+        public static void ValidateCompartmentSearchExpression(
+            Expression expression,
+            CompartmentType compartmentType,
+            string compartmentId)
+        {
+            CompartmentSearchExpression compartmentSearchExpression = Assert.IsType<CompartmentSearchExpression>(expression);
+
+            Assert.Equal(compartmentType, compartmentSearchExpression.CompartmentType);
+            Assert.Equal(compartmentId, compartmentSearchExpression.CompartmentId);
+        }
+
         public static IEnumerable<object[]> GetEnumAsMemberData<TEnum>(Predicate<TEnum> predicate = null)
         {
             return Enum.GetNames(typeof(TEnum))

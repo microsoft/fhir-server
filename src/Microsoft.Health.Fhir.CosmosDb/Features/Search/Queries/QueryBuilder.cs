@@ -3,11 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Azure.Documents;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -16,15 +13,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     public class QueryBuilder : IQueryBuilder
     {
-        private static Dictionary<CompartmentType, string> s_compartmentTypeToParamName = new Dictionary<CompartmentType, string>
-        {
-            { CompartmentType.Device, KnownResourceWrapperProperties.Device },
-            { CompartmentType.Encounter, KnownResourceWrapperProperties.Encounter },
-            { CompartmentType.Patient, KnownResourceWrapperProperties.Patient },
-            { CompartmentType.Practitioner, KnownResourceWrapperProperties.Practitioner },
-            { CompartmentType.RelatedPerson, KnownResourceWrapperProperties.RelatedPerson },
-        };
-
         public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
         {
             return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
@@ -37,8 +25,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         private class QueryBuilderHelper
         {
-            private StringBuilder _queryBuilder;
-            private QueryParameterManager _queryParameterManager;
+            private readonly StringBuilder _queryBuilder;
+            private readonly QueryParameterManager _queryParameterManager;
 
             public QueryBuilderHelper()
             {
@@ -59,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendSelectFromRoot();
                 }
 
-                AppendSystemDataFilter("WHERE");
+                AppendSystemDataFilter();
 
                 var expressionQueryBuilder = new ExpressionQueryBuilder(
                     _queryBuilder,
@@ -69,13 +57,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 {
                     _queryBuilder.Append("AND ");
                     searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
-                }
-
-                if (searchOptions.CompartmentType != null)
-                {
-                    AppendArrayContainsFilter(
-                        "AND",
-                        (GetCompartmentIndicesParamName(searchOptions.CompartmentType.Value), searchOptions.CompartmentId));
                 }
 
                 AppendFilterCondition(
@@ -90,19 +71,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 return query;
             }
 
-            private static string GetCompartmentIndicesParamName(CompartmentType compartmentType)
-            {
-                Debug.Assert(s_compartmentTypeToParamName.ContainsKey(compartmentType), $"CompartmentType {compartmentType} should have a corresponding index param");
-                return $"{KnownResourceWrapperProperties.CompartmentIndices}.{s_compartmentTypeToParamName[compartmentType]}";
-            }
-
             public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
                 AppendSelectFromRoot();
 
-                AppendSystemDataFilter("WHERE");
+                AppendSystemDataFilter();
 
                 var expressionQueryBuilder = new ExpressionQueryBuilder(
                     _queryBuilder,
@@ -159,47 +134,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
             }
 
-            private void AppendArrayContainsFilter(string logicalOperator, params (string, string)[] conditions)
-            {
-                for (int i = 0; i < conditions.Length; i++)
-                {
-                    _queryBuilder
-                        .Append(logicalOperator)
-                        .Append(" ");
-
-                    (string name, string value) = conditions[i];
-
-                    AppendArrayContainsFilter(name, _queryParameterManager.AddOrGetParameterMapping(value));
-                }
-            }
-
-            private void AppendArrayContainsFilter(string name, string value)
+            private void AppendSystemDataFilter()
             {
                 _queryBuilder
-                        .Append("ARRAY_CONTAINS(")
-                        .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
-                        .Append(", ")
-                        .Append(value)
-                        .AppendLine(")");
-            }
-
-            private void AppendSystemDataFilter(string keyword = null)
-            {
-                // Ensure that we exclude system metadata
-
-                if (!string.IsNullOrEmpty(keyword))
-                {
-                    _queryBuilder.Append(keyword).Append(" ");
-                }
-
-                _queryBuilder
-                    .Append("(")
-                    .Append("IS_DEFINED(").Append(SearchValueConstants.RootAliasName).Append(".isSystem)")
-                    .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false))
-                    .Append(" OR ")
+                    .Append(" WHERE ")
                     .Append(SearchValueConstants.RootAliasName).Append(".isSystem")
-                    .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false))
-                    .AppendLine(")");
+                    .Append(" = ")
+                    .AppendLine(_queryParameterManager.AddOrGetParameterMapping(false));
             }
         }
     }

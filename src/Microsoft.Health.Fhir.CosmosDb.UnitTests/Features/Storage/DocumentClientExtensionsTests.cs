@@ -7,7 +7,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using NSubstitute;
 using Xunit;
 

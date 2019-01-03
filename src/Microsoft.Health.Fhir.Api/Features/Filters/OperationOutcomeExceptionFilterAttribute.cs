@@ -4,12 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -38,9 +40,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context?.Exception is FhirException fhirException)
+            if (context?.Exception == null)
             {
-                FhirResult fhirResult = FhirResult.Create(
+                return;
+            }
+
+            if (context.Exception is FhirException fhirException)
+            {
+                var fhirResult = FhirResult.Create(
                     new OperationOutcome
                     {
                         Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
@@ -87,20 +94,53 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case UnsupportedConfigurationException _:
                         fhirResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
+                }
+
+                context.Result = fhirResult;
+                context.ExceptionHandled = true;
+            }
+            else if (context.Exception is MicrosoftHealthException microsoftHealthException)
+            {
+                FhirResult healthExceptionResult;
+
+                switch (microsoftHealthException)
+                {
                     case RequestRateExceededException ex:
-                        fhirResult.StatusCode = HttpStatusCode.TooManyRequests;
+                        healthExceptionResult = FhirResult.Create(
+                            new OperationOutcome
+                            {
+                                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                                Issue = new List<OperationOutcome.IssueComponent>
+                                {
+                                    new OperationOutcome.IssueComponent
+                                    {
+                                        Severity = OperationOutcome.IssueSeverity.Error,
+                                        Code = OperationOutcome.IssueType.Throttled,
+                                        Diagnostics = ex.Message,
+                                    },
+                                },
+                            }, HttpStatusCode.BadRequest);
+                        healthExceptionResult.StatusCode = HttpStatusCode.TooManyRequests;
 
                         if (ex.RetryAfter != null)
                         {
-                            fhirResult.Headers.Add(
+                            healthExceptionResult.Headers.Add(
                                 RetryAfterHeaderName,
                                 ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
                         }
 
                         break;
+                    default:
+                        healthExceptionResult = FhirResult.Create(
+                            new OperationOutcome
+                            {
+                                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                            }, HttpStatusCode.InternalServerError);
+                        healthExceptionResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
                 }
 
-                context.Result = fhirResult;
+                context.Result = healthExceptionResult;
                 context.ExceptionHandled = true;
             }
         }

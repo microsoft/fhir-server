@@ -25,7 +25,16 @@ function Add-AadTestAuthEnvironment {
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
-        [pscredential]$TenantAdminCredential
+        [pscredential]$TenantAdminCredential,
+        
+        [Parameter(Mandatory = $false )]
+        [String]$WebAppSuffix = "azurewebsites.net",
+
+        [Parameter(Mandatory = $false)]
+        [string]$ResourceGroupName = $EnvironmentName,
+
+        [parameter(Mandatory = $false)]
+        [string]$KeyVaultName = "$EnvironmentName-ts"
     )
     
     Set-StrictMode -Version Latest
@@ -50,22 +59,20 @@ function Add-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $keyVaultName = "$EnvironmentName-ts"
-
-    $keyVault = Get-AzureRmKeyVault -VaultName $keyVaultName
+    $keyVault = Get-AzureRmKeyVault -VaultName $KeyVaultName
 
     if (!$keyVault) {
-        Write-Host "Creating keyvault with the name $keyVaultName"
-        New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName $EnvironmentName -Location $EnvironmentLocation | Out-Null
+        Write-Host "Creating keyvault with the name $KeyVaultName"
+        New-AzureRmKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation | Out-Null
     }
 
     $retryCount = 0
     # Make sure key vault exists and is ready
-    while (!(Get-AzureRmKeyVault -VaultName $keyVaultName )) {
+    while (!(Get-AzureRmKeyVault -VaultName $KeyVaultName )) {
         $retryCount += 1
 
         if ($retryCount -gt 7) {
-            throw "Could not connect to the vault $keyVaultName"
+            throw "Could not connect to the vault $KeyVaultName"
         }
 
         sleep 10
@@ -86,12 +93,12 @@ function Add-AadTestAuthEnvironment {
 
     if ($currentObjectId) {
         Write-Host "Adding permission to keyvault for $currentObjectId"
-        Set-AzureRmKeyVaultAccessPolicy -VaultName $keyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get, Set
+        Set-AzureRmKeyVaultAccessPolicy -VaultName $KeyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get, Set
     }
 
     Write-Host "Ensuring API application exists"
 
-    $fhirServiceAudience = Get-ServiceAudience $EnvironmentName
+    $fhirServiceAudience = Get-ServiceAudience -EnvironmentName $EnvironmentName -WebAppSuffix $WebAppSuffix
 
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 
@@ -107,7 +114,7 @@ function Add-AadTestAuthEnvironment {
     Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
 
     Write-Host "Ensuring users and role assignments for API Application exist"
-    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $keyVaultName
+    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $KeyVaultName
 
     $environmentClientApplications = @()
 
@@ -134,6 +141,9 @@ function Add-AadTestAuthEnvironment {
             
         if ($publicClient) {
             Grant-ClientAppAdminConsent -AppId $aadClientApplication.AppId -TenantAdminCredential $TenantAdminCredential
+
+            # The public client (native app) is being used as SMART on FHIR client app in testing.
+            New-FhirServerSmartClientReplyUrl -AppId $aadClientApplication.AppId -FhirServerUrl $fhirServiceAudience -ReplyUrl "https://localhost:6001/sampleapp/index.html"
         }
 
         $environmentClientApplications += @{
@@ -142,13 +152,13 @@ function Add-AadTestAuthEnvironment {
             appId       = $aadClientApplication.AppId
         }
         
-        Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name "$displayName-secret" -SecretValue $secretSecureString | Out-Null
+        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "$displayName-secret" -SecretValue $secretSecureString | Out-Null
 
         Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -AppId $aadClientApplication.AppId -AppRoles $clientApp.roles | Out-Null
     }
 
     @{
-        keyVaultName                  = $keyVaultName
+        keyVaultName                  = $KeyVaultName
         environmentUsers              = $environmentUsers
         environmentClientApplications = $environmentClientApplications
     }

@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Execute the actual search.
             SearchResult result = await SearchInternalAsync(searchOptions, cancellationToken);
 
-            return _bundleFactory.CreateSearchBundle(resourceType, searchOptions.UnsupportedSearchParams, result);
+            return _bundleFactory.CreateSearchBundle(searchOptions.UnsupportedSearchParams, result);
         }
 
         /// <inheritdoc />
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Execute the actual search.
             SearchResult result = await SearchInternalAsync(searchOptions, cancellationToken);
 
-            return _bundleFactory.CreateSearchBundle(resourceType, searchOptions.UnsupportedSearchParams, result);
+            return _bundleFactory.CreateSearchBundle(searchOptions.UnsupportedSearchParams, result);
         }
 
         public async Task<Bundle> SearchHistoryAsync(

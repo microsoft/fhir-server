@@ -19,6 +19,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upser
         public SaveOutcomeType OutcomeType { get; protected set; }
 
         [JsonProperty("wrapper")]
-        public CosmosResourceWrapper Wrapper { get; protected set; }
+        public FhirCosmosResourceWrapper Wrapper { get; protected set; }
     }
 }

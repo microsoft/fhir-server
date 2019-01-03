@@ -59,15 +59,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the list of search parameters that were not used in the search.
         /// </summary>
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParams { get; internal set; }
-
-        /// <summary>
-        /// Gets the compartment type.
-        /// </summary>
-        public CompartmentType? CompartmentType { get; internal set; }
-
-        /// <summary>
-        /// Gets the compartment id.
-        /// </summary>
-        public string CompartmentId { get; internal set; }
     }
 }

@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
 
@@ -23,7 +24,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         private const string Scheme = "http";
         private const string Host = "test";
         private const string ContinuationTokenQueryParamName = "ct";
+        private const string DefaultRouteName = "Route";
 
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly IUrlHelperFactory _urlHelperFactory = Substitute.For<IUrlHelperFactory>();
         private readonly IHttpContextAccessor _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
         private readonly IActionContextAccessor _actionContextAccessor = Substitute.For<IActionContextAccessor>();
@@ -38,7 +41,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
 
         public UrlResolverTests()
         {
-            _urlResolver = new UrlResolver(_urlHelperFactory, _httpContextAccessor, _actionContextAccessor);
+            _urlResolver = new UrlResolver(
+                _fhirRequestContextAccessor,
+                _urlHelperFactory,
+                _httpContextAccessor,
+                _actionContextAccessor);
+
+            _fhirRequestContextAccessor.FhirRequestContext.RouteName = DefaultRouteName;
 
             _httpContextAccessor.HttpContext.Returns(_httpContext);
 
@@ -103,11 +112,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         [Fact]
         public void GivenANullUnsupportedSearchParams_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
-            _urlResolver.ResolveSearchUrl("Patient", unsupportedSearchParams: null, continuationToken: null);
+            _urlResolver.ResolveRouteUrl(unsupportedSearchParams: null, continuationToken: null);
 
             ValidateUrlRouteContext(
-                "SearchResources",
-                routeValues =>
+                routeValuesValidator: routeValues =>
                 {
                     Assert.Empty(routeValues);
                 });
@@ -247,11 +255,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         {
             _httpContext.Request.QueryString = new QueryString(inputQueryString);
 
-            _urlResolver.ResolveSearchUrl("Patient", unsupportedSearchParams, continuationToken);
+            _urlResolver.ResolveRouteUrl(unsupportedSearchParams, continuationToken);
 
             ValidateUrlRouteContext(
-                 "SearchResources",
-                 routeValues =>
+                 routeValuesValidator: routeValues =>
                  {
                      foreach (KeyValuePair<string, object> expectedRouteValue in expectedRouteValues)
                      {
@@ -267,7 +274,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                  });
         }
 
-        private void ValidateUrlRouteContext(string routeName, Action<RouteValueDictionary> routeValuesValidator = null)
+        private void ValidateUrlRouteContext(string routeName = DefaultRouteName, Action<RouteValueDictionary> routeValuesValidator = null)
         {
             Assert.NotNull(_capturedUrlRouteContext);
             Assert.Equal(routeName, _capturedUrlRouteContext.RouteName);

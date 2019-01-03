@@ -51,5 +51,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
         void Visit(StringExpression expression);
+
+        /// <summary>
+        /// Visits the <see cref="CompartmentSearchExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        void Visit(CompartmentSearchExpression expression);
     }
 }

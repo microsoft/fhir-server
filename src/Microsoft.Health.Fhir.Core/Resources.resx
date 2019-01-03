@@ -211,6 +211,9 @@
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>Invalid value for :missing modifier. Valid values are: true, false.</value>
   </data>
+  <data name="MalformedSearchValue" xml:space="preserve">
+    <value>Malformed search value '{0}'.</value>
+  </data>
   <data name="ModifierNotSupported" xml:space="preserve">
     <value>Modifier '{0}' is not supported for search parameter '{1}'.</value>
   </data>
@@ -240,9 +243,6 @@
   </data>
   <data name="RequestedActionNotAllowed" xml:space="preserve">
     <value>The requested action is not allowed.</value>
-  </data>
-  <data name="RequestRateExceeded" xml:space="preserve">
-    <value>The request rate has exceeded the maximum API request rate and is being throttled. Please try again later.</value>
   </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>
