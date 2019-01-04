@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 
-namespace Microsoft.Health.Fhir.Core.Features.Security
+namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
     public class Role : IValidatableObject
     {
@@ -21,12 +21,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         {
             if (string.IsNullOrWhiteSpace(Name))
             {
-                yield return new ValidationResult(Core.Resources.RoleNameEmpty);
+                yield return new ValidationResult("Role name empty");
             }
 
             if (ResourcePermissions.Count == 0)
             {
-                yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourcePermissionEmpty, Name));
+                yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, "Resource Permission empty {0}", Name));
             }
             else
             {
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                 {
                     if (permission.Actions.Count == 0)
                     {
-                        yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
+                        yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, "Role resource with no resource action {0}", Name));
                     }
                 }
             }

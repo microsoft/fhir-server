@@ -7,15 +7,13 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
     public class ControlPlaneModule : IStartupModule
     {
-        public ControlPlaneModule(FhirServerConfiguration fhirServerConfiguration)
+        public ControlPlaneModule()
         {
-            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
         }
 
         /// <inheritdoc />
@@ -23,7 +21,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddScoped<IRbacService, RbacService>();
+            services.Add<RbacService>()
+                .Scoped()
+                .AsService<IRbacService>();
+
+            services.AddFactory<IScoped<IRbacService>>();
+
+            services.Add<RbacServiceBootstrapper>()
+                .Singleton()
+                .AsService<IStartable>();
         }
     }
 }

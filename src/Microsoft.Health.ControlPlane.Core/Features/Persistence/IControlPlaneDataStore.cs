@@ -14,5 +14,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
         Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken);
 
         Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken);
+
+        Task<bool> IsBootstrappedAsync(string bootstrapHash, CancellationToken cancellationToken);
     }
 }

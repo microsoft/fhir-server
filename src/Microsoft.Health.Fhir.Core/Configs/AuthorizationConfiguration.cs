@@ -6,8 +6,8 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Hl7.Fhir.Model;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {

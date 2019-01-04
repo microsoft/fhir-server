@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Microsoft.Azure.Documents;
@@ -23,13 +24,14 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.UnitTests.Features.Storage
     public class ControlPlaneDataStoreTests
     {
         private readonly ControlPlaneDataStore _controlPlaneDataStore;
-        private readonly CosmosIdentityProvider _cosmosIdentityProvider;
+        private readonly CosmosIdentityProvider _cosmosIdentityProvider = Substitute.For<CosmosIdentityProvider>();
+        private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory = Substitute.For<ICosmosDocumentQueryFactory>();
+        private readonly IDocumentClient _documentClient = Substitute.For<IDocumentClient>();
 
         public ControlPlaneDataStoreTests()
         {
             var scopedIDocumentClient = Substitute.For<IScoped<IDocumentClient>>();
-            var documentClient = Substitute.For<IDocumentClient>();
-            scopedIDocumentClient.Value.Returns(documentClient);
+            scopedIDocumentClient.Value.Returns(_documentClient);
 
             var cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
@@ -42,18 +44,11 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.UnitTests.Features.Storage
                 PreferredLocations = null,
             };
 
-            var cosmosDocumentQueryFactory = Substitute.For<ICosmosDocumentQueryFactory>();
-            var identityProviderDocumentQuery = Substitute.For<IDocumentQuery<CosmosIdentityProvider>>();
-
-            _cosmosIdentityProvider = Substitute.For<CosmosIdentityProvider>();
             _cosmosIdentityProvider.ETag.Returns("\"1\"");
             _cosmosIdentityProvider.Name.Returns("aad");
             _cosmosIdentityProvider.Audience.Returns(new[] { "fhir-api" });
             _cosmosIdentityProvider.Authority.Returns("https://login.microsoftonline.com/common");
-
-            var feedResponse = new FeedResponse<dynamic>(new List<dynamic> { _cosmosIdentityProvider });
-            identityProviderDocumentQuery.ExecuteNextAsync(Arg.Any<CancellationToken>()).Returns(feedResponse);
-            cosmosDocumentQueryFactory.Create<CosmosIdentityProvider>(Arg.Any<IDocumentClient>(), Arg.Any<CosmosQueryContext>()).Returns(identityProviderDocumentQuery);
+            SetupDocumentQuery<CosmosIdentityProvider>(_cosmosIdentityProvider);
 
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
             optionsMonitor.Get(Constants.CollectionConfigurationName).Returns(new CosmosCollectionConfiguration { CollectionId = "collectionId" });
@@ -63,9 +58,18 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.UnitTests.Features.Storage
             _controlPlaneDataStore = new ControlPlaneDataStore(
                 scopedIDocumentClient,
                 cosmosDataStoreConfiguration,
-                cosmosDocumentQueryFactory,
+                _cosmosDocumentQueryFactory,
                 optionsMonitor,
                 logger);
+        }
+
+        private void SetupDocumentQuery<T>(object responseObject)
+        {
+            var documentQuery = Substitute.For<IDocumentQuery<T>>();
+
+            var feedResponse = new FeedResponse<dynamic>(new List<dynamic> { responseObject });
+            documentQuery.ExecuteNextAsync(Arg.Any<CancellationToken>()).Returns(feedResponse);
+            _cosmosDocumentQueryFactory.Create<T>(Arg.Any<IDocumentClient>(), Arg.Any<CosmosQueryContext>()).Returns(documentQuery);
         }
 
         [Fact]
@@ -74,6 +78,39 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.UnitTests.Features.Storage
             var identityProvider = await _controlPlaneDataStore.GetIdentityProviderAsync("aad", CancellationToken.None);
 
             Assert.Equal(_cosmosIdentityProvider.Name, identityProvider.Name);
+        }
+
+        [Fact]
+        public async void GivenABootstrapHash_WhenCallingIsBootstrappedWithPreviousBootstrapped_ThenTrueIsReturned()
+        {
+            var cosmosBootstrap = Substitute.For<CosmosBootstrap>();
+            SetupDocumentQuery<CosmosBootstrap>(cosmosBootstrap);
+
+            var bootstrapHash = "hash";
+
+            var response = await _controlPlaneDataStore.IsBootstrappedAsync(bootstrapHash, CancellationToken.None);
+
+            Assert.True(response);
+        }
+
+        [Fact]
+        public async void GivenABootstrapHash_WhenCallingIsBootstrappedWithNoPreviousBootstrapped_ThenFalseIsReturned()
+        {
+            SetupDocumentQuery<CosmosBootstrap>(null);
+
+            var document = Substitute.For<Document>();
+            document.Id.Returns("bootstrap");
+
+            var resourceResponse = Substitute.For<ResourceResponse<Document>>();
+            resourceResponse.RequestCharge.Returns(0);
+
+            _documentClient.UpsertDocumentAsync(Arg.Any<Uri>(), Arg.Any<CosmosBootstrap>(), Arg.Any<RequestOptions>(), true, Arg.Any<CancellationToken>()).Returns(resourceResponse);
+
+            var bootstrapHash = "hash";
+
+            var response = await _controlPlaneDataStore.IsBootstrappedAsync(bootstrapHash, CancellationToken.None);
+
+            Assert.False(response);
         }
     }
 }

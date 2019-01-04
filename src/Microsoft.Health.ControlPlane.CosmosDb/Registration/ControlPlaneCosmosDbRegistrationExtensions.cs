@@ -7,6 +7,7 @@ using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.ControlPlane.Core.Configs;
 using Microsoft.Health.ControlPlane.CosmosDb;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning;
@@ -25,6 +26,10 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
             services.AddCosmosDb();
+
+            var controlPlaneConfiguration = new ControlPlaneConfiguration();
+            configuration.GetSection("ControlPlane").Bind(controlPlaneConfiguration, binderOptions => binderOptions.BindNonPublicProperties = true);
+            services.AddSingleton(Options.Options.Create(controlPlaneConfiguration));
 
             services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("ControlPlane:CosmosDb").Bind(cosmosCollectionConfiguration));
 
@@ -55,6 +60,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsService<IUpgradeManager>();
+
+            ////services.Add<CosmosRbacBootstrapper>()
+            ////    .Singleton()
+            ////    .AsSelf()
+            ////    .AsService<IControlPlaneCollectionUpdater>();
 
             return services;
         }

@@ -76,6 +76,22 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return resultIdentityProvider.ToIdentityProvider();
         }
 
+        public async Task<bool> IsBootstrappedAsync(string bootstrapHash, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(bootstrapHash, nameof(bootstrapHash));
+
+            var bootstrap = await GetSystemDocumentByIdAsync<CosmosBootstrap>("bootstrap", CosmosBootstrap.BootstrapPartition, cancellationToken);
+            if (bootstrap == null)
+            {
+                var newBootstrap = new CosmosBootstrap { Hash = bootstrapHash };
+                await UpsertSystemObjectAsync(newBootstrap, CosmosBootstrap.BootstrapPartition, cancellationToken);
+
+                return false;
+            }
+
+            return true;
+        }
+
         internal IDocumentQuery<T> CreateDocumentQuery<T>(
             SqlQuerySpec sqlQuerySpec,
             FeedOptions feedOptions = null)

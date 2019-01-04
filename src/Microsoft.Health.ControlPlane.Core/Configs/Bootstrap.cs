@@ -3,13 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Security.Claims;
+using System.Collections.Generic;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 
-namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
+namespace Microsoft.Health.ControlPlane.Core.Configs
 {
-    public interface IAuthorizationPolicy
+    public class Bootstrap
     {
-        bool HasPermission(ClaimsPrincipal user, ResourceAction action);
+        public IList<Role> Roles { get; set; }
+
+        public IList<IdentityProvider> IdentityProviders { get; set; }
     }
 }

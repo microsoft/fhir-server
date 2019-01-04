@@ -7,9 +7,9 @@ using System;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Microsoft.Health.CosmosDb.Features.Storage
+namespace Microsoft.Health.Abstractions.Cryptography
 {
-    internal class Hasher
+    public class Hasher
     {
         public static string ComputeHash(string data)
         {

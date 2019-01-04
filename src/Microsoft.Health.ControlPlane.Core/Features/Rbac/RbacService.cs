@@ -34,5 +34,12 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
             return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, cancellationToken);
         }
+
+        public async Task<bool> IsBootstrappedAsync(string bootstrapHash, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(bootstrapHash, nameof(bootstrapHash));
+
+            return await _controlPlaneDataStore.IsBootstrappedAsync(bootstrapHash, cancellationToken);
+        }
     }
 }

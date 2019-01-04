@@ -18,6 +18,7 @@ using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Claim = System.Security.Claims.Claim;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 private static readonly Dictionary<string, string> Mappings = new Dictionary<string, string>
                 {
-                    { "^roles:", "FhirServer:Security:Authorization:Roles:" },
+                    { "^roles:", "ControlPlane:Bootstrap:Roles:" },
                     { "^users:", "DevelopmentIdentityProvider:Users:" },
                     { "^clientApplications:", "DevelopmentIdentityProvider:ClientApplications:" },
                 };
@@ -178,7 +179,10 @@ namespace Microsoft.Health.Fhir.Web
 
                     // add properties related to the development identity provider.
                     Data["DevelopmentIdentityProvider:Enabled"] = bool.TrueString;
-                    Data["FhirServer:Security:Authentication:Audience"] = DevelopmentIdentityProviderConfiguration.Audience;
+
+                    Data["ControlPlane:Bootstrap:IdentityProviders:0:Name"] = "IdentityServer";
+                    Data["ControlPlane:Bootstrap:IdentityProviders:0:Authority"] = "https://localhost:44348";
+                    Data["ControlPlane:Bootstrap:IdentityProviders:0:Audience:0"] = DevelopmentIdentityProviderConfiguration.Audience;
                 }
             }
         }

@@ -13,6 +13,7 @@
     <PackageReference Include="Ensure.That" Version="8.1.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="2.1.1" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.1-beta.61" />

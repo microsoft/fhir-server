@@ -12,7 +12,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
     public class IdentityProvider
     {
         [JsonConstructor]
-        protected IdentityProvider()
+        public IdentityProvider()
         {
         }
 
