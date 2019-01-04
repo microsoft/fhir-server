@@ -81,7 +81,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(bootstrapHash, nameof(bootstrapHash));
 
             var bootstrap = await GetSystemDocumentByIdAsync<CosmosBootstrap>("bootstrap", CosmosBootstrap.BootstrapPartition, cancellationToken);
-            if (bootstrap == null)
+            if (bootstrap == null || bootstrap.Hash != bootstrapHash)
             {
                 var newBootstrap = new CosmosBootstrap { Hash = bootstrapHash };
                 await UpsertSystemObjectAsync(newBootstrap, CosmosBootstrap.BootstrapPartition, cancellationToken);
