@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAController_WhenExecutingAction_ThenAnAuditLogEntryShouldBeCreated()
+        public void GivenAController_WhenExecutingAction_ThenAuditLogShouldBeLogged()
         {
             var actionExecutingContext = new ActionExecutingContext(
                 new ActionContext(new DefaultHttpContext(), new RouteData(), new ControllerActionDescriptor() { DisplayName = "Executing Context Test Descriptor" }),
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenANonFhirResult_WhenExecutedAction_ThenAnAuditLogEntryShouldBeCreated()
+        public void GivenANonFhirResult_WhenExecutedAction_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.InternalServerError;
 
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAFhirResultWithNullResource_WhenExecutedAction_ThenAnAuditLogEntryShouldBeCreated()
+        public void GivenAFhirResultWithNullResource_WhenExecutedAction_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.OK;
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAController_WhenExecutedAction_ThenAnAuditLogEntryShouldBeCreated()
+        public void GivenAController_WhenExecutedAction_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
 

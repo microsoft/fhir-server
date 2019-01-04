@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAnActionHasAllowAnonymousAttribute_WhenLogExecutingIsCalled_ThenAuditLogEntryShouldNotBeCreated()
+        public void GivenAnActionHasAllowAnonymousAttribute_WhenLogExecutingIsCalled_ThenAuditLogShouldNotBeLogged()
         {
             _auditHelper.LogExecuting(ControllerName, AnonymousMethodName);
 
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAnActionHasAuditEventTypeAttribute_WhenLogExecutingIsCalled_ThenAuditLogEntryShouldNotBeCreated()
+        public void GivenAnActionHasAuditEventTypeAttribute_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
         {
             _auditHelper.LogExecuting(ControllerName, AudittedMethodName);
 
@@ -133,15 +133,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAnActionHasAllowAnonymousAttribute_WhenLogExecutedIsCalled_ThenAuditLogEntryShouldNotBeCreated()
+        public void GivenAnActionHasAllowAnonymousAttribute_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged()
         {
-            _auditHelper.LogExecuting(ControllerName, AnonymousMethodName);
+            _auditHelper.LogExecuted(ControllerName, AnonymousMethodName, HttpStatusCode.OK, "Patient");
 
             _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(AuditAction.Executed, null, null, null, null, null, null);
         }
 
         [Fact]
-        public void GivenAnActionHasAuditEventTypeAttribute_WhenLogExecutedIsCalled_ThenAuditLogEntryShouldNotBeCreated()
+        public void GivenAnActionHasAuditEventTypeAttribute_WhenLogExecutedIsCalled_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
             const string expectedResourceType = "Patient";
