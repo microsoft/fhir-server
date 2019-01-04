@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
                 UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async () => await _upsertWithHistoryProc.Execute(
+                    async (ct) => await _upsertWithHistoryProc.Execute(
                         _documentClient,
                         _collectionUri,
                         cosmosWrapper,
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
 
                 StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async () => await _hardDelete.Execute(
+                    async (ct) => await _hardDelete.Execute(
                         _documentClient,
                         _collectionUri,
                         key),
