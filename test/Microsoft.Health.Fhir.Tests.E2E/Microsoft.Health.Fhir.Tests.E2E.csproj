@@ -45,6 +45,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
   <Import Project="Microsoft.AspNetCore.Mvc.Testing.targets" />
   
   <Target Name="AddRuntimeConfigFileToBuiltProjectOutputGroupOutput" Condition=" '$(GenerateRuntimeConfigurationFiles)' == 'true'" BeforeTargets="BuiltProjectOutputGroup">

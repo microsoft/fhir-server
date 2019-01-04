@@ -38,16 +38,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetRole(string roleName, CancellationToken cancellationToken)
         {
-            if (roleName != "all")
-            {
-                var response = await _rbacService.GetRoleAsync(roleName, cancellationToken);
-                return Ok(response);
-            }
-            else
-            {
-                var response = await _rbacService.GetRoleForAllAsync(cancellationToken);
-                return Ok(response);
-            }
+            var response = await _rbacService.GetRoleAsync(roleName, cancellationToken);
+            return Ok(response);
+        }
+
+        [HttpGet]
+        [Route("Admin/Roles")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetRoles(CancellationToken cancellationToken)
+        {
+            var response = await _rbacService.GetRoleForAllAsync(cancellationToken);
+            return Ok(response);
         }
 
         [HttpPut]
@@ -64,16 +65,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> CreateRole([FromBody] Role role, CancellationToken cancellationToken)
         {
-            var response = await _rbacService.AddRoleAsync(role, cancellationToken);
+            var response = await _rbacService.UpsertRoleAsync(role, cancellationToken);
             return Ok(response);
         }
 
         [HttpDelete]
         [Route("Admin/Roles/{RoleName}")]
         [AllowAnonymous]
-        public async Task<IActionResult> DeleteRole(string roleName)
+        public async Task<IActionResult> DeleteRole(string roleName, CancellationToken cancellationToken)
         {
-            var response = await _rbacService.DeleteRoleAsync(roleName);
+            var response = await _rbacService.DeleteRoleAsync(roleName, cancellationToken);
             return Ok(response);
         }
     }

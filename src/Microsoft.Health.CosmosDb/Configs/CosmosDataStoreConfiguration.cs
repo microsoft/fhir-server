@@ -20,8 +20,6 @@ namespace Microsoft.Health.CosmosDb.Configs
 
         public int? InitialDatabaseThroughput { get; set; }
 
-        public string FhirCollectionId { get; set; }
-
         public int? InitialFhirCollectionThroughput { get; set; }
 
         public string ControlPlaneCollectionId { get; set; }

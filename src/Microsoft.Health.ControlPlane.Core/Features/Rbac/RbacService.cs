@@ -35,6 +35,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public async Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
             return await _controlPlaneDataStore.GetRoleAsync(name, cancellationToken);
         }
 
@@ -45,17 +46,14 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public async Task<Role> UpsertRoleAsync(Role role, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(role, nameof(role));
             return await _controlPlaneDataStore.UpsertRoleAsync(role, cancellationToken);
         }
 
-        public async Task<Role> AddRoleAsync(Role role, CancellationToken cancellationToken)
+        public async Task<string> DeleteRoleAsync(string name, CancellationToken cancellationToken)
         {
-            return await _controlPlaneDataStore.AddRoleAsync(role, cancellationToken);
-        }
-
-        public async Task<string> DeleteRoleAsync(string name)
-        {
-            return await _controlPlaneDataStore.DeleteRoleAsync(name);
+            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+            return await _controlPlaneDataStore.DeleteRoleAsync(name, cancellationToken);
         }
     }
 }
