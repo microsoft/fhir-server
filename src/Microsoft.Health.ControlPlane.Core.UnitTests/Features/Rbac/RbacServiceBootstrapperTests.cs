@@ -50,7 +50,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         }
 
         [Fact]
-        public void WhenBootstrapping_GivenAnEmptyIdentityProviderBootstrapSection_ThenIsBootstrappedIsCalledAndIdentityProviderUpsertIsNotBeCalled()
+        public void WhenBootstrapping_GivenAnEmptyIdentityProviderBootstrapSection_ThenIsBootstrappedIsCalledAndIdentityProviderUpsertIsNotCalled()
         {
             _rbacServiceBootstrapper.Start();
 
