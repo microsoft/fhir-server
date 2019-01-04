@@ -180,6 +180,7 @@ namespace Microsoft.Health.Fhir.Web
 
                     // add properties related to the development identity provider.
                     Data["DevelopmentIdentityProvider:Enabled"] = bool.TrueString;
+                    Data["FhirServer:Security:Authentication:Audience"] = DevelopmentIdentityProviderConfiguration.Audience;
 
                     Data["ControlPlane:Bootstrap:IdentityProviders:0:Name"] = "IdentityServer";
                     Data["ControlPlane:Bootstrap:IdentityProviders:0:Authority"] = "https://localhost:44348";
