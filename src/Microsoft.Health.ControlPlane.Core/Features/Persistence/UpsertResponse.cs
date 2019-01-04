@@ -12,12 +12,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
     {
         public UpsertResponse(T controlPlaneResource, UpsertOutcomeType outcomeType, string eTag)
         {
-            if (controlPlaneResource == null)
-            {
-                throw new ArgumentNullException(nameof(controlPlaneResource));
-            }
-
-            ControlPlaneResource = controlPlaneResource;
+            ControlPlaneResource = controlPlaneResource ?? throw new ArgumentNullException(nameof(controlPlaneResource));
             OutcomeType = outcomeType;
             ETag = eTag;
         }

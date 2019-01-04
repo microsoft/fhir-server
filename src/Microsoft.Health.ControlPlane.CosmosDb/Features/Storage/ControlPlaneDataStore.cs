@@ -72,12 +72,12 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return await GetSystemDocumentsByIdAsync<CosmosIdentityProvider>(null, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
         }
 
-        public async Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string versionIdETag, CancellationToken cancellationToken)
+        public async Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string eTag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
 
             var cosmosIdentityProvider = new CosmosIdentityProvider(identityProvider);
-            var resultIdentityProvider = await UpsertSystemObjectAsync(cosmosIdentityProvider, CosmosIdentityProvider.IdentityProviderPartition, versionIdETag, cancellationToken);
+            var resultIdentityProvider = await UpsertSystemObjectAsync(cosmosIdentityProvider, CosmosIdentityProvider.IdentityProviderPartition, eTag, cancellationToken);
             return new UpsertResponse<IdentityProvider>(resultIdentityProvider.ControlPlaneResource.ToIdentityProvider(), resultIdentityProvider.OutcomeType, resultIdentityProvider.ETag);
         }
 

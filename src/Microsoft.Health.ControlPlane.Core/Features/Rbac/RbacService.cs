@@ -43,7 +43,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         {
             EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
 
-            return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, cancellationToken);
+            return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, eTag, cancellationToken);
         }
     }
 }
