@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using Microsoft.Azure.Documents;
@@ -91,26 +90,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.UnitTests.Features.Storage
             var response = await _controlPlaneDataStore.IsBootstrappedAsync(bootstrapHash, CancellationToken.None);
 
             Assert.True(response);
-        }
-
-        [Fact]
-        public async void GivenABootstrapHash_WhenCallingIsBootstrappedWithNoPreviousBootstrapped_ThenFalseIsReturned()
-        {
-            SetupDocumentQuery<CosmosBootstrap>(null);
-
-            var document = Substitute.For<Document>();
-            document.Id.Returns("bootstrap");
-
-            var resourceResponse = Substitute.For<ResourceResponse<Document>>();
-            resourceResponse.RequestCharge.Returns(0);
-
-            _documentClient.UpsertDocumentAsync(Arg.Any<Uri>(), Arg.Any<CosmosBootstrap>(), Arg.Any<RequestOptions>(), true, Arg.Any<CancellationToken>()).Returns(resourceResponse);
-
-            var bootstrapHash = "hash";
-
-            var response = await _controlPlaneDataStore.IsBootstrappedAsync(bootstrapHash, CancellationToken.None);
-
-            Assert.False(response);
         }
     }
 }

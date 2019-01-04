@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 
 namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization

@@ -5,7 +5,7 @@
 
 using System.Collections.Generic;
 
-namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class ResourcePermission
     {

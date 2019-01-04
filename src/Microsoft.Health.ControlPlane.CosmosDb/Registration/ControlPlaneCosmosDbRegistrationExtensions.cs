@@ -61,11 +61,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsService<IUpgradeManager>();
 
-            ////services.Add<CosmosRbacBootstrapper>()
-            ////    .Singleton()
-            ////    .AsSelf()
-            ////    .AsService<IControlPlaneCollectionUpdater>();
-
             return services;
         }
     }

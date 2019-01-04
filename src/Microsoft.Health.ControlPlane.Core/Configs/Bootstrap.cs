@@ -10,8 +10,8 @@ namespace Microsoft.Health.ControlPlane.Core.Configs
 {
     public class Bootstrap
     {
-        public IList<Role> Roles { get; set; }
-
         public IList<IdentityProvider> IdentityProviders { get; set; }
+
+        // TODO: Add in roles and role memberships to be bootstrapped
     }
 }

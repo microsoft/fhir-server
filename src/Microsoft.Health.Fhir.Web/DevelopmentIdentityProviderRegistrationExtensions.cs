@@ -155,9 +155,10 @@ namespace Microsoft.Health.Fhir.Web
 
             private class Provider : JsonConfigurationProvider
             {
+                // TODO: Roles will need to be moved into the bootstrap configuration and role memberships will need to be added also.
                 private static readonly Dictionary<string, string> Mappings = new Dictionary<string, string>
                 {
-                    { "^roles:", "ControlPlane:Bootstrap:Roles:" },
+                    { "^roles:", "FhirServer:Security:Authorization:Roles:" },
                     { "^users:", "DevelopmentIdentityProvider:Users:" },
                     { "^clientApplications:", "DevelopmentIdentityProvider:ClientApplications:" },
                 };
