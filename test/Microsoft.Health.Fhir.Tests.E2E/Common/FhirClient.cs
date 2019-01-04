@@ -288,23 +288,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
         {
+            if (clientApplication.Equals(TestApplications.InvalidClient))
+            {
+                return null;
+            }
+
             var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
 
             HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
 
             var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
 
-            if (clientApplication.Equals(TestApplications.InvalidClient))
-            {
-                return null;
-            }
+            var bearerToken = tokenJson["access_token"].Value<string>();
 
-            if (tokenJson["access_token"] != null)
-            {
-                return tokenJson["access_token"].Value<string>();
-            }
-
-            return null;
+            return bearerToken;
         }
 
         private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)

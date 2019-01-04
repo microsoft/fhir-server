@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Web
 {
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
-        private const string WRONGAUDIENCECLIENT = "wrongaudienceclient";
+        private const string WrongAudienceClient = "wrongaudienceclient";
 
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Web
                             UserClaims = { authorizationConfiguration.RolesClaim },
                         },
                         new ApiResource(
-                        WRONGAUDIENCECLIENT,
+                        WrongAudienceClient,
                         claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
                         {
                             UserClaims = { authorizationConfiguration.RolesClaim },
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Web
                                     ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
 
                                     // scopes that client has access to
-                                    AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience, "wrongaudienceclient" },
+                                    AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient },
 
                                     // app roles that the client app may have
                                     Claims = applicationConfiguration.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
