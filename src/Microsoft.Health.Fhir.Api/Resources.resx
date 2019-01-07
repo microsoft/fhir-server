@@ -136,7 +136,7 @@
     <value>Capability Statement</value>
   </data>
   <data name="MissingAuditInformation" xml:space="preserve">
-    <value>The audit information is missing for Controller: {0} and Action: {1}. This usually means code error where the action is not marked with appropriate attribute.</value>
+    <value>The audit information is missing for Controller: {0} and Action: {1}. This usually means the action is not marked with appropriate attribute.</value>
     <comment>{0} is the controller name and {1} is the action name.</comment>
   </data>
   <data name="NotFoundException" xml:space="preserve">

@@ -78,6 +78,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
+        public async Task GivenRouteNameNotSetAuthXFailedAndControllerActionNotSet_WhenInvoked_ThenAuditLogShouldBeLogged()
+        {
+            const HttpStatusCode statusCode = HttpStatusCode.Forbidden;
+
+            _httpContext.Response.StatusCode = (int)statusCode;
+
+            RouteData routeData = SetupRouteData(controllerName: null, actionName: null);
+
+            await _auditMiddleware.Invoke(_httpContext);
+
+            _auditHelper.Received(1).LogExecuted(null, null, statusCode, null);
+        }
+
+        [Fact]
         public async Task GivenRouteNameNotSetAuthXFailedAndResourceTypeNotSet_WhenInvoked_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode statusCode = HttpStatusCode.Forbidden;
@@ -91,14 +105,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _auditHelper.Received(1).LogExecuted(Controller, Action, statusCode, null);
         }
 
-        private RouteData SetupRouteData()
+        private RouteData SetupRouteData(string controllerName = Controller, string actionName = Action)
         {
             _fhirRequestContext.RouteName.Returns((string)null);
 
             var routeData = new RouteData();
 
-            routeData.Values.Add("controller", Controller);
-            routeData.Values.Add("action", Action);
+            routeData.Values.Add("controller", controllerName);
+            routeData.Values.Add("action", actionName);
 
             IRoutingFeature routingFeature = Substitute.For<IRoutingFeature>();
 

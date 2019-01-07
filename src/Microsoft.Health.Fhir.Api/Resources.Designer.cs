@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The audit information is missing for Controller: {0} and Action: {1}. This usually means code error where the action is not marked with appropriate attribute..
+        ///   Looks up a localized string similar to The audit information is missing for Controller: {0} and Action: {1}. This usually means the action is not marked with appropriate attribute..
         /// </summary>
         public static string MissingAuditInformation {
             get {

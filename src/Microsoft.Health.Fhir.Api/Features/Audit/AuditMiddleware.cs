@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     /// <summary>
-    /// A middleware that logs audit entry that cannot be logged by <see cref="AuditLoggingFilterAttribute"/>.
+    /// A middleware that logs audit events that cannot be logged by <see cref="AuditLoggingFilterAttribute"/>.
     /// </summary>
     public class AuditMiddleware
     {
@@ -59,8 +59,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
 
                     _auditHelper.LogExecuted(
-                        controllerName.ToString(),
-                        actionName.ToString(),
+                        controllerName?.ToString(),
+                        actionName?.ToString(),
                         statusCode,
                         resourceType?.ToString());
                 }
