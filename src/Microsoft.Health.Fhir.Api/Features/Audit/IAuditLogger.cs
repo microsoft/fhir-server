@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 
-namespace Microsoft.Health.Fhir.Api.Features.Logging
+namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     public interface IAuditLogger
     {

@@ -9,7 +9,7 @@ using System.Linq;
 using System.Reflection;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Api.Features.Filters
+namespace Microsoft.Health.Fhir.Api.Extensions
 {
     public static class MethodInfoExtensions
     {
