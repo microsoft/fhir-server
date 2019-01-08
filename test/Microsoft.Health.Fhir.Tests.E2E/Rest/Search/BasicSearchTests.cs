@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 await Client.CreateAsync(patient);
             }
 
-            Bundle bundle = await Client.SearchAsync($"Patient?_summary=count");
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_summary=count");
 
             Assert.NotNull(bundle);
             Assert.Equal(numberOfResources, bundle.Total);
