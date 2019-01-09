@@ -11,7 +11,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 {
     public class CosmosIdentityProvider : IdentityProvider
     {
-        internal const string IdentityProviderPartition = "_identityProviders";
+        public const string IdentityProviderPartition = "_identityProviders";
 
         public CosmosIdentityProvider(IdentityProvider identityProvider)
             : base(identityProvider.Name, identityProvider.Authority, identityProvider.Audience, identityProvider.Version)

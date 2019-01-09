@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Azure.Documents;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
+namespace Microsoft.Health.CosmosDb.Features.Queries
 {
     public class QueryParameterManager
     {

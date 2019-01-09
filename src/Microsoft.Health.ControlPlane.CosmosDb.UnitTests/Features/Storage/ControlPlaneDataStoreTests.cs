@@ -63,6 +63,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.UnitTests.Features.Storage
                 scopedIDocumentClient,
                 cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
+                new RetryExceptionPolicyFactory(cosmosDataStoreConfiguration),
                 optionsMonitor,
                 logger);
         }
