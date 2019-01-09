@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
@@ -50,10 +49,10 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
             return await _controlPlaneDataStore.UpsertRoleAsync(role, cancellationToken);
         }
 
-        public async Task<string> DeleteRoleAsync(string name, CancellationToken cancellationToken)
+        public async Task DeleteRoleAsync(string name, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
-            return await _controlPlaneDataStore.DeleteRoleAsync(name, cancellationToken);
+            await _controlPlaneDataStore.HardDeleteRoleAsync(name, cancellationToken);
         }
     }
 }

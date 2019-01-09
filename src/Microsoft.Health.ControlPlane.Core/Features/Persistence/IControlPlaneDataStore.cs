@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
 {
@@ -24,5 +23,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
         Task<IEnumerable<Role>> GetRoleAllAsync(CancellationToken cancellationToken);
 
         Task<string> DeleteRoleAsync(string name, CancellationToken cancellationToken);
+
+        Task HardDeleteRoleAsync(string name, CancellationToken cancellationToken = default(CancellationToken));
     }
 }

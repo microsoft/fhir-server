@@ -20,12 +20,6 @@ namespace Microsoft.Health.CosmosDb.Configs
 
         public int? InitialDatabaseThroughput { get; set; }
 
-        public int? InitialFhirCollectionThroughput { get; set; }
-
-        public string ControlPlaneCollectionId { get; set; }
-
-        public int? InitialControlPlaneCollectionThroughput { get; set; }
-
         public ConnectionMode ConnectionMode { get; set; } = ConnectionMode.Direct;
 
         public Protocol ConnectionProtocol { get; set; } = Protocol.Tcp;

@@ -5,11 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
@@ -19,8 +21,8 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac;
+using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -35,28 +37,34 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         private readonly Uri _collectionUri;
         private readonly string _collectionId;
         private readonly string _databaseId;
+        private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
+        private readonly HardDeleteRole _hardDeleteRole;
 
         public ControlPlaneDataStore(
-             IScoped<IDocumentClient> documentClient,
-             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
-             ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
-             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
-             ILogger<ControlPlaneDataStore> logger)
+            IScoped<IDocumentClient> documentClient,
+            CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+            ICosmosDocumentQueryFactory cosmosDocumentQueryFactory,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
+            RetryExceptionPolicyFactory retryExceptionPolicyFactory,
+            ILogger<ControlPlaneDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
+            EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             var collectionConfig = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
 
             _documentClient = documentClient;
             _collectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfig.CollectionId);
+            _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _collectionId = collectionConfig.CollectionId;
             _databaseId = cosmosDataStoreConfiguration.DatabaseId;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _logger = logger;
+            _hardDeleteRole = new HardDeleteRole();
         }
 
         public async Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken)
@@ -100,14 +108,44 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return response;
         }
 
+        public async System.Threading.Tasks.Task HardDeleteRoleAsync(string name, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            EnsureArg.IsNotNull(name, nameof(name));
+
+            try
+            {
+                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    async () => await _hardDeleteRole.Execute(
+                        _documentClient,
+                        _collectionUri,
+                        CosmosRole.RolePartition,
+                        name),
+                    cancellationToken);
+
+                _logger.LogDebug($"Hard-deleted {response.Response.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Response)}.");
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
+                {
+                    // TODO: Eventually, we might want to have our own RequestTooLargeException?
+                    throw new Exception();
+                }
+
+                _logger.LogError(dce, "Unhandled Document Client Exception");
+
+                throw;
+            }
+        }
+
+        private static string GetValue(HttpStatusCode type)
+        {
+            return ((int)type).ToString();
+        }
+
         public async Task<IEnumerable<Role>> GetRoleAllAsync(CancellationToken cancellationToken)
         {
             var role = await GetSystemDocumentAllAsync<CosmosRole>(CosmosRole.RolePartition, cancellationToken);
-
-            if (role == null)
-            {
-                throw new RoleNotFoundException("all");
-            }
 
             return role.ToRoleList();
         }
@@ -115,7 +153,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         public async Task<Role> UpsertRoleAsync(Role role, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(role, nameof(role));
-
+            ValidateRole(role);
             var cosmosRole = new CosmosRole(role);
             var resultRole = await UpsertSystemObjectAsync(cosmosRole, CosmosRole.RolePartition, cancellationToken);
             return resultRole.ToRole();
@@ -171,6 +209,8 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
         private async Task<IEnumerable<T>> GetSystemDocumentAllAsync<T>(string partitionKey, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(partitionKey, nameof(partitionKey));
+
             var documentQuery = new SqlQuerySpec(
                 "SELECT * FROM root");
 
@@ -200,6 +240,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             where T : class
         {
             EnsureArg.IsNotNull(systemObject, nameof(systemObject));
+            EnsureArg.IsNotNull(partitionKey, nameof(partitionKey));
             var eTagAccessCondition = new AccessCondition();
 
             var requestOptions = new RequestOptions
@@ -259,6 +300,21 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
                 _logger.LogError(dce, "Unhandled Document Client Exception");
                 throw;
+            }
+        }
+
+        private void ValidateRole(Role role)
+        {
+            var issues = new List<OperationOutcome.IssueComponent>();
+
+            foreach (var validationError in role.Validate(new ValidationContext(role)))
+            {
+                issues.Add(new OperationOutcome.IssueComponent
+                {
+                    Severity = OperationOutcome.IssueSeverity.Fatal,
+                    Code = OperationOutcome.IssueType.Invalid,
+                    Diagnostics = validationError.ErrorMessage,
+                });
             }
         }
     }

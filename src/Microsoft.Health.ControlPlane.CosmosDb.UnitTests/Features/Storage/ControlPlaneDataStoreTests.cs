@@ -60,11 +60,14 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.UnitTests.Features.Storage
 
             var logger = NullLogger<ControlPlaneDataStore>.Instance;
 
+            var retryExceptionPolicyFactory = Substitute.For<RetryExceptionPolicyFactory>();
+
             _controlPlaneDataStore = new ControlPlaneDataStore(
                 scopedIDocumentClient,
                 cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
                 optionsMonitor,
+                retryExceptionPolicyFactory,
                 logger);
         }
 

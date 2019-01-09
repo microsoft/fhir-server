@@ -9,7 +9,6 @@ using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -74,8 +73,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> DeleteRole(string roleName, CancellationToken cancellationToken)
         {
-            var response = await _rbacService.DeleteRoleAsync(roleName, cancellationToken);
-            return Ok(response);
+            await _rbacService.DeleteRoleAsync(roleName, cancellationToken);
+            return Ok();
         }
     }
 }

@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 
 namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 {
@@ -22,14 +22,17 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         {
             List<Role> roleList = new List<Role>();
 
-            foreach (CosmosRole r in cosmosRoleList)
+            if (cosmosRoleList != null)
             {
-                Role role = new Role(
-                     r.Name,
-                     r.ResourcePermissions,
-                     r.ETag.Trim('"'));
+                foreach (CosmosRole r in cosmosRoleList)
+                {
+                    Role role = new Role(
+                         r.Name,
+                         r.ResourcePermissions,
+                         r.ETag.Trim('"'));
 
-                roleList.Add(role);
+                    roleList.Add(role);
+                }
             }
 
             return roleList;
