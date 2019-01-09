@@ -6,7 +6,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
@@ -22,6 +21,6 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         Task<IEnumerable<Role>> GetRoleForAllAsync(CancellationToken cancellationToken);
 
-        Task<string> DeleteRoleAsync(string name, CancellationToken cancellationToken);
+        Task DeleteRoleAsync(string name, CancellationToken cancellationToken);
     }
 }

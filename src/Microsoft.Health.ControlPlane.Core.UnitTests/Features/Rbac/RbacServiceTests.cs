@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Threading;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 using NSubstitute;
 using Xunit;
 
@@ -65,14 +64,6 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             var role = await _rbacService.UpsertRoleAsync(_role, CancellationToken.None);
 
             Assert.Same(_role, role);
-        }
-
-        [Fact]
-        public async void GivenAName_WhenDeletingRoles_ThenDataStoreIsCalled()
-        {
-            var status = await _rbacService.DeleteRoleAsync(_role.Name, CancellationToken.None);
-
-            Assert.Equal("success", status.ToString());
         }
 
         [Fact]

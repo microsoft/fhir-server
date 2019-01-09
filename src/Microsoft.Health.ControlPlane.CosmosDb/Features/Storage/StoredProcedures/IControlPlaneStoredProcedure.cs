@@ -3,13 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Security.Claims;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac;
+using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
+namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedures
 {
-    public interface IAuthorizationPolicy
+    public interface IControlPlaneStoredProcedure : IStoredProcedure
     {
-        bool HasPermission(ClaimsPrincipal user, ResourceAction action);
     }
 }

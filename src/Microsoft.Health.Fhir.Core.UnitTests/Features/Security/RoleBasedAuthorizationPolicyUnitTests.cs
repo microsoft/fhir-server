@@ -6,8 +6,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Xunit;
 

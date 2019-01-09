@@ -6,16 +6,29 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Security
+namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 {
     public class Role : IValidatableObject
     {
+        [JsonConstructor]
+        public Role()
+        {
+        }
+
+        public Role(string name, IList<ResourcePermission> resourcePermissions, string version)
+        {
+            Name = name;
+            ResourcePermissions = resourcePermissions;
+            Version = version;
+        }
+
         public string Name { get; set; }
 
         public virtual string Version { get; set; }
 
-        public IList<ResourcePermission> ResourcePermissions { get; internal set; } = new List<ResourcePermission>();
+        public IList<ResourcePermission> ResourcePermissions { get; set; } = new List<ResourcePermission>();
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
