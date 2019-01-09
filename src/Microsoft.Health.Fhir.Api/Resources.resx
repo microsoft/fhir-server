@@ -117,10 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AuditEventSubTypeNotSet" xml:space="preserve">
-    <value>Audit Event Sub Type is not set for method {0}.</value>
-    <comment>{0} is method name</comment>
-  </data>
   <data name="BackToTop" xml:space="preserve">
     <value>Back to top</value>
   </data>
@@ -138,6 +134,10 @@
   </data>
   <data name="MenuCapabilityStatement" xml:space="preserve">
     <value>Capability Statement</value>
+  </data>
+  <data name="MissingAuditInformation" xml:space="preserve">
+    <value>The audit information is missing for Controller: {0} and Action: {1}. This usually means the action is not marked with appropriate attribute.</value>
+    <comment>{0} is the controller name and {1} is the action name.</comment>
   </data>
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>

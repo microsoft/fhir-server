@@ -61,15 +61,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Audit Event Sub Type is not set for method {0}..
-        /// </summary>
-        public static string AuditEventSubTypeNotSet {
-            get {
-                return ResourceManager.GetString("AuditEventSubTypeNotSet", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Back to top.
         /// </summary>
         public static string BackToTop {
@@ -120,6 +111,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string MenuCapabilityStatement {
             get {
                 return ResourceManager.GetString("MenuCapabilityStatement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The audit information is missing for Controller: {0} and Action: {1}. This usually means the action is not marked with appropriate attribute..
+        /// </summary>
+        public static string MissingAuditInformation {
+            get {
+                return ResourceManager.GetString("MissingAuditInformation", resourceCulture);
             }
         }
         

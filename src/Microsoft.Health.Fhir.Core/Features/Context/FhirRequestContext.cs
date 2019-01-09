@@ -57,8 +57,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public Coding RequestType { get; }
 
-        public Coding RequestSubType { get; set; }
-
         public string RouteName { get; set; }
 
         public ClaimsPrincipal Principal { get; set; }

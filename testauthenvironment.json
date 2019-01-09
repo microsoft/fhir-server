@@ -96,6 +96,10 @@
         {
             "id": "nativeclient",
             "roles": []
+        },
+        {
+            "id": "wrongaudienceclient",
+            "roles": []
         }
     ]
 }
