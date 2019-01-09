@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Ensure.That" Version="8.1.0" />
+    <PackageReference Include="Ensure.That" Version="8.1.1" />
     <PackageReference Include="EnterpriseLibrary.TransientFaultHandling.Core" Version="1.2.0" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.1.3" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.1.1" />
