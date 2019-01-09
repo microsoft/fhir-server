@@ -11,6 +11,6 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     public interface IDocumentClientTestProvider
     {
-        Task PerformTest(IDocumentClient documentClient, CosmosDataStoreConfiguration configuration);
+        Task PerformTest(IDocumentClient documentClient, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
     }
 }

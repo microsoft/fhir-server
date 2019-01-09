@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Security
 {
@@ -17,8 +18,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<SecurityConfiguration> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IUrlResolver _urlResolver;
 
-        public SecurityProvider(IOptions<SecurityConfiguration> securityConfiguration, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
+        public SecurityProvider(IOptions<SecurityConfiguration> securityConfiguration, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger, IUrlResolver urlResolver)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
             EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
@@ -27,13 +29,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _urlResolver = urlResolver;
         }
 
         public void Build(ListedCapabilityStatement statement)
         {
             if (_securityConfiguration.Enabled)
             {
-                statement.AddOAuthSecurityService(_securityConfiguration.Authentication.Authority, _httpClientFactory, _logger);
+                if (_securityConfiguration.EnableAadSmartOnFhirProxy)
+                {
+                    statement.AddProxyOAuthSecurityService(_urlResolver.ResolveMetadataUrl(false));
+                }
+                else
+                {
+                    statement.AddOAuthSecurityService(_securityConfiguration.Authentication.Authority, _httpClientFactory, _logger);
+                }
             }
         }
     }

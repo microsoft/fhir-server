@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac.Roles;
 
 namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
@@ -15,6 +16,23 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
                 cosmosRole.Name,
                 cosmosRole.ResourcePermissions,
                 cosmosRole.ETag.Trim('"'));
+        }
+
+        public static List<Role> ToRoleList(this IEnumerable<CosmosRole> cosmosRoleList)
+        {
+            List<Role> roleList = new List<Role>();
+
+            foreach (CosmosRole r in cosmosRoleList)
+            {
+                Role role = new Role(
+                     r.Name,
+                     r.ResourcePermissions,
+                     r.ETag.Trim('"'));
+
+                roleList.Add(role);
+            }
+
+            return roleList;
         }
     }
 }

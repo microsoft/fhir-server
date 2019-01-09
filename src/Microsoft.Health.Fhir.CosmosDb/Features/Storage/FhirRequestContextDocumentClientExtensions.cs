@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 requestContext.AddRequestChargeToResponseHeaders(dce.RequestCharge);
 
-                if (dce.StatusCode == (HttpStatusCode)429)
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }

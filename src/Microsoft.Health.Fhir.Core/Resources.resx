@@ -211,6 +211,9 @@
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>Invalid value for :missing modifier. Valid values are: true, false.</value>
   </data>
+  <data name="MalformedSearchValue" xml:space="preserve">
+    <value>Malformed search value '{0}'.</value>
+  </data>
   <data name="ModifierNotSupported" xml:space="preserve">
     <value>Modifier '{0}' is not supported for search parameter '{1}'.</value>
   </data>

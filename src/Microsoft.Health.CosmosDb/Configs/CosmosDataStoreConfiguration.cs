@@ -20,8 +20,6 @@ namespace Microsoft.Health.CosmosDb.Configs
 
         public int? InitialDatabaseThroughput { get; set; }
 
-        public string FhirCollectionId { get; set; }
-
         public int? InitialFhirCollectionThroughput { get; set; }
 
         public string ControlPlaneCollectionId { get; set; }
@@ -38,14 +36,6 @@ namespace Microsoft.Health.CosmosDb.Configs
 
         public Uri RelativeDatabaseUri => string.IsNullOrEmpty(DatabaseId) ? null : UriFactory.CreateDatabaseUri(DatabaseId);
 
-        public Uri RelativeFhirCollectionUri => string.IsNullOrEmpty(DatabaseId) || string.IsNullOrEmpty(FhirCollectionId) ? null : UriFactory.CreateDocumentCollectionUri(DatabaseId, FhirCollectionId);
-
-        public Uri AbsoluteFhirCollectionUri => string.IsNullOrEmpty(Host) || RelativeFhirCollectionUri == null ? null : new Uri(new Uri(Host), RelativeFhirCollectionUri);
-
-        public Uri RelativeControlPlaneCollectionUri => string.IsNullOrEmpty(DatabaseId) || string.IsNullOrEmpty(ControlPlaneCollectionId) ? null : UriFactory.CreateDocumentCollectionUri(DatabaseId, ControlPlaneCollectionId);
-
-        public Uri AbsoluteControlPlaneCollectionUri => string.IsNullOrEmpty(Host) || RelativeControlPlaneCollectionUri == null ? null : new Uri(new Uri(Host), RelativeControlPlaneCollectionUri);
-
         public IList<string> PreferredLocations { get; set; }
 
         public int DataMigrationBatchSize { get; set; } = 100;
@@ -53,5 +43,17 @@ namespace Microsoft.Health.CosmosDb.Configs
         public CosmosDataStoreRetryOptions RetryOptions { get; } = new CosmosDataStoreRetryOptions();
 
         public int? ContinuationTokenSizeLimitInKb { get; set; }
+
+        public Uri GetRelativeCollectionUri(string collectionId)
+        {
+            return string.IsNullOrEmpty(DatabaseId) || string.IsNullOrEmpty(collectionId) ? null : UriFactory.CreateDocumentCollectionUri(DatabaseId, collectionId);
+        }
+
+        public Uri GetAbsoluteCollectionUri(string collectionId)
+        {
+            var relativeCollectionUri = GetRelativeCollectionUri(collectionId);
+
+            return string.IsNullOrEmpty(Host) || relativeCollectionUri == null ? null : new Uri(new Uri(Host), relativeCollectionUri);
+        }
     }
 }

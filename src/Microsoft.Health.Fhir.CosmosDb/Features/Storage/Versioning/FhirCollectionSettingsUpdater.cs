@@ -12,10 +12,10 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -26,17 +26,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     {
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
-        private static readonly RangeIndex DefaultStringRangeIndex = new RangeIndex(DataType.String, -1);
+        private readonly CosmosCollectionConfiguration _collectionConfiguration;
 
-        private const int CollectionSettingsVersion = 1;
+        private const int CollectionSettingsVersion = 2;
 
-        public FhirCollectionSettingsUpdater(ILogger<FhirCollectionSettingsUpdater> logger, CosmosDataStoreConfiguration configuration)
+        public FhirCollectionSettingsUpdater(
+            CosmosDataStoreConfiguration configuration,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
+            ILogger<FhirCollectionSettingsUpdater> logger)
         {
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _logger = logger;
             _configuration = configuration;
+            _collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
+            _logger = logger;
         }
 
         public async Task ExecuteAsync(IDocumentClient client, DocumentCollection collection, Uri relativeCollectionUri)
@@ -48,39 +53,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
             if (thisVersion.Version < CollectionSettingsVersion)
             {
-                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}", _configuration.AbsoluteFhirCollectionUri);
+                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}", _configuration.GetAbsoluteCollectionUri(_collectionConfiguration.CollectionId));
 
                 collection.IndexingPolicy = new IndexingPolicy
                 {
                     IncludedPaths = new Collection<IncludedPath>
-                {
-                    new IncludedPath
                     {
-                        Path = "/*",
-                        Indexes = new Collection<Index>
+                        new IncludedPath
                         {
-                            new RangeIndex(DataType.Number, -1),
-                            new HashIndex(DataType.String, 3),
+                            Path = "/*",
+                            Indexes = new Collection<Index>
+                            {
+                                new RangeIndex(DataType.Number, -1),
+                                new RangeIndex(DataType.String, -1),
+                            },
                         },
                     },
-                    new IncludedPath
-                    {
-                        Path = $"/{KnownResourceWrapperProperties.LastModified}/?",
-                        Indexes = new Collection<Index>
-                        {
-                            DefaultStringRangeIndex,
-                        },
-                    },
-                    GenerateIncludedPathForSearchIndexEntryField(SearchValueConstants.DateTimeStartName, DefaultStringRangeIndex),
-                    GenerateIncludedPathForSearchIndexEntryField(SearchValueConstants.DateTimeEndName, DefaultStringRangeIndex),
-                },
                     ExcludedPaths = new Collection<ExcludedPath>
-                {
-                    new ExcludedPath
                     {
-                        Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
+                        new ExcludedPath
+                        {
+                            Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
+                        },
                     },
-                },
                 };
 
                 // Setting the DefaultTTL to -1 means that by default all documents in the collection will live forever
@@ -106,15 +101,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             var result = await query.ExecuteNextAsync<CollectionVersion>();
 
             return result.FirstOrDefault() ?? new CollectionVersion();
-        }
-
-        private static IncludedPath GenerateIncludedPathForSearchIndexEntryField(string fieldName, params Index[] indices)
-        {
-            return new IncludedPath
-            {
-                Path = $"/{KnownResourceWrapperProperties.SearchIndices}/[]/{fieldName}/?",
-                Indexes = new Collection<Index>(indices),
-            };
         }
     }
 }

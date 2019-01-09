@@ -11,12 +11,11 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 {
     public class CosmosRole : Role
     {
-        internal const string RolePartition = "Role_";
+        internal const string RolePartition = "_roles";
 
         public CosmosRole(Role role)
-              : base(role.Name, role.ResourcePermissions,  role.Version)
+             : base(role.Name, role.ResourcePermissions, role.Version)
         {
-            ETag = $"\"{role.Version}\"";
         }
 
         [JsonConstructor]
@@ -24,13 +23,13 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         {
         }
 
-        [JsonProperty("id")]
+        [JsonProperty(KnownDocumentProperties.Id)]
         public string Id => Name;
 
-        [JsonProperty("partitionKey")]
+        [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey { get; } = RolePartition;
 
-        [JsonProperty("_etag")]
+        [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; protected set; }
 
         [JsonProperty(KnownDocumentProperties.IsSystem)]

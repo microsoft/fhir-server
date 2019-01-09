@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
             if (!string.IsNullOrEmpty(fractionInString))
             {
-                fraction = decimal.Parse(fractionInString);
+                fraction = decimal.Parse(fractionInString, CultureInfo.InvariantCulture);
             }
 
             TimeSpan? utcOffset = null;

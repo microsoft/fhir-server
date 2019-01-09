@@ -42,6 +42,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return Ok(response);
         }
 
+        [HttpGet]
+        [Route("Admin/Roles")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetRoles(CancellationToken cancellationToken)
+        {
+            var response = await _rbacService.GetRoleForAllAsync(cancellationToken);
+            return Ok(response);
+        }
+
         [HttpPut]
         [Route("Admin/Roles")]
         [AllowAnonymous]
@@ -56,7 +65,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> CreateRole([FromBody] Role role, CancellationToken cancellationToken)
         {
-            var response = await _rbacService.AddRoleAsync(role, cancellationToken);
+            var response = await _rbacService.UpsertRoleAsync(role, cancellationToken);
+            return Ok(response);
+        }
+
+        [HttpDelete]
+        [Route("Admin/Roles/{RoleName}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> DeleteRole(string roleName, CancellationToken cancellationToken)
+        {
+            var response = await _rbacService.DeleteRoleAsync(roleName, cancellationToken);
             return Ok(response);
         }
     }

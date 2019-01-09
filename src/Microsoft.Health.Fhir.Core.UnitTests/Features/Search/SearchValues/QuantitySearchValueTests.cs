@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Xunit;
 
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData(@"abc|system|code")]
         public void GivenAnInvalidNumber_WhenParsing_ThenExceptionShouldBeThrown(string s)
         {
-            Assert.Throws<FormatException>(() => QuantitySearchValue.Parse(s));
+            Assert.Throws<BadRequestException>(() => QuantitySearchValue.Parse(s));
         }
 
         [Fact]
