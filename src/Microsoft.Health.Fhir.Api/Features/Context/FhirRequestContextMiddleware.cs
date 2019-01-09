@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 {
     public class FhirRequestContextMiddleware
     {
+        private const string RequestIdHeaderName = "X-Request-Id";
+
         private readonly RequestDelegate _next;
 
         public FhirRequestContextMiddleware(RequestDelegate next)
@@ -38,14 +40,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.Path,
                 request.QueryString);
 
+            string correlationId = correlationIdProvider.Invoke();
+
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
                 uriString: uriInString,
                 baseUriString: baseUriInString,
                 requestType: ValueSets.AuditEventType.RestFulOperation,
-                correlationId: correlationIdProvider.Invoke(),
+                correlationId: correlationId,
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
+
+            context.Response.Headers[RequestIdHeaderName] = correlationId;
 
             if (context.User != null)
             {
