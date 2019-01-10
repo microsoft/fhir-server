@@ -6,14 +6,16 @@
 * @param {string} roleName - Role to be deleted
 */
 
-function hardDeleteRole(roleName) {
+function hardDelete(roleName) {
     const collection = getContext().getCollection();
     const response = getContext().getResponse();
+    const collectionLink = collection.getSelfLink();
 
     const errorMessages = {
         RoleNameNull: `${ErrorCodes.BadRequest}: The roleName is undefined or null.`,
         CannotDeleteAllRows: `${ErrorCodes.BadRequest}: Cannot delete all roles.`,
-        RequestEntityTooLarge: `${ErrorCodes.RequestEntityTooLarge}: The request could not be completed.`
+        RequestEntityTooLarge: `${ErrorCodes.RequestEntityTooLarge}: The request could not be completed.`,
+        NotFound: `${ErrorCodes.NotFound}: There are no entries in db.`
     };
 
     // Validate input
@@ -29,7 +31,7 @@ function hardDeleteRole(roleName) {
     function validate() {
         // count all resources
         let query = {
-            query: "SELECT COUNT(*) FROM ROOT r"
+            query: "SELECT COUNT(r.id) docCount FROM ROOT r"
         };
 
         let isQueryAccepted = collection.queryDocuments(
@@ -41,18 +43,23 @@ function hardDeleteRole(roleName) {
                     throw err;
                 }
 
-                if (documents.length > 1) {
-                    // Delete the documents.
-                    tryQueryAndHardDelete(documents);
-                } else {
-                    // There is no more documents so we are finished.
-                    throw new Error(errorMessage.CannotDeleteAllRows);
-                }
+                if (!documents || !documents.length) { }
+                else {
+                    doc = documents[0];
+                    if (doc.docCount === 0) {
+                        throw new Error(errorMessages.NotFound);
+                    }
+                    else if (doc.docCount === 1) {
+                        throw new Error(errorMessages.CannotDeleteAllRows);
+                    }
+
+                    tryQueryAndHardDelete();
+                }                
             });
 
         if (!isQueryAccepted) {
             // We ran out of time.
-            throw new Error(errorMessage.RequestEntityTooLarge);
+            throw new Error(errorMessages.CannotDeleteAllRows);
         }
 
     }
@@ -84,7 +91,7 @@ function hardDeleteRole(roleName) {
 
         if (!isQueryAccepted) {
             // We ran out of time.
-            throw new Error(errorMessage.RequestEntityTooLarge);
+            throw new Error(errorMessages.RequestEntityTooLarge);
         }
     }
 
