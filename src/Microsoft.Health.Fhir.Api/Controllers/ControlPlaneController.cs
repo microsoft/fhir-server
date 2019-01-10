@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> Index(CancellationToken cancellationToken)
+        public async Task<IActionResult> GetAllIdentityProviders(CancellationToken cancellationToken)
         {
             var response = await _rbacService.GetAllIdentityProvidersAsync(cancellationToken);
             return Ok(response);
