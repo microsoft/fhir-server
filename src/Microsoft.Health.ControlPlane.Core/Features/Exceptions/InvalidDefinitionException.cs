@@ -7,14 +7,11 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
-    public abstract class ControlPlaneException : Abstractions.Exceptions.MicrosoftHealthException
+    public class InvalidDefinitionException : ControlPlaneException
     {
-        protected ControlPlaneException(string message, ICollection<string> issues = null)
-            : base(message)
+        public InvalidDefinitionException(string name, List<string> issues)
+            : base(name, issues)
         {
-            Issues = issues;
         }
-
-        public ICollection<string> Issues { get; } = new List<string>();
     }
 }

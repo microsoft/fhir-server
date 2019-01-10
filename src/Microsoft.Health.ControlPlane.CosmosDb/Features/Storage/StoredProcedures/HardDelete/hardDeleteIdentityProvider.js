@@ -47,6 +47,7 @@ function hardDelete(id, eTag) {
                 }
 
                 if (!documents || !documents.length) {
+                    return;
                 } else {
                     doc = documents[0];
                     if (doc.docCount === 0) {

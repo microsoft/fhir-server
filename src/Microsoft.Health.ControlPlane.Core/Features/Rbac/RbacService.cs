@@ -4,9 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.ControlPlane.Core.Features.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
@@ -42,6 +44,20 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         public async Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string eTag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
+
+            var issues = new List<string>();
+
+            foreach (ValidationResult validationError in identityProvider.Validate(new ValidationContext(identityProvider)))
+            {
+                issues.Add(validationError.ErrorMessage);
+            }
+
+            if (issues.Count > 0)
+            {
+                throw new InvalidDefinitionException(
+                    Resources.IdentityProviderDefinitionIsInvalid,
+                    issues);
+            }
 
             return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, eTag, cancellationToken);
         }

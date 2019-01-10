@@ -180,6 +180,11 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             }
             catch (DocumentClientException dce)
             {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
                 _logger.LogError(dce, "Unhandled Document Client Exception");
                 throw;
             }

@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading;
+using Microsoft.Health.ControlPlane.Core.Features.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using NSubstitute;
@@ -21,7 +23,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
 
         public RbacServiceTests()
         {
-            _identityProvider = new IdentityProvider("aad", "https://login.microsoftonline.com/common", new List<string> { "test" }, "1");
+            _identityProvider = new IdentityProvider("aad", "https://login.microsoftonline.com/microsoft.onmicrosoft.com/", new List<string> { "test" }, "1");
             _controlPlaneDataStore = Substitute.For<IControlPlaneDataStore>();
             _controlPlaneDataStore.GetIdentityProviderAsync(_identityProvider.Name, Arg.Any<CancellationToken>()).Returns(_identityProvider);
             _controlPlaneDataStore.UpsertIdentityProviderAsync(_identityProvider, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<IdentityProvider>(_identityProvider, UpsertOutcomeType.Updated, "testEtag"));
@@ -45,11 +47,6 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             var identityProviderResponse = await _rbacService.UpsertIdentityProviderAsync(_identityProvider, "someETag", CancellationToken.None);
 
             Assert.Same(_identityProvider, identityProviderResponse.ControlPlaneResource);
-        }
-
-        private static IdentityProvider GetIdentityProvider(string name, string audience, string authority, string version)
-        {
-            return new IdentityProvider(name, authority, new List<string> { audience }, version);
         }
 
         [Theory]
@@ -119,6 +116,42 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
 
             Assert.Equal(UpsertOutcomeType.Updated, upsertResponse.OutcomeType);
             VerifyIdentityProvider("testupd", "audupd", "http://authupd", "1.0", upsertResponse.ControlPlaneResource);
+        }
+
+        [Theory]
+        [InlineData(null, "aadasd", "aud")]
+        [InlineData("asdadas", null, "aud")]
+        [InlineData("adsadsa", "aadasd", null)]
+        [InlineData(null, null, "aud")]
+        public async void GivenAnIdentityProvider_WhenUpsertWithValidationFailure_ThenInvalidDefintionExceptionIsThrown(string name, string authority, string audience)
+        {
+            var identityProviderToUpdate = Substitute.ForPartsOf<IdentityProvider>();
+            identityProviderToUpdate.Name.Returns(name);
+            identityProviderToUpdate.Authority.Returns(authority);
+            identityProviderToUpdate.Audience.Returns(new List<string> { audience });
+            identityProviderToUpdate.Version.Returns("1.0");
+
+            identityProviderToUpdate.ValidateAuthority().Returns(Enumerable.Empty<ValidationResult>());
+
+            var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToUpdate, UpsertOutcomeType.Updated, "someEtag");
+
+            _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProviderToUpdate, null, CancellationToken.None).Returns(upsertResponse);
+            var exception = await Assert.ThrowsAsync<InvalidDefinitionException>(() => _rbacService.UpsertIdentityProviderAsync(identityProviderToUpdate, null, CancellationToken.None));
+
+            Assert.True(exception.Issues.Count() > 0);
+        }
+
+        private static IdentityProvider GetIdentityProvider(string name, string audience, string authority, string version)
+        {
+            var identityProvider = Substitute.For<IdentityProvider>();
+            identityProvider.Name.Returns(name);
+            identityProvider.Authority.Returns(authority);
+            identityProvider.Audience.Returns(new List<string> { audience });
+            identityProvider.Version.Returns(version);
+
+            identityProvider.Validate(Arg.Any<ValidationContext>()).Returns(Enumerable.Empty<ValidationResult>());
+
+            return identityProvider;
         }
     }
 }

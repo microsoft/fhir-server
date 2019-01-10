@@ -61,6 +61,69 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Identity provider audience is null..
+        /// </summary>
+        internal static string IdentityProviderAudienceIsNull {
+            get {
+                return ResourceManager.GetString("IdentityProviderAudienceIsNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Identity provider authority is null or empty..
+        /// </summary>
+        internal static string IdentityProviderAuthorityEmpty {
+            get {
+                return ResourceManager.GetString("IdentityProviderAuthorityEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Identity Provider Definition Is Invalid..
+        /// </summary>
+        internal static string IdentityProviderDefinitionIsInvalid {
+            get {
+                return ResourceManager.GetString("IdentityProviderDefinitionIsInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One or more of audience values is null or empty..
+        /// </summary>
+        internal static string IdentityProviderInvalidAudience {
+            get {
+                return ResourceManager.GetString("IdentityProviderInvalidAudience", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;Invalid Authority {0}. Cannot load metadata url {1}&quot;..
+        /// </summary>
+        internal static string IdentityProviderInvalidMetadataUrl {
+            get {
+                return ResourceManager.GetString("IdentityProviderInvalidMetadataUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid Authority {0}. Required property {1} is missing in metadata from url {2}..
+        /// </summary>
+        internal static string IdentityProviderMissingMetaProp {
+            get {
+                return ResourceManager.GetString("IdentityProviderMissingMetaProp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Identity provider name is null or empty..
+        /// </summary>
+        internal static string IdentityProviderNameEmpty {
+            get {
+                return ResourceManager.GetString("IdentityProviderNameEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Identity provider &apos;{0}&apos; was not found..
         /// </summary>
         internal static string IdentityProviderNotFound {
