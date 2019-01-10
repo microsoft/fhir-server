@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             {
                 if (_auditLogger == null)
                 {
-                    _auditLogger = (TraceAuditLogger)Server.Host.Services.GetRequiredService<IAuditLogger>();
+                    _auditLogger = (TraceAuditLogger)Server?.Host.Services.GetRequiredService<IAuditLogger>();
                 }
 
                 return _auditLogger;

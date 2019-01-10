@@ -49,14 +49,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [Fact]
         public async Task GivenAnExistingResource_WhenRead_ThenAuditLogEntriesShouldBeCreated()
         {
-            FhirResponse<Patient> result = null;
-
             await ExecuteAndValidate(
                 async () =>
                 {
-                    result = await _client.CreateAsync(Samples.GetDefaultPatient());
+                    FhirResponse<Patient> response = await _client.CreateAsync(Samples.GetDefaultPatient());
 
-                    return await _client.ReadAsync<Patient>(ResourceType.Patient, result.Resource.Id);
+                    return await _client.ReadAsync<Patient>(ResourceType.Patient, response.Resource.Id);
                 },
                 "read",
                 ResourceType.Patient,
