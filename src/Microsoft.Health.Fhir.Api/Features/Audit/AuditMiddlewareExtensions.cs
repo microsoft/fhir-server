@@ -3,20 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
+using Microsoft.AspNetCore.Builder;
 
-namespace Microsoft.Health.Fhir.Api.Features.Context
+namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
-    [AttributeUsage(AttributeTargets.Method)]
-    public class AuditEventSubTypeAttribute : Attribute
+    public static class AuditMiddlewareExtensions
     {
-        public AuditEventSubTypeAttribute(string requestSubType)
+        public static IApplicationBuilder UseAudit(
+            this IApplicationBuilder builder)
         {
-            EnsureArg.IsNotNull(requestSubType, nameof(requestSubType));
-            AuditEventType = requestSubType;
-        }
+            EnsureArg.IsNotNull(builder, nameof(builder));
 
-        public string AuditEventType { get; }
+            return builder.UseMiddleware<AuditMiddleware>();
+        }
     }
 }

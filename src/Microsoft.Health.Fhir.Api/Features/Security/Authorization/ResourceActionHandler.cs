@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
         public ResourceActionHandler(IAuthorizationPolicy authorizationPolicy)
         {
             EnsureArg.IsNotNull(authorizationPolicy, nameof(authorizationPolicy));
+
             _authorizationPolicy = authorizationPolicy;
 
             foreach (ResourceAction resourceActionValue in Enum.GetValues(typeof(ResourceAction)))
