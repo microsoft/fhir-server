@@ -4,25 +4,29 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
     public abstract class ControlPlaneException : Abstractions.Exceptions.MicrosoftHealthException
     {
-        protected ControlPlaneException(string message, ICollection<string> issues = null)
+        protected ControlPlaneException(string message, IEnumerable<string> issues = null)
             : base(message)
         {
-            Issues = issues;
+            if (issues != null && issues.Any())
+            {
+                Issues = issues.ToList();
+            }
         }
 
         public ICollection<string> Issues { get; } = new List<string>();
 
         protected static string ValidateAndFormatMessage(string format, params string[] name)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(format, nameof(name));
+            EnsureArg.IsNotNullOrWhiteSpace(format, nameof(format));
 
-            return string.Format(Resources.IdentityProviderNotFound, name);
+            return string.Format(format, name);
         }
     }
 }

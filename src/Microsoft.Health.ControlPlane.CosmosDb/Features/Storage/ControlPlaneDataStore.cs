@@ -147,8 +147,8 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
         private async Task<T> GetSystemDocumentByIdAsync<T>(string id, string partitionKey, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(id, nameof(id));
-            var kvps = new List<KeyValuePair<string, object>> { new KeyValuePair<string, object>(nameof(id), id) };
+            EnsureArg.IsNotNull(id, KnownDocumentProperties.Id);
+            var kvps = new List<KeyValuePair<string, object>> { new KeyValuePair<string, object>(KnownDocumentProperties.Id, id) };
             var response = await GetSystemDocumentsAsync<T>(kvps, partitionKey, cancellationToken);
             var result = response.SingleOrDefault();
             if (result == null)
@@ -210,7 +210,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
         private async Task DeleteSystemDocumentsByIdAsync<T>(string id, string partitionKey, string eTag, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(id, nameof(id));
+            EnsureArg.IsNotNull(id, KnownDocumentProperties.Id);
             EnsureArg.IsNotNullOrEmpty(partitionKey, nameof(partitionKey));
 
             try

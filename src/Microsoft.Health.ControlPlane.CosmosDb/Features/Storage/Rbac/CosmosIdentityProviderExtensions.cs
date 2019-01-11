@@ -10,7 +10,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 {
     public static class CosmosIdentityProviderExtensions
     {
-        public static IdentityProvider ToIdentityProvider(this CosmosIdentityProvider cosmosIdentityProvider)
+        internal static IdentityProvider ToIdentityProvider(this CosmosIdentityProvider cosmosIdentityProvider)
         {
             EnsureArg.IsNotNull(cosmosIdentityProvider);
 

@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
+using EnsureThat;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
 {
@@ -12,7 +12,8 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
     {
         public UpsertResponse(T controlPlaneResource, UpsertOutcomeType outcomeType, string eTag)
         {
-            ControlPlaneResource = controlPlaneResource ?? throw new ArgumentNullException(nameof(controlPlaneResource));
+            EnsureArg.IsNotNull(controlPlaneResource, nameof(controlPlaneResource));
+            ControlPlaneResource = controlPlaneResource;
             OutcomeType = outcomeType;
             ETag = eTag;
         }

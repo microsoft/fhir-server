@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 {
-    public class CosmosIdentityProvider : IdentityProvider
+    internal class CosmosIdentityProvider : IdentityProvider
     {
         public const string IdentityProviderPartition = "_identityProviders";
 

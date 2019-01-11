@@ -47,18 +47,13 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         {
             EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
 
-            var issues = new List<string>();
+            var validationResults = new List<ValidationResult>();
 
-            foreach (ValidationResult validationError in identityProvider.Validate(new ValidationContext(identityProvider)))
-            {
-                issues.Add(validationError.ErrorMessage);
-            }
-
-            if (issues.Count > 0)
+            if (!Validator.TryValidateObject(identityProvider, new ValidationContext(identityProvider), validationResults))
             {
                 throw new InvalidDefinitionException(
                     Resources.IdentityProviderDefinitionIsInvalid,
-                    issues);
+                    validationResults);
             }
 
             return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, eTag, cancellationToken);

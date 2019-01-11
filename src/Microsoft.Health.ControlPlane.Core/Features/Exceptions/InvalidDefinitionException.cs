@@ -4,13 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
     public class InvalidDefinitionException : ControlPlaneException
     {
-        public InvalidDefinitionException(string message, List<string> issues)
-            : base(message, issues)
+        public InvalidDefinitionException(string message, IEnumerable<ValidationResult> validationResult)
+            : base(message, validationResult.Select(vr => vr.ErrorMessage))
         {
         }
     }
