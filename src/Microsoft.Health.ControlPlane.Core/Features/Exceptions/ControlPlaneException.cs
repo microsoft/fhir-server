@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
@@ -16,5 +17,12 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
         }
 
         public ICollection<string> Issues { get; } = new List<string>();
+
+        protected static string ValidateAndFormatMessage(string format, params string[] name)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(format, nameof(name));
+
+            return string.Format(Resources.IdentityProviderNotFound, name);
+        }
     }
 }

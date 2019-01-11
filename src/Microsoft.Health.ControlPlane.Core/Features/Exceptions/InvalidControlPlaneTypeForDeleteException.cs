@@ -5,10 +5,10 @@
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
-    public class IdentityProviderNotFoundException : ControlPlaneException
+    public class InvalidControlPlaneTypeForDeleteException : ControlPlaneException
     {
-        public IdentityProviderNotFoundException(string name)
-            : base(ValidateAndFormatMessage(Resources.IdentityProviderNotFound, name))
+        public InvalidControlPlaneTypeForDeleteException(string typeName)
+            : base(ValidateAndFormatMessage(Resources.InvalidDocumentTypeForDelete, typeName))
         {
         }
     }

@@ -215,15 +215,25 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogDebug($"Obliterating {id}");
+                StoredProcedureResponse<IList<string>> response;
 
-                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async () => await _hardDeleteIdentityProvider.Execute(
-                        _documentClient.Value,
-                        _collectionUri,
-                        id,
-                        eTag),
-                    cancellationToken);
+                string typeName = typeof(T).Name;
+                _logger.LogDebug($"Obliterating {id} for type {typeName}");
+
+                switch (typeName)
+                {
+                    case "IdentityProvider":
+                        response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                                        async () => await _hardDeleteIdentityProvider.Execute(
+                                            _documentClient.Value,
+                                            _collectionUri,
+                                            id,
+                                            eTag),
+                                        cancellationToken);
+                        break;
+                    default:
+                        throw new InvalidControlPlaneTypeForDeleteException(typeName);
+                }
 
                 _logger.LogDebug($"Hard-deleted {response.Response.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Response)}.");
             }

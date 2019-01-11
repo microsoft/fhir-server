@@ -97,7 +97,7 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &quot;Invalid authority {0}. Cannot load metadata url {1}&quot;..
+        ///   Looks up a localized string similar to &quot;Invalid authority &apos;{0}&apos;. Cannot load metadata url &apos;{1}&apos;&quot;..
         /// </summary>
         internal static string IdentityProviderInvalidMetadataUrl {
             get {
@@ -106,7 +106,7 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Invalid authority {0}. Required property {1} is missing in metadata from url {2}..
+        ///   Looks up a localized string similar to Invalid authority &apos;{0}&apos;. Required property &apos;{1}&apos; is missing in metadata from url &apos;{2}&apos;..
         /// </summary>
         internal static string IdentityProviderMissingMetaProp {
             get {
@@ -129,6 +129,15 @@ namespace Microsoft.Health.ControlPlane.Core {
         internal static string IdentityProviderNotFound {
             get {
                 return ResourceManager.GetString("IdentityProviderNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Document type &apos;{0}&apos; for delete is invalid..
+        /// </summary>
+        internal static string InvalidDocumentTypeForDelete {
+            get {
+                return ResourceManager.GetString("InvalidDocumentTypeForDelete", resourceCulture);
             }
         }
     }
