@@ -79,7 +79,7 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Identity Provider Definition Is Invalid..
+        ///   Looks up a localized string similar to Identity provider definition Is Invalid..
         /// </summary>
         internal static string IdentityProviderDefinitionIsInvalid {
             get {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &quot;Invalid Authority {0}. Cannot load metadata url {1}&quot;..
+        ///   Looks up a localized string similar to &quot;Invalid authority {0}. Cannot load metadata url {1}&quot;..
         /// </summary>
         internal static string IdentityProviderInvalidMetadataUrl {
             get {
@@ -106,7 +106,7 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Invalid Authority {0}. Required property {1} is missing in metadata from url {2}..
+        ///   Looks up a localized string similar to Invalid authority {0}. Required property {1} is missing in metadata from url {2}..
         /// </summary>
         internal static string IdentityProviderMissingMetaProp {
             get {

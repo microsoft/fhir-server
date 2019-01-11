@@ -9,8 +9,8 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
     public class InvalidDefinitionException : ControlPlaneException
     {
-        public InvalidDefinitionException(string name, List<string> issues)
-            : base(name, issues)
+        public InvalidDefinitionException(string message, List<string> issues)
+            : base(message, issues)
         {
         }
     }

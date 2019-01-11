@@ -26,6 +26,8 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public async Task DeleteIdentityProviderAsync(string name, string eTag, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+
             await _controlPlaneDataStore.DeleteIdentityProviderAsync(name, eTag, cancellationToken);
         }
 

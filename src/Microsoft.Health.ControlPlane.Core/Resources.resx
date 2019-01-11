@@ -124,16 +124,16 @@
     <value>Identity provider authority is null or empty.</value>
   </data>
   <data name="IdentityProviderDefinitionIsInvalid" xml:space="preserve">
-    <value>Identity Provider Definition Is Invalid.</value>
+    <value>Identity provider definition Is Invalid.</value>
   </data>
   <data name="IdentityProviderInvalidAudience" xml:space="preserve">
     <value>One or more of audience values is null or empty.</value>
   </data>
   <data name="IdentityProviderInvalidMetadataUrl" xml:space="preserve">
-    <value>"Invalid Authority {0}. Cannot load metadata url {1}".</value>
+    <value>"Invalid authority {0}. Cannot load metadata url {1}".</value>
   </data>
   <data name="IdentityProviderMissingMetaProp" xml:space="preserve">
-    <value>Invalid Authority {0}. Required property {1} is missing in metadata from url {2}.</value>
+    <value>Invalid authority {0}. Required property {1} is missing in metadata from url {2}.</value>
   </data>
   <data name="IdentityProviderNameEmpty" xml:space="preserve">
     <value>Identity provider name is null or empty.</value>
