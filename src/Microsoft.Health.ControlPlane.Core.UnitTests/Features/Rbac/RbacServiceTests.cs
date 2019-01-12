@@ -23,7 +23,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
 
         public RbacServiceTests()
         {
-            _identityProvider = new IdentityProvider("aad", "https://login.microsoftonline.com/microsoft.onmicrosoft.com/", new List<string> { "test" });
+            _identityProvider = GetIdentityProvider("aad", "test", "https://microsoft.onmicrosoft.com/common/");
             _controlPlaneDataStore = Substitute.For<IControlPlaneDataStore>();
             _controlPlaneDataStore.GetIdentityProviderAsync(_identityProvider.Name, Arg.Any<CancellationToken>()).Returns(_identityProvider);
             _controlPlaneDataStore.UpsertIdentityProviderAsync(_identityProvider, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<IdentityProvider>(_identityProvider, UpsertOutcomeType.Updated, "testEtag"));
@@ -55,7 +55,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         [InlineData("test2", "fhir-api-2", "http://testauthority2")]
         public async void GivenAName_WhenGettingIdentityProvider_ThenIdentityProviderReturned(string name, string audience, string authority)
         {
-            var identityProvider = GetIdentityProvider(name, audience, authority, "1.0");
+            var identityProvider = GetIdentityProvider(name, audience, authority);
             _controlPlaneDataStore.GetIdentityProviderAsync(identityProvider.Name, Arg.Any<CancellationToken>()).Returns(identityProvider);
 
             var retIdentityProvider = await _rbacService.GetIdentityProviderAsync(identityProvider.Name, CancellationToken.None);
@@ -74,9 +74,9 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         public async void GivenTheDataStore_WhenGettingIAlldentityProviders_ThenAllIdentityProvidersReturned()
         {
             var idpDict = new Dictionary<string, IdentityProvider>();
-            idpDict.Add("aad", GetIdentityProvider("aad", "fhir-api", "http://testauthority", "1.0"));
-            idpDict.Add("test1", GetIdentityProvider("test1", "fhir-api-1", "http://testauthority1", "1.0"));
-            idpDict.Add("test2", GetIdentityProvider("test2", "fhir-api-2", "http://testauthority2", "1.0"));
+            idpDict.Add("aad", GetIdentityProvider("aad", "fhir-api", "http://testauthority"));
+            idpDict.Add("test1", GetIdentityProvider("test1", "fhir-api-1", "http://testauthority1"));
+            idpDict.Add("test2", GetIdentityProvider("test2", "fhir-api-2", "http://testauthority2"));
 
             _controlPlaneDataStore.GetAllIdentityProvidersAsync(Arg.Any<CancellationToken>()).Returns(idpDict.Values);
 
@@ -91,7 +91,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         [Fact]
         public async void GivenAnIdentityProvider_WhenUpsertOnNonExisting_ThenIdentityProviderIsCreated()
         {
-            var identityProviderToCreate = GetIdentityProvider("testnew", "audnew", "http://authnew", "1.0");
+            var identityProviderToCreate = GetIdentityProvider("testnew", "audnew", "http://authnew");
             var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToCreate, UpsertOutcomeType.Created, "someEtag");
 
             _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProviderToCreate, null, CancellationToken.None).Returns(upsertResponse);
@@ -105,7 +105,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         [Fact]
         public async void GivenAnIdentityProvider_WhenUpsertOnExisting_ThenIdentityProviderIsUpdated()
         {
-            var identityProviderToUpdate = GetIdentityProvider("testupd", "audupd", "http://authupd", "1.0");
+            var identityProviderToUpdate = GetIdentityProvider("testupd", "audupd", "http://authupd");
 
             var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToUpdate, UpsertOutcomeType.Updated, "someEtag");
 
@@ -139,7 +139,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             Assert.True(exception.Issues.Count() > 0);
         }
 
-        private static IdentityProvider GetIdentityProvider(string name, string audience, string authority, string version)
+        private static IdentityProvider GetIdentityProvider(string name, string audience, string authority)
         {
             var identityProvider = Substitute.For<IdentityProvider>();
             identityProvider.Name.Returns(name);
