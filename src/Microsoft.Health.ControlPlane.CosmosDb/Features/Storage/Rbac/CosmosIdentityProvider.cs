@@ -14,7 +14,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         public const string IdentityProviderPartition = "_identityProviders";
 
         public CosmosIdentityProvider(IdentityProvider identityProvider)
-            : base(identityProvider.Name, identityProvider.Authority, identityProvider.Audience, identityProvider.Version)
+            : base(identityProvider.Name, identityProvider.Authority, identityProvider.Audience)
         {
         }
 
@@ -31,5 +31,8 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 
         [JsonProperty(KnownDocumentProperties.IsSystem)]
         public bool IsSystem { get; } = true;
+
+        [JsonProperty(KnownDocumentProperties.ETag)]
+        public string ETag { get; protected set; }
     }
 }

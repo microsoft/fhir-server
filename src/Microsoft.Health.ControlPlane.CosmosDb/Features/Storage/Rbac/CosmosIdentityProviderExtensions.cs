@@ -18,7 +18,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
                 cosmosIdentityProvider.Name,
                 cosmosIdentityProvider.Authority,
                 cosmosIdentityProvider.Audience,
-                cosmosIdentityProvider.Version);
+                cosmosIdentityProvider.ETag);
         }
     }
 }

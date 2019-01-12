@@ -78,7 +78,8 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
         public async Task<IEnumerable<IdentityProvider>> GetAllIdentityProvidersAsync(CancellationToken cancellationToken)
         {
-            return await GetSystemDocumentsAsync<CosmosIdentityProvider>(new List<KeyValuePair<string, object>>(), CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
+            var cosmosIdentityProviders = await GetSystemDocumentsAsync<CosmosIdentityProvider>(new List<KeyValuePair<string, object>>(), CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
+            return cosmosIdentityProviders.Select(cidp => cidp.ToIdentityProvider());
         }
 
         public async Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string eTag, CancellationToken cancellationToken)
@@ -122,7 +123,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             var queryParameterManager = new QueryParameterManager();
 
             var queryHelper = new QueryHelper(queryBuilder, queryParameterManager, "r");
-            queryHelper.AppendSelectFromRoot("r, r._self");
+            queryHelper.AppendSelectFromRoot("r");
             queryHelper.AppendSystemDataFilter(true);
             queryHelper.AppendFilterCondition("AND", filterNameValues.Select(kvp => (kvp.Key, kvp.Value)).ToArray());
 

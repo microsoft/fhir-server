@@ -19,17 +19,21 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         {
         }
 
-        public IdentityProvider(string name, string authority, IReadOnlyList<string> audience, string version)
+        public IdentityProvider(string name, string authority, IReadOnlyList<string> audience)
+            : this(name, authority, audience, null)
+        {
+        }
+
+        internal IdentityProvider(string name, string authority, IReadOnlyList<string> audience, string eTag)
         {
             EnsureArg.IsNotNull(name, nameof(name));
             EnsureArg.IsNotNull(authority, nameof(authority));
             EnsureArg.IsNotNull(audience, nameof(audience));
-            EnsureArg.IsNot(version, nameof(version));
 
             Name = name;
             Authority = authority;
             Audience = audience;
-            Version = version;
+            VersionTag = eTag;
         }
 
         [JsonProperty("name")]
@@ -41,8 +45,8 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         [JsonProperty("audience")]
         public virtual IReadOnlyList<string> Audience { get; protected set; }
 
-        [JsonProperty("version")]
-        public virtual string Version { get; protected set; }
+        [JsonProperty("etag")]
+        public virtual string VersionTag { get; protected set; }
 
         public virtual IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

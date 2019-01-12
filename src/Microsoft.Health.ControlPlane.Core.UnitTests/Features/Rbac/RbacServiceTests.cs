@@ -23,7 +23,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
 
         public RbacServiceTests()
         {
-            _identityProvider = new IdentityProvider("aad", "https://login.microsoftonline.com/microsoft.onmicrosoft.com/", new List<string> { "test" }, "1");
+            _identityProvider = new IdentityProvider("aad", "https://login.microsoftonline.com/microsoft.onmicrosoft.com/", new List<string> { "test" });
             _controlPlaneDataStore = Substitute.For<IControlPlaneDataStore>();
             _controlPlaneDataStore.GetIdentityProviderAsync(_identityProvider.Name, Arg.Any<CancellationToken>()).Returns(_identityProvider);
             _controlPlaneDataStore.UpsertIdentityProviderAsync(_identityProvider, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<IdentityProvider>(_identityProvider, UpsertOutcomeType.Updated, "testEtag"));
@@ -68,7 +68,6 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             Assert.Equal(name, identityProvider.Name);
             Assert.Equal(audience, identityProvider.Audience[0]);
             Assert.Equal(authority, identityProvider.Authority);
-            Assert.Equal(version, identityProvider.Version);
         }
 
         [Fact]
@@ -129,7 +128,6 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             identityProviderToUpdate.Name.Returns(name);
             identityProviderToUpdate.Authority.Returns(authority);
             identityProviderToUpdate.Audience.Returns(new List<string> { audience });
-            identityProviderToUpdate.Version.Returns("1.0");
 
             identityProviderToUpdate.ValidateAuthority().Returns(Enumerable.Empty<ValidationResult>());
 
@@ -147,7 +145,6 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             identityProvider.Name.Returns(name);
             identityProvider.Authority.Returns(authority);
             identityProvider.Audience.Returns(new List<string> { audience });
-            identityProvider.Version.Returns(version);
 
             identityProvider.Validate(Arg.Any<ValidationContext>()).Returns(Enumerable.Empty<ValidationResult>());
 
