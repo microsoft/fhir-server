@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [Fact]
         public async Task GivenANonExistingResource_WhenRead_ThenAuditLogEntriesShouldBeCreated()
         {
+            // TODO: The resource type being logged here is incorrect. The issue is tracked by https://github.com/Microsoft/fhir-server/issues/334.
             await ExecuteAndValidate(
                 async () =>
                 {
@@ -138,6 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var expectedUri = new Uri($"http://localhost/Patient/{result.Resource.Id}");
 
+            // TODO: The resource type being logged here is incorrect. The issue is tracked by https://github.com/Microsoft/fhir-server/issues/334.
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
                 ae => ValidateExecutingAuditEntry(ae, "delete", expectedUri, correlationId),
@@ -329,16 +331,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             await clientSetup(client);
 
-            FhirResponse<OperationOutcome> response = null;
-
-            try
-            {
-                await client.ReadAsync<Patient>(url);
-            }
-            catch (FhirException ex)
-            {
-                response = ex.Response;
-            }
+            FhirResponse<OperationOutcome> response = (await Assert.ThrowsAsync<FhirException>(() => client.ReadAsync<Patient>(url))).Response;
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
 
@@ -370,6 +363,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.Equal(expectedUri, auditEntry.RequestUri);
             Assert.Equal(expectedStatusCode, auditEntry.StatusCode);
             Assert.Equal(expectedCorrelationId, auditEntry.CorrelationId);
+
+            // TODO: Currently, claims are not being generated in the integration test environment and therefore we are not testing it until we add support for custom claim in IdentityServer.
         }
     }
 }
