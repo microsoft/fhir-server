@@ -151,8 +151,13 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
             using (cosmosDocumentQuery)
             {
-                FeedResponse<Document> response = await cosmosDocumentQuery.ExecuteNextAsync<Document>(cancellationToken);
-                return response;
+                var retDocuments = new List<Document>();
+                while (cosmosDocumentQuery.HasMoreResults)
+                {
+                    retDocuments.AddRange(await cosmosDocumentQuery.ExecuteNextAsync<Document>(cancellationToken));
+                }
+
+                return retDocuments;
             }
         }
 

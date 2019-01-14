@@ -13,7 +13,10 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
         protected ControlPlaneException(string message, IEnumerable<string> issues = null)
             : base(message)
         {
-            ((List<string>)Issues).AddRange(issues);
+            if (issues != null)
+            {
+                ((List<string>)Issues).AddRange(issues);
+            }
         }
 
         public ICollection<string> Issues { get; } = new List<string>();
