@@ -25,6 +25,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public HttpResponseHeaders Headers => _response.Headers;
 
+        public FhirResponse<OperationOutcome> Response => _response;
+
         public HttpContent Content => _response.Content;
 
         public OperationOutcome OperationOutcome => _response.Resource;
