@@ -219,10 +219,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
+            Patient patient = Samples.GetDefaultPatient();
+
             for (int i = 0; i < numberOfResources; i++)
             {
-                Patient patient = Samples.GetDefaultPatient();
-
                 patient.Meta = new Meta();
                 patient.Meta.Tag.Add(tag);
 
