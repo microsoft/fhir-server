@@ -3,9 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.ControlPlane.Core.Features.Exceptions;
 using Microsoft.Health.ControlPlane.Core.Features.Persistence;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
@@ -21,6 +24,18 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
             _controlPlaneDataStore = controlPlaneDataStore;
         }
 
+        public async Task DeleteIdentityProviderAsync(string name, string eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+
+            await _controlPlaneDataStore.DeleteIdentityProviderAsync(name, eTag, cancellationToken);
+        }
+
+        public async Task<IEnumerable<IdentityProvider>> GetAllIdentityProvidersAsync(CancellationToken cancellationToken)
+        {
+            return await _controlPlaneDataStore.GetAllIdentityProvidersAsync(cancellationToken);
+        }
+
         public async Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
@@ -28,11 +43,20 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
             return await _controlPlaneDataStore.GetIdentityProviderAsync(name, cancellationToken);
         }
 
-        public async Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken)
+        public async Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string eTag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
 
-            return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, cancellationToken);
+            var validationResults = new List<ValidationResult>();
+
+            if (!Validator.TryValidateObject(identityProvider, new ValidationContext(identityProvider), validationResults))
+            {
+                throw new InvalidDefinitionException(
+                    Resources.IdentityProviderDefinitionIsInvalid,
+                    validationResults);
+            }
+
+            return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, eTag, cancellationToken);
         }
     }
 }

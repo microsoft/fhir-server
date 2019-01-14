@@ -9,12 +9,12 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
 {
-    public class CosmosIdentityProvider : IdentityProvider
+    internal class CosmosIdentityProvider : IdentityProvider
     {
-        internal const string IdentityProviderPartition = "_identityProviders";
+        public const string IdentityProviderPartition = "_identityProviders";
 
         public CosmosIdentityProvider(IdentityProvider identityProvider)
-            : base(identityProvider.Name, identityProvider.Authority, identityProvider.Audience, identityProvider.Version)
+            : base(identityProvider?.Name, identityProvider?.Authority, identityProvider?.Audience)
         {
         }
 
@@ -29,12 +29,10 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey { get; } = IdentityProviderPartition;
 
-        [JsonProperty(KnownDocumentProperties.ETag)]
-        public virtual string ETag { get; protected set; }
-
         [JsonProperty(KnownDocumentProperties.IsSystem)]
         public bool IsSystem { get; } = true;
 
-        public override string Version => ETag;
+        [JsonProperty(KnownDocumentProperties.ETag)]
+        public string ETag { get; protected set; }
     }
 }

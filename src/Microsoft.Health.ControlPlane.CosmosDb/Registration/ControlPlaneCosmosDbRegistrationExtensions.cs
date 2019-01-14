@@ -9,11 +9,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.ControlPlane.CosmosDb;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage;
+using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -55,6 +58,16 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsService<IUpgradeManager>();
+
+            services.Add<ControlPlaneStoredProcedureInstaller>()
+                .Singleton()
+                .AsService<IControlPlaneCollectionUpdater>();
+
+            services.TypesInSameAssemblyAs<IControlPlaneStoredProcedure>()
+                .AssignableTo<IStoredProcedure>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IControlPlaneStoredProcedure>();
 
             return services;
         }

@@ -3,8 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Resources;
-using System.Runtime.CompilerServices;
+using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 
-[assembly: NeutralResourcesLanguage("en-us")]
-[assembly: InternalsVisibleTo("Microsoft.Health.ControlPlane.CosmosDb")]
+namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedures
+{
+    public interface IControlPlaneStoredProcedure : IStoredProcedure
+    {
+    }
+}

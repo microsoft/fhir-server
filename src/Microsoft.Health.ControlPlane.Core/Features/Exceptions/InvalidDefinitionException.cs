@@ -3,12 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+
 namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
-    public class IdentityProviderNotFoundException : ControlPlaneException
+    public class InvalidDefinitionException : ControlPlaneException
     {
-        public IdentityProviderNotFoundException(string name)
-            : base(ValidateAndFormatMessage(Resources.IdentityProviderNotFound, name))
+        public InvalidDefinitionException(string message, IEnumerable<ValidationResult> validationResult)
+            : base(message, validationResult.Select(vr => vr.ErrorMessage))
         {
         }
     }

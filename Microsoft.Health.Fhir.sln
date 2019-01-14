@@ -58,8 +58,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SmartLauncher", "samples\ap
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.CosmosDb.UnitTests", "src\Microsoft.Health.CosmosDb.UnitTests\Microsoft.Health.CosmosDb.UnitTests.csproj", "{A6EDEC42-6828-4ADE-A0B4-2042B4AC65F7}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.ControlPlane.CosmosDb.UnitTests", "src\Microsoft.Health.ControlPlane.CosmosDb.UnitTests\Microsoft.Health.ControlPlane.CosmosDb.UnitTests.csproj", "{2946D2CB-673D-47B4-B6EA-E9B11C599BB6}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.ControlPlane.Core.UnitTests", "src\Microsoft.Health.ControlPlane.Core.UnitTests\Microsoft.Health.ControlPlane.Core.UnitTests.csproj", "{A906D1FB-9282-46A0-ADDC-46726B2C1378}"
 EndProject
 Global
@@ -148,10 +146,6 @@ Global
 		{A6EDEC42-6828-4ADE-A0B4-2042B4AC65F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A6EDEC42-6828-4ADE-A0B4-2042B4AC65F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A6EDEC42-6828-4ADE-A0B4-2042B4AC65F7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2946D2CB-673D-47B4-B6EA-E9B11C599BB6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2946D2CB-673D-47B4-B6EA-E9B11C599BB6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2946D2CB-673D-47B4-B6EA-E9B11C599BB6}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2946D2CB-673D-47B4-B6EA-E9B11C599BB6}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A906D1FB-9282-46A0-ADDC-46726B2C1378}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A906D1FB-9282-46A0-ADDC-46726B2C1378}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A906D1FB-9282-46A0-ADDC-46726B2C1378}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -182,7 +176,6 @@ Global
 		{80E8C5D3-E02C-49C0-969B-0C3A02FA1FF4} = {B5F2D2DF-D0C7-4861-8259-F6A041DB9854}
 		{49CA3B9D-7A22-43E0-A434-B0EC38D119A5} = {80E8C5D3-E02C-49C0-969B-0C3A02FA1FF4}
 		{A6EDEC42-6828-4ADE-A0B4-2042B4AC65F7} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
-		{2946D2CB-673D-47B4-B6EA-E9B11C599BB6} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{A906D1FB-9282-46A0-ADDC-46726B2C1378} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution

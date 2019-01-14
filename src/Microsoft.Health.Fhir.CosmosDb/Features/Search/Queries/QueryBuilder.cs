@@ -6,6 +6,7 @@
 using System.Text;
 using EnsureThat;
 using Microsoft.Azure.Documents;
+using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
@@ -27,11 +28,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             private readonly StringBuilder _queryBuilder;
             private readonly QueryParameterManager _queryParameterManager;
+            private readonly QueryHelper _queryHelper;
 
             public QueryBuilderHelper()
             {
                 _queryBuilder = new StringBuilder();
                 _queryParameterManager = new QueryParameterManager();
+                _queryHelper = new QueryHelper(_queryBuilder, _queryParameterManager, SearchValueConstants.RootAliasName);
             }
 
             public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
@@ -105,42 +108,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             private void AppendSelectFromRoot(string selectList = SearchValueConstants.RootAliasName)
             {
-                _queryBuilder
-                    .Append("SELECT ")
-                    .Append(selectList)
-                    .Append(" FROM root ")
-                    .AppendLine(SearchValueConstants.RootAliasName);
+                _queryHelper.AppendSelectFromRoot(selectList);
             }
 
             private void AppendFilterCondition(string logicalOperator, params (string, object)[] conditions)
             {
-                for (int i = 0; i < conditions.Length; i++)
-                {
-                    _queryBuilder
-                        .Append(logicalOperator)
-                        .Append(" ");
-
-                    (string name, object value) = conditions[i];
-
-                    AppendFilterCondition(name, value);
-                }
+                _queryHelper.AppendFilterCondition(logicalOperator, conditions);
             }
 
             private void AppendFilterCondition(string name, object value)
             {
-                _queryBuilder
-                        .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
-                        .Append(" = ")
-                        .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
+                _queryHelper.AppendFilterCondition(name, value);
             }
 
             private void AppendSystemDataFilter()
             {
-                _queryBuilder
-                    .Append(" WHERE ")
-                    .Append(SearchValueConstants.RootAliasName).Append(".isSystem")
-                    .Append(" = ")
-                    .AppendLine(_queryParameterManager.AddOrGetParameterMapping(false));
+                _queryHelper.AppendSystemDataFilter(false);
             }
         }
     }
