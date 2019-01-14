@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <typeparam name="TStartup">The target web project startup</typeparam>
     public class HttpIntegrationTestFixture<TStartup> : IDisposable
     {
-        private TestServer _server;
         private string _environmentUrl;
         private HttpMessageHandler _messageHandler;
 
@@ -52,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 StartInMemoryServer(targetProjectParentDirectory);
 
-                _messageHandler = _server.CreateHandler();
+                _messageHandler = Server.CreateHandler();
                 IsUsingInProcTestServer = true;
             }
             else
@@ -67,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             _environmentUrl = environmentUrl;
 
-            HttpClient = new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
+            HttpClient = CreateHttpClient();
 
             FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
             FhirXmlClient = new Lazy<FhirClient>(() => new FhirClient(HttpClient, ResourceFormat.Xml));
@@ -81,10 +80,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Lazy<FhirClient> FhirXmlClient { get; set; }
 
+        protected TestServer Server { get; private set; }
+
         public string GenerateFullUrl(string relativeUrl)
         {
             return $"{_environmentUrl}{relativeUrl}";
         }
+
+        public HttpClient CreateHttpClient()
+            => new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
         private void StartInMemoryServer(string targetProjectParentDirectory)
         {
@@ -107,7 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         options => options.BackchannelHttpHandler = _messageHandler);
                 });
 
-            _server = new TestServer(builder);
+            Server = new TestServer(builder);
         }
 
         /// <summary>
@@ -142,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public void Dispose()
         {
             HttpClient.Dispose();
-            _server?.Dispose();
+            Server?.Dispose();
         }
 
         /// <summary>
