@@ -26,7 +26,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             _identityProvider = GetIdentityProvider("aad", "test", "https://microsoft.onmicrosoft.com/common/");
             _controlPlaneDataStore = Substitute.For<IControlPlaneDataStore>();
             _controlPlaneDataStore.GetIdentityProviderAsync(_identityProvider.Name, Arg.Any<CancellationToken>()).Returns(_identityProvider);
-            _controlPlaneDataStore.UpsertIdentityProviderAsync(_identityProvider, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<IdentityProvider>(_identityProvider, UpsertOutcomeType.Updated, "testEtag"));
+            _controlPlaneDataStore.UpsertIdentityProviderAsync(_identityProvider, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<IdentityProvider>(_identityProvider, UpsertOutcome.Updated, "testEtag"));
 
             _rbacService = new RbacService(_controlPlaneDataStore);
         }
@@ -46,7 +46,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         {
             var identityProviderResponse = await _rbacService.UpsertIdentityProviderAsync(_identityProvider, "someETag", CancellationToken.None);
 
-            Assert.Same(_identityProvider, identityProviderResponse.ControlPlaneResource);
+            Assert.Same(_identityProvider, identityProviderResponse.Resource);
         }
 
         [Theory]
@@ -92,14 +92,14 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         public async void GivenAnIdentityProvider_WhenUpsertOnNonExisting_ThenIdentityProviderIsCreated()
         {
             var identityProviderToCreate = GetIdentityProvider("testnew", "audnew", "http://authnew");
-            var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToCreate, UpsertOutcomeType.Created, "someEtag");
+            var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToCreate, UpsertOutcome.Created, "someEtag");
 
             _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProviderToCreate, null, CancellationToken.None).Returns(upsertResponse);
 
             UpsertResponse<IdentityProvider> retUpsertResponse = await _rbacService.UpsertIdentityProviderAsync(identityProviderToCreate, null, CancellationToken.None);
 
-            Assert.Equal(UpsertOutcomeType.Created, upsertResponse.OutcomeType);
-            VerifyIdentityProvider("testnew", "audnew", "http://authnew", "1.0", upsertResponse.ControlPlaneResource);
+            Assert.Equal(UpsertOutcome.Created, upsertResponse.OutcomeType);
+            VerifyIdentityProvider("testnew", "audnew", "http://authnew", "1.0", upsertResponse.Resource);
         }
 
         [Fact]
@@ -107,14 +107,14 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
         {
             var identityProviderToUpdate = GetIdentityProvider("testupd", "audupd", "http://authupd");
 
-            var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToUpdate, UpsertOutcomeType.Updated, "someEtag");
+            var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToUpdate, UpsertOutcome.Updated, "someEtag");
 
             _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProviderToUpdate, null, CancellationToken.None).Returns(upsertResponse);
 
             UpsertResponse<IdentityProvider> retUpsertResponse = await _rbacService.UpsertIdentityProviderAsync(identityProviderToUpdate, null, CancellationToken.None);
 
-            Assert.Equal(UpsertOutcomeType.Updated, upsertResponse.OutcomeType);
-            VerifyIdentityProvider("testupd", "audupd", "http://authupd", "1.0", upsertResponse.ControlPlaneResource);
+            Assert.Equal(UpsertOutcome.Updated, upsertResponse.OutcomeType);
+            VerifyIdentityProvider("testupd", "audupd", "http://authupd", "1.0", upsertResponse.Resource);
         }
 
         [Theory]
@@ -131,7 +131,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
 
             identityProviderToUpdate.ValidateAuthority().Returns(Enumerable.Empty<ValidationResult>());
 
-            var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToUpdate, UpsertOutcomeType.Updated, "someEtag");
+            var upsertResponse = new UpsertResponse<IdentityProvider>(identityProviderToUpdate, UpsertOutcome.Updated, "someEtag");
 
             _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProviderToUpdate, null, CancellationToken.None).Returns(upsertResponse);
             var exception = await Assert.ThrowsAsync<InvalidDefinitionException>(() => _rbacService.UpsertIdentityProviderAsync(identityProviderToUpdate, null, CancellationToken.None));

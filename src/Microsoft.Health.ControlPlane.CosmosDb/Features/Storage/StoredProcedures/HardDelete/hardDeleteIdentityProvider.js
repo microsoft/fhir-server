@@ -86,8 +86,7 @@ function hardDelete(id, eTag) {
                 if (documents.length > 0) {
                     // Delete the documents.
                     tryHardDelete(documents, eTag);
-                } else {
-                    // There is no more documents so we are finished.
+                    deletedResourceIdList.push(documents[0].id);
                     response.setBody(deletedResourceIdList);
                 }
             });
@@ -100,8 +99,6 @@ function hardDelete(id, eTag) {
 
     function tryHardDelete(documents, eTag) {
         if (documents.length > 0) {
-            deletedResourceIdList.push(documents[0].id);
-
             let documentVersion = documents[0]._etag;
             // If an eTag was passed in, check it matches.
             if (!stringIsNullOrEmpty(eTag) && !stringIsNullOrEmpty(documentVersion)) {
@@ -118,18 +115,13 @@ function hardDelete(id, eTag) {
                         throw err;
                     }
 
-                    // Successfully deleted the item, continue deleting.
-                    documents.shift();
-                    tryHardDelete(documents, eTag);
+                    // Successfully deleted the item.
                 });
 
             if (!isAccepted) {
                 // We ran out of time.
                 throw new Error(errorMessages.RequestEntityTooLarge);
             }
-        } else {
-            // If the documents are empty, query for more documents.
-            tryQueryAndHardDelete();
         }
     }
 

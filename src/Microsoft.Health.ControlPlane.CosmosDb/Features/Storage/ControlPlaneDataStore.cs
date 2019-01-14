@@ -78,7 +78,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
         public async Task<IEnumerable<IdentityProvider>> GetAllIdentityProvidersAsync(CancellationToken cancellationToken)
         {
-            var cosmosIdentityProviders = await GetSystemDocumentsAsync<CosmosIdentityProvider>(new List<KeyValuePair<string, object>>(), CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
+            var cosmosIdentityProviders = await GetSystemDocumentsAsync<CosmosIdentityProvider>(null, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
             return cosmosIdentityProviders.Select(cidp => cidp.ToIdentityProvider());
         }
 
@@ -88,7 +88,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
             var cosmosIdentityProvider = new CosmosIdentityProvider(identityProvider);
             var resultIdentityProvider = await UpsertSystemObjectAsync(cosmosIdentityProvider, CosmosIdentityProvider.IdentityProviderPartition, eTag, cancellationToken);
-            return new UpsertResponse<IdentityProvider>(resultIdentityProvider.ControlPlaneResource.ToIdentityProvider(), resultIdentityProvider.OutcomeType, resultIdentityProvider.ETag);
+            return new UpsertResponse<IdentityProvider>(resultIdentityProvider.Resource.ToIdentityProvider(), resultIdentityProvider.OutcomeType, resultIdentityProvider.ETag);
         }
 
         public async Task DeleteIdentityProviderAsync(string name, string eTag, CancellationToken cancellationToken)
@@ -114,9 +114,8 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return documents.Select(r => r.GetPropertyValue<T>("r"));
         }
 
-        internal async Task<IEnumerable<Document>> GetDocumentsAsync<T>(List<KeyValuePair<string, object>> filterNameValues, string partitionKey, CancellationToken cancellationToken)
+        internal async Task<IEnumerable<Document>> GetDocumentsAsync<T>(List<KeyValuePair<string, object>> filterNameValues, string partitionKey, CancellationToken cancellationToken, bool appendSystemDataFilter = true)
         {
-            EnsureArg.IsNotNull(filterNameValues, nameof(filterNameValues));
             EnsureArg.IsNotNull(partitionKey, nameof(partitionKey));
 
             var queryBuilder = new StringBuilder();
@@ -124,8 +123,19 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
             var queryHelper = new QueryHelper(queryBuilder, queryParameterManager, "r");
             queryHelper.AppendSelectFromRoot("r");
-            queryHelper.AppendSystemDataFilter(true);
-            queryHelper.AppendFilterCondition("AND", filterNameValues.Select(kvp => (kvp.Key, kvp.Value)).ToArray());
+
+            string filterCondition = "WHERE";
+
+            if (appendSystemDataFilter)
+            {
+                queryHelper.AppendSystemDataFilter(true);
+                filterCondition = "AND";
+            }
+
+            if (filterNameValues != null)
+            {
+                queryHelper.AppendFilterCondition(filterCondition, filterNameValues.Select(kvp => (kvp.Key, kvp.Value)).ToArray());
+            }
 
             var documentQuery = new SqlQuerySpec(
                 queryBuilder.ToString(),
@@ -150,7 +160,10 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(id, KnownDocumentProperties.Id);
             var kvps = new List<KeyValuePair<string, object>> { new KeyValuePair<string, object>(KnownDocumentProperties.Id, id) };
-            var response = await GetSystemDocumentsAsync<T>(kvps, partitionKey, cancellationToken);
+
+            var documents = await GetDocumentsAsync<Document>(kvps, partitionKey, cancellationToken, false);
+            var response = documents.Select(r => r.GetPropertyValue<T>("r"));
+
             var result = response.SingleOrDefault();
             if (result == null)
             {
@@ -176,7 +189,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                     cancellationToken);
                 _logger.LogInformation("Request charge: {RequestCharge}, latency: {RequestLatency}", response.RequestCharge, response.RequestLatency);
 
-                var outcomeType = response.StatusCode == HttpStatusCode.Created ? UpsertOutcomeType.Created : UpsertOutcomeType.Updated;
+                var outcomeType = response.StatusCode == HttpStatusCode.Created ? UpsertOutcome.Created : UpsertOutcome.Updated;
                 return new UpsertResponse<T>((T)(dynamic)response.Resource, outcomeType, response.Resource.ETag);
             }
             catch (DocumentClientException dce)

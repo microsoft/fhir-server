@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
 {
-    public enum UpsertOutcomeType
+    public enum UpsertOutcome
     {
         Created,
         Updated,

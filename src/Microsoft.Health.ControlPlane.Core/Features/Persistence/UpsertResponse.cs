@@ -10,17 +10,17 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
     public class UpsertResponse<T>
         where T : class
     {
-        public UpsertResponse(T controlPlaneResource, UpsertOutcomeType outcomeType, string eTag)
+        public UpsertResponse(T controlPlaneResource, UpsertOutcome outcomeType, string eTag)
         {
             EnsureArg.IsNotNull(controlPlaneResource, nameof(controlPlaneResource));
-            ControlPlaneResource = controlPlaneResource;
+            Resource = controlPlaneResource;
             OutcomeType = outcomeType;
             ETag = eTag;
         }
 
-        public T ControlPlaneResource { get; }
+        public T Resource { get; }
 
-        public UpsertOutcomeType OutcomeType { get; }
+        public UpsertOutcome OutcomeType { get; }
 
         public string ETag { get; }
     }

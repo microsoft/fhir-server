@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
 using EnsureThat;
 
 namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
@@ -14,10 +13,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
         protected ControlPlaneException(string message, IEnumerable<string> issues = null)
             : base(message)
         {
-            if (issues != null && issues.Any())
-            {
-                Issues = issues.ToList();
-            }
+            ((List<string>)Issues).AddRange(issues);
         }
 
         public ICollection<string> Issues { get; } = new List<string>();
