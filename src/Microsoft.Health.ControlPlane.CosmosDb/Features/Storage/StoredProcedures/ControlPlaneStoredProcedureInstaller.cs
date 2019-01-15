@@ -5,11 +5,10 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
+namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedures
 {
     public class ControlPlaneStoredProcedureInstaller : StoredProcedureInstaller, IControlPlaneCollectionUpdater
     {

@@ -133,6 +133,42 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resource Permissions cannot be empty.
+        /// </summary>
+        internal static string ResourcePermissionEmpty {
+            get {
+                return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role Name &apos;{0}&apos; cannot be empty.
+        /// </summary>
+        internal static string RoleNameEmpty {
+            get {
+                return ResourceManager.GetString("RoleNameEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role &apos;{0}&apos; was not found..
+        /// </summary>
+        internal static string RoleNotFound {
+            get {
+                return ResourceManager.GetString("RoleNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource Permission must have at least one action.
+        /// </summary>
+        internal static string RoleResourcePermissionWithNoAction {
+            get {
+                return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Document type &apos;{0}&apos; for delete is invalid..
         /// </summary>
         internal static string InvalidDocumentTypeForDelete {

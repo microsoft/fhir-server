@@ -16,6 +16,10 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         private readonly TimeSpan _minWaitTime;
         private readonly TimeSpan _maxWaitTime;
 
+        public RetryExceptionPolicyFactory()
+        {
+        }
+
         public RetryExceptionPolicyFactory(CosmosDataStoreConfiguration configuration)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
