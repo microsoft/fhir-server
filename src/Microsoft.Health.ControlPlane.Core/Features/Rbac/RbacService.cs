@@ -26,7 +26,19 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public async Task DeleteIdentityProviderAsync(string name, string eTag, CancellationToken cancellationToken)
         {
+            return await _controlPlaneDataStore.GetIdentityProviderAsync(name, cancellationToken);
+        }
+
+        public async Task<IdentityProvider> UpsertIdentityProviderAsync(IdentityProvider identityProvider, CancellationToken cancellationToken)
+        {
+            return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, cancellationToken);
+        }
+
+        public async Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken)
+        {
             EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+            return await _controlPlaneDataStore.GetRoleAsync(name, cancellationToken);
+        }
 
             await _controlPlaneDataStore.DeleteIdentityProviderAsync(name, eTag, cancellationToken);
         }
@@ -44,7 +56,9 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public async Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string eTag, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(identityProvider, nameof(identityProvider));
+            EnsureArg.IsNotNull(role, nameof(role));
+            return await _controlPlaneDataStore.UpsertRoleAsync(role, cancellationToken);
+        }
 
             var validationResults = new List<ValidationResult>();
 
