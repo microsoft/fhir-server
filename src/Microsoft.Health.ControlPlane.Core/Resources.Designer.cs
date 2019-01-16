@@ -133,7 +133,16 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resource Permissions cannot be empty.
+        ///   Looks up a localized string similar to Document type &apos;{0}&apos; for delete is invalid..
+        /// </summary>
+        internal static string InvalidDocumentTypeForDelete {
+            get {
+                return ResourceManager.GetString("InvalidDocumentTypeForDelete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role must have one or more ResourcePermissions..
         /// </summary>
         internal static string ResourcePermissionEmpty {
             get {
@@ -160,20 +169,11 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resource Permission must have at least one action.
+        ///   Looks up a localized string similar to Role &apos;{0}&apos; contains a ResourcePermission with no Actions..
         /// </summary>
         internal static string RoleResourcePermissionWithNoAction {
             get {
                 return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Document type &apos;{0}&apos; for delete is invalid..
-        /// </summary>
-        internal static string InvalidDocumentTypeForDelete {
-            get {
-                return ResourceManager.GetString("InvalidDocumentTypeForDelete", resourceCulture);
             }
         }
     }

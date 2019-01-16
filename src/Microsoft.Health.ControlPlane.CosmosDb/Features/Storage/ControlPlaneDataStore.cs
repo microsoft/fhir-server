@@ -114,7 +114,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                     async () => await _hardDeleteRole.Execute(
                         _documentClient,
                         _collectionUri,
-                        CosmosRole.RolePartition,
                         name),
                     cancellationToken);
 
