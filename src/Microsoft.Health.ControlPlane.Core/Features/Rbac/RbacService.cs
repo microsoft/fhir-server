@@ -26,7 +26,8 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public async Task DeleteIdentityProviderAsync(string name, string eTag, CancellationToken cancellationToken)
         {
-             await _controlPlaneDataStore.GetIdentityProviderAsync(name, cancellationToken);
+            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+            await _controlPlaneDataStore.DeleteIdentityProviderAsync(name, eTag, cancellationToken);
         }
 
         public async Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken)
@@ -64,7 +65,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         public async Task<IEnumerable<Role>> GetRoleForAllAsync(CancellationToken cancellationToken)
         {
-            return await _controlPlaneDataStore.GetRoleAllAsync(cancellationToken);
+            return await _controlPlaneDataStore.GetAllRoleAsync(cancellationToken);
         }
 
         public async Task<UpsertResponse<Role>> UpsertRoleAsync(Role role, string eTag, CancellationToken cancellationToken)
@@ -76,17 +77,17 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
             if (!Validator.TryValidateObject(role, new ValidationContext(role), validationResults))
             {
                 throw new InvalidDefinitionException(
-                    Resources.IdentityProviderDefinitionIsInvalid,
+                    Resources.RoleDefinitionIsInvalid,
                     validationResults);
             }
 
             return await _controlPlaneDataStore.UpsertRoleAsync(role, eTag, cancellationToken);
         }
 
-        public async System.Threading.Tasks.Task DeleteRoleAsync(string name, CancellationToken cancellationToken)
+        public async System.Threading.Tasks.Task DeleteRoleAsync(string name, string eTag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
-            await _controlPlaneDataStore.DeleteRoleAsync(name, cancellationToken);
+            await _controlPlaneDataStore.DeleteRoleAsync(name, eTag, cancellationToken);
         }
     }
 }

@@ -11,19 +11,18 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
-using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedures.HardDelete
 {
     internal class HardDeleteRole : StoredProcedureBase, IControlPlaneStoredProcedure
     {
-        public async Task<StoredProcedureResponse<IList<string>>> Execute(IScoped<IDocumentClient> client, Uri collection,  string id)
+        public async Task<StoredProcedureResponse<IList<string>>> Execute(IDocumentClient client, Uri collection,  string id, string eTag)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(collection, nameof(collection));
             EnsureArg.IsNotNull(id, nameof(id));
 
-            return await ExecuteStoredProc<IList<string>>(client.Value, collection, CosmosRole.RolePartition, id);
+            return await ExecuteStoredProc<IList<string>>(client, collection, CosmosRole.RolePartition, id, eTag);
         }
     }
 }

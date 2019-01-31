@@ -41,7 +41,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         [JsonProperty("etag")]
         public virtual string VersionTag { get;  set; }
 
-        [JsonProperty("resourcepermissions")]
+        [JsonProperty("resourcePermissions")]
         public virtual IList<ResourcePermission> ResourcePermissions { get;  set; } = new List<ResourcePermission>();
 
         public virtual IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

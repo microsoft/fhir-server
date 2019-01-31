@@ -104,33 +104,10 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return role.ToRole();
         }
 
-        public async Task DeleteRoleAsync(string name, CancellationToken cancellationToken)
+        public async Task DeleteRoleAsync(string name, string eTag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(name, nameof(name));
-
-            try
-            {
-                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async () => await _hardDeleteRole.Execute(
-                        _documentClient,
-                        _collectionUri,
-                        name),
-                    cancellationToken);
-
-                _logger.LogDebug($"Hard-deleted {response.Response.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Response)}.");
-            }
-            catch (DocumentClientException dce)
-            {
-                if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
-                {
-                    // TODO: Eventually, we might want to have our own RequestTooLargeException?
-                    throw new Exception();
-                }
-
-                _logger.LogError(dce, "Unhandled Document Client Exception");
-
-                throw;
-            }
+            await DeleteSystemDocumentsByIdAsync<Role>(name, CosmosRole.RolePartition, eTag, cancellationToken);
         }
 
         private static string GetValue(HttpStatusCode type)
@@ -138,7 +115,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             return ((int)type).ToString();
         }
 
-        public async Task<IEnumerable<Role>> GetRoleAllAsync(CancellationToken cancellationToken)
+        public async Task<IEnumerable<Role>> GetAllRoleAsync(CancellationToken cancellationToken)
         {
             var role = await GetSystemDocumentsAsync<CosmosRole>(null, CosmosRole.RolePartition, cancellationToken);
             return role.Select(cr => cr.ToRole());
@@ -321,6 +298,15 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                                             id,
                                             eTag),
                                         cancellationToken);
+                        break;
+                    case "Role":
+                        response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                                  async () => await _hardDeleteRole.Execute(
+                                   _documentClient.Value,
+                                   _collectionUri,
+                                   id,
+                                   eTag),
+                                  cancellationToken);
                         break;
                     default:
                         throw new InvalidControlPlaneTypeForDeleteException(typeName);

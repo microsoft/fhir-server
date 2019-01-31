@@ -26,6 +26,6 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         Task<IEnumerable<Role>> GetRoleForAllAsync(CancellationToken cancellationToken);
 
-        Task DeleteRoleAsync(string name, CancellationToken cancellationToken);
+        Task DeleteRoleAsync(string name, string eTag, CancellationToken cancellationToken);
     }
 }

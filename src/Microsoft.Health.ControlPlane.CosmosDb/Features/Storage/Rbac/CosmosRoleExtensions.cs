@@ -14,7 +14,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
             return new Role(
                 cosmosRole.Name,
                 cosmosRole.ResourcePermissions,
-                cosmosRole.ETag.Trim('"'));
+                cosmosRole.ETag);
         }
     }
 }

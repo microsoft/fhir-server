@@ -151,7 +151,16 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Role Name &apos;{0}&apos; cannot be empty.
+        ///   Looks up a localized string similar to Role definition Is invalid..
+        /// </summary>
+        internal static string RoleDefinitionIsInvalid {
+            get {
+                return ResourceManager.GetString("RoleDefinitionIsInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role Name is null or empty.
         /// </summary>
         internal static string RoleNameEmpty {
             get {

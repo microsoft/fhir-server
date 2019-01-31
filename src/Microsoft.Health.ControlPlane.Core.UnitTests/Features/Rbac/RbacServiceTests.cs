@@ -36,7 +36,7 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             _role = GetRole("clinician", resourcePermissions);
             _controlPlaneDataStore.GetRoleAsync(_role.Name, Arg.Any<CancellationToken>()).Returns(_role);
             _controlPlaneDataStore.UpsertRoleAsync(_role, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<Role>(_role, UpsertOutcome.Updated, "testEtag"));
-            _controlPlaneDataStore.DeleteRoleAsync(_role.Name, Arg.Any<CancellationToken>());
+            _controlPlaneDataStore.DeleteRoleAsync(_role.Name, Arg.Any<string>(), Arg.Any<CancellationToken>());
 
             _rbacService = new RbacService(_controlPlaneDataStore);
         }
