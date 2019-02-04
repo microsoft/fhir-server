@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 var jsonSerializer = new FhirJsonSerializer();
 
                 _serializer = jsonSerializer;
-                _serialize = jsonSerializer.SerializeToString;
+                _serialize = (b, s) => jsonSerializer.SerializeToString(b, s);
 
                 var jsonParser = new FhirJsonParser();
 
