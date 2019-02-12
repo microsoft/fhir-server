@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
@@ -85,6 +86,10 @@ namespace Microsoft.Extensions.DependencyInjection
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();
 
+                    // This middleware should be registered at the beginning since it generates correlation id among other things,
+                    // which will be used in other middlewares.
+                    app.UseFhirRequestContext();
+
                     if (env.IsDevelopment())
                     {
                         app.UseDeveloperExceptionPage();
@@ -102,9 +107,11 @@ namespace Microsoft.Extensions.DependencyInjection
                         app.UseStatusCodePagesWithReExecute("/CustomError", "?statusCode={0}");
                     }
 
-                    app.UseAuthentication();
+                    // The audit module needs to come after the exception handler because we need to catch
+                    // the response before it gets converted to custom error.
+                    app.UseAudit();
 
-                    app.UseFhirRequestContext();
+                    app.UseAuthentication();
 
                     next(app);
                 };

@@ -210,5 +210,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Search for the given coding. The only thing returned should be the updated resource
             await ExecuteAndValidateBundle($"Observation?code={testCoding.System}|{testCoding.Code}", updatedResource);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithCountSummary_ThenTotalCountShouldBeReturned()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_summary=count");
+
+            Assert.NotNull(bundle);
+            Assert.Equal(numberOfResources, bundle.Total);
+            Assert.Empty(bundle.Entry);
+        }
     }
 }

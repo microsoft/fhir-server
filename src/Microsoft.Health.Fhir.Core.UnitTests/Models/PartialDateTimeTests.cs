@@ -5,12 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Threading;
 using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Models
 {
-    public class PartialDateTimeTests
+    public class PartialDateTimeTests : IDisposable
     {
         private const string ParamNameYear = "year";
         private const string ParamNameMonth = "month";
@@ -32,6 +34,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         private static readonly TimeSpan DefaultUtcOffset = TimeSpan.FromMinutes(60);
 
         private PartialDateTimeBuilder _builder = new PartialDateTimeBuilder();
+
+        private CultureInfo _originalCulture;
+
+        public PartialDateTimeTests()
+        {
+            _originalCulture = Thread.CurrentThread.CurrentCulture;
+        }
 
         public static IEnumerable<object[]> GetParameterPreviousParamNullData()
         {
@@ -388,12 +397,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("2018-01-25T03:01:58+05:30", "2018-01-25T03:01:58+05:30")]
         [InlineData("2018-01-09T00:23:25.0+10:00", "2018-01-09T00:23:25.0000000+10:00")]
         [InlineData("2018-01-09T00:23:25.1234567-01:00", "2018-01-09T00:23:25.1234567-01:00")]
+        [InlineData("2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27.9110000+01:00")]
         public void GivenAValidPartialDateTime_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(string input, string expected)
         {
             PartialDateTime dateTime = PartialDateTime.Parse(input);
 
             Assert.NotNull(dateTime);
             Assert.Equal(expected, dateTime.ToString());
+        }
+
+        [Theory]
+        [InlineData("de-DE", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27,9110000+01:00")]
+        [InlineData("en-GB", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27.9110000+01:00")]
+        [InlineData("en-US", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27.9110000+01:00")]
+        public void GivenACulture_WhenToStringisCalled_ThenCorrectStringShouldBeReturned(string culture, string input, string expected)
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo(culture);
+            PartialDateTime dateTime = PartialDateTime.Parse(input);
+
+            Assert.NotNull(dateTime);
+            Assert.Equal(expected, dateTime.ToString());
+        }
+
+        public void Dispose()
+        {
+            Thread.CurrentThread.CurrentCulture = _originalCulture;
         }
 
         private class PartialDateTimeBuilder

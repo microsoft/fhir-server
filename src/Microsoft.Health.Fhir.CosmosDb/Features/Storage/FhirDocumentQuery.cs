@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage

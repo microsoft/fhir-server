@@ -6,8 +6,7 @@
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -19,6 +18,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<AuditLoggingFilterAttribute>();
             services.AddSingleton<IAuditLogger, AuditLogger>();
+
+            services.Add<AuditHelper>()
+                .Singleton()
+                .AsService<IAuditHelper>()
+                .AsService<IStartable>();
         }
     }
 }

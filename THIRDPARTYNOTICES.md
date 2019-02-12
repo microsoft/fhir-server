@@ -29,7 +29,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## Ensure.That 8.0.0
+## Ensure.That 8.1.1
 * Component Source:   https://github.com/danielwertheim/Ensure.That/
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -292,7 +292,7 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## IdentityServer4 2.2.0
+## IdentityServer4 2.3.0
 * Component Source:   https://github.com/IdentityServer/IdentityServer4
 * Component Copyright and License:
   >                                  Apache License

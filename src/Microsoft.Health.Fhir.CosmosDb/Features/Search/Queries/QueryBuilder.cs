@@ -3,12 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Azure.Documents;
+using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
@@ -28,13 +26,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         private class QueryBuilderHelper
         {
-            private StringBuilder _queryBuilder;
-            private QueryParameterManager _queryParameterManager;
+            private readonly StringBuilder _queryBuilder;
+            private readonly QueryParameterManager _queryParameterManager;
+            private readonly QueryHelper _queryHelper;
 
             public QueryBuilderHelper()
             {
                 _queryBuilder = new StringBuilder();
                 _queryParameterManager = new QueryParameterManager();
+                _queryHelper = new QueryHelper(_queryBuilder, _queryParameterManager, SearchValueConstants.RootAliasName);
             }
 
             public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendSelectFromRoot();
                 }
 
-                AppendSystemDataFilter("WHERE");
+                AppendSystemDataFilter();
 
                 var expressionQueryBuilder = new ExpressionQueryBuilder(
                     _queryBuilder,
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendSelectFromRoot();
 
-                AppendSystemDataFilter("WHERE");
+                AppendSystemDataFilter();
 
                 var expressionQueryBuilder = new ExpressionQueryBuilder(
                     _queryBuilder,
@@ -108,52 +108,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             private void AppendSelectFromRoot(string selectList = SearchValueConstants.RootAliasName)
             {
-                _queryBuilder
-                    .Append("SELECT ")
-                    .Append(selectList)
-                    .Append(" FROM root ")
-                    .AppendLine(SearchValueConstants.RootAliasName);
+                _queryHelper.AppendSelectFromRoot(selectList);
             }
 
             private void AppendFilterCondition(string logicalOperator, params (string, object)[] conditions)
             {
-                for (int i = 0; i < conditions.Length; i++)
-                {
-                    _queryBuilder
-                        .Append(logicalOperator)
-                        .Append(" ");
-
-                    (string name, object value) = conditions[i];
-
-                    AppendFilterCondition(name, value);
-                }
+                _queryHelper.AppendFilterCondition(logicalOperator, conditions);
             }
 
             private void AppendFilterCondition(string name, object value)
             {
-                _queryBuilder
-                        .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
-                        .Append(" = ")
-                        .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
+                _queryHelper.AppendFilterCondition(name, value);
             }
 
-            private void AppendSystemDataFilter(string keyword = null)
+            private void AppendSystemDataFilter()
             {
-                // Ensure that we exclude system metadata
-
-                if (!string.IsNullOrEmpty(keyword))
-                {
-                    _queryBuilder.Append(keyword).Append(" ");
-                }
-
-                _queryBuilder
-                    .Append("(")
-                    .Append("IS_DEFINED(").Append(SearchValueConstants.RootAliasName).Append(".isSystem)")
-                    .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false))
-                    .Append(" OR ")
-                    .Append(SearchValueConstants.RootAliasName).Append(".isSystem")
-                    .Append(" = ").Append(_queryParameterManager.AddOrGetParameterMapping(false))
-                    .AppendLine(")");
+                _queryHelper.AppendSystemDataFilter(false);
             }
         }
     }
