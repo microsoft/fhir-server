@@ -201,12 +201,7 @@
             },
             "properties": {
                 "clientAffinityEnabled": false,
-                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-                "siteConfig": {
-                    "cors": {
-                        "allowedOrigins": "[parameters('allowedOrigins')]"
-                    }
-                }
+                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]"
             },
             "dependsOn": [
                 "nestedTemplate"
