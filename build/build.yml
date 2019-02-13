@@ -16,9 +16,6 @@ phases:
   steps:
 
   - task: NuGetToolInstaller@0
-    displayName: 'Use NuGet 4.9.2'
-    inputs:
-        versionSpec: '4.9.2'
 
   - task: DotNetCoreInstaller@0
     inputs:
