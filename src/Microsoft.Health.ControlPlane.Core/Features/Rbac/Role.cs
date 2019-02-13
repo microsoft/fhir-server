@@ -36,13 +36,13 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         }
 
         [JsonProperty("name")]
-        public virtual string Name { get;  set; }
+        public virtual string Name { get; protected set; }
 
         [JsonProperty("etag")]
-        public virtual string VersionTag { get;  set; }
+        public virtual string VersionTag { get; protected set; }
 
         [JsonProperty("resourcePermissions")]
-        public virtual IList<ResourcePermission> ResourcePermissions { get;  set; } = new List<ResourcePermission>();
+        public virtual IList<ResourcePermission> ResourcePermissions { get; protected set; } = new List<ResourcePermission>();
 
         public virtual IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
@@ -53,7 +53,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
             if (ResourcePermissions.Count == 0)
             {
-                yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourcePermissionEmpty));
+                yield return new ValidationResult(Resources.ResourcePermissionEmpty);
             }
             else
             {
@@ -61,7 +61,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
                 {
                     if (permission.Actions.Count == 0)
                     {
-                        yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
+                        yield return new ValidationResult(Resources.RoleResourcePermissionWithNoAction);
                     }
                 }
             }

@@ -37,8 +37,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         private readonly Uri _collectionUri;
         private readonly HardDeleteIdentityProvider _hardDeleteIdentityProvider;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
-        private readonly string _collectionId;
-        private readonly string _databaseId;
         private readonly HardDeleteRole _hardDeleteRole;
 
         public ControlPlaneDataStore(
@@ -54,7 +52,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
-            EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             var collectionConfig = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
@@ -62,8 +59,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             _documentClient = documentClient;
             _collectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfig.CollectionId);
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
-            _collectionId = collectionConfig.CollectionId;
-            _databaseId = cosmosDataStoreConfiguration.DatabaseId;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
@@ -110,12 +105,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             await DeleteSystemDocumentsByIdAsync<Role>(name, CosmosRole.RolePartition, eTag, cancellationToken);
         }
 
-        private static string GetValue(HttpStatusCode type)
-        {
-            return ((int)type).ToString();
-        }
-
-        public async Task<IEnumerable<Role>> GetAllRoleAsync(CancellationToken cancellationToken)
+        public async Task<IEnumerable<Role>> GetRoleForAllAsync(CancellationToken cancellationToken)
         {
             var role = await GetSystemDocumentsAsync<CosmosRole>(null, CosmosRole.RolePartition, cancellationToken);
             return role.Select(cr => cr.ToRole());

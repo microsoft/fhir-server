@@ -31,7 +31,6 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             _controlPlaneDataStore.UpsertIdentityProviderAsync(_identityProvider, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<IdentityProvider>(_identityProvider, UpsertOutcome.Updated, "testEtag"));
 
             IList<ResourcePermission> resourcePermissions = new List<ResourcePermission>();
-            resourcePermissions.Add(new ResourcePermission(new List<ResourceAction> { ResourceAction.Read }));
 
             _role = GetRole("clinician", resourcePermissions);
             _controlPlaneDataStore.GetRoleAsync(_role.Name, Arg.Any<CancellationToken>()).Returns(_role);
