@@ -5,7 +5,6 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Globalization;
 using EnsureThat;
 using Newtonsoft.Json;
 
@@ -35,14 +34,14 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
             VersionTag = eTag;
         }
 
-        [JsonProperty("name")]
-        public virtual string Name { get; protected set; }
+        [JsonProperty("Name")]
+        public virtual string Name { get; set; }
 
         [JsonProperty("etag")]
-        public virtual string VersionTag { get; protected set; }
+        public virtual string VersionTag { get; set; }
 
         [JsonProperty("resourcePermissions")]
-        public virtual IList<ResourcePermission> ResourcePermissions { get; protected set; } = new List<ResourcePermission>();
+        public virtual IList<ResourcePermission> ResourcePermissions { get; set; } = new List<ResourcePermission>();
 
         public virtual IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
