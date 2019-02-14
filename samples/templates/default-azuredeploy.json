@@ -158,7 +158,7 @@
                   "name": "origins",
                   "count": "[length(parameters('allowedOrigins'))]",
                   "input": {
-                    "[concat('FhirServer:Cors:Origins:', copyIndex('origins'))]": "[parameters('allowedOrigins')[copyIndex('origins')].value]"
+                    "[concat('FhirServer:Cors:Origins:', copyIndex('origins'))]": "[parameters('allowedOrigins')[copyIndex('origins')]]"
                 }
               }
             ]  
