@@ -220,16 +220,16 @@
                               "name": "combinedFhirServerConfigProperties",
                               "count": "[length(variables('combinedFhirServerConfigProperties'))]",
                               "input": {
-                                "name": "[variables('combinedFhirServerConfigProperties')[copyIndex('combinedFhirServerConfigProperties')].name]",
-                                "value": "[variables('combinedFhirServerConfigProperties')[copyIndex('combinedFhirServerConfigProperties')].value]"
+                                "name": "[variables('combinedFhirServerConfigProperties')[copyIndex()].name]",
+                                "value": "[variables('combinedFhirServerConfigProperties')[copyIndex()].value]"
                               }
                             },
                             {
                                 "name": "allowedOrigins",
                                 "count": "[length(variables('allowedOrigins'))]",
                                 "input": {
-                                  "name": "[concat('FhirServer:Cors:Origins:', copyIndex('fhirServiceConfigProperties'))]",
-                                  "value": "[variables('allowedOrigins')[copyIndex('allowedOrigins')].value]"
+                                  "name": "[concat('FhirServer:Cors:Origins:', copyIndex())]",
+                                  "value": "[variables('allowedOrigins')[copyIndex()].value]"
                                 }
                               }
                         ],
