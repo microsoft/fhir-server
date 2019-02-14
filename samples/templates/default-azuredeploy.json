@@ -157,11 +157,11 @@
                 "name": "origins",
                 "count": "[length(parameters('allowedOrigins'))]",
                 "input": {
-                "[concat('FhirServer:Cors:Origins:', copyIndex('origins'))]": "[parameters('allowedOrigins')[copyIndex('origins')]]"
-            }
+                    "[concat('FhirServer:Cors:Origins:', copyIndex('origins'))]": "[parameters('allowedOrigins')[copyIndex('origins')]]"
+                }
             }
         ],
-        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), variables('origins'))]"
+        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]"
     },
     "resources": [
         {
@@ -209,7 +209,10 @@
             },
             "properties": {
                 "clientAffinityEnabled": false,
-                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]"
+                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
+                "siteConfig": {
+                    "appSettings": "variables('origins')"
+                }
             },
             "dependsOn": [
                 "nestedTemplate"
