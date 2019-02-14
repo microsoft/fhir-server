@@ -152,18 +152,16 @@
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]"
         },
-        "allowedOrigins": {
-            "copy": [
-                {
-                  "name": "origins",
-                  "count": "[length(parameters('allowedOrigins'))]",
-                  "input": {
-                    "[concat('FhirServer:Cors:Origins:', copyIndex('origins'))]": "[parameters('allowedOrigins')[copyIndex('origins')]]"
-                }
-              }
-            ]  
-          },
-        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), variables('allowedOrigins').origins)]"
+        "copy": [
+            {
+                "name": "origins",
+                "count": "[length(parameters('allowedOrigins'))]",
+                "input": {
+                "[concat('FhirServer:Cors:Origins:', copyIndex('origins'))]": "[parameters('allowedOrigins')[copyIndex('origins')]]"
+            }
+            }
+        ],
+        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), variables('origins'))]"
     },
     "resources": [
         {
