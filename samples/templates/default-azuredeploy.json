@@ -147,7 +147,6 @@
             "APPINSIGHTS_SNAPSHOTFEATURE_VERSION": "1.0.0",
             "WEBSITE_NODE_DEFAULT_VERSION": "6.9.4",
             "KeyVault:Endpoint": "[variables('keyvaultEndpoint')]",
-            "FhirServer:Cors:Mode": "All",
             "FhirServer:Security:Enabled": "[variables('securityAuthenticationEnabled')]",
             "FhirServer:Security:EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
@@ -215,7 +214,27 @@
                         "[concat('Microsoft.Web/Sites/', variables('serviceName'))]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],
-                    "properties" : "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"APPINSIGHTS_INSTRUMENTATIONKEY\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
+                    "properties" : {
+                        "copy": [
+                            {
+                              "name": "combinedFhirServerConfigProperties",
+                              "count": "[length(variables('combinedFhirServerConfigProperties'))]",
+                              "input": {
+                                "name": "[variables('combinedFhirServerConfigProperties')[copyIndex('combinedFhirServerConfigProperties')].name]",
+                                "value": "[variables('combinedFhirServerConfigProperties')[copyIndex('combinedFhirServerConfigProperties')].value]"
+                              }
+                            },
+                            {
+                                "name": "allowedOrigins",
+                                "count": "[length(variables('allowedOrigins'))]",
+                                "input": {
+                                  "name": "[concat('FhirServer:Cors:Origins:', copyIndex('fhirServiceConfigProperties'))]",
+                                  "value": "[variables('allowedOrigins')[copyIndex('allowedOrigins')].value]"
+                                }
+                              }
+                        ],
+                        "APPINSIGHTS_INSTRUMENTATIONKEY": "[if(variables('deployAppInsights'), reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '')]"
+                    }
                 },
                 {
                     "apiVersion": "2015-08-01",
