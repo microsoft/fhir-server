@@ -163,7 +163,7 @@
               }
             ]  
           },
-        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), variables('allowedOrigins').origins]"
+        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), variables('allowedOrigins').origins)]"
     },
     "resources": [
         {
