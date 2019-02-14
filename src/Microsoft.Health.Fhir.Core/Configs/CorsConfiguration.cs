@@ -4,14 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Cors;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class CorsConfiguration
     {
-        public CorsMode Mode { get; set; }
+        public IList<string> Origins { get; } = new List<string>();
 
-        public IList<string> AllowedOrigins { get; set; } = new List<string>();
+        public IList<string> Headers { get; } = new List<string>();
+
+        public IList<string> Methods { get; } = new List<string>();
+
+        public int MaxAge { get; set; }
+
+        public bool AllowCredentials { get; set; }
     }
 }

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Cors.Infrastructure;
@@ -28,34 +29,22 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            CorsPolicy corsPolicy;
+            var corsPolicyBuilder = new CorsPolicyBuilder()
+                .WithOrigins(_corsConfiguration.Origins.ToArray())
+                .WithHeaders(_corsConfiguration.Headers.ToArray())
+                .WithMethods(_corsConfiguration.Methods.ToArray())
+                .SetPreflightMaxAge(TimeSpan.FromSeconds(_corsConfiguration.MaxAge));
 
-            switch (_corsConfiguration.Mode)
+            if (_corsConfiguration.AllowCredentials)
             {
-                case CorsMode.All:
-                    corsPolicy = new CorsPolicyBuilder()
-                        .AllowAnyOrigin()
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .Build();
-                    break;
-                case CorsMode.Custom:
-                    corsPolicy = new CorsPolicyBuilder()
-                        .WithOrigins(_corsConfiguration.AllowedOrigins.ToArray())
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .Build();
-                    break;
-                default:
-                    corsPolicy = new CorsPolicy();
-                    break;
+                corsPolicyBuilder.AllowCredentials();
             }
 
             services.AddCors(options =>
             {
                 options.AddPolicy(
                     Constants.DefaultCorsPolicy,
-                    corsPolicy);
+                    corsPolicyBuilder.Build());
             });
         }
     }
