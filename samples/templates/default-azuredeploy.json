@@ -44,7 +44,7 @@
             "type": "array",
             "defaultValue": [],
             "metadata": {
-                "description": "CORS Allowed Origins"
+                "description": "DEPRECATED - Use additionalFhirServerConfigProperties"
             }
         },
         "securityAuthenticationAuthority": {
@@ -152,15 +152,6 @@
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]"
         },
-        "copy": [
-            {
-                "name": "origins",
-                "count": "[length(parameters('allowedOrigins'))]",
-                "input": {
-                    "[concat('FhirServer:Cors:Origins:', copyIndex('origins'))]": "[parameters('allowedOrigins')[copyIndex('origins')]]"
-                }
-            }
-        ],
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]"
     },
     "resources": [
@@ -209,10 +200,7 @@
             },
             "properties": {
                 "clientAffinityEnabled": false,
-                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-                "siteConfig": {
-                    "appSettings": "variables('origins')"
-                }
+                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]"
             },
             "dependsOn": [
                 "nestedTemplate"
@@ -226,7 +214,7 @@
                         "[concat('Microsoft.Web/Sites/', variables('serviceName'))]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],
-                    "properties" : "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"APPINSIGHTS_INSTRUMENTATIONKEY\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
+                    "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"APPINSIGHTS_INSTRUMENTATIONKEY\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
                 },
                 {
                     "apiVersion": "2015-08-01",
