@@ -34,7 +34,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
             VersionTag = eTag;
         }
 
-        [JsonProperty("Name")]
+        [JsonProperty("name")]
         public virtual string Name { get; set; }
 
         [JsonProperty("etag")]
