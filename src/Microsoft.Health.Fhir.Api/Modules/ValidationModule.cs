@@ -6,8 +6,6 @@
 using EnsureThat;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.DataAnnotations.Internal;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -28,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.PostConfigure<MvcOptions>(options =>
             {
                 // Removes default DataAnnotationsModelValidator
-                options.ModelValidatorProviders.RemoveType<DataAnnotationsModelValidatorProvider>();
+                options.ModelValidatorProviders.Clear();
             });
 
             services.TypesInSameAssemblyAs<ResourceNotValidException>()
