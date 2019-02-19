@@ -25,6 +25,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             _corsConfiguration = fhirServerConfiguration.Cors;
         }
 
+        internal CorsPolicy DefaultCorsPolicy { get; private set; }
+
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
@@ -40,11 +42,13 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 corsPolicyBuilder.AllowCredentials();
             }
 
+            DefaultCorsPolicy = corsPolicyBuilder.Build();
+
             services.AddCors(options =>
             {
                 options.AddPolicy(
                     Constants.DefaultCorsPolicy,
-                    corsPolicyBuilder.Build());
+                    DefaultCorsPolicy);
             });
         }
     }
