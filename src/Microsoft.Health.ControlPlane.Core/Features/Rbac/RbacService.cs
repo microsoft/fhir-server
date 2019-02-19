@@ -61,9 +61,9 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
             return await _controlPlaneDataStore.UpsertIdentityProviderAsync(identityProvider, eTag, cancellationToken);
         }
 
-        public async Task<IEnumerable<Role>> GetRoleForAllAsync(CancellationToken cancellationToken)
+        public async Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken)
         {
-            return await _controlPlaneDataStore.GetRoleForAllAsync(cancellationToken);
+            return await _controlPlaneDataStore.GetAllRolesAsync(cancellationToken);
         }
 
         public async Task<UpsertResponse<Role>> UpsertRoleAsync(Role role, string eTag, CancellationToken cancellationToken)

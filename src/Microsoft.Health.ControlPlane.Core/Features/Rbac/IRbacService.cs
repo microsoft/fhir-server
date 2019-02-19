@@ -24,7 +24,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
 
         Task<UpsertResponse<Role>> UpsertRoleAsync(Role role, string eTag, CancellationToken cancellationToken);
 
-        Task<IEnumerable<Role>> GetRoleForAllAsync(CancellationToken cancellationToken);
+        Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken);
 
         Task DeleteRoleAsync(string name, string eTag, CancellationToken cancellationToken);
     }

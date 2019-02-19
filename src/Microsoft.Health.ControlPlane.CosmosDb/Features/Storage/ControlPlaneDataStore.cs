@@ -60,7 +60,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             _collectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfig.CollectionId);
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
-            _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _hardDeleteIdentityProvider = new HardDeleteIdentityProvider();
             _hardDeleteRole = new HardDeleteRole();
@@ -90,7 +89,6 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(name, nameof(name));
 
             var role = await GetSystemDocumentByIdAsync<CosmosRole>(name, CosmosRole.RolePartition, cancellationToken);
-
             if (role == null)
             {
                 throw new RoleNotFoundException(name);
@@ -105,7 +103,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
             await DeleteSystemDocumentsByIdAsync<Role>(name, CosmosRole.RolePartition, eTag, cancellationToken);
         }
 
-        public async Task<IEnumerable<Role>> GetRoleForAllAsync(CancellationToken cancellationToken)
+        public async Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken)
         {
             var role = await GetSystemDocumentsAsync<CosmosRole>(null, CosmosRole.RolePartition, cancellationToken);
             return role.Select(cr => cr.ToRole());
