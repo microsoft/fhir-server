@@ -19,5 +19,13 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Persistence
         Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string eTag, CancellationToken cancellationToken);
 
         Task DeleteIdentityProviderAsync(string name, string eTag, CancellationToken cancellationToken);
+
+        Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken);
+
+        Task<UpsertResponse<Role>> UpsertRoleAsync(Role role, string eTag, CancellationToken cancellationToken);
+
+        Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken);
+
+        Task DeleteRoleAsync(string name, string eTag, CancellationToken cancellationToken);
     }
 }

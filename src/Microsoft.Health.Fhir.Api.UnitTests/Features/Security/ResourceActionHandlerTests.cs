@@ -6,8 +6,8 @@
 using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using Microsoft.Health.Fhir.Api.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using NSubstitute;
 using Xunit;

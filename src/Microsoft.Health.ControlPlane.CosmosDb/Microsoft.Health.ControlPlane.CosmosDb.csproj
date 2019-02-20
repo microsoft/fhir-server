@@ -8,6 +8,10 @@
   <ItemGroup>
     <AdditionalFiles Include="..\..\stylecop.json" Link="stylecop.json" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <EmbeddedResource Include="Features\Storage\StoredProcedures\HardDelete\hardDeleteRole.js" />
+  </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Features\Storage\StoredProcedures\HardDelete\hardDeleteIdentityProvider.js" />
@@ -28,4 +32,5 @@
     <ProjectReference Include="..\Microsoft.Health.CosmosDb\Microsoft.Health.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
   </ItemGroup>
+   
 </Project>
