@@ -117,7 +117,46 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="IdentityProviderAudienceIsNull" xml:space="preserve">
+    <value>Identity provider audience is null.</value>
+  </data>
+  <data name="IdentityProviderAuthorityEmpty" xml:space="preserve">
+    <value>Identity provider authority is null or empty.</value>
+  </data>
+  <data name="IdentityProviderDefinitionIsInvalid" xml:space="preserve">
+    <value>Identity provider definition is invalid.</value>
+  </data>
+  <data name="IdentityProviderInvalidAudience" xml:space="preserve">
+    <value>One or more of audience values is null or empty.</value>
+  </data>
+  <data name="IdentityProviderInvalidMetadataUrl" xml:space="preserve">
+    <value>Invalid authority '{0}'. Cannot load metadata url '{1}'.</value>
+  </data>
+  <data name="IdentityProviderMissingMetaProp" xml:space="preserve">
+    <value>Invalid authority '{0}'. Required property '{1}' is missing in metadata from url '{2}'.</value>
+  </data>
+  <data name="IdentityProviderNameEmpty" xml:space="preserve">
+    <value>Identity provider name is null or empty.</value>
+  </data>
   <data name="IdentityProviderNotFound" xml:space="preserve">
     <value>Identity provider '{0}' was not found.</value>
+  </data>
+  <data name="ResourcePermissionEmpty" xml:space="preserve">
+    <value>Role must have one or more resource permissions.</value>
+  </data>
+  <data name="RoleNameEmpty" xml:space="preserve">
+    <value>Role name is null or empty.</value>
+  </data>
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>Role was not found.</value>
+  </data>
+  <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
+    <value>Role contains a resource permissions with no actions.</value>
+  </data>
+  <data name="InvalidDocumentTypeForDelete" xml:space="preserve">
+    <value>Document type '{0}' for delete is invalid.</value>
+  </data>
+  <data name="RoleDefinitionIsInvalid" xml:space="preserve">
+    <value>Role definition is invalid.</value>
   </data>
 </root>

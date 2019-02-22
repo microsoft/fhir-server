@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             InvalidDefinitionException validationException = Assert.Throws<InvalidDefinitionException>(() => invalidAuthorizationConfiguration.ValidateRoles());
 
-            Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("Role 'clinician' must have one or more ResourcePermissions.")));
+            Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("Role must have one or more resource permissions.")));
         }
 
         [Fact]
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             var invalidAuthorizationConfiguration = Samples.GetJsonSample<AuthorizationConfiguration>("AuthConfigWithInvalidEntries");
             InvalidDefinitionException validationException = Assert.Throws<InvalidDefinitionException>(() => invalidAuthorizationConfiguration.ValidateRoles());
 
-            Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("Role 'Nurse' contains a ResourcePermission with no Actions.")));
+            Assert.NotNull(validationException.Issues.SingleOrDefault(issueComp => issueComp.Diagnostics.Equals("Role contains a resource permissions with no actions.")));
         }
     }
 }

@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Security.Claims;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
@@ -92,12 +94,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 new ResourcePermission(resourceActions),
             };
 
-            var roles = roleNames.Select(ra => new Role() { Name = ra, ResourcePermissions = permissions }).ToList();
+            var roles = roleNames.Select(ra => GetRole(ra, permissions)).ToList();
 
             return new AuthorizationConfiguration
             {
                 Roles = roles,
             };
+        }
+
+        private static Role GetRole(string name, IList<ResourcePermission> resourcePermissions)
+        {
+            var role = Substitute.For<Role>();
+            role.Name.Returns(name);
+            role.ResourcePermissions.Returns(resourcePermissions);
+
+            role.Validate(Arg.Any<ValidationContext>()).Returns(Enumerable.Empty<ValidationResult>());
+
+            return role;
         }
     }
 }

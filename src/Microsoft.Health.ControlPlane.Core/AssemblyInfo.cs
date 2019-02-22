@@ -4,5 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Resources;
+using System.Runtime.CompilerServices;
 
 [assembly: NeutralResourcesLanguage("en-us")]
+[assembly: InternalsVisibleTo("Microsoft.Health.ControlPlane.CosmosDb")]
