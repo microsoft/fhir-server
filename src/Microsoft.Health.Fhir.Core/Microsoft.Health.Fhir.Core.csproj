@@ -20,7 +20,7 @@
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.9.11" />
     <PackageReference Include="Ensure.That" Version="8.1.1" />
-    <PackageReference Include="FluentValidation" Version="8.0.101" />
+    <PackageReference Include="FluentValidation" Version="8.1.3" />
     <PackageReference Include="MediatR" Version="6.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.2" />
     <PackageReference Include="Microsoft.CodeCoverage" Version="15.9.0" />
