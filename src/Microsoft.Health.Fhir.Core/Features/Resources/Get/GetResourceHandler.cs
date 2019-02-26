@@ -18,12 +18,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 {
     public class GetResourceHandler : BaseResourceHandler, IRequestHandler<GetResourceRequest, GetResourceResponse>
     {
+        private readonly ResourceDeserializer _deserializer;
+
         public GetResourceHandler(
             IDataStore dataStore,
             Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            ResourceDeserializer deserializer)
             : base(dataStore, conformanceProvider, resourceWrapperFactory)
         {
+            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
+
+            _deserializer = deserializer;
         }
 
         public async Task<GetResourceResponse> Handle(GetResourceRequest message, CancellationToken cancellationToken)
@@ -60,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 throw new ResourceGoneException(new ResourceKey(currentDoc.ResourceTypeName, currentDoc.ResourceId, currentDoc.Version));
             }
 
-            return new GetResourceResponse(ResourceDeserializer.Deserialize(currentDoc));
+            return new GetResourceResponse(_deserializer.Deserialize(currentDoc));
         }
 
         protected override void AddResourceCapability(ListedCapabilityStatement statement, ResourceType resourceType)

@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var raw = new RawResource("{}", ResourceFormat.Unknown);
             var wrapper = new ResourceWrapper("id1", "version1", "Observation", raw, new ResourceRequest("http://fhir", HttpMethod.Post), Clock.UtcNow, false, null, null, null);
 
-            Assert.Throws<NotSupportedException>(() => ResourceDeserializer.Deserialize(wrapper));
+            Assert.Throws<NotSupportedException>(() => Deserializers.ResourceDeserializer.Deserialize(wrapper));
         }
 
         [Fact]
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             observation.Id = "id1";
             var wrapper = new ResourceWrapper(observation, _rawResourceFactory.Create(observation), new ResourceRequest("http://fhir", HttpMethod.Post), false, null, null, null);
 
-            var newObject = ResourceDeserializer.Deserialize(wrapper);
+            var newObject = Deserializers.ResourceDeserializer.Deserialize(wrapper);
 
             Assert.Equal(observation.Id, newObject.Id);
             Assert.Equal(observation.VersionId, newObject.VersionId);
