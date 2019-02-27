@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -65,11 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 
                 var localCorrelationId = _fhirRequestContextAccessor.FhirRequestContext?.CorrelationId;
 
-                if (string.IsNullOrWhiteSpace(localCorrelationId))
-                {
-                    localCorrelationId = _correlationIdProvider.Invoke();
-                    _logger.LogError($"No correlation id available in exception middleware. Setting to {localCorrelationId}");
-                }
+                Debug.Assert(!string.IsNullOrWhiteSpace(localCorrelationId), "The correlation id should have been generated.");
 
                 context.Response.Clear();
 

@@ -70,6 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.Searchset;
+            bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta
             {
                 LastUpdated = Clock.UtcNow,
@@ -122,6 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.History;
+            bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta
             {
                 LastUpdated = Clock.UtcNow,

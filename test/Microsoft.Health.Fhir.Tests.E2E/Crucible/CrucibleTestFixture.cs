@@ -182,7 +182,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "history001/HI08",
             "history001/HI10",
             "history001/HI11",
-            "readtest/R005",
             "resourcetest_adverseevent/X010_AdverseEvent",
             "resourcetest_adverseevent/X020_AdverseEvent",
             "resourcetest_claim/X010_Claim",
@@ -459,6 +458,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
         {
             "argonautproviderconnectathontest/APCT02",
             "connectathonschedulingtracktest/CST01",
+            "readtest/R005",
             "resourcetest_devicerequest/X030_DeviceRequest", // Open issue: https://github.com/fhir-crucible/plan_executor/issues/136
             "resourcetest_questionnaire/X010_Questionnaire", // Open issue: https://github.com/fhir-crucible/plan_executor/issues/138
             "resourcetest_questionnaire/X020_Questionnaire", // Same issue as: https://github.com/fhir-crucible/plan_executor/issues/138

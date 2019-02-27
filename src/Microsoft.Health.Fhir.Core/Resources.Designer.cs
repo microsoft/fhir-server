@@ -8,11 +8,10 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core {
-    using System;
-    using System.Reflection;
-    
-    
+namespace Microsoft.Health.Fhir.Core
+{
+
+
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
@@ -299,6 +298,9 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to Resource creation is not allowed..
+        /// </summary>
         internal static string RequestRateExceeded {
             get {
                 return ResourceManager.GetString("RequestRateExceeded", resourceCulture);

@@ -6,8 +6,8 @@
 using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 using Microsoft.Health.Fhir.Api.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using NSubstitute;
 using Xunit;
@@ -33,7 +33,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         public async void GivenAReadResourceRequest_WhenAuthorizationHandlerHandles_ThenTheAuthorizationHandlerAppropriateStatus(bool authorized)
         {
             _authorizationPolicy.HasPermission(Arg.Any<ClaimsPrincipal>(), ResourceAction.Read).ReturnsForAnyArgs(authorized);
+
             await _resourceActionHandler.HandleAsync(_authorizationHandlerContext);
+
             Assert.Equal(authorized, _authorizationHandlerContext.HasSucceeded);
         }
     }

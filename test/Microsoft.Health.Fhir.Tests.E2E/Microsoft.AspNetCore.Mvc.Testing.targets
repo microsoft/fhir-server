@@ -15,7 +15,7 @@
     <PreserveCompilationContext>true</PreserveCompilationContext>
   </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(TargetFramework)' != 'netcoreapp2.1' ">
+  <PropertyGroup Condition=" '$(TargetFramework)' != 'netcoreapp2.2' ">
     <!-- Work around https://github.com/dotnet/sdk/issues/926. Align with bitness of the web site projects. -->
     <PlatformTarget>x86</PlatformTarget>
 

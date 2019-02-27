@@ -28,19 +28,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [Fact]
         public void GivenAResourceWrapper_WhenGettingVersion_TheETagShouldBeUsedWhenVersionIsEmpty()
         {
-            var wrapper = Samples.GetJsonSample<CosmosResourceWrapper>("ResourceWrapperNoVersion");
+            var wrapper = Samples.GetJsonSample<FhirCosmosResourceWrapper>("ResourceWrapperNoVersion");
             Assert.Equal("00002804-0000-0000-0000-59f272c60000", wrapper.Version);
         }
 
         [Fact]
         public void GivenAResourceWrapper_WhenConvertingToAHistoryObject_ThenTheCorrectPropertiesAreUpdated()
         {
-            var wrapper = Samples.GetJsonSample<CosmosResourceWrapper>("ResourceWrapperNoVersion");
+            var wrapper = Samples.GetJsonSample<FhirCosmosResourceWrapper>("ResourceWrapperNoVersion");
 
             var id = wrapper.Id;
             var lastModified = new DateTimeOffset(2017, 1, 1, 1, 1, 1, TimeSpan.Zero);
 
-            var historyRecord = new CosmosResourceWrapper(
+            var historyRecord = new FhirCosmosResourceWrapper(
                 id,
                 "version1",
                 wrapper.ResourceTypeName,

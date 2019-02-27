@@ -93,9 +93,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.IsHistory)]
         public virtual bool IsHistory { get; protected set; }
 
-        [JsonProperty(KnownResourceWrapperProperties.IsSystem)]
-        public bool IsSystem { get; } = false;
-
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices)]
         public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
 

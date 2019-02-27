@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
