@@ -8,12 +8,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Health;
+using HealthCheckResult = Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 {
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
             _logger = logger;
         }
 
-        public async Task<HealthCheckResult> CheckAsync(CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
         {
             try
             {

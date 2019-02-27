@@ -6,15 +6,16 @@
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
+using HealthCheckResult = Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult;
 using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
@@ -44,20 +45,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         [Fact]
         public async Task GivenCosmosDbCanBeQueried_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
         {
-            HealthCheckResult result = await _healthCheck.CheckAsync();
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.NotNull(result);
-            Assert.Equal(HealthState.Healthy, result.HealthState);
+            Assert.Equal(HealthStatus.Healthy, result.Status);
         }
 
         [Fact]
         public async Task GivenCosmosDbCannotBeQueried_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
             _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration).ThrowsForAnyArgs<HttpRequestException>();
-            HealthCheckResult result = await _healthCheck.CheckAsync();
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.NotNull(result);
-            Assert.Equal(HealthState.Unhealthy, result.HealthState);
+            Assert.Equal(HealthStatus.Unhealthy, result.Status);
         }
     }
 }
