@@ -18,15 +18,24 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
     public class RbacServiceTests
     {
         private readonly IdentityProvider _identityProvider;
+        private readonly Role _role;
         private readonly RbacService _rbacService;
         private readonly IControlPlaneDataStore _controlPlaneDataStore;
 
         public RbacServiceTests()
         {
             _identityProvider = GetIdentityProvider("aad", "test", "https://microsoft.onmicrosoft.com/common/");
+
             _controlPlaneDataStore = Substitute.For<IControlPlaneDataStore>();
             _controlPlaneDataStore.GetIdentityProviderAsync(_identityProvider.Name, Arg.Any<CancellationToken>()).Returns(_identityProvider);
             _controlPlaneDataStore.UpsertIdentityProviderAsync(_identityProvider, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<IdentityProvider>(_identityProvider, UpsertOutcome.Updated, "testEtag"));
+
+            IList<ResourcePermission> resourcePermissions = new List<ResourcePermission>();
+
+            _role = GetRole("clinician", resourcePermissions);
+            _controlPlaneDataStore.GetRoleAsync(_role.Name, Arg.Any<CancellationToken>()).Returns(_role);
+            _controlPlaneDataStore.UpsertRoleAsync(_role, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new UpsertResponse<Role>(_role, UpsertOutcome.Updated, "testEtag"));
+            _controlPlaneDataStore.DeleteRoleAsync(_role.Name, Arg.Any<string>(), Arg.Any<CancellationToken>());
 
             _rbacService = new RbacService(_controlPlaneDataStore);
         }
@@ -39,6 +48,24 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             var identityProvider = await _rbacService.GetIdentityProviderAsync(identityProviderName, CancellationToken.None);
 
             Assert.Same(_identityProvider, identityProvider);
+        }
+
+        [Fact]
+        public async void GivenAName_WhenGettingRoles_ThenDataStoreIsCalled()
+        {
+            var roleName = "clinician";
+
+            var role = await _rbacService.GetRoleAsync(roleName, CancellationToken.None);
+
+            Assert.Same(_role, role);
+        }
+
+        [Fact]
+        public async void GivenAName_WhenUpsertingRoles_ThenDataStoreIsCalled()
+        {
+            var role = await _rbacService.UpsertRoleAsync(_role, "someETag", CancellationToken.None);
+
+            Assert.Same(_role, role.Resource);
         }
 
         [Fact]
@@ -149,6 +176,17 @@ namespace Microsoft.Health.ControlPlane.Core.UnitTests.Features.Rbac
             identityProvider.Validate(Arg.Any<ValidationContext>()).Returns(Enumerable.Empty<ValidationResult>());
 
             return identityProvider;
+        }
+
+        private static Role GetRole(string name, IList<ResourcePermission> resourcePermissions)
+        {
+            var role = Substitute.For<Role>();
+            role.Name.Returns(name);
+            role.ResourcePermissions.Returns(resourcePermissions);
+
+            role.Validate(Arg.Any<ValidationContext>()).Returns(Enumerable.Empty<ValidationResult>());
+
+            return role;
         }
     }
 }

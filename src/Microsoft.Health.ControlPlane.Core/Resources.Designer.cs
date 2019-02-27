@@ -79,7 +79,7 @@ namespace Microsoft.Health.ControlPlane.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Identity provider definition Is invalid..
+        ///   Looks up a localized string similar to Identity provider definition is invalid..
         /// </summary>
         internal static string IdentityProviderDefinitionIsInvalid {
             get {
@@ -138,6 +138,51 @@ namespace Microsoft.Health.ControlPlane.Core {
         internal static string InvalidDocumentTypeForDelete {
             get {
                 return ResourceManager.GetString("InvalidDocumentTypeForDelete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role must have one or more resource permissions..
+        /// </summary>
+        internal static string ResourcePermissionEmpty {
+            get {
+                return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role definition is invalid..
+        /// </summary>
+        internal static string RoleDefinitionIsInvalid {
+            get {
+                return ResourceManager.GetString("RoleDefinitionIsInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role name is null or empty..
+        /// </summary>
+        internal static string RoleNameEmpty {
+            get {
+                return ResourceManager.GetString("RoleNameEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role was not found..
+        /// </summary>
+        internal static string RoleNotFound {
+            get {
+                return ResourceManager.GetString("RoleNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Role contains a resource permissions with no actions..
+        /// </summary>
+        internal static string RoleResourcePermissionWithNoAction {
+            get {
+                return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
             }
         }
     }

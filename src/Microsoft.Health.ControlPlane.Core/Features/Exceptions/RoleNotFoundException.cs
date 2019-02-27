@@ -3,13 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Security.Claims;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac;
-
-namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
+namespace Microsoft.Health.ControlPlane.Core.Features.Exceptions
 {
-    public interface IAuthorizationPolicy
+    public class RoleNotFoundException : ControlPlaneException
     {
-        bool HasPermission(ClaimsPrincipal user, ResourceAction action);
+        public RoleNotFoundException(string name)
+                : base(ValidateAndFormatMessage(Resources.RoleNotFound, name))
+        {
+        }
     }
 }

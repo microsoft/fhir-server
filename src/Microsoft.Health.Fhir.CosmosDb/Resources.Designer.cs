@@ -9,7 +9,6 @@
 //------------------------------------------------------------------------------
 
 namespace Microsoft.Health.Fhir.CosmosDb {
-    using System;
     
     
     /// <summary>

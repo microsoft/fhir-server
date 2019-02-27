@@ -37,6 +37,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         private readonly Uri _collectionUri;
         private readonly HardDeleteIdentityProvider _hardDeleteIdentityProvider;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
+        private readonly HardDeleteRole _hardDeleteRole;
 
         public ControlPlaneDataStore(
             IScoped<IDocumentClient> documentClient,
@@ -57,10 +58,11 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
 
             _documentClient = documentClient;
             _collectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfig.CollectionId);
-            _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
+            _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _logger = logger;
             _hardDeleteIdentityProvider = new HardDeleteIdentityProvider();
+            _hardDeleteRole = new HardDeleteRole();
         }
 
         public async Task<IdentityProvider> GetIdentityProviderAsync(string name, CancellationToken cancellationToken)
@@ -80,6 +82,40 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
         {
             var cosmosIdentityProviders = await GetSystemDocumentsAsync<CosmosIdentityProvider>(null, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken);
             return cosmosIdentityProviders.Select(cidp => cidp.ToIdentityProvider());
+        }
+
+        public async Task<Role> GetRoleAsync(string name, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(name, nameof(name));
+
+            var role = await GetSystemDocumentByIdAsync<CosmosRole>(name, CosmosRole.RolePartition, cancellationToken);
+            if (role == null)
+            {
+                throw new RoleNotFoundException(name);
+            }
+
+            return role.ToRole();
+        }
+
+        public async Task DeleteRoleAsync(string name, string eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(name, nameof(name));
+            await DeleteSystemDocumentsByIdAsync<Role>(name, CosmosRole.RolePartition, eTag, cancellationToken);
+        }
+
+        public async Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken)
+        {
+            var role = await GetSystemDocumentsAsync<CosmosRole>(null, CosmosRole.RolePartition, cancellationToken);
+            return role.Select(cr => cr.ToRole());
+        }
+
+        public async Task<UpsertResponse<Role>> UpsertRoleAsync(Role role, string eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(role, nameof(role));
+
+            var cosmosRole = new CosmosRole(role);
+            var resultRole = await UpsertSystemObjectAsync(cosmosRole, CosmosRole.RolePartition, eTag, cancellationToken);
+            return new UpsertResponse<Role>(resultRole.Resource.ToRole(), resultRole.OutcomeType, resultRole.ETag);
         }
 
         public async Task<UpsertResponse<IdentityProvider>> UpsertIdentityProviderAsync(IdentityProvider identityProvider, string eTag, CancellationToken cancellationToken)
@@ -224,6 +260,7 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                 PartitionKey = new PartitionKey(partitionKey),
                 AccessCondition = eTagAccessCondition,
             };
+
             return requestOptions;
         }
 
@@ -249,6 +286,15 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                                             id,
                                             eTag),
                                         cancellationToken);
+                        break;
+                    case "Role":
+                        response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                                  async () => await _hardDeleteRole.Execute(
+                                   _documentClient.Value,
+                                   _collectionUri,
+                                   id,
+                                   eTag),
+                                  cancellationToken);
                         break;
                     default:
                         throw new InvalidControlPlaneTypeForDeleteException(typeName);

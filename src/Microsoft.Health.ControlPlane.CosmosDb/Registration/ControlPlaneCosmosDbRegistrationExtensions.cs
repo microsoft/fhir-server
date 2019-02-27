@@ -16,7 +16,6 @@ using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
