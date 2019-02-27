@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public IList<string> Methods { get; } = new List<string>();
 
-        public int MaxAge { get; set; }
+        public int? MaxAge { get; set; }
 
         public bool AllowCredentials { get; set; }
     }

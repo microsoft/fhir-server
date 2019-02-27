@@ -40,13 +40,6 @@
             ],
             "defaultValue": "S1"
         },
-        "allowedOrigins": {
-            "type": "array",
-            "defaultValue": [],
-            "metadata": {
-                "description": "DEPRECATED - Use additionalFhirServerConfigProperties"
-            }
-        },
         "securityAuthenticationAuthority": {
             "type": "string",
             "defaultValue": "",

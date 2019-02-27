@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Cors
             Assert.Empty(corsPolicy.Headers);
             Assert.Empty(corsPolicy.Methods);
             Assert.False(corsPolicy.SupportsCredentials);
-            Assert.Equal(TimeSpan.FromSeconds(0), corsPolicy.PreflightMaxAge);
+            Assert.Null(corsPolicy.PreflightMaxAge);
         }
 
         [Fact]

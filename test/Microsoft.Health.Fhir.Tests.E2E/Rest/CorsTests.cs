@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Method = HttpMethod.Options,
             };
 
-            message.Headers.Add(HeaderNames.Origin, "http://local");
+            message.Headers.Add(HeaderNames.Origin, "https://localhost:6001");
             message.Headers.Add(HeaderNames.AccessControlRequestMethod, "PUT");
             message.Headers.Add(HeaderNames.AccessControlRequestHeaders, "authorization");
             message.Headers.Add(HeaderNames.AccessControlRequestHeaders, "content-type");
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpResponseMessage response = await _client.HttpClient.SendAsync(message);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Contains("*", response.Headers.GetValues(HeaderNames.AccessControlAllowOrigin));
+            Assert.Contains("https://localhost:6001", response.Headers.GetValues(HeaderNames.AccessControlAllowOrigin));
 
             Assert.Contains("PUT", response.Headers.GetValues(HeaderNames.AccessControlAllowMethods));
 

@@ -34,8 +34,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
             var corsPolicyBuilder = new CorsPolicyBuilder()
                 .WithOrigins(_corsConfiguration.Origins.ToArray())
                 .WithHeaders(_corsConfiguration.Headers.ToArray())
-                .WithMethods(_corsConfiguration.Methods.ToArray())
-                .SetPreflightMaxAge(TimeSpan.FromSeconds(_corsConfiguration.MaxAge));
+                .WithMethods(_corsConfiguration.Methods.ToArray());
+
+            if (_corsConfiguration.MaxAge != null)
+            {
+                corsPolicyBuilder.SetPreflightMaxAge(TimeSpan.FromSeconds(_corsConfiguration.MaxAge.Value));
+            }
 
             if (_corsConfiguration.AllowCredentials)
             {
