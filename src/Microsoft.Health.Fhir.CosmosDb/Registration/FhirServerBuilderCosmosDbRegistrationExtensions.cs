@@ -12,10 +12,8 @@ using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb;
-using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -39,8 +37,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             return fhirServerBuilder
                 .AddCosmosDbPersistence(configuration)
-                .AddCosmosDbSearch()
-                .AddCosmosDbHealthCheck();
+                .AddCosmosDbSearch();
         }
 
         private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
@@ -100,18 +97,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<FhirCosmosDocumentQueryFactory>()
                 .Singleton()
                 .AsSelf();
-
-            return fhirServerBuilder;
-        }
-
-        private static IFhirServerBuilder AddCosmosDbHealthCheck(this IFhirServerBuilder fhirServerBuilder)
-        {
-            // We can move to framework such as https://github.com/dotnet-architecture/HealthChecks
-            // once they are released to do health check on multiple dependencies.
-            fhirServerBuilder.Services.Add<FhirCosmosHealthCheck>()
-                .Scoped()
-                .AsSelf()
-                .AsService<IHealthCheck>();
 
             return fhirServerBuilder;
         }
