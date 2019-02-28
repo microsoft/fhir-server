@@ -18,6 +18,9 @@
     <None Include="..\..\testauthenvironment.json" Link="testauthenvironment.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\corstestconfiguration.json" Link="corstestconfiguration.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
