@@ -6,6 +6,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.ControlPlane.CosmosDb.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 
 namespace Microsoft.Health.Fhir.Web
@@ -26,7 +27,9 @@ namespace Microsoft.Health.Fhir.Web
 
             services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration);
 
-            services.AddHealthChecks().AddCheck<FhirCosmosHealthCheck>(name: "CosmosDb");
+            services.AddHealthChecks()
+                .AddCheck<FhirCosmosHealthCheck>(name: "FhirCosmosDb")
+                .AddCheck<ControlPlaneCosmosHealthCheck>(name: "ControlPlaneCosmosDb");
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
