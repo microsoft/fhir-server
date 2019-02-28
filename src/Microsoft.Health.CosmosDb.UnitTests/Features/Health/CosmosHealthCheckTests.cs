@@ -10,36 +10,36 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Health;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 using HealthCheckResult = Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult;
 using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
-namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
+namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
 {
-    public class HealthCheckTests
+    public class CosmosHealthCheckTests
     {
         private readonly IDocumentClient _documentClient = Substitute.For<IDocumentClient>();
         private readonly IDocumentClientTestProvider _testProvider = Substitute.For<IDocumentClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };
 
-        private readonly FhirCosmosHealthCheck _healthCheck;
+        private readonly CosmosHealthCheck _healthCheck;
 
-        public HealthCheckTests()
+        public CosmosHealthCheckTests()
         {
             var optionsSnapshot = Substitute.For<IOptionsSnapshot<CosmosCollectionConfiguration>>();
-            optionsSnapshot.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
+            optionsSnapshot.Get(TestCosmosHealthCheck.TestCosmosHealthCheckName).Returns(_cosmosCollectionConfiguration);
 
-            _healthCheck = new FhirCosmosHealthCheck(
+            _healthCheck = new TestCosmosHealthCheck(
                 new NonDisposingScope(_documentClient),
                 _configuration,
                 optionsSnapshot,
                 _testProvider,
-                NullLogger<FhirCosmosHealthCheck>.Instance);
+                NullLogger<TestCosmosHealthCheck>.Instance);
         }
 
         [Fact]
