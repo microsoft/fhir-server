@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <LangVersion>latest</LangVersion>
+    <HighEntropyVA>true</HighEntropyVA>
+    <ApplicationIcon />
+    <OutputType>Exe</OutputType>
+    <StartupObject>Microsoft.Health.Fhir.Tests.Performance.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.9.0" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.11.4" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="2.0.38" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Health.ControlPlane.Core.UnitTests\Microsoft.Health.ControlPlane.Core.UnitTests.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.CosmosDb.UnitTests\Microsoft.Health.CosmosDb.UnitTests.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Api.UnitTests\Microsoft.Health.Fhir.Api.UnitTests.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core.UnitTests\Microsoft.Health.Fhir.Core.UnitTests.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.CosmosDb.UnitTests\Microsoft.Health.Fhir.CosmosDb.UnitTests.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
+  </ItemGroup>
+
+</Project>

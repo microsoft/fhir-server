@@ -19,6 +19,15 @@ steps:
       publishWebProjects: false
       zipAfterPublish: false
 
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish Performance Tests'
+    inputs:
+      command: publish
+      projects: 'perf/**/*.csproj'
+      arguments: '--version-suffix $(build.buildnumber) -o "$(build.binariesdirectory)/Perf" --configuration $(buildConfiguration) --no-build'
+      publishWebProjects: false
+      zipAfterPublish: false
+
   # Package nugets
 
   - task: DotNetCoreCLI@2
@@ -83,4 +92,11 @@ steps:
     inputs:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish Performance Tests'
+    inputs:
+      pathToPublish: '$(build.binariesdirectory)/Perf'
+      artifactName: 'PerfTests'
       artifactType: 'container'

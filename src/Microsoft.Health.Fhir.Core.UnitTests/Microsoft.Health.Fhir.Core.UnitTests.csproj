@@ -12,6 +12,7 @@
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.1-beta.61" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.11.4" />
   </ItemGroup>
 
   <ItemGroup>
