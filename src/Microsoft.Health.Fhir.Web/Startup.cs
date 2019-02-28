@@ -3,11 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.ControlPlane.CosmosDb.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -28,8 +35,8 @@ namespace Microsoft.Health.Fhir.Web
             services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration);
 
             services.AddHealthChecks()
-                .AddCheck<FhirCosmosHealthCheck>(name: "FhirCosmosDb")
-                .AddCheck<ControlPlaneCosmosHealthCheck>(name: "ControlPlaneCosmosDb");
+                .AddCheck<FhirCosmosHealthCheck>(name: "FhirCosmosDb", failureStatus: HealthStatus.Unhealthy)
+                .AddCheck<ControlPlaneCosmosHealthCheck>(name: "ControlPlaneCosmosDb", failureStatus: HealthStatus.Unhealthy);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -39,7 +46,20 @@ namespace Microsoft.Health.Fhir.Web
 
             app.UseDevelopmentIdentityProvider();
 
-            app.UseHealthChecks("/health");
+            app.UseHealthChecks("/health", new HealthCheckOptions
+            {
+                ResponseWriter = async (context, report) =>
+                {
+                    var result = JsonConvert.SerializeObject(
+                        new
+                        {
+                            status = report.Status.ToString(),
+                            details = report.Entries.Select(e => new { key = e.Key, value = Enum.GetName(typeof(HealthStatus), e.Value.Status) }),
+                        });
+                    context.Response.ContentType = MediaTypeNames.Application.Json;
+                    await context.Response.WriteAsync(result);
+                },
+            });
         }
     }
 }
