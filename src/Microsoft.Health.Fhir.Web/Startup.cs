@@ -3,18 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Linq;
-using System.Net.Mime;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.ControlPlane.CosmosDb.Health;
+using Microsoft.Health.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -46,19 +42,9 @@ namespace Microsoft.Health.Fhir.Web
 
             app.UseDevelopmentIdentityProvider();
 
-            app.UseHealthChecks("/health", new HealthCheckOptions
+            app.UseHealthChecks("/health/check", new HealthCheckOptions
             {
-                ResponseWriter = async (context, report) =>
-                {
-                    var result = JsonConvert.SerializeObject(
-                        new
-                        {
-                            status = report.Status.ToString(),
-                            details = report.Entries.Select(e => new { key = e.Key, value = Enum.GetName(typeof(HealthStatus), e.Value.Status) }),
-                        });
-                    context.Response.ContentType = MediaTypeNames.Application.Json;
-                    await context.Response.WriteAsync(result);
-                },
+                ResponseWriter = ResponseWriter.HealthResponseWriter,
             });
         }
     }
