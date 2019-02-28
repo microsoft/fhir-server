@@ -17,24 +17,24 @@ namespace Microsoft.Health.CosmosDb.Features.Health
     {
         public static async Task HealthResponseWriter(HttpContext httpContext, HealthReport healthReport)
         {
-            var entries = new List<object>();
-            foreach (var report in healthReport.Entries)
+            var allEntries = new List<object>();
+            foreach (var reportEntry in healthReport.Entries)
             {
-                var details = new
+                var individualEntry = new
                 {
-                    name = report.Key,
-                    status = Enum.GetName(typeof(HealthStatus), report.Value.Status),
-                    exception = report.Value.Exception,
+                    name = reportEntry.Key,
+                    status = Enum.GetName(typeof(HealthStatus), reportEntry.Value.Status),
+                    exception = reportEntry.Value.Exception,
                 };
 
-                entries.Add(details);
+                allEntries.Add(individualEntry);
             }
 
             var response = JsonConvert.SerializeObject(
                 new
                 {
                     overallStatus = healthReport.Status.ToString(),
-                    details = entries,
+                    details = allEntries,
                 });
 
             httpContext.Response.ContentType = MediaTypeNames.Application.Json;

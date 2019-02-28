@@ -10,13 +10,10 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
-using Microsoft.Health.CosmosDb.Features.Health;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
-using HealthCheckResult = Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult;
-using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
 namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
 {
@@ -27,7 +24,7 @@ namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };
 
-        private readonly CosmosHealthCheck _healthCheck;
+        private readonly TestCosmosHealthCheck _healthCheck;
 
         public CosmosHealthCheckTests()
         {
