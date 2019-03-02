@@ -21,6 +21,7 @@ namespace Microsoft.Health.CosmosDb.Features.Health
     {
         private readonly IScoped<IDocumentClient> _documentClient;
         private readonly CosmosDataStoreConfiguration _configuration;
+        private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly ILogger<CosmosHealthCheck> _logger;
 
@@ -30,18 +31,21 @@ namespace Microsoft.Health.CosmosDb.Features.Health
         /// <param name="documentClient">The document client factory/</param>
         /// <param name="configuration">The CosmosDB configuration.</param>
         /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
+        /// <param name="collectionConfigurationName"> Name to get corresponding collection configuration</param>
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
         public CosmosHealthCheck(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
+            string collectionConfigurationName,
             IDocumentClientTestProvider testProvider,
             ILogger<CosmosHealthCheck> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
+            EnsureArg.IsNotNullOrWhiteSpace(collectionConfigurationName, nameof(collectionConfigurationName));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -50,11 +54,10 @@ namespace Microsoft.Health.CosmosDb.Features.Health
             EnsureArg.IsNotNull(_documentClient, optsFn: options => options.WithMessage("Factory returned null."));
 
             _configuration = configuration;
+            _cosmosCollectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(collectionConfigurationName);
             _testProvider = testProvider;
             _logger = logger;
         }
-
-        public abstract CosmosCollectionConfiguration CollectionConfiguration { get; }
 
         public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
         {
@@ -62,7 +65,7 @@ namespace Microsoft.Health.CosmosDb.Features.Health
             {
                 // Make a non-invasive query to make sure we can reach the data store.
 
-                await _testProvider.PerformTest(_documentClient.Value, _configuration, CollectionConfiguration);
+                await _testProvider.PerformTest(_documentClient.Value, _configuration, _cosmosCollectionConfiguration);
 
                 return HealthCheckResult.Healthy("Successfully connected to the data store.");
             }

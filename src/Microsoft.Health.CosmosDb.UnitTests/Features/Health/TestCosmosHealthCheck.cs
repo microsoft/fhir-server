@@ -27,12 +27,10 @@ namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
                   documentClient,
                   configuration,
                   namedCosmosCollectionConfigurationAccessor,
+                  TestCosmosHealthCheckName,
                   testProvider,
                   logger)
         {
-            CollectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(TestCosmosHealthCheckName);
         }
-
-        public override CosmosCollectionConfiguration CollectionConfiguration { get; }
     }
 }

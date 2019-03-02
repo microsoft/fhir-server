@@ -36,12 +36,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                   documentClient,
                   configuration,
                   namedCosmosCollectionConfigurationAccessor,
+                  Constants.CollectionConfigurationName,
                   testProvider,
                   logger)
         {
-            CollectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
         }
-
-        public override CosmosCollectionConfiguration CollectionConfiguration { get; }
     }
 }

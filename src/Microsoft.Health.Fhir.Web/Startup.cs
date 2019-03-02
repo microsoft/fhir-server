@@ -31,8 +31,8 @@ namespace Microsoft.Health.Fhir.Web
             services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration);
 
             services.AddHealthChecks()
-                .AddCheck<FhirCosmosHealthCheck>(name: "FhirCosmosDb", failureStatus: HealthStatus.Unhealthy)
-                .AddCheck<ControlPlaneCosmosHealthCheck>(name: "ControlPlaneCosmosDb", failureStatus: HealthStatus.Unhealthy);
+                .AddCheck<FhirCosmosHealthCheck>(name: nameof(FhirCosmosHealthCheck), failureStatus: HealthStatus.Unhealthy)
+                .AddCheck<ControlPlaneCosmosHealthCheck>(name: nameof(ControlPlaneCosmosHealthCheck), failureStatus: HealthStatus.Unhealthy);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
