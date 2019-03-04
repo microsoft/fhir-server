@@ -42,7 +42,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             {
                 ConnectionMode = configuration.ConnectionMode,
                 ConnectionProtocol = configuration.ConnectionProtocol,
-                RetryOptions = new RetryOptions()
+                RetryOptions = new RetryOptions
                 {
                     MaxRetryAttemptsOnThrottledRequests = configuration.RetryOptions.MaxNumberOfRetries,
                     MaxRetryWaitTimeInSeconds = configuration.RetryOptions.MaxWaitTimeInSeconds,

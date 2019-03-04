@@ -13,11 +13,6 @@ namespace Microsoft.Health.CosmosDb.Configs
         public int MaxNumberOfRetries { get; set; } = 3;
 
         /// <summary>
-        /// Gets the minimum number of seconds to wait while the retries are happening.
-        /// </summary>
-        public int MinWaitTimeInSeconds { get; set; } = 1;
-
-        /// <summary>
         /// Gets the maximum number of seconds to wait while the retries are happening.
         /// </summary>
         public int MaxWaitTimeInSeconds { get; set; } = 5;
