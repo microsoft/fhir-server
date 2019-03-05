@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
@@ -16,13 +17,13 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedur
 {
     internal class HardDeleteRole : StoredProcedureBase, IControlPlaneStoredProcedure
     {
-        public async Task<StoredProcedureResponse<IList<string>>> Execute(IDocumentClient client, Uri collection,  string id, string eTag)
+        public async Task<StoredProcedureResponse<IList<string>>> Execute(IDocumentClient client, Uri collection,  string id, string eTag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(collection, nameof(collection));
             EnsureArg.IsNotNull(id, nameof(id));
 
-            return await ExecuteStoredProc<IList<string>>(client, collection, CosmosRole.RolePartition, id, eTag);
+            return await ExecuteStoredProc<IList<string>>(client, collection, CosmosRole.RolePartition, cancellationToken, id, eTag);
         }
     }
 }
