@@ -23,6 +23,7 @@
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="6.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics" Version="2.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.HealthChecks" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.2.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.2" />
     <PackageReference Include="Microsoft.CodeCoverage" Version="15.9.0" />
@@ -38,6 +39,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Abstractions\Microsoft.Health.Abstractions.csproj" />
     <ProjectReference Include="..\Microsoft.Health.ControlPlane.Core\Microsoft.Health.ControlPlane.Core.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.CosmosDb\Microsoft.Health.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />

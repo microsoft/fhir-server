@@ -13,9 +13,9 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.CosmosDb.Features.Health
 {
-    public static class ResponseWriter
+    public static class HealthCheckResponseWriter
     {
-        public static async Task HealthResponseWriter(HttpContext httpContext, HealthReport healthReport)
+        public static async Task WriteJson(HttpContext httpContext, HealthReport healthReport)
         {
             var allEntries = new List<object>();
             foreach (var reportEntry in healthReport.Entries)

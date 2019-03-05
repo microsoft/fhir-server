@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Health.CosmosDb.Features.Health;
 
 namespace Microsoft.AspNetCore.Builder
 {
@@ -17,6 +19,11 @@ namespace Microsoft.AspNetCore.Builder
         public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app)
         {
             EnsureArg.IsNotNull(app, nameof(app));
+
+            app.UseHealthChecks("/health/check", new HealthCheckOptions
+            {
+                ResponseWriter = HealthCheckResponseWriter.WriteJson,
+            });
 
             app.UseStaticFiles();
             app.UseMvc();

@@ -14,6 +14,7 @@ using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb;
+using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -37,7 +38,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             return fhirServerBuilder
                 .AddCosmosDbPersistence(configuration)
-                .AddCosmosDbSearch();
+                .AddCosmosDbSearch()
+                .AddCosmosDbHealthCheck();
         }
 
         private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
@@ -109,6 +111,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             fhirServerBuilder.Services.AddSingleton<IQueryBuilder, QueryBuilder>();
+
+            return fhirServerBuilder;
+        }
+
+        private static IFhirServerBuilder AddCosmosDbHealthCheck(this IFhirServerBuilder fhirServerBuilder)
+        {
+            fhirServerBuilder.Services.AddHealthChecks()
+                .AddCheck<FhirCosmosHealthCheck>(name: nameof(FhirCosmosHealthCheck));
 
             return fhirServerBuilder;
         }

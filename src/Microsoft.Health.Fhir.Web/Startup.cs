@@ -4,13 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Health.ControlPlane.CosmosDb.Health;
-using Microsoft.Health.CosmosDb.Features.Health;
-using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -29,10 +24,6 @@ namespace Microsoft.Health.Fhir.Web
             services.AddControlPlaneCosmosDb(Configuration).AddDevelopmentIdentityProvider(Configuration);
 
             services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration);
-
-            services.AddHealthChecks()
-                .AddCheck<FhirCosmosHealthCheck>(name: nameof(FhirCosmosHealthCheck), failureStatus: HealthStatus.Unhealthy)
-                .AddCheck<ControlPlaneCosmosHealthCheck>(name: nameof(ControlPlaneCosmosHealthCheck), failureStatus: HealthStatus.Unhealthy);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -41,11 +32,6 @@ namespace Microsoft.Health.Fhir.Web
             app.UseFhirServer();
 
             app.UseDevelopmentIdentityProvider();
-
-            app.UseHealthChecks("/health/check", new HealthCheckOptions
-            {
-                ResponseWriter = ResponseWriter.HealthResponseWriter,
-            });
         }
     }
 }
