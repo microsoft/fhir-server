@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
@@ -16,13 +17,13 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedur
 {
     internal class HardDeleteIdentityProvider : StoredProcedureBase, IControlPlaneStoredProcedure
     {
-        public async Task<StoredProcedureResponse<IList<string>>> Execute(IDocumentClient client, Uri collection, string id, string eTag)
+        public async Task<StoredProcedureResponse<IList<string>>> Execute(IDocumentClient client, Uri collection, string id, string eTag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(collection, nameof(collection));
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
-            return await ExecuteStoredProc<IList<string>>(client, collection, CosmosIdentityProvider.IdentityProviderPartition, id, eTag);
+            return await ExecuteStoredProc<IList<string>>(client, collection, CosmosIdentityProvider.IdentityProviderPartition, cancellationToken, id, eTag);
         }
     }
 }

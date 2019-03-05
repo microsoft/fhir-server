@@ -280,20 +280,22 @@ namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage
                 {
                     case "IdentityProvider":
                         response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                                        async () => await _hardDeleteIdentityProvider.Execute(
+                                        async ct => await _hardDeleteIdentityProvider.Execute(
                                             _documentClient.Value,
                                             _collectionUri,
                                             id,
-                                            eTag),
+                                            eTag,
+                                            ct),
                                         cancellationToken);
                         break;
                     case "Role":
                         response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                                  async () => await _hardDeleteRole.Execute(
+                                  async ct => await _hardDeleteRole.Execute(
                                    _documentClient.Value,
                                    _collectionUri,
                                    id,
-                                   eTag),
+                                   eTag,
+                                   ct),
                                   cancellationToken);
                         break;
                     default:

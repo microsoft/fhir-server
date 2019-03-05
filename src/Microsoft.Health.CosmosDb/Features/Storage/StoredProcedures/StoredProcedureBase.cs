@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
             };
         }
 
-        protected async Task<StoredProcedureResponse<T>> ExecuteStoredProc<T>(IDocumentClient client, Uri collection, string partitionId, params object[] parameters)
+        protected async Task<StoredProcedureResponse<T>> ExecuteStoredProc<T>(IDocumentClient client, Uri collection, string partitionId, CancellationToken cancellationToken, params object[] parameters)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(collection, nameof(collection));
@@ -50,6 +51,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
             var results = await client.ExecuteStoredProcedureAsync<T>(
                 GetUri(collection),
                 partitionKey,
+                cancellationToken,
                 parameters);
 
             return results;
