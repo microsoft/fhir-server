@@ -23,7 +23,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             _maxNumberOfRetries = configuration.RetryOptions.MaxNumberOfRetries;
         }
 
-        public RetryPolicy CreateRetryPolicy()
+        public AsyncRetryPolicy CreateRetryPolicy()
         {
             var policy = Policy
                 .Handle<DocumentClientException>(RetryExceptionPolicy.IsTransient)
