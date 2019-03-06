@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             context.Response.Headers[RequestIdHeaderName] = correlationId;
 
+            // Note that if this is executed before authentication occurs, the user will not contain any claims.
             if (context.User != null)
             {
                 fhirRequestContext.Principal = context.User;

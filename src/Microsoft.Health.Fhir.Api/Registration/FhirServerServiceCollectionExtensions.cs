@@ -117,6 +117,9 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     app.UseAuthentication();
 
+                    // Now that we've authenticated the user, update the context with any post-authentication info.
+                    app.UseFhirRequestContextAfterAuthentication();
+
                     next(app);
                 };
             }
