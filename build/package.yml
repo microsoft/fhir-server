@@ -7,7 +7,7 @@ steps:
     inputs:
       command: publish
       projects: '**/Microsoft.Health.Fhir.Web.csproj'
-      arguments: '--self-contained --output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --no-build'
+      arguments: '--runtime win10-x64 --output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --no-build'
       publishWebProjects: false
 
   - task: DotNetCoreCLI@2
