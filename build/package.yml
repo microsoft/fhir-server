@@ -56,6 +56,13 @@ steps:
       pathToPublish: './testauthenvironment.json'
       artifactName: 'deploy'
       artifactType: 'container'
+      
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish corstestconfiguration.json'
+    inputs:
+      pathToPublish: './corstestconfiguration.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
 
   - task: PublishBuildArtifacts@1
     displayName: 'publish release directory'

@@ -15,6 +15,7 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Web;
@@ -93,10 +94,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private void StartInMemoryServer(string targetProjectParentDirectory)
         {
             var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
+            var corsPath = Path.GetFullPath("corstestconfiguration.json");
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
-                .ConfigureAppConfiguration(configurationBuilder => configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json"))
+                .ConfigureAppConfiguration(configurationBuilder =>
+                {
+                    configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json");
+                    configurationBuilder.AddJsonFile(corsPath);
+                })
                 .UseStartup(typeof(TStartup))
                 .ConfigureServices(serviceCollection =>
                 {
