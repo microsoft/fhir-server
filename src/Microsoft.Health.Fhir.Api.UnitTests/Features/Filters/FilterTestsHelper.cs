@@ -6,6 +6,7 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Tests.Common;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
@@ -15,6 +16,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public static FhirController CreateMockFhirController()
         {
             return Mock.TypeWithArguments<FhirController>(Options.Create(new FeatureConfiguration()));
+        }
+
+        public static OperationsController CreateMockOperationsController()
+        {
+            return Mock.TypeWithArguments<OperationsController>(Options.Create(new OperationsConfiguration()));
         }
     }
 }

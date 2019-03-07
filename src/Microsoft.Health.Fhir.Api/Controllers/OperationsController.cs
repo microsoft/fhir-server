@@ -8,8 +8,10 @@ using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -17,19 +19,24 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
+    [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     public class OperationsController : Controller
     {
-        private IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private OperationsConfiguration _operationsConfig;
+        private readonly ILogger<OperationsController> _logger;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly OperationsConfiguration _operationsConfig;
 
         public OperationsController(
+            ILogger<OperationsController> logger,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IOptions<OperationsConfiguration> operationConfig)
         {
+            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationConfig, nameof(operationConfig));
 
+            _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _operationsConfig = operationConfig.Value;
         }
@@ -40,26 +47,24 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public IActionResult Export()
         {
             HttpStatusCode returnCode;
-            OperationOutcome.IssueType issueType;
-            string diagnosticInfo;
+            OperationOutcome result;
 
             if (_operationsConfig.SupportsBulkExport)
             {
+                result = GenerateOperationOutcome(
+                    OperationOutcome.IssueSeverity.Error,
+                    OperationOutcome.IssueType.NotSupported,
+                    "Export operation not supported");
                 returnCode = HttpStatusCode.NotImplemented;
-                issueType = OperationOutcome.IssueType.NotSupported;
-                diagnosticInfo = "Export operation not supported";
             }
             else
             {
+                result = GenerateOperationOutcome(
+                    OperationOutcome.IssueSeverity.Error,
+                    OperationOutcome.IssueType.Value,
+                    "Export operation disabled");
                 returnCode = HttpStatusCode.BadRequest;
-                issueType = OperationOutcome.IssueType.Value;
-                diagnosticInfo = "Export operation disabled";
             }
-
-            OperationOutcome result = GenerateOperationOutcome(
-                OperationOutcome.IssueSeverity.Error,
-                issueType,
-                diagnosticInfo);
 
             return FhirResult.Create(result, returnCode);
         }
@@ -67,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ExportResourceType)]
         [ValidateOperationHeadersFilter]
-        public IActionResult ExportResource(string type)
+        public IActionResult ExportResourceType(string type)
         {
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(type, "Patient", StringComparison.Ordinal))
@@ -86,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ExportResourceTypeById)]
         [ValidateOperationHeadersFilter]
-        public IActionResult ExportResourceById(string type, string id)
+        public IActionResult ExportResourceTypeById(string type, string id)
         {
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(type, "Group", StringComparison.Ordinal) || string.IsNullOrEmpty(id))
