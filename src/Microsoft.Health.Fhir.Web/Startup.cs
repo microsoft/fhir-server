@@ -50,14 +50,7 @@ namespace Microsoft.Health.Fhir.Web
             if (!string.IsNullOrWhiteSpace(instrumentationKey))
             {
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
-                services.AddLogging(loggingBuilder =>
-                {
-                    loggingBuilder.AddApplicationInsights(instrumentationKey);
-
-                    // Filter out messages by category and level
-                    loggingBuilder.AddFilter<ApplicationInsightsLoggerProvider>(string.Empty, LogLevel.Information);
-                    loggingBuilder.AddFilter<ApplicationInsightsLoggerProvider>("Microsoft.AspNetCore", LogLevel.Warning);
-                });
+                services.AddLogging(loggingBuilder => loggingBuilder.AddApplicationInsights(instrumentationKey));
             }
         }
     }
