@@ -7,10 +7,8 @@ using System.Collections.Generic;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -19,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
+    [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     public class OperationsController : Controller
     {
         private IFhirRequestContextAccessor _fhirRequestContextAccessor;
@@ -35,129 +34,92 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _operationsConfig = operationConfig.Value;
         }
 
+        [HttpGet]
         [Route(KnownRoutes.Export)]
         [ValidateOperationHeadersFilter]
-        [AllowAnonymous]
-        public IActionResult BulkExport()
+        public IActionResult Export()
         {
             HttpStatusCode returnCode;
             OperationOutcome.IssueType issueType;
+            string diagnosticInfo;
 
             if (_operationsConfig.SupportsBulkExport)
             {
-                if (ValidateHeaders())
-                {
-                    returnCode = HttpStatusCode.NotImplemented;
-                    issueType = OperationOutcome.IssueType.NotSupported;
-                }
-                else
-                {
-                    returnCode = HttpStatusCode.BadRequest;
-                    issueType = OperationOutcome.IssueType.Value;
-                }
+                returnCode = HttpStatusCode.NotImplemented;
+                issueType = OperationOutcome.IssueType.NotSupported;
+                diagnosticInfo = "Export operation not supported";
             }
             else
             {
                 returnCode = HttpStatusCode.BadRequest;
                 issueType = OperationOutcome.IssueType.Value;
+                diagnosticInfo = "Export operation disabled";
             }
 
-            var result = new OperationOutcome()
-            {
-                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                Issue = new List<OperationOutcome.IssueComponent>
-                {
-                    new OperationOutcome.IssueComponent
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Error,
-                        Code = issueType,
-                    },
-                },
-            };
+            OperationOutcome result = GenerateOperationOutcome(
+                OperationOutcome.IssueSeverity.Error,
+                issueType,
+                diagnosticInfo);
 
             return FhirResult.Create(result, returnCode);
         }
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceType)]
-        public IActionResult BulkExportPatient(string type)
+        [ValidateOperationHeadersFilter]
+        public IActionResult ExportResource(string type)
         {
+            // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(type, "Patient", StringComparison.Ordinal))
             {
-                var result = new OperationOutcome()
-                {
-                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                    Issue = new List<OperationOutcome.IssueComponent>
-                {
-                    new OperationOutcome.IssueComponent
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Error,
-                        Code = OperationOutcome.IssueType.NotSupported,
-                    },
-                },
-                };
+                OperationOutcome result = GenerateOperationOutcome(
+                    OperationOutcome.IssueSeverity.Error,
+                    OperationOutcome.IssueType.NotSupported,
+                    $"{type} type not supported for Export by ResourceType operation");
 
                 return FhirResult.Create(result, HttpStatusCode.BadRequest);
             }
 
-            return BulkExport();
+            return Export();
         }
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceTypeById)]
-        public IActionResult BulkExportGroupById(string type, string id)
+        [ValidateOperationHeadersFilter]
+        public IActionResult ExportResourceById(string type, string id)
         {
+            // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(type, "Group", StringComparison.Ordinal) || string.IsNullOrEmpty(id))
             {
-                var result = new OperationOutcome()
-                {
-                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                    Issue = new List<OperationOutcome.IssueComponent>
-                {
-                    new OperationOutcome.IssueComponent
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Error,
-                        Code = OperationOutcome.IssueType.NotSupported,
-                    },
-                },
-                };
+                OperationOutcome result = GenerateOperationOutcome(
+                    OperationOutcome.IssueSeverity.Error,
+                    OperationOutcome.IssueType.NotSupported,
+                    $"{type} type not supported for Export by ResourceTypeId operation");
 
                 return FhirResult.Create(result, HttpStatusCode.BadRequest);
             }
 
-            return BulkExport();
+            return Export();
         }
 
-        private bool ValidateHeaders()
+        private OperationOutcome GenerateOperationOutcome(
+            OperationOutcome.IssueSeverity issueSeverity,
+            OperationOutcome.IssueType issueType,
+            string diagnosticInfo)
         {
-            // check whether accept header is present
-            StringValues acceptHeaderValue;
-            HttpContext.Request.Headers.TryGetValue(HttpRequestHeader.Accept.ToString(), out acceptHeaderValue);
-
-            if (acceptHeaderValue.Count != 1)
+            return new OperationOutcome()
             {
-                return false;
-            }
-
-            if (acceptHeaderValue[0] != "application/fhir+json")
-            {
-                return false;
-            }
-
-            StringValues preferHeaderValue;
-            HttpContext.Request.Headers.TryGetValue("Prefer", out preferHeaderValue);
-
-            if (preferHeaderValue.Count != 1)
-            {
-                return false;
-            }
-
-            if (preferHeaderValue[0] != "respond-async")
-            {
-                return false;
-            }
-
-            return true;
+                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                Issue = new List<OperationOutcome.IssueComponent>
+                {
+                    new OperationOutcome.IssueComponent
+                    {
+                        Severity = issueSeverity,
+                        Code = issueType,
+                        Diagnostics = diagnosticInfo,
+                    },
+                },
+            };
         }
     }
 }

@@ -4,9 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using EnsureThat;
-using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -25,10 +23,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 if (acceptHeaderValue.Count != 1 || !string.Equals(acceptHeaderValue[0], "application/fhir+json", StringComparison.Ordinal))
                 {
-                    throw new ResourceNotValidException(new List<ValidationFailure>
+                    var error = new OperationOutcome.IssueComponent()
                     {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.UnsupportedAcceptHeader),
-                    });
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = OperationOutcome.IssueType.Invalid,
+                        Diagnostics = "Invalid headers provided for Export operation",
+                    };
+
+                    throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
                 }
             }
 
@@ -36,10 +38,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 if (preferHeaderValue.Count != 1 || !string.Equals(preferHeaderValue[0], "respond-async", StringComparison.Ordinal))
                 {
-                    throw new ResourceNotValidException(new List<ValidationFailure>
+                    var error = new OperationOutcome.IssueComponent()
                     {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.UnsupportedPreferHeader),
-                    });
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = OperationOutcome.IssueType.Invalid,
+                        Diagnostics = "Invalid headers provided for Export operation",
+                    };
+
+                    throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
                 }
             }
         }
