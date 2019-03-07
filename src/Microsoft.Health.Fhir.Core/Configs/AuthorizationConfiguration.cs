@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public bool Enabled { get; set; }
 
-        public IList<Role> Roles { get; set; } = new List<Role>();
+        public IList<Role> Roles { get; } = new List<Role>();
 
         public void ValidateRoles()
         {

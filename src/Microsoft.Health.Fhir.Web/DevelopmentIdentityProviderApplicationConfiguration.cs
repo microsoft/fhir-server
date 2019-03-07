@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.Web
     {
         public string Id { get; set; }
 
-        public IList<string> Roles { get; set; } = new List<string>();
+        public IList<string> Roles { get; } = new List<string>();
     }
 }

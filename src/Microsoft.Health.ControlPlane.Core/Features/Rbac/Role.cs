@@ -40,6 +40,7 @@ namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
         [JsonProperty("etag")]
         public virtual string VersionTag { get; set; }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO class")]
         [JsonProperty("resourcePermissions")]
         public virtual IList<ResourcePermission> ResourcePermissions { get; set; } = new List<ResourcePermission>();
 

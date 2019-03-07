@@ -94,12 +94,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 new ResourcePermission(resourceActions),
             };
 
-            var roles = roleNames.Select(ra => GetRole(ra, permissions)).ToList();
+            var authConfiguration = new AuthorizationConfiguration();
 
-            return new AuthorizationConfiguration
+            foreach (var name in roleNames)
             {
-                Roles = roles,
-            };
+                authConfiguration.Roles.Add(GetRole(name, permissions));
+            }
+
+            return authConfiguration;
         }
 
         private static Role GetRole(string name, IList<ResourcePermission> resourcePermissions)
