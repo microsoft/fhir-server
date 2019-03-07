@@ -19,7 +19,7 @@ phases:
 
   - task: DotNetCoreInstaller@0
     inputs:
-      version: '2.2.101' 
+      version: '2.2.103' 
 
   - script: dotnet build --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) /warnaserror
     displayName: 'dotnet build $(buildConfiguration)'
