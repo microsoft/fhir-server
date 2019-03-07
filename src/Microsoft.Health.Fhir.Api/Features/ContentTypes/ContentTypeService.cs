@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                     throw new UnsupportedMediaTypeException(Resources.UnsupportedFormatParameter);
                 }
 
-                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat, acceptHeaders.Select(x => x.MediaType.Value));
+                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat, acceptHeaders?.Select(x => x.MediaType.Value));
 
                 // Overrides output format type
                 httpContext.Response.ContentType = closestClientMediaType;

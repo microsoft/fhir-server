@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             string closestClientMediaType = null;
             string preferred = resourceFormat.ToContentType();
 
-            if (outputFormatters != null)
+            if (outputFormatters != null && acceptHeaders != null)
             {
                 // Gets formatters that can write the desired format
                 var validFormatters = outputFormatters
