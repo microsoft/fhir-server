@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Net.Mime;
 using EnsureThat;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -29,23 +29,15 @@ namespace Microsoft.AspNetCore.Builder
             {
                 ResponseWriter = async (httpContext, healthReport) =>
                 {
-                    var allEntities = new List<object>();
-                    foreach (var reportEntry in healthReport.Entries)
-                    {
-                        var individualEntity = new
-                        {
-                            name = reportEntry.Key,
-                            status = Enum.GetName(typeof(HealthStatus), reportEntry.Value.Status),
-                        };
-
-                        allEntities.Add(individualEntity);
-                    }
-
                     var response = JsonConvert.SerializeObject(
                         new
                         {
                             overallStatus = healthReport.Status.ToString(),
-                            details = allEntities,
+                            details = healthReport.Entries.Select(entry => new
+                            {
+                                name = entry.Key,
+                                status = Enum.GetName(typeof(HealthStatus), entry.Value.Status),
+                            }),
                         });
 
                     httpContext.Response.ContentType = MediaTypeNames.Application.Json;
