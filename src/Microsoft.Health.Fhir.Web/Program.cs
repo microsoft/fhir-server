@@ -17,6 +17,7 @@ namespace Microsoft.Health.Fhir.Web
         public static void Main(string[] args)
         {
             var host = WebHost.CreateDefaultBuilder(args)
+                .UseApplicationInsights()
                 .ConfigureAppConfiguration((hostContext, builder) =>
                 {
                     var builtConfig = builder.Build();
