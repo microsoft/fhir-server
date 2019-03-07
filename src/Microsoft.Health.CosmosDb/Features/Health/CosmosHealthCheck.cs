@@ -50,9 +50,6 @@ namespace Microsoft.Health.CosmosDb.Features.Health
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _documentClient = documentClient;
-
-            EnsureArg.IsNotNull(_documentClient, optsFn: options => options.WithMessage("Factory returned null."));
-
             _configuration = configuration;
             _cosmosCollectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(collectionConfigurationName);
             _testProvider = testProvider;
