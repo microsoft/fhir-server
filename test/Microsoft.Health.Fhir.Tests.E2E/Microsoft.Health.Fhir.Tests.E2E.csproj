@@ -68,7 +68,7 @@
     </PropertyGroup>
   
     <Error Condition="$(NETCoreSdkVersion) != $(ParsedSdkVersion)"
-           Text="The .NET SDK version required by $(GlobalJsonPath) is $(ParsedSdkVersion) but that version does not seem to be installed." />
+           Text="The .NET SDK version required by $(GlobalJsonPath) is $(ParsedSdkVersion) but that version does not seem to be installed. In order to ensure consistent behavior, please install version $(ParsedSdkVersion) of the .NET SDK from https://dotnet.microsoft.com/download." />
   </Target>
 
   <Target Name="AddRuntimeConfigFileToBuiltProjectOutputGroupOutput" Condition=" '$(GenerateRuntimeConfigurationFiles)' == 'true'" BeforeTargets="BuiltProjectOutputGroup">
