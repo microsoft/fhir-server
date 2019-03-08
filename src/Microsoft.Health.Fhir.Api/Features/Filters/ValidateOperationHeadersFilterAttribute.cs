@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     {
                         Severity = OperationOutcome.IssueSeverity.Error,
                         Code = OperationOutcome.IssueType.Invalid,
-                        Diagnostics = $"Invalid {HeaderNames.Accept} headers provided for Export operation",
+                        Diagnostics = Resources.UnsupportedAcceptHeader,
                     };
 
                     throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     {
                         Severity = OperationOutcome.IssueSeverity.Error,
                         Code = OperationOutcome.IssueType.Invalid,
-                        Diagnostics = "Invalid Prefer headers provided for Export operation",
+                        Diagnostics = Resources.UnsupportedPreferHeader,
                     };
 
                     throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });

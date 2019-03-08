@@ -52,7 +52,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.NotSupported,
-                    "Export operation not supported");
+                    Resources.NotFoundException);
+
                 returnCode = HttpStatusCode.NotImplemented;
             }
             else
@@ -60,7 +61,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Value,
-                    "Export operation disabled");
+                    Resources.UnsupportedOperation);
+
                 returnCode = HttpStatusCode.BadRequest;
             }
 
@@ -78,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 OperationOutcome result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.NotSupported,
-                    $"{type} type not supported for Export by ResourceType operation");
+                    Resources.UnsupportedResourceType);
 
                 return FhirResult.Create(result, HttpStatusCode.BadRequest);
             }
@@ -99,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 OperationOutcome result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.NotSupported,
-                    $"{type} type not supported for Export by ResourceTypeId operation");
+                    Resources.UnsupportedResourceType);
 
                 return FhirResult.Create(result, HttpStatusCode.BadRequest);
             }

@@ -232,6 +232,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;operation&quot; is not supported.
+        /// </summary>
+        public static string UnsupportedOperation {
+            get {
+                return ResourceManager.GetString("UnsupportedOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;prefer&quot; header is not supported..
+        /// </summary>
+        public static string UnsupportedPreferHeader {
+            get {
+                return ResourceManager.GetString("UnsupportedPreferHeader", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Requested operation does not support current resource type..
+        /// </summary>
+        public static string UnsupportedResourceType {
+            get {
+                return ResourceManager.GetString("UnsupportedResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Id in the URL must match id in the resource..
         /// </summary>
         public static string UrlResourceIdMismatch {
