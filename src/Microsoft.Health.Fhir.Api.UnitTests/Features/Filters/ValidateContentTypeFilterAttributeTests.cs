@@ -78,6 +78,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
 
+        [Fact]
+        public async Task GivenARequestWithAValidFormatQueryStringAndNoAcceptHeader_WhenValidatingTheContentType_ThenNoExceptionShouldBeThrown()
+        {
+            var filter = CreateFilter();
+
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.QueryString = new QueryString($"?_format=json");
+
+            await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
+        }
+
+        [Fact]
+        public async Task GivenARequestWithAValidFormatQueryStringAndEmptyAcceptHeader_WhenValidatingTheContentType_ThenNoExceptionShouldBeThrown()
+        {
+            var filter = CreateFilter();
+
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.QueryString = new QueryString($"?_format=json");
+            context.HttpContext.Request.Headers.Add("Accept", string.Empty);
+
+            await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
+        }
+
         [Theory]
         [InlineData("application/blah")]
         [InlineData("application/xml")]
