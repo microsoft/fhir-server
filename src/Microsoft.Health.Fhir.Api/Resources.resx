@@ -176,9 +176,6 @@
   <data name="UnsupportedFormatParameter" xml:space="preserve">
     <value>The requested "_format" parameter is not supported.</value>
   </data>
-  <data name="UnsupportedPreferHeader" xml:space="preserve">
-    <value>The requested "prefer" header is not supported.</value>
-  </data>
   <data name="UrlResourceIdMismatch" xml:space="preserve">
     <value>Id in the URL must match id in the resource.</value>
   </data>

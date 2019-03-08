@@ -232,15 +232,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;prefer&quot; header is not supported..
-        /// </summary>
-        public static string UnsupportedPreferHeader {
-            get {
-                return ResourceManager.GetString("UnsupportedPreferHeader", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Id in the URL must match id in the resource..
         /// </summary>
         public static string UrlResourceIdMismatch {
