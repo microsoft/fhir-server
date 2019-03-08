@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public IActionResult ExportResourceType(string type)
         {
             // Export by ResourceType is supported only for Patient resource type.
-            if (!string.Equals(type, "Patient", StringComparison.Ordinal))
+            if (!string.Equals(type, ResourceType.Patient.ToString(), StringComparison.Ordinal))
             {
                 OperationOutcome result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
@@ -83,6 +83,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return FhirResult.Create(result, HttpStatusCode.BadRequest);
             }
 
+            // Currently we don't have any functionality. We are going to re-use the logic in Export()
+            // to return the appropriate response code based on the value of SupportsExport.
             return Export();
         }
 
@@ -92,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public IActionResult ExportResourceTypeById(string type, string id)
         {
             // Export by ResourceTypeId is supported only for Group resource type.
-            if (!string.Equals(type, "Group", StringComparison.Ordinal) || string.IsNullOrEmpty(id))
+            if (!string.Equals(type, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(id))
             {
                 OperationOutcome result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
@@ -102,6 +104,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return FhirResult.Create(result, HttpStatusCode.BadRequest);
             }
 
+            // Currently we don't have any functionality. We are going to re-use the logic in Export()
+            // to return the appropriate response code based on the value of SupportsExport.
             return Export();
         }
 
