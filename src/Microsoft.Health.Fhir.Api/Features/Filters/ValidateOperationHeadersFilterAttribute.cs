@@ -12,6 +12,9 @@ using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
+    /// <summary>
+    /// A filter that validates the Accept and Prefer headers in the request and short-circuits the pipeline if they are invalid.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
     internal class ValidateOperationHeadersFilterAttribute : ActionFilterAttribute
     {

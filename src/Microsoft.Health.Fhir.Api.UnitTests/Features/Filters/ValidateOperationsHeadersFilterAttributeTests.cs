@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("text/xml")]
         [InlineData("application/json")]
         [InlineData("*/*")]
-        public void GiveARequestWithInvalidAcceptHeader_WhenGettingAnExportOperation_ThenAResourceNotValidExceptionShouldBeThrown(string acceptHeader)
+        public void GiveARequestWithInvalidAcceptHeader_WhenGettingAnExportOperationRequest_ThenAResourceNotValidExceptionShouldBeThrown(string acceptHeader)
         {
             var filter = new ValidateOperationHeadersFilterAttribute();
             var context = CreateContext();
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GiveARequestWithValidAcceptHeader_WhenGettingAnExportOperation_ThenTheResultIsSuccessful()
+        public void GiveARequestWithValidAcceptHeader_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
             var filter = new ValidateOperationHeadersFilterAttribute();
             var context = CreateContext();
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("respond-async, wait = 10")]
         [InlineData("return-content")]
         [InlineData("*")]
-        public void GiveARequestWithInvalidPreferHeader_WhenGettingAnExportOperation_ThenAResourceNotValidExceptionShouldBeThrown(string preferHeader)
+        public void GiveARequestWithInvalidPreferHeader_WhenGettingAnExportOperationRequest_ThenAResourceNotValidExceptionShouldBeThrown(string preferHeader)
         {
             var filter = new ValidateOperationHeadersFilterAttribute();
             var context = CreateContext();
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GiveARequestWithValidPreferHeader_WhenGettingAnExportOperation_ThenTheResultIsSuccessful()
+        public void GiveARequestWithValidPreferHeader_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
             var filter = new ValidateOperationHeadersFilterAttribute();
             var context = CreateContext();

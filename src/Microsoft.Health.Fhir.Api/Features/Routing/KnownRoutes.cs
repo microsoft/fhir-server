@@ -19,15 +19,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public const string History = "_history";
         public const string Search = "_search";
-        public const string Export = "$export";
-        public const string ExportResourceType = ResourceType + "/" + Export;
-        public const string ExportResourceTypeById = ResourceTypeById + "/" + Export;
         public const string ResourceType = ResourceTypeRouteSegment;
         public const string ResourceTypeHistory = ResourceType + "/" + History;
         public const string ResourceTypeSearch = ResourceType + "/" + Search;
         public const string ResourceTypeById = ResourceType + "/" + IdRouteSegment;
         public const string ResourceTypeByIdHistory = ResourceTypeById + "/" + History;
         public const string ResourceTypeByIdAndVid = ResourceTypeByIdHistory + "/" + VidRouteSegment;
+
+        public const string Export = "$export";
+        public const string ExportResourceType = ResourceType + "/" + Export;
+        public const string ExportResourceTypeById = ResourceTypeById + "/" + Export;
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 

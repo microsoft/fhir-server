@@ -8,8 +8,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class OperationsConfiguration
     {
         /// <summary>
-        /// Determines whether bulk export is enabled or not.
+        /// Determines whether export is enabled or not.
         /// </summary>
-        public bool SupportsBulkExport { get; set; }
+        public bool SupportsExport { get; set; }
     }
 }
