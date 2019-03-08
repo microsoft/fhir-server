@@ -7,23 +7,18 @@ using System.Collections.Generic;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
-    [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    [Authorize(PolicyNames.FhirPolicy)]
     public class OperationsController : Controller
     {
         private readonly ILogger<OperationsController> _logger;
