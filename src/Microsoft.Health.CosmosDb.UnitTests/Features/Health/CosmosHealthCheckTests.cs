@@ -6,58 +6,54 @@
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.Core.Features.Health;
-using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
-using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
-namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
+namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
 {
-    public class HealthCheckTests
+    public class CosmosHealthCheckTests
     {
         private readonly IDocumentClient _documentClient = Substitute.For<IDocumentClient>();
         private readonly IDocumentClientTestProvider _testProvider = Substitute.For<IDocumentClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };
 
-        private readonly FhirCosmosHealthCheck _healthCheck;
+        private readonly TestCosmosHealthCheck _healthCheck;
 
-        public HealthCheckTests()
+        public CosmosHealthCheckTests()
         {
             var optionsSnapshot = Substitute.For<IOptionsSnapshot<CosmosCollectionConfiguration>>();
-            optionsSnapshot.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
+            optionsSnapshot.Get(TestCosmosHealthCheck.TestCosmosHealthCheckName).Returns(_cosmosCollectionConfiguration);
 
-            _healthCheck = new FhirCosmosHealthCheck(
+            _healthCheck = new TestCosmosHealthCheck(
                 new NonDisposingScope(_documentClient),
                 _configuration,
                 optionsSnapshot,
                 _testProvider,
-                NullLogger<FhirCosmosHealthCheck>.Instance);
+                NullLogger<TestCosmosHealthCheck>.Instance);
         }
 
         [Fact]
         public async Task GivenCosmosDbCanBeQueried_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
         {
-            HealthCheckResult result = await _healthCheck.CheckAsync();
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.NotNull(result);
-            Assert.Equal(HealthState.Healthy, result.HealthState);
+            Assert.Equal(HealthStatus.Healthy, result.Status);
         }
 
         [Fact]
         public async Task GivenCosmosDbCannotBeQueried_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
             _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration).ThrowsForAnyArgs<HttpRequestException>();
-            HealthCheckResult result = await _healthCheck.CheckAsync();
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.NotNull(result);
-            Assert.Equal(HealthState.Unhealthy, result.HealthState);
+            Assert.Equal(HealthStatus.Unhealthy, result.Status);
         }
     }
 }
