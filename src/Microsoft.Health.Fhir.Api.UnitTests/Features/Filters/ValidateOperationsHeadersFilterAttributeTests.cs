@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
     public class ValidateOperationsHeadersFilterAttributeTests
     {
-        private string _correctAcceptHeaderValue = "applicaiton/fhir+json";
+        private string _correctAcceptHeaderValue = "application/fhir+json";
         private string _correctPreferHeaderValue = "respond-async";
         private string _preferHeaderName = "Prefer";
 
