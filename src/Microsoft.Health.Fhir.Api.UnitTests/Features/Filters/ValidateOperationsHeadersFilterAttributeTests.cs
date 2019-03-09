@@ -18,6 +18,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
     public class ValidateOperationsHeadersFilterAttributeTests
     {
+        private string _correctAcceptHeaderValue = "applicaiton/fhir+json";
+        private string _correctPreferHeaderValue = "respond-async";
+        private string _preferHeaderName = "Prefer";
+
         [Theory]
         [InlineData("application/fhir+xml")]
         [InlineData("application/xml")]
@@ -35,13 +39,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GiveARequestWithNoAcceptHeader_WhenGettingAnExportOperationRequest_ThenAResourceNotValidExceptionShouldBeThrown()
+        {
+            var filter = new ValidateOperationHeadersFilterAttribute();
+            var context = CreateContext();
+
+            context.HttpContext.Request.Headers.Add(_preferHeaderName, _correctPreferHeaderValue);
+
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
+        [Fact]
         public void GiveARequestWithValidAcceptHeader_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
             var filter = new ValidateOperationHeadersFilterAttribute();
             var context = CreateContext();
-            string acceptHeader = "application/fhir+json";
 
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, acceptHeader);
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, _correctAcceptHeaderValue);
 
             filter.OnActionExecuting(context);
         }
@@ -55,7 +69,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var filter = new ValidateOperationHeadersFilterAttribute();
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add("Prefer", preferHeader);
+            context.HttpContext.Request.Headers.Add(_preferHeaderName, preferHeader);
+
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
+        [Fact]
+        public void GiveARequestWithNoPreferHeader_WhenGettingAnExportOperationRequest_ThenAResourceNotValidExceptionShouldBeThrown()
+        {
+            var filter = new ValidateOperationHeadersFilterAttribute();
+            var context = CreateContext();
+
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, _correctAcceptHeaderValue);
 
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
@@ -65,9 +90,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var filter = new ValidateOperationHeadersFilterAttribute();
             var context = CreateContext();
-            string preferHeader = "respond-async";
 
-            context.HttpContext.Request.Headers.Add("Prefer", preferHeader);
+            context.HttpContext.Request.Headers.Add(_preferHeaderName, _correctPreferHeaderValue);
 
             filter.OnActionExecuting(context);
         }

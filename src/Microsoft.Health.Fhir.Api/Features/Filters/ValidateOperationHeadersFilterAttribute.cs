@@ -22,34 +22,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.HttpContext.Request.Headers.TryGetValue(HeaderNames.Accept, out var acceptHeaderValue))
+            if (!context.HttpContext.Request.Headers.TryGetValue(HeaderNames.Accept, out var acceptHeaderValue) ||
+                acceptHeaderValue.Count != 1 ||
+                !string.Equals(acceptHeaderValue[0], "application/fhir+json", StringComparison.Ordinal))
             {
-                if (acceptHeaderValue.Count != 1 || !string.Equals(acceptHeaderValue[0], "application/fhir+json", StringComparison.Ordinal))
+                var error = new OperationOutcome.IssueComponent()
                 {
-                    var error = new OperationOutcome.IssueComponent()
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Error,
-                        Code = OperationOutcome.IssueType.Invalid,
-                        Diagnostics = Resources.UnsupportedAcceptHeader,
-                    };
+                    Severity = OperationOutcome.IssueSeverity.Error,
+                    Code = OperationOutcome.IssueType.Invalid,
+                    Diagnostics = Resources.UnsupportedAcceptHeader,
+                };
 
-                    throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
-                }
+                throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
             }
 
-            if (context.HttpContext.Request.Headers.TryGetValue("Prefer", out var preferHeaderValue))
+            if (!context.HttpContext.Request.Headers.TryGetValue("Prefer", out var preferHeaderValue) ||
+                preferHeaderValue.Count != 1 ||
+                !string.Equals(preferHeaderValue[0], "respond-async", StringComparison.Ordinal))
             {
-                if (preferHeaderValue.Count != 1 || !string.Equals(preferHeaderValue[0], "respond-async", StringComparison.Ordinal))
+                var error = new OperationOutcome.IssueComponent()
                 {
-                    var error = new OperationOutcome.IssueComponent()
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Error,
-                        Code = OperationOutcome.IssueType.Invalid,
-                        Diagnostics = Resources.UnsupportedPreferHeader,
-                    };
+                    Severity = OperationOutcome.IssueSeverity.Error,
+                    Code = OperationOutcome.IssueType.Invalid,
+                    Diagnostics = Resources.UnsupportedPreferHeader,
+                };
 
-                    throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
-                }
+                throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
             }
         }
     }
