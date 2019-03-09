@@ -1,0 +1,7 @@
+{
+    "FhirServer": {
+        "Operations": {
+            "SupportsExport": true
+        }
+    }
+}

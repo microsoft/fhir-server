@@ -95,6 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
+            var exportPath = Path.GetFullPath("exporttestconfiguration.json");
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
@@ -102,6 +103,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json");
                     configurationBuilder.AddJsonFile(corsPath);
+                    configurationBuilder.AddJsonFile(exportPath);
                 })
                 .UseStartup(typeof(TStartup))
                 .ConfigureServices(serviceCollection =>
