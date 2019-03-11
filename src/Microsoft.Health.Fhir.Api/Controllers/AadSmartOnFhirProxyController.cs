@@ -10,16 +10,14 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
 
@@ -32,7 +30,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [Route("AadSmartOnFhirProxy")]
     public class AadSmartOnFhirProxyController : Controller
     {
-        private readonly SecurityConfiguration _securityConfiguration;
         private readonly bool _isAadV2;
         private readonly ILogger<SecurityConfiguration> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
@@ -45,19 +42,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Initializes a new instance of the <see cref="AadSmartOnFhirProxyController" /> class.
         /// </summary>
-        /// <param name="securityConfiguration">Security configuration parameters.</param>
+        /// <param name="securityConfigurationOptions">Security configuration parameters.</param>
         /// <param name="httpClientFactory">HTTP Client Factory.</param>
         /// <param name="logger">The logger.</param>
-        public AadSmartOnFhirProxyController(IOptions<SecurityConfiguration> securityConfiguration, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
+        public AadSmartOnFhirProxyController(IOptions<SecurityConfiguration> securityConfigurationOptions, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
         {
-            EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(securityConfigurationOptions, nameof(securityConfigurationOptions));
 
-            _securityConfiguration = securityConfiguration.Value;
-            _isAadV2 = new Uri(_securityConfiguration.Authentication.Authority).Segments.Contains("v2.0");
-            _logger = logger;
+            SecurityConfiguration securityConfiguration = securityConfigurationOptions.Value;
+            _isAadV2 = new Uri(securityConfiguration.Authentication.Authority).Segments.Contains("v2.0");
             _httpClientFactory = httpClientFactory;
+            _logger = logger;
 
-            var openIdConfigurationUrl = $"{_securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
+            var openIdConfigurationUrl = $"{securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;
             using (var httpClient = httpClientFactory.CreateClient())
@@ -105,6 +102,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="state">state URL parameter.</param>
         /// <param name="aud">aud (audience) URL parameter.</param>
         [HttpGet("authorize")]
+        [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirAuthorize })]
         public ActionResult Authorize(
             [FromQuery(Name = "response_type")] string responseType,
             [FromQuery(Name = "client_id")] string clientId,
@@ -124,18 +122,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 launch = Base64UrlEncoder.Encode("{}");
             }
 
-            JObject newStateObj = JObject.Parse("{}");
+            var newStateObj = JObject.Parse("{}");
             newStateObj.Add("s", state);
             newStateObj.Add("l", launch);
 
             string newState = Base64UrlEncoder.Encode(newStateObj.ToString(Newtonsoft.Json.Formatting.None));
 
-            Uri callbackUrl = new Uri(
+            var callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadSmartOnFhirProxy/callback/" +
                 Base64UrlEncoder.Encode(redirectUri.ToString()));
 
-            StringBuilder queryStringBuilder = new StringBuilder();
-            queryStringBuilder.Append($"response_type={responseType}&redirect_uri={callbackUrl.ToString()}&client_id={clientId}");
+            var queryStringBuilder = new StringBuilder($"response_type={responseType}&redirect_uri={callbackUrl}&client_id={clientId}");
             if (!_isAadV2)
             {
                 queryStringBuilder.Append($"&resource={aud}");
@@ -147,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
                 EnsureArg.IsNotNull(scope, nameof(scope));
                 var scopes = scope.Split(' ');
-                StringBuilder scopesBuilder = new StringBuilder();
+                var scopesBuilder = new StringBuilder();
                 string[] wellKnownScopes = { "profile", "openid", "email", "offline_access" };
 
                 foreach (var s in scopes)
@@ -168,7 +165,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             queryStringBuilder.Append($"&state={newState}");
 
-            return Redirect($"{_aadAuthorizeEndpoint}?{queryStringBuilder.ToString()}");
+            return Redirect($"{_aadAuthorizeEndpoint}?{queryStringBuilder}");
         }
 
         /// <summary>
@@ -181,6 +178,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="error">error URL parameter.</param>
         /// <param name="errorDescription">error_description URL parameter.</param>
         [HttpGet("callback/{encodedRedirect}")]
+        [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirCallback })]
         public ActionResult Callback(
             string encodedRedirect,
             [FromQuery(Name = "code")] string code,
@@ -189,19 +187,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = "error")] string error,
             [FromQuery(Name = "error_description")] string errorDescription)
         {
-            Uri redirectUrl = new Uri(Base64UrlEncoder.Decode(encodedRedirect));
+            var redirectUrl = new Uri(Base64UrlEncoder.Decode(encodedRedirect));
 
             if (!string.IsNullOrEmpty(error))
             {
-                return Redirect($"{redirectUrl.ToString()}?error={error}&error_description={errorDescription}");
+                return Redirect($"{redirectUrl}?error={error}&error_description={errorDescription}");
             }
 
             string compoundCode;
             string newState;
             try
             {
-                JObject launchStateParameters = JObject.Parse(Base64UrlEncoder.Decode(state));
-                JObject launchParameters = JObject.Parse(Base64UrlEncoder.Decode(launchStateParameters["l"].ToString()));
+                var launchStateParameters = JObject.Parse(Base64UrlEncoder.Decode(state));
+                var launchParameters = JObject.Parse(Base64UrlEncoder.Decode(launchStateParameters["l"].ToString()));
                 launchParameters.Add("code", code);
                 newState = launchStateParameters["s"].ToString();
                 compoundCode = Base64UrlEncoder.Encode(launchParameters.ToString(Newtonsoft.Json.Formatting.None));
@@ -212,7 +210,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return BadRequest("Invalid launch context parameters");
             }
 
-            return Redirect($"{redirectUrl.ToString()}?code={compoundCode}&state={newState}&session_state={sessionState}");
+            return Redirect($"{redirectUrl}?code={compoundCode}&state={newState}&session_state={sessionState}");
         }
 
         /// <summary>
@@ -224,6 +222,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="clientId">client_id request parameter.</param>
         /// <param name="clientSecret">client_secret request parameter.</param>
         [HttpPost("token")]
+        [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirToken })]
         public async Task<ActionResult> Token(
             [FromForm(Name = "grant_type")] string grantType,
             [FromForm(Name = "code")] string compoundCode,
@@ -245,7 +244,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // TODO: Add handling of 'aud' -> 'resource', should that be an error or should translation be done?
             if (grantType != "authorization_code")
             {
-                List<KeyValuePair<string, string>> fields = new List<KeyValuePair<string, string>>();
+                var fields = new List<KeyValuePair<string, string>>();
                 foreach (var f in Request.Form)
                 {
                     fields.Add(new KeyValuePair<string, string>(f.Key, f.Value));
@@ -279,7 +278,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return BadRequest("Invalid compound authorization code");
             }
 
-            Uri callbackUrl = new Uri(
+            var callbackUrl = new Uri(
                 Request.Scheme + "://" + Request.Host + "/AadSmartOnFhirProxy/callback/" +
                 Base64UrlEncoder.Encode(redirectUri.ToString()));
 
@@ -294,7 +293,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     new KeyValuePair<string, string>("client_secret", clientSecret),
                 });
 
-            var response = await client.PostAsync(new Uri(_aadTokenEndpoint), content);
+            HttpResponseMessage response = await client.PostAsync(new Uri(_aadTokenEndpoint), content);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -321,13 +320,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // Replace fully qualifies scopes with short scopes and replace $
             string[] scopes = tokenResponse["scope"].ToString().Split(' ');
-            StringBuilder scopesBuilder = new StringBuilder();
+            var scopesBuilder = new StringBuilder();
 
             foreach (var s in scopes)
             {
                 if (IsAbsoluteUrl(s))
                 {
-                    Uri scopeUri = new Uri(s);
+                    var scopeUri = new Uri(s);
                     scopesBuilder.Append($"{scopeUri.Segments.Last().Replace('$', '/')} ");
                 }
                 else
