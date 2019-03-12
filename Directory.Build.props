@@ -7,6 +7,8 @@
         <HighEntropyVA>true</HighEntropyVA>
         <EnableSourceLink Condition="$([MSBuild]::IsOSPlatform('osx'))">false</EnableSourceLink>
         <EnableSourceControlManagerQueries>$(EnableSourceLink)</EnableSourceControlManagerQueries>
+        <!--This will target the latest patch release of the runtime released with the current SDK.  -->
+        <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(EnableSourceLink)' == 'true' ">
         <PublishRepositoryUrl>true</PublishRepositoryUrl>

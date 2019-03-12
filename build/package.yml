@@ -7,7 +7,7 @@ steps:
     inputs:
       command: publish
       projects: '**/Microsoft.Health.Fhir.Web.csproj'
-      arguments: '--output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --no-build'
+      arguments: '--runtime win10-x64 --output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildnumber)'
       publishWebProjects: false
 
   - task: DotNetCoreCLI@2
@@ -54,6 +54,13 @@ steps:
     displayName: 'publish testauthenvironment.json'
     inputs:
       pathToPublish: './testauthenvironment.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+      
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish corstestconfiguration.json'
+    inputs:
+      pathToPublish: './corstestconfiguration.json'
       artifactName: 'deploy'
       artifactType: 'container'
 

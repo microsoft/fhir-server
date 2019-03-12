@@ -11,6 +11,7 @@ using Microsoft.Health.ControlPlane.CosmosDb;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.ControlPlane.CosmosDb.Health;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
@@ -67,6 +68,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsService<IControlPlaneStoredProcedure>();
+
+            services.AddHealthChecks()
+                .AddCheck<ControlPlaneCosmosHealthCheck>(name: nameof(ControlPlaneCosmosHealthCheck));
 
             return services;
         }

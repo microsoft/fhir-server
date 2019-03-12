@@ -15,10 +15,8 @@
     <EmbeddedResource Include="Features\Storage\StoredProcedures\Upsert\upsertWithHistory.js" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="EnterpriseLibrary.TransientFaultHandling.Core" Version="1.2.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="6.0.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.2" />
-    <PackageReference Include="Microsoft.CodeCoverage" Version="15.9.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="2.2.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.1-beta.61" />
@@ -28,7 +26,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(GeneratorProjectPath)" />
     <ProjectReference Include="..\Microsoft.Health.Abstractions\Microsoft.Health.Abstractions.csproj" />
     <ProjectReference Include="..\Microsoft.Health.CosmosDb\Microsoft.Health.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
@@ -49,7 +46,7 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-  
+
   <ItemGroup>
     <Generated Include="Features/Storage/FhirDocumentClient.Generated.cs">
       <Generator>FhirDocumentClientGenerator</Generator>
@@ -57,16 +54,14 @@
     </Generated>
   </ItemGroup>
 
-  <Target Name="GetGeneratorPath" BeforeTargets="GenerateFiles">
-    <PropertyGroup>
-      <GeneratorPath Condition="'%(OriginalItemSpec)' == '$(GeneratorProjectPath)'">@(_ResolvedProjectReferencePaths)</GeneratorPath>
-    </PropertyGroup>
-  </Target>
-  <Target Name="GenerateFiles" BeforeTargets="CoreCompile" Inputs="$(GeneratorPath)" Outputs="@(Generated)">
+  <Target Name="GenerateFiles" BeforeTargets="CoreCompile" Inputs="$(GeneratorProjectPath)" Outputs="@(Generated)">
+    <MSBuild Projects="$(GeneratorProjectPath)" Targets="Build">
+      <Output TaskParameter="TargetOutputs" ItemName="GeneratorPath" />
+    </MSBuild>
     <ItemGroup>
       <Compile Include="@(Generated)" Condition="!Exists('@(Generated)')" />
     </ItemGroup>
-    <Exec Command="dotnet $(GeneratorPath) %(Generated.Generator) %(Generated.FullPath) %(Generated.Namespace)" />
+    <Exec Command="dotnet @(GeneratorPath) %(Generated.Generator) %(Generated.FullPath) %(Generated.Namespace)" />
   </Target>
 
 </Project>

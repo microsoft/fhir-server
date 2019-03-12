@@ -139,11 +139,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var expectedUri = new Uri($"http://localhost/Patient/{result.Resource.Id}");
 
+            string expectedAppId = TestApplications.ServiceClient.ClientId;
+
             // TODO: The resource type being logged here is incorrect. The issue is tracked by https://github.com/Microsoft/fhir-server/issues/334.
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutingAuditEntry(ae, "delete", expectedUri, correlationId),
-                ae => ValidateExecutedAuditEntry(ae, "delete", null, expectedUri, HttpStatusCode.NoContent, correlationId));
+                ae => ValidateExecutingAuditEntry(ae, "delete", expectedUri, correlationId, expectedAppId),
+                ae => ValidateExecutedAuditEntry(ae, "delete", null, expectedUri, HttpStatusCode.NoContent, correlationId, expectedAppId));
         }
 
         [Fact]
@@ -259,7 +261,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
                     return Task.CompletedTask;
                 },
-                HttpStatusCode.Unauthorized);
+                HttpStatusCode.Unauthorized,
+                expectedAppId: null);
         }
 
         [Fact]
@@ -272,7 +275,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
                     return Task.CompletedTask;
                 },
-                HttpStatusCode.Unauthorized);
+                HttpStatusCode.Unauthorized,
+                expectedAppId: null);
         }
 
         [Fact]
@@ -280,7 +284,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         {
             await ExecuteAndValidate(
                 client => client.RunAsClientApplication(TestApplications.WrongAudienceClient),
-                HttpStatusCode.Unauthorized);
+                HttpStatusCode.Unauthorized,
+                expectedAppId: null);
         }
 
         [Fact]
@@ -288,7 +293,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         {
             await ExecuteAndValidate(
                 client => client.RunAsClientApplication(TestApplications.NativeClient),
-                HttpStatusCode.Forbidden);
+                HttpStatusCode.Forbidden,
+                expectedAppId: TestApplications.NativeClient.ClientId);
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
@@ -310,13 +316,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var expectedUri = new Uri($"http://localhost/{expectedPathGenerator(response.Resource)}");
 
+            string expectedAppId = TestApplications.ServiceClient.ClientId;
+
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutingAuditEntry(ae, expectedAction, expectedUri, correlationId),
-                ae => ValidateExecutedAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId));
+                ae => ValidateExecutingAuditEntry(ae, expectedAction, expectedUri, correlationId, expectedAppId),
+                ae => ValidateExecutedAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId));
         }
 
-        private async Task ExecuteAndValidate(Func<FhirClient, Task> clientSetup, HttpStatusCode expectedStatusCode)
+        private async Task ExecuteAndValidate(Func<FhirClient, Task> clientSetup, HttpStatusCode expectedStatusCode, string expectedAppId)
         {
             if (!_fixture.IsUsingInProcTestServer || !_fixture.FhirClient.SecuritySettings.SecurityEnabled)
             {
@@ -341,20 +349,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutedAuditEntry(ae, "read", ResourceType.Patient, expectedUri, expectedStatusCode, correlationId));
+                ae => ValidateExecutedAuditEntry(ae, "read", ResourceType.Patient, expectedUri, expectedStatusCode, correlationId, expectedAppId));
         }
 
-        private void ValidateExecutingAuditEntry(AuditEntry auditEntry, string expectedAction, Uri expectedUri, string expectedCorrelationId)
+        private void ValidateExecutingAuditEntry(AuditEntry auditEntry, string expectedAction, Uri expectedUri, string expectedCorrelationId, string expectedAppId)
         {
-            ValidateAuditEntry(auditEntry, AuditAction.Executing, expectedAction, null, expectedUri, null, expectedCorrelationId);
+            ValidateAuditEntry(auditEntry, AuditAction.Executing, expectedAction, null, expectedUri, null, expectedCorrelationId, expectedAppId);
         }
 
-        private void ValidateExecutedAuditEntry(AuditEntry auditEntry, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId)
+        private void ValidateExecutedAuditEntry(AuditEntry auditEntry, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedAppId)
         {
-            ValidateAuditEntry(auditEntry, AuditAction.Executed, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, expectedCorrelationId);
+            ValidateAuditEntry(auditEntry, AuditAction.Executed, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, expectedCorrelationId, expectedAppId);
         }
 
-        private void ValidateAuditEntry(AuditEntry auditEntry, AuditAction expectedAuditAction, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId)
+        private void ValidateAuditEntry(AuditEntry auditEntry, AuditAction expectedAuditAction, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedAppId)
         {
             Assert.NotNull(auditEntry);
             Assert.Equal(expectedAuditAction, auditEntry.AuditAction);
@@ -364,7 +372,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.Equal(expectedStatusCode, auditEntry.StatusCode);
             Assert.Equal(expectedCorrelationId, auditEntry.CorrelationId);
 
-            // TODO: Currently, claims are not being generated in the integration test environment and therefore we are not testing it until we add support for custom claim in IdentityServer.
+            if (expectedAppId != null)
+            {
+                Assert.Equal(1, auditEntry.Claims.Count);
+                Assert.Equal("appid", auditEntry.Claims.Single().Key);
+                Assert.Equal(expectedAppId, auditEntry.Claims.Single().Value);
+            }
+            else
+            {
+                Assert.Empty(auditEntry.Claims);
+            }
         }
     }
 }

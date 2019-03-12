@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -52,6 +53,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Conformance));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
@@ -86,6 +88,8 @@ namespace Microsoft.Extensions.DependencyInjection
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();
 
+                    app.UseCors(Constants.DefaultCorsPolicy);
+
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.
                     app.UseFhirRequestContext();
@@ -112,6 +116,9 @@ namespace Microsoft.Extensions.DependencyInjection
                     app.UseAudit();
 
                     app.UseAuthentication();
+
+                    // Now that we've authenticated the user, update the context with any post-authentication info.
+                    app.UseFhirRequestContextAfterAuthentication();
 
                     next(app);
                 };

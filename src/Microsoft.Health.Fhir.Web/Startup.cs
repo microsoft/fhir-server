@@ -6,6 +6,8 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.ApplicationInsights;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -21,9 +23,13 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public virtual void ConfigureServices(IServiceCollection services)
         {
-            services.AddControlPlaneCosmosDb(Configuration).AddDevelopmentIdentityProvider(Configuration);
+            services.AddDevelopmentIdentityProvider(Configuration);
+
+            services.AddControlPlaneCosmosDb(Configuration);
 
             services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration);
+
+            AddApplicationInsightsTelemetry(services);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -32,6 +38,20 @@ namespace Microsoft.Health.Fhir.Web
             app.UseFhirServer();
 
             app.UseDevelopmentIdentityProvider();
+        }
+
+        /// <summary>
+        /// Adds ApplicationInsights for telemetry and logging.
+        /// </summary>
+        private void AddApplicationInsightsTelemetry(IServiceCollection services)
+        {
+            string instrumentationKey = Configuration["ApplicationInsights:InstrumentationKey"];
+
+            if (!string.IsNullOrWhiteSpace(instrumentationKey))
+            {
+                services.AddApplicationInsightsTelemetry(instrumentationKey);
+                services.AddLogging(loggingBuilder => loggingBuilder.AddApplicationInsights(instrumentationKey));
+            }
         }
     }
 }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
@@ -14,14 +15,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upser
 {
     internal class UpsertWithHistory : StoredProcedureBase, IFhirStoredProcedure
     {
-        public async Task<UpsertWithHistoryModel> Execute(IDocumentClient client, Uri collection, FhirCosmosResourceWrapper resource, string matchVersionId, bool allowCreate, bool keepHistory)
+        public async Task<UpsertWithHistoryModel> Execute(IDocumentClient client, Uri collection, FhirCosmosResourceWrapper resource, string matchVersionId, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(collection, nameof(collection));
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             StoredProcedureResponse<UpsertWithHistoryModel> results =
-                await ExecuteStoredProc<UpsertWithHistoryModel>(client, collection, resource.PartitionKey, resource, matchVersionId, allowCreate, keepHistory);
+                await ExecuteStoredProc<UpsertWithHistoryModel>(client, collection, resource.PartitionKey, cancellationToken, resource, matchVersionId, allowCreate, keepHistory);
 
             return results.Response;
         }

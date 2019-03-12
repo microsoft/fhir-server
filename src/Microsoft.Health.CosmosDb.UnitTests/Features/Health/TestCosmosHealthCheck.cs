@@ -11,32 +11,23 @@ using Microsoft.Health.CosmosDb.Features.Health;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
+namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
 {
-    /// <summary>
-    /// Checks for the FHIR service health.
-    /// </summary>
-    public class FhirCosmosHealthCheck : CosmosHealthCheck
+    internal class TestCosmosHealthCheck : CosmosHealthCheck
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FhirCosmosHealthCheck"/> class.
-        /// </summary>
-        /// <param name="documentClient">The document client factory/</param>
-        /// <param name="configuration">The CosmosDB configuration.</param>
-        /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
-        /// <param name="testProvider">The test provider</param>
-        /// <param name="logger">The logger.</param>
-        public FhirCosmosHealthCheck(
+        public const string TestCosmosHealthCheckName = "TestCosmosHealthCheck";
+
+        public TestCosmosHealthCheck(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             IDocumentClientTestProvider testProvider,
-            ILogger<FhirCosmosHealthCheck> logger)
+            ILogger<CosmosHealthCheck> logger)
             : base(
                   documentClient,
                   configuration,
                   namedCosmosCollectionConfigurationAccessor,
-                  Constants.CollectionConfigurationName,
+                  TestCosmosHealthCheckName,
                   testProvider,
                   logger)
         {
