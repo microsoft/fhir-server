@@ -15,14 +15,14 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
-    public class OperationsControllerTests
+    public class ExportControllerTests
     {
         [Fact]
         public void GivenSupportsExportIsDisabled_WhenRequestingExport_ThenBadRequestResponseShouldBeReturned()
         {
-            var opController = GetController(new OperationsConfiguration() { SupportsExport = false });
+            var exportController = GetController(new ExportConfiguration() { SupportsExport = false });
 
-            var result = opController.Export() as FhirResult;
+            var result = exportController.Export() as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
@@ -31,9 +31,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenSupportsExportIsEnabled_WhenRequestingExport_ThenNotImplementedResponseShouldBeReturned()
         {
-            var opController = GetController(new OperationsConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
 
-            var result = opController.Export() as FhirResult;
+            var result = exportController.Export() as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NotImplemented, result.StatusCode);
@@ -42,9 +42,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenRequestingExportByResourceType_WhenResourceTypeIsNotPatient_ThenBadRequestResponseShouldBeReturned()
         {
-            var opController = GetController(new OperationsConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
 
-            var result = opController.ExportResourceType("Observation") as FhirResult;
+            var result = exportController.ExportResourceType("Observation") as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
@@ -53,9 +53,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenRequestingExportByResourceType_WhenResourceTypeIsPatient_ThenNotImplementedResponseShouldBeReturned()
         {
-            var opController = GetController(new OperationsConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
 
-            var result = opController.ExportResourceType("Patient") as FhirResult;
+            var result = exportController.ExportResourceType("Patient") as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NotImplemented, result.StatusCode);
@@ -64,9 +64,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenRequestingExportByResourceTypeId_WhenResourceTypeIsNotGroup_ThenBadRequestResponseShouldBeReturned()
         {
-            var opController = GetController(new OperationsConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
 
-            var result = opController.ExportResourceTypeById("Patient", "id") as FhirResult;
+            var result = exportController.ExportResourceTypeById("Patient", "id") as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
@@ -75,23 +75,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenRequestingExportByResourceTypeId_WhenResourceTypeIsGroup_ThenNotImplementedResponseShouldBeReturned()
         {
-            var opController = GetController(new OperationsConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
 
-            var result = opController.ExportResourceTypeById("Group", "id") as FhirResult;
+            var result = exportController.ExportResourceTypeById("Group", "id") as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NotImplemented, result.StatusCode);
         }
 
-        private OperationsController GetController(OperationsConfiguration operationsConfig)
+        private ExportController GetController(ExportConfiguration exportConfig)
         {
-            IOptions<OperationsConfiguration> optionsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            optionsConfiguration.Value.Returns(operationsConfig);
+            IOptions<ExportConfiguration> exportConfiguration = Substitute.For<IOptions<ExportConfiguration>>();
+            exportConfiguration.Value.Returns(exportConfig);
 
-            return new OperationsController(
-                NullLogger<OperationsController>.Instance,
+            return new ExportController(
+                NullLogger<ExportController>.Instance,
                 Substitute.For<IFhirRequestContextAccessor>(),
-                optionsConfiguration);
+                exportConfiguration);
         }
     }
 }

@@ -19,35 +19,35 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    public class OperationsController : Controller
+    public class ExportController : Controller
     {
-        private readonly ILogger<OperationsController> _logger;
+        private readonly ILogger<ExportController> _logger;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly OperationsConfiguration _operationsConfig;
+        private readonly ExportConfiguration _exportConfig;
 
-        public OperationsController(
-            ILogger<OperationsController> logger,
+        public ExportController(
+            ILogger<ExportController> logger,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IOptions<OperationsConfiguration> operationConfig)
+            IOptions<ExportConfiguration> exportConfig)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(operationConfig, nameof(operationConfig));
+            EnsureArg.IsNotNull(exportConfig, nameof(exportConfig));
 
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _operationsConfig = operationConfig.Value;
+            _exportConfig = exportConfig.Value;
         }
 
         [HttpGet]
         [Route(KnownRoutes.Export)]
-        [ValidateOperationHeadersFilter]
+        [ValidateExportHeadersFilter]
         public IActionResult Export()
         {
             HttpStatusCode returnCode;
             OperationOutcome result;
 
-            if (_operationsConfig.SupportsExport)
+            if (_exportConfig.SupportsExport)
             {
                 result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceType)]
-        [ValidateOperationHeadersFilter]
+        [ValidateExportHeadersFilter]
         public IActionResult ExportResourceType(string type)
         {
             // Export by ResourceType is supported only for Patient resource type.
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceTypeById)]
-        [ValidateOperationHeadersFilter]
+        [ValidateExportHeadersFilter]
         public IActionResult ExportResourceTypeById(string type, string id)
         {
             // Export by ResourceTypeId is supported only for Group resource type.

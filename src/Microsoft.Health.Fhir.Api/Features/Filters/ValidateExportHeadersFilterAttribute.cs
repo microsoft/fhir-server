@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     /// A filter that validates the Accept and Prefer headers in the request and short-circuits the pipeline if they are invalid.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    internal class ValidateOperationHeadersFilterAttribute : ActionFilterAttribute
+    internal class ValidateExportHeadersFilterAttribute : ActionFilterAttribute
     {
         public override void OnActionExecuting(ActionExecutingContext context)
         {

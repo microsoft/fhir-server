@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class OperationsConfiguration
+    public class ExportConfiguration
     {
         /// <summary>
         /// Determines whether export is enabled or not.

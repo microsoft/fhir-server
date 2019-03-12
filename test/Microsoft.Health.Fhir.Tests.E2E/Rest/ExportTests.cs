@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/id/$export")]
-        public async Task WhenRequstingExportWithCorrectHeaders_GivenExportIsEnabled_TheServerShouldReturnNotImplemented(string path)
+        public async Task WhenRequestingExportWithCorrectHeaders_GivenExportIsEnabled_TheServerShouldReturnNotImplemented(string path)
         {
             HttpRequestMessage request = GenerateExportMessage(path);
 

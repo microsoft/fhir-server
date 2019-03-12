@@ -54,7 +54,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Conformance));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Export));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);

@@ -18,9 +18,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             return Mock.TypeWithArguments<FhirController>(Options.Create(new FeatureConfiguration()));
         }
 
-        public static OperationsController CreateMockOperationsController()
+        public static ExportController CreateMockOperationsController()
         {
-            return Mock.TypeWithArguments<OperationsController>(Options.Create(new OperationsConfiguration()));
+            return Mock.TypeWithArguments<ExportController>(Options.Create(new ExportConfiguration()));
         }
     }
 }
