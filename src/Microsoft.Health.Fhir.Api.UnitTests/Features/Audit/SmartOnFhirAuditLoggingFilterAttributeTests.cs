@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         {
             SetupExecutingAction(_queryCollection, null);
 
-            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executing);
+            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executing, null);
             VerifyClaims();
         }
 
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         {
             SetupExecutingAction(null, _formCollection);
 
-            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executing);
+            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executing, null);
             VerifyClaims();
         }
 
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         {
             SetupExecutingAction(null, null);
 
-            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executing);
+            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executing, null);
             Assert.Empty(_loggedClaims);
         }
 
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             const HttpStatusCode expectedStatusCode = HttpStatusCode.InternalServerError;
             SetupExecutedAction(expectedStatusCode, new OkResult(), _queryCollection, null);
 
-            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executed);
+            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executed, expectedStatusCode);
             VerifyClaims();
         }
 
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             const HttpStatusCode expectedStatusCode = HttpStatusCode.InternalServerError;
             SetupExecutedAction(expectedStatusCode, new OkResult(), null, _formCollection);
 
-            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executed);
+            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executed, expectedStatusCode);
             VerifyClaims();
         }
 
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             const HttpStatusCode expectedStatusCode = HttpStatusCode.InternalServerError;
             SetupExecutedAction(expectedStatusCode, new OkResult(), null, null);
 
-            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executed);
+            VerifyAuditLoggerReceivedLogAudit(AuditAction.Executed, expectedStatusCode);
             Assert.Empty(_loggedClaims);
         }
 
@@ -155,14 +155,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _filter.OnResultExecuted(resultExecutedContext);
         }
 
-        private void VerifyAuditLoggerReceivedLogAudit(AuditAction auditAction)
+        private void VerifyAuditLoggerReceivedLogAudit(AuditAction auditAction, HttpStatusCode? httpStatusCode)
         {
             _auditLogger.Received(1).LogAudit(
                 Arg.Is(auditAction),
                 Arg.Is(Action),
                 Arg.Is<string>(x => x == null),
                 Arg.Any<Uri>(),
-                Arg.Any<HttpStatusCode?>(),
+                Arg.Is(httpStatusCode),
                 Arg.Is(_correlationId),
                 Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>());
         }
