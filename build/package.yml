@@ -65,6 +65,13 @@ steps:
       artifactType: 'container'
 
   - task: PublishBuildArtifacts@1
+    displayName: 'publish exporttestconfiguration.json'
+    inputs:
+      pathToPublish: './exporttestconfiguration.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
     displayName: 'publish release directory'
     inputs:
       pathToPublish: './release/'
