@@ -1,7 +1,7 @@
 {
   "FhirServer": {
     "Export": {
-       "SupportsExport": true
+       "Enabled": true
      }
   }
 }

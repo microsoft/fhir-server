@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;operation&quot; is not supported.
+        ///   Looks up a localized string similar to The requested {0} operation is not supported..
         /// </summary>
         public static string UnsupportedOperation {
             get {

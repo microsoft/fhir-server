@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
     public class ValidateExportHeadersFilterAttributeTests
     {
-        private string _correctAcceptHeaderValue = "application/fhir+json";
+        private string _correctAcceptHeaderValue = ContentType.JSON_CONTENT_HEADER;
         private string _correctPreferHeaderValue = "respond-async";
         private string _preferHeaderName = "Prefer";
 

@@ -177,7 +177,8 @@
     <value>The requested "_format" parameter is not supported.</value>
   </data>
   <data name="UnsupportedOperation" xml:space="preserve">
-    <value>The requested "operation" is not supported</value>
+    <value>The requested {0} operation is not supported.</value>
+    <comment>{0} is the operation name</comment>
   </data>
   <data name="UnsupportedPreferHeader" xml:space="preserve">
     <value>The requested "prefer" header is not supported.</value>

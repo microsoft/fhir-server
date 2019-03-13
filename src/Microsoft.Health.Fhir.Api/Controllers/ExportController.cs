@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             HttpStatusCode returnCode;
             OperationOutcome result;
 
-            if (_exportConfig.SupportsExport)
+            if (_exportConfig.Enabled)
             {
                 result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 result = GenerateOperationOutcome(
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Value,
-                    Resources.UnsupportedOperation);
+                    string.Format(Resources.UnsupportedOperation, "Export"));
 
                 returnCode = HttpStatusCode.BadRequest;
             }
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             // Currently we don't have any functionality. We are going to re-use the logic in Export()
-            // to return the appropriate response code based on the value of SupportsExport.
+            // to return the appropriate response code based on whether Export is enabled or not.
             return Export();
         }
 
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             // Currently we don't have any functionality. We are going to re-use the logic in Export()
-            // to return the appropriate response code based on the value of SupportsExport.
+            // to return the appropriate response code based on whether Export is enabled or not.
             return Export();
         }
 

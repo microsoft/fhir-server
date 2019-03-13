@@ -7,6 +7,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Net.Http.Headers;
 using Xunit;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private HttpRequestMessage GenerateExportMessage(
             string path = "$export",
-            string acceptHeader = "application/fhir+json",
+            string acceptHeader = ContentType.JSON_CONTENT_HEADER,
             string preferHeader = "respond-async")
         {
             var request = new HttpRequestMessage

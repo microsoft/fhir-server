@@ -18,9 +18,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     public class ExportControllerTests
     {
         [Fact]
-        public void GivenSupportsExportIsDisabled_WhenRequestingExport_ThenBadRequestResponseShouldBeReturned()
+        public void GivenAnExportRequest_WhenDisabled_ThenBadRequestResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { SupportsExport = false });
+            var exportController = GetController(new ExportConfiguration() { Enabled = false });
 
             var result = exportController.Export() as FhirResult;
 
@@ -29,9 +29,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenSupportsExportIsEnabled_WhenRequestingExport_ThenNotImplementedResponseShouldBeReturned()
+        public void GivenAnExportRequest_WhenEnabled_ThenNotImplementedResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
             var result = exportController.Export() as FhirResult;
 
@@ -40,9 +40,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenRequestingExportByResourceType_WhenResourceTypeIsNotPatient_ThenBadRequestResponseShouldBeReturned()
+        public void GivenAnExportByResourceTypeRequest_WhenResourceTypeIsNotPatient_ThenBadRequestResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
             var result = exportController.ExportResourceType("Observation") as FhirResult;
 
@@ -51,9 +51,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenRequestingExportByResourceType_WhenResourceTypeIsPatient_ThenNotImplementedResponseShouldBeReturned()
+        public void GivenAnExportByResourceTypeRequest_WhenResourceTypeIsPatient_ThenNotImplementedResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
             var result = exportController.ExportResourceType("Patient") as FhirResult;
 
@@ -62,9 +62,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenRequestingExportByResourceTypeId_WhenResourceTypeIsNotGroup_ThenBadRequestResponseShouldBeReturned()
+        public void GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenBadRequestResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
             var result = exportController.ExportResourceTypeById("Patient", "id") as FhirResult;
 
@@ -73,9 +73,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenRequestingExportByResourceTypeId_WhenResourceTypeIsGroup_ThenNotImplementedResponseShouldBeReturned()
+        public void GivenAnExportByResourceTypeIdRequest_WhenResourceTypeIsGroup_ThenNotImplementedResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { SupportsExport = true });
+            var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
             var result = exportController.ExportResourceTypeById("Group", "id") as FhirResult;
 

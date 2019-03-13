@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Determines whether export is enabled or not.
         /// </summary>
-        public bool SupportsExport { get; set; }
+        public bool Enabled { get; set; }
     }
 }
