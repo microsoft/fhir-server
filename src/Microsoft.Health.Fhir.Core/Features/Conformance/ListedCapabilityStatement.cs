@@ -10,6 +10,7 @@ using static Hl7.Fhir.Model.CapabilityStatement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
     public sealed class ListedCapabilityStatement
     {
         public Uri Url { get; set; }
@@ -20,33 +21,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public string Name { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
         public IList<PublicationStatus> Status { get; set; }
 
         public bool Experimental { get; set; }
 
         public string Publisher { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
         public IList<ListedContactPoint> Telecom { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
         public IList<CapabilityStatementKind> Kind { get; set; }
 
         public SoftwareComponent Software { get; set; }
 
         public string FhirVersion { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
         public IList<UnknownContentCode> AcceptUnknown { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
         public IList<string> Format { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
         public IList<ListedRestComponent> Rest { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
         public IList<Code<PublicationStatus>> StatusElement { get; set; }
     }
 }
