@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             string newState = Base64UrlEncoder.Encode(newStateObj.ToString());
 
-            var callbackUrl = UriHelper.BuildAbsolute(Request.Scheme, Request.Host, "/AadSmartOnFhirProxy/callback/", Base64UrlEncoder.Encode(redirectUri.ToString()));
+            var callbackUrl = UriHelper.BuildAbsolute(Request.Scheme, Request.Host, "/AadSmartOnFhirProxy/callback", $"/{Base64UrlEncoder.Encode(redirectUri.ToString())}");
 
             var queryStringBuilder = new StringBuilder($"response_type={HttpUtility.UrlEncode(responseType)}&redirect_uri={callbackUrl}&client_id={HttpUtility.UrlEncode(clientId)}");
             if (!_isAadV2)
