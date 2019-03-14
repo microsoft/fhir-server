@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -47,7 +48,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="logger">The logger.</param>
         public AadSmartOnFhirProxyController(IOptions<SecurityConfiguration> securityConfigurationOptions, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
         {
-            EnsureArg.IsNotNull(securityConfigurationOptions, nameof(securityConfigurationOptions));
+            EnsureArg.IsNotNull(securityConfigurationOptions?.Value, nameof(securityConfigurationOptions));
+            EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             SecurityConfiguration securityConfiguration = securityConfigurationOptions.Value;
             _isAadV2 = new Uri(securityConfiguration.Authentication.Authority).Segments.Contains("v2.0");
@@ -57,36 +60,33 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var openIdConfigurationUrl = $"{securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;
-            using (var httpClient = httpClientFactory.CreateClient())
-            {
-                try
-                {
-                    openIdConfigurationResponse = httpClient.GetAsync(new Uri(openIdConfigurationUrl)).GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    if (ex is HttpRequestException || ex is OperationCanceledException)
-                    {
-                        logger.LogWarning(ex, $"There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".");
-                        throw new OpenIdConfigurationException();
-                    }
+            var httpClient = httpClientFactory.CreateClient();
 
-                    throw;
+            try
+            {
+                openIdConfigurationResponse = httpClient.GetAsync(new Uri(openIdConfigurationUrl)).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                if (ex is HttpRequestException || ex is OperationCanceledException)
+                {
+                    logger.LogWarning(ex, $"There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".");
+                    throw new OpenIdConfigurationException();
                 }
+
+                throw;
             }
 
             openIdConfigurationResponse.EnsureSuccessStatusCode();
 
             var openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
 
-            try
+            _aadTokenEndpoint = openIdConfiguration["token_endpoint"]?.Value<string>();
+            _aadAuthorizeEndpoint = openIdConfiguration["authorization_endpoint"]?.Value<string>();
+
+            if (_aadTokenEndpoint == null || _aadAuthorizeEndpoint == null)
             {
-                _aadTokenEndpoint = openIdConfiguration["token_endpoint"].Value<string>();
-                _aadAuthorizeEndpoint = openIdConfiguration["authorization_endpoint"].Value<string>();
-            }
-            catch (ArgumentNullException ex)
-            {
-                logger.LogError($"{ex.Message}, There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".");
+                logger.LogError($"There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".");
                 throw new OpenIdConfigurationException();
             }
         }
@@ -122,15 +122,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 launch = Base64UrlEncoder.Encode("{}");
             }
 
-            var newStateObj = JObject.Parse("{}");
-            newStateObj.Add("s", state);
-            newStateObj.Add("l", launch);
+            var newStateObj = new JObject
+            {
+                { "s", state },
+                { "l", launch },
+            };
 
             string newState = Base64UrlEncoder.Encode(newStateObj.ToString(Newtonsoft.Json.Formatting.None));
 
-            var callbackUrl = new Uri(
-                Request.Scheme + "://" + Request.Host + "/AadSmartOnFhirProxy/callback/" +
-                Base64UrlEncoder.Encode(redirectUri.ToString()));
+            var callbackUrl = UriHelper.BuildAbsolute(Request.Scheme, Request.Host, "/AadSmartOnFhirProxy/callback/", Base64UrlEncoder.Encode(redirectUri.ToString()));
 
             var queryStringBuilder = new StringBuilder($"response_type={responseType}&redirect_uri={callbackUrl}&client_id={clientId}");
             if (!_isAadV2)
