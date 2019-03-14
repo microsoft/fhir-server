@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
@@ -128,14 +129,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 { "l", launch },
             };
 
-            string newState = Base64UrlEncoder.Encode(newStateObj.ToString(Newtonsoft.Json.Formatting.None));
+            string newState = Base64UrlEncoder.Encode(newStateObj.ToString());
 
             var callbackUrl = UriHelper.BuildAbsolute(Request.Scheme, Request.Host, "/AadSmartOnFhirProxy/callback/", Base64UrlEncoder.Encode(redirectUri.ToString()));
 
-            var queryStringBuilder = new StringBuilder($"response_type={responseType}&redirect_uri={callbackUrl}&client_id={clientId}");
+            var queryStringBuilder = new StringBuilder($"response_type={HttpUtility.UrlEncode(responseType)}&redirect_uri={callbackUrl}&client_id={HttpUtility.UrlEncode(clientId)}");
             if (!_isAadV2)
             {
-                queryStringBuilder.Append($"&resource={aud}");
+                queryStringBuilder.Append($"&resource={HttpUtility.UrlEncode(aud)}");
             }
             else
             {
@@ -191,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (!string.IsNullOrEmpty(error))
             {
-                return Redirect($"{redirectUrl}?error={error}&error_description={errorDescription}");
+                return Redirect($"{redirectUrl}?error={HttpUtility.UrlEncode(error)}&error_description={HttpUtility.UrlEncode(errorDescription)}");
             }
 
             string compoundCode;
@@ -210,7 +211,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return BadRequest("Invalid launch context parameters");
             }
 
-            return Redirect($"{redirectUrl}?code={compoundCode}&state={newState}&session_state={sessionState}");
+            return Redirect($"{redirectUrl}?code={compoundCode}&state={newState}&session_state={HttpUtility.UrlEncode(sessionState)}");
         }
 
         /// <summary>
