@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -58,12 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
-                result = GenerateOperationOutcome(
-                    OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.Value,
-                    string.Format(Resources.UnsupportedOperation, "Export"));
-
-                returnCode = HttpStatusCode.BadRequest;
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, "Export"));
             }
 
             return FhirResult.Create(result, returnCode);
@@ -77,12 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(type, ResourceType.Patient.ToString(), StringComparison.Ordinal))
             {
-                OperationOutcome result = GenerateOperationOutcome(
-                    OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
-                    Resources.UnsupportedResourceType);
-
-                return FhirResult.Create(result, HttpStatusCode.BadRequest);
+                throw new RequestNotValidException(Resources.UnsupportedResourceType);
             }
 
             // Currently we don't have any functionality. We are going to re-use the logic in Export()
@@ -98,12 +89,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(type, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(id))
             {
-                OperationOutcome result = GenerateOperationOutcome(
-                    OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
-                    Resources.UnsupportedResourceType);
-
-                return FhirResult.Create(result, HttpStatusCode.BadRequest);
+                throw new RequestNotValidException(Resources.UnsupportedResourceType);
             }
 
             // Currently we don't have any functionality. We are going to re-use the logic in Export()

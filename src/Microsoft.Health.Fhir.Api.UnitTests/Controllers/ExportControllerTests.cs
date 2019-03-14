@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -22,10 +23,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = false });
 
-            var result = exportController.Export() as FhirResult;
-
-            Assert.NotNull(result);
-            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+            Assert.Throws<RequestNotValidException>(() => exportController.Export());
         }
 
         [Fact]
@@ -44,10 +42,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
-            var result = exportController.ExportResourceType("Observation") as FhirResult;
-
-            Assert.NotNull(result);
-            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+            Assert.Throws<RequestNotValidException>(() => exportController.ExportResourceType("Observation"));
         }
 
         [Fact]
@@ -66,10 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
-            var result = exportController.ExportResourceTypeById("Patient", "id") as FhirResult;
-
-            Assert.NotNull(result);
-            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+            Assert.Throws<RequestNotValidException>(() => exportController.ExportResourceTypeById("Patient", "id"));
         }
 
         [Fact]

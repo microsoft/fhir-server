@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case ResourceNotValidException _:
                     case BadRequestException _:
+                    case RequestNotValidException _:
                         fhirResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
                     case ResourceConflictException _:

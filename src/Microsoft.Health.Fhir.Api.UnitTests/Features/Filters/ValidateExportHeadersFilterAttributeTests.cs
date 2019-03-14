@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, acceptHeader);
 
-            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
         }
 
         [Fact]
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             context.HttpContext.Request.Headers.Add(_preferHeaderName, _correctPreferHeaderValue);
 
-            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
         }
 
         [Theory]
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             context.HttpContext.Request.Headers.Add(_preferHeaderName, preferHeader);
 
-            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
         }
 
         [Fact]
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, _correctAcceptHeaderValue);
 
-            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
         }
 
         [Fact]
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object>(),
-                FilterTestsHelper.CreateMockOperationsController());
+                FilterTestsHelper.CreateMockExportController());
         }
     }
 }

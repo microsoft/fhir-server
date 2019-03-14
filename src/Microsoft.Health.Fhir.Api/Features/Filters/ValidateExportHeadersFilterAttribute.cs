@@ -5,10 +5,9 @@
 
 using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -30,28 +29,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 acceptHeaderValue.Count != 1 ||
                 !string.Equals(acceptHeaderValue[0], ContentType.JSON_CONTENT_HEADER, StringComparison.OrdinalIgnoreCase))
             {
-                var error = new OperationOutcome.IssueComponent()
-                {
-                    Severity = OperationOutcome.IssueSeverity.Error,
-                    Code = OperationOutcome.IssueType.Invalid,
-                    Diagnostics = Resources.UnsupportedAcceptHeader,
-                };
-
-                throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
+                throw new RequestNotValidException(Resources.UnsupportedAcceptHeader);
             }
 
             if (!context.HttpContext.Request.Headers.TryGetValue(_preferHeaderName, out var preferHeaderValue) ||
                 preferHeaderValue.Count != 1 ||
                 !string.Equals(preferHeaderValue[0], _preferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
             {
-                var error = new OperationOutcome.IssueComponent()
-                {
-                    Severity = OperationOutcome.IssueSeverity.Error,
-                    Code = OperationOutcome.IssueType.Invalid,
-                    Diagnostics = Resources.UnsupportedPreferHeader,
-                };
-
-                throw new ResourceNotValidException(new OperationOutcome.IssueComponent[] { error });
+                throw new RequestNotValidException(Resources.UnsupportedPreferHeader);
             }
         }
     }
