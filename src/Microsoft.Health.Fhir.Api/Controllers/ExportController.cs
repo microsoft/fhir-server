@@ -22,6 +22,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     public class ExportController : Controller
     {
+        /*
+         * We are currently hardcoding the routing attribute to be specific to Export and
+         * get forwarded to this controller. As we add more operations we would like to resolve
+         * the routes in a more dynamic manner. One way would be to use a regex route constraint
+         * - eg: "{operation:regex(^\\$([[a-zA-Z]]+))}" - and use the appropriate operation handler.
+         * Another way would be to use the capability statement to dynamically determine what operations
+         * are supported.
+         * It would be easier to determine what pattern to follow once we have built support for a couple
+         * of operations. Then we can refactor this controller accordingly.
+         */
+
         private readonly ILogger<ExportController> _logger;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ExportConfiguration _exportConfig;
