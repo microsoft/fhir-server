@@ -18,14 +18,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly IUrlResolver _urlResolver;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly ResourceDeserializer _deserializer;
 
-        public BundleFactory(IUrlResolver urlResolver, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public BundleFactory(IUrlResolver urlResolver, IFhirRequestContextAccessor fhirRequestContextAccessor, ResourceDeserializer deserializer)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
 
             _urlResolver = urlResolver;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _deserializer = deserializer;
         }
 
         public Bundle CreateSearchBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParameters, SearchResult result)
@@ -37,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(r =>
                 {
-                    Resource resource = ResourceDeserializer.Deserialize(r);
+                    Resource resource = _deserializer.Deserialize(r);
 
                     return new Bundle.EntryComponent
                     {
@@ -85,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(r =>
                 {
-                    Resource resource = ResourceDeserializer.Deserialize(r);
+                    Resource resource = _deserializer.Deserialize(r);
                     var hasVerb = Enum.TryParse(r.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 
                     return new Bundle.EntryComponent

@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             using (Mock.Property(() => Clock.UtcNowFunc, () => lastModified))
             {
                 var wrapper = new ResourceWrapper(observation, _rawResourceFactory.Create(observation), new ResourceRequest("http://fhir", HttpMethod.Post), false, null, null, null);
-                var resource = ResourceDeserializer.Deserialize(wrapper);
+                var resource = Deserializers.ResourceDeserializer.Deserialize(wrapper);
 
                 Assert.Equal(observation.VersionId, resource.Meta.VersionId);
                 Assert.Equal(lastModified, resource.Meta.LastUpdated);

@@ -31,9 +31,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         private readonly BaseFhirSerializer _serializer;
         private readonly BaseFhirParser _parser;
 
-        private Func<Base, SummaryType, string> _serialize;
-        private Func<string, Resource> _deserialize;
-        private MediaTypeWithQualityHeaderValue _mediaType;
+        private readonly Func<Base, SummaryType, string> _serialize;
+        private readonly Func<string, Resource> _deserialize;
+        private readonly MediaTypeWithQualityHeaderValue _mediaType;
 
         public FhirClient(HttpClient httpClient, ResourceFormat format)
         {
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 var jsonSerializer = new FhirJsonSerializer();
 
                 _serializer = jsonSerializer;
-                _serialize = jsonSerializer.SerializeToString;
+                _serialize = (resource, summary) => jsonSerializer.SerializeToString(resource, summary);
 
                 var jsonParser = new FhirJsonParser();
 

@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchServiceTests()
         {
-            _bundleFactory = new BundleFactory(_urlResolver, _fhirRequestContextAccessor);
+            _bundleFactory = new BundleFactory(_urlResolver, _fhirRequestContextAccessor, Deserializers.ResourceDeserializer);
             _dataStore = Substitute.For<IDataStore>();
 
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())

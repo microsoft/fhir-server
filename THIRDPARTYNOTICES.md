@@ -234,10 +234,10 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   >    END OF TERMS AND CONDITIONS
 
-## Hl7.Fhir.STU3 0.96.0
+## Hl7.Fhir.STU3 1.1.3
 * Component Source:   https://github.com/ewoutkramer/fhir-net-api/
 * Component Copyright and License:  
-  > Copyright (c) 2018, HL7, Firely (info@fire.ly), Microsoft Open Technologies
+  > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
   > and contributors. See the file CONTRIBUTORS for details
   > 
   > All rights reserved.
