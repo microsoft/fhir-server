@@ -19,9 +19,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
     public class ValidateExportHeadersFilterAttributeTests
     {
-        private string _correctAcceptHeaderValue = ContentType.JSON_CONTENT_HEADER;
-        private string _correctPreferHeaderValue = "respond-async";
-        private string _preferHeaderName = "Prefer";
+        private const string CorrectAcceptHeaderValue = ContentType.JSON_CONTENT_HEADER;
+        private const string CorrectPreferHeaderValue = "respond-async";
+        private const string PreferHeaderName = "Prefer";
 
         [Theory]
         [InlineData("application/fhir+xml")]
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var filter = new ValidateExportHeadersFilterAttribute();
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add(_preferHeaderName, _correctPreferHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
             Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
         }
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var filter = new ValidateExportHeadersFilterAttribute();
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add(_preferHeaderName, preferHeader);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
 
             Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
         }
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var filter = new ValidateExportHeadersFilterAttribute();
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, _correctAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
 
             Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
         }
@@ -81,8 +81,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var filter = new ValidateExportHeadersFilterAttribute();
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, _correctAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(_preferHeaderName, _correctPreferHeaderValue);
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
             filter.OnActionExecuting(context);
         }

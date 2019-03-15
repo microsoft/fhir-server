@@ -18,8 +18,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Method)]
     internal class ValidateExportHeadersFilterAttribute : ActionFilterAttribute
     {
-        private const string _preferHeaderName = "Prefer";
-        private const string _preferHeaderExpectedValue = "respond-async";
+        private const string PreferHeaderName = "Prefer";
+        private const string PreferHeaderExpectedValue = "respond-async";
 
         public override void OnActionExecuting(ActionExecutingContext context)
         {
@@ -32,9 +32,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 throw new RequestNotValidException(Resources.UnsupportedAcceptHeader);
             }
 
-            if (!context.HttpContext.Request.Headers.TryGetValue(_preferHeaderName, out var preferHeaderValue) ||
+            if (!context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValue) ||
                 preferHeaderValue.Count != 1 ||
-                !string.Equals(preferHeaderValue[0], _preferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
+                !string.Equals(preferHeaderValue[0], PreferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
             {
                 throw new RequestNotValidException(Resources.UnsupportedPreferHeader);
             }
