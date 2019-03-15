@@ -10,6 +10,7 @@ namespace Microsoft.Health.Fhir.Web
     public class DevelopmentIdentityProviderConfiguration
     {
         public const string Audience = "fhir-api";
+        public const string LastModifiedClaim = "appid";
 
         public bool Enabled { get; set; }
 

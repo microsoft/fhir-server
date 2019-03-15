@@ -187,6 +187,7 @@ namespace Microsoft.Health.Fhir.Web
                     // add properties related to the development identity provider.
                     Data["DevelopmentIdentityProvider:Enabled"] = bool.TrueString;
                     Data["FhirServer:Security:Authentication:Audience"] = DevelopmentIdentityProviderConfiguration.Audience;
+                    Data["FhirServer:Security:LastModifiedClaims:0"] = DevelopmentIdentityProviderConfiguration.LastModifiedClaim;
                 }
             }
         }
