@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Export;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
@@ -105,6 +106,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
         private static string GetKey(string resourceType, string resourceId)
         {
             return $"{resourceType}_{resourceId}";
+        }
+
+        public Task<bool> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -13,6 +13,7 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -119,6 +120,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var response = await mediator.Send(new GetCapabilitiesRequest(), cancellationToken);
             return response.CapabilityStatement;
+        }
+
+        public static async Task<ExportResponse> ExportAsync(this IMediator mediator, Uri requestUri, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
+
+            var request = new ExportRequest(requestUri);
+
+            var response = await mediator.Send(request, cancellationToken);
+            return response;
         }
     }
 }

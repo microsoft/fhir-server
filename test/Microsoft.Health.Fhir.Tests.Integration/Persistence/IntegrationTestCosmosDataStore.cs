@@ -15,6 +15,7 @@ using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
@@ -110,6 +111,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
         {
             await _dataStore.HardDeleteAsync(key, cancellationToken);
+        }
+
+        public Task<bool> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }

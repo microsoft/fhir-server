@@ -5,6 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Export;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -20,5 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken));
 
         Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken));
+
+        Task<bool> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default);
     }
 }

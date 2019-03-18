@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
 using Hl7.Fhir.Model;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
@@ -25,11 +27,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenAnExportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
+        public async void GivenAnExportRequest_WhenDisabled_ThenBadRequestResponseShouldBeReturned()
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = false });
 
-            Assert.Throws<RequestNotValidException>(() => exportController.Export());
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export());
         }
 
         [Fact]
@@ -41,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenAnExportByResourceTypeRequest_WhenResourceTypeIsNotPatient_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            Assert.Throws<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(ResourceType.Observation.ToString()));
+            Assert.Throws<RequestNotValidException>(() => _exportEnabledController.ExportResourceType("Observation"));
         }
 
         [Fact]
@@ -53,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            Assert.Throws<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Patient.ToString(), "id"));
+            Assert.Throws<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById("Patient", "id"));
         }
 
         [Fact]
@@ -73,6 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             optionsOperationConfiguration.Value.Returns(operationConfig);
 
             return new ExportController(
+                Substitute.For<IMediator>(),
                 Substitute.For<IFhirRequestContextAccessor>(),
                 optionsOperationConfiguration,
                 NullLogger<ExportController>.Instance);
