@@ -14,6 +14,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.OperationOutcome;
@@ -85,17 +86,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return statement;
         }
 
-        public static ListedCapabilityStatement AddProxyOAuthSecurityService(this ListedCapabilityStatement statement, System.Uri metadataUri)
+        public static ListedCapabilityStatement AddProxyOAuthSecurityService(this ListedCapabilityStatement statement, IUrlResolver urlResolver, string authorizeRouteName, string tokenRouteName)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNullOrWhiteSpace(authorizeRouteName, nameof(authorizeRouteName));
+            EnsureArg.IsNotNullOrWhiteSpace(tokenRouteName, nameof(tokenRouteName));
 
             var restComponent = statement.GetListedRestComponent();
             var security = restComponent.Security ?? new CapabilityStatement.SecurityComponent();
 
             security.Service.Add(Constants.RestfulSecurityServiceOAuth);
-            var baseurl = metadataUri.Scheme + "://" + metadataUri.Authority;
-            var tokenEndpoint = $"{baseurl}/AadSmartOnFhirProxy/token";
-            var authorizationEndpoint = $"{baseurl}/AadSmartOnFhirProxy/authorize";
+            var tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName);
+            var authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName);
 
             var smartExtension = new Extension()
             {

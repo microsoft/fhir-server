@@ -28,5 +28,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string SearchAllResourcesPost = "SearchAllResourcesPost";
 
         internal const string SearchCompartmentByResourceType = "SearchCompartmentByResourceType";
+
+        internal const string AadSmartOnFhirProxyAuthorize = "AadSmartOnFhirProxyAuthorize";
+
+        internal const string AadSmartOnFhirProxyToken = "AadSmartOnFhirProxyToken";
     }
 }

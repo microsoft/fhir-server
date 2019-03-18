@@ -161,5 +161,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             return new Uri(uriString);
         }
+
+        public Uri ResolveRouteNameUrl(string routeName)
+        {
+            var uriString = UrlHelper.RouteUrl(
+                routeName,
+                null,
+                Request.Scheme,
+                Request.Host.Value);
+
+            return new Uri(uriString);
+        }
     }
 }

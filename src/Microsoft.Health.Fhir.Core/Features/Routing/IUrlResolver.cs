@@ -36,5 +36,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="continuationToken">The continuation token.</param>
         /// <returns>The URL.</returns>
         Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
+
+        /// <summary>
+        /// Resolves the URL for the specified routeName.
+        /// </summary>
+        /// <param name="routeName">The route name to resolve.</param>
+        /// <returns>The URL.</returns>
+        Uri ResolveRouteNameUrl(string routeName);
     }
 }

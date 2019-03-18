@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.ValueSets;
@@ -102,8 +103,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="scope">scope URL parameter.</param>
         /// <param name="state">state URL parameter.</param>
         /// <param name="aud">aud (audience) URL parameter.</param>
-        [HttpGet("authorize")]
+        [HttpGet]
         [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirAuthorize })]
+        [Route("authorize", Name = RouteNames.AadSmartOnFhirProxyAuthorize)]
         public ActionResult Authorize(
             [FromQuery(Name = "response_type")] string responseType,
             [FromQuery(Name = "client_id")] string clientId,
@@ -222,8 +224,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="redirectUri">redirect_uri request parameter.</param>
         /// <param name="clientId">client_id request parameter.</param>
         /// <param name="clientSecret">client_secret request parameter.</param>
-        [HttpPost("token")]
+        [HttpPost]
         [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirToken })]
+        [Route("token", Name = RouteNames.AadSmartOnFhirProxyToken)]
         public async Task<ActionResult> Token(
             [FromForm(Name = "grant_type")] string grantType,
             [FromForm(Name = "code")] string compoundCode,
