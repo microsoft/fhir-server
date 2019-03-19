@@ -33,22 +33,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
          * of operations. Then we can refactor this controller accordingly.
          */
 
-        private readonly ILogger<ExportController> _logger;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ExportConfiguration _exportConfig;
+        private readonly ILogger<ExportController> _logger;
 
         public ExportController(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IOptions<ExportConfiguration> exportConfig,
             ILogger<ExportController> logger)
         {
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(exportConfig?.Value, nameof(exportConfig));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _exportConfig = exportConfig.Value;
+            _logger = logger;
         }
 
         [HttpGet]
