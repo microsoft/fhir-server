@@ -58,9 +58,16 @@ steps:
       artifactType: 'container'
       
   - task: PublishBuildArtifacts@1
-    displayName: 'publish test configuration jsons'
+    displayName: 'publish corstestconfiguration.json'
     inputs:
-      pathToPublish: 'test/configuration/*.json'
+      pathToPublish: './test/configuration/corstestconfiguration.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish exporttestconfiguration.json'
+    inputs:
+      pathToPublish: './test/configuration/exporttestconfiguration.json'
       artifactName: 'deploy'
       artifactType: 'container'
 
