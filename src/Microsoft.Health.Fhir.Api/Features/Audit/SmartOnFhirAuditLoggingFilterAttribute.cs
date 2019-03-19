@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     [AttributeUsage(AttributeTargets.Method)]
     internal class SmartOnFhirAuditLoggingFilterAttribute : ActionFilterAttribute
     {
+        private const string ClientId = "client_id";
         private readonly IAuditLogger _auditLogger;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly string _action;
@@ -67,9 +68,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
         private static ReadOnlyCollection<KeyValuePair<string, string>> GetClientIdFromQueryStringOrForm(FilterContext context)
         {
-            StringValues clientId = context.HttpContext.Request.HasFormContentType ? context.HttpContext.Request.Form["client_id"] : context.HttpContext.Request.Query["client_id"];
+            StringValues clientId = context.HttpContext.Request.HasFormContentType ? context.HttpContext.Request.Form[ClientId] : context.HttpContext.Request.Query[ClientId];
 
-            ReadOnlyCollection<KeyValuePair<string, string>> claims = clientId.Select(x => new KeyValuePair<string, string>("client_id", x)).ToList().AsReadOnly();
+            ReadOnlyCollection<KeyValuePair<string, string>> claims = clientId.Select(x => new KeyValuePair<string, string>(ClientId, x)).ToList().AsReadOnly();
             return claims;
         }
     }
