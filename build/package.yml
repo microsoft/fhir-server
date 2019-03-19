@@ -60,7 +60,7 @@ steps:
   - task: PublishBuildArtifacts@1
     displayName: 'publish test configuration jsons'
     inputs:
-      pathToPublish: './test/configuration/*.json'
+      pathToPublish: 'test/configuration/*.json'
       artifactName: 'deploy'
       artifactType: 'container'
 
