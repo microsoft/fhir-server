@@ -9,10 +9,10 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly string _aadAuthorizeEndpoint;
         private readonly string _aadTokenEndpoint;
+        private readonly IUrlResolver _urlResolver;
 
         // TODO: _launchContextFields contain a list of fields that we will transmit as part of launch context, should be configurable
         private readonly string[] _launchContextFields = { "patient", "encounter", "practitioner", "need_patient_banner", "smart_style_url" };
@@ -47,16 +49,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="securityConfigurationOptions">Security configuration parameters.</param>
         /// <param name="httpClientFactory">HTTP Client Factory.</param>
+        /// <param name="urlResolver">The URL resolver.</param>
         /// <param name="logger">The logger.</param>
-        public AadSmartOnFhirProxyController(IOptions<SecurityConfiguration> securityConfigurationOptions, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger)
+        public AadSmartOnFhirProxyController(IOptions<SecurityConfiguration> securityConfigurationOptions, IHttpClientFactory httpClientFactory, IUrlResolver urlResolver, ILogger<SecurityConfiguration> logger)
         {
             EnsureArg.IsNotNull(securityConfigurationOptions?.Value, nameof(securityConfigurationOptions));
             EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             SecurityConfiguration securityConfiguration = securityConfigurationOptions.Value;
             _isAadV2 = new Uri(securityConfiguration.Authentication.Authority).Segments.Contains("v2.0");
             _httpClientFactory = httpClientFactory;
+            _urlResolver = urlResolver;
             _logger = logger;
 
             var openIdConfigurationUrl = $"{securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
@@ -133,12 +138,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             string newState = Base64UrlEncoder.Encode(newStateObj.ToString());
 
-            var callbackUrl = UriHelper.BuildAbsolute(Request.Scheme, Request.Host, "/AadSmartOnFhirProxy/callback", $"/{Base64UrlEncoder.Encode(redirectUri.ToString())}");
+            Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
 
-            var queryStringBuilder = new StringBuilder($"response_type={HttpUtility.UrlEncode(responseType)}&redirect_uri={callbackUrl}&client_id={HttpUtility.UrlEncode(clientId)}");
+            var queryBuilder = new QueryBuilder
+            {
+                { "response_type", responseType },
+                { "redirect_uri", callbackUrl.AbsoluteUri },
+                { "client_id", clientId },
+            };
+
             if (!_isAadV2)
             {
-                queryStringBuilder.Append($"&resource={HttpUtility.UrlEncode(aud)}");
+                queryBuilder.Add("resource", aud);
             }
             else
             {
@@ -163,12 +174,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
 
                 var newScopes = scopesBuilder.ToString().TrimEnd(' ');
-                queryStringBuilder.Append($"&scope={Uri.EscapeDataString(newScopes)}");
+
+                queryBuilder.Add("scope", Uri.EscapeDataString(newScopes));
             }
 
-            queryStringBuilder.Append($"&state={newState}");
+            queryBuilder.Add("state", newState);
 
-            return Redirect($"{_aadAuthorizeEndpoint}?{queryStringBuilder}");
+            return Redirect($"{_aadAuthorizeEndpoint}{queryBuilder}");
         }
 
         /// <summary>
@@ -180,8 +192,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="sessionState">session_state URL parameter.</param>
         /// <param name="error">error URL parameter.</param>
         /// <param name="errorDescription">error_description URL parameter.</param>
-        [HttpGet("callback/{encodedRedirect}")]
+        [HttpGet]
         [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirCallback })]
+        [Route("callback/{encodedRedirect}", Name = RouteNames.AadSmartOnFhirProxyCallback)]
         public ActionResult Callback(
             string encodedRedirect,
             [FromQuery(Name = "code")] string code,
@@ -194,7 +207,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (!string.IsNullOrEmpty(error))
             {
-                return Redirect($"{redirectUrl}?error={HttpUtility.UrlEncode(error)}&error_description={HttpUtility.UrlEncode(errorDescription)}");
+                var errorQueryBuilder = new QueryBuilder
+                {
+                    { "error", error },
+                    { "error_description", errorDescription },
+                };
+                return Redirect($"{redirectUrl}{errorQueryBuilder}");
             }
 
             string compoundCode;
@@ -213,7 +231,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return BadRequest("Invalid launch context parameters");
             }
 
-            return Redirect($"{redirectUrl}?code={compoundCode}&state={newState}&session_state={HttpUtility.UrlEncode(sessionState)}");
+            var queryBuilder = new QueryBuilder
+            {
+                { "code", compoundCode },
+                { "state", newState },
+                { "session_state", sessionState },
+            };
+            return Redirect($"{redirectUrl}{queryBuilder}");
         }
 
         /// <summary>
@@ -282,9 +306,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return BadRequest("Invalid compound authorization code");
             }
 
-            var callbackUrl = new Uri(
-                Request.Scheme + "://" + Request.Host + "/AadSmartOnFhirProxy/callback/" +
-                Base64UrlEncoder.Encode(redirectUri.ToString()));
+            Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
 
             // TODO: Deal with client secret in basic auth header
             var content = new FormUrlEncodedContent(
@@ -292,7 +314,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 {
                     new KeyValuePair<string, string>("grant_type", grantType),
                     new KeyValuePair<string, string>("code", code),
-                    new KeyValuePair<string, string>("redirect_uri", callbackUrl.ToString()),
+                    new KeyValuePair<string, string>("redirect_uri", callbackUrl.AbsoluteUri),
                     new KeyValuePair<string, string>("client_id", clientId),
                     new KeyValuePair<string, string>("client_secret", clientSecret),
                 });

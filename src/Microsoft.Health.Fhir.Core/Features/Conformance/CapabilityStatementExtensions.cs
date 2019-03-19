@@ -97,8 +97,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             var security = restComponent.Security ?? new CapabilityStatement.SecurityComponent();
 
             security.Service.Add(Constants.RestfulSecurityServiceOAuth);
-            var tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName);
-            var authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName);
+            var tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
+            var authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
 
             var smartExtension = new Extension()
             {
