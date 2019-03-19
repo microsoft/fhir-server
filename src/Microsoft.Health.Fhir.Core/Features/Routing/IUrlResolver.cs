@@ -10,7 +10,7 @@ using Hl7.Fhir.Model;
 namespace Microsoft.Health.Fhir.Core.Features.Routing
 {
     /// <summary>
-    /// Provides functionalities to resolve URLs.
+    /// Provides functionality to resolve URLs.
     /// </summary>
     public interface IUrlResolver
     {
@@ -36,5 +36,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="continuationToken">The continuation token.</param>
         /// <returns>The URL.</returns>
         Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
+
+        /// <summary>
+        /// Resolves the URL for the specified routeName.
+        /// </summary>
+        /// <param name="routeName">The route name to resolve.</param>
+        /// <param name="routeValues">Any route values to use in the route.</param>
+        /// <returns>The URL.</returns>
+        Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues);
     }
 }

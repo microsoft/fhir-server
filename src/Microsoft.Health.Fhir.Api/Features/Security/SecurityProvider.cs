@@ -7,6 +7,7 @@ using System.Net.Http;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             {
                 if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                 {
-                    statement.AddProxyOAuthSecurityService(_urlResolver.ResolveMetadataUrl(false));
+                    statement.AddProxyOAuthSecurityService(_urlResolver, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
                 }
                 else
                 {

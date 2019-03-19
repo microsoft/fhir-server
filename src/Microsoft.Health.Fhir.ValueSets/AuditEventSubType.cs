@@ -37,5 +37,11 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string SearchSystem = "search-system";
 
         public const string Capabilities = "capabilities";
+
+        public const string SmartOnFhirAuthorize = "smart-on-fhir-authorize";
+
+        public const string SmartOnFhirCallback = "smart-on-fhir-callback";
+
+        public const string SmartOnFhirToken = "smart-on-fhir-token";
     }
 }
