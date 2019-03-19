@@ -205,29 +205,20 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;accept&quot; header is not supported..
-        /// </summary>
-        public static string UnsupportedAcceptHeader {
-            get {
-                return ResourceManager.GetString("UnsupportedAcceptHeader", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;content-type&quot; header is not supported..
-        /// </summary>
-        public static string UnsupportedContentTypeHeader {
-            get {
-                return ResourceManager.GetString("UnsupportedContentTypeHeader", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The requested &quot;_format&quot; parameter is not supported..
         /// </summary>
         public static string UnsupportedFormatParameter {
             get {
                 return ResourceManager.GetString("UnsupportedFormatParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;{0}&quot; header is not supported..
+        /// </summary>
+        public static string UnsupportedHeader {
+            get {
+                return ResourceManager.GetString("UnsupportedHeader", resourceCulture);
             }
         }
         
@@ -241,16 +232,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;prefer&quot; header is not supported..
-        /// </summary>
-        public static string UnsupportedPreferHeader {
-            get {
-                return ResourceManager.GetString("UnsupportedPreferHeader", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Requested operation does not support current resource type..
+        ///   Looks up a localized string similar to Requested operation does not support resource type: {0}..
         /// </summary>
         public static string UnsupportedResourceType {
             get {

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
-            Assert.Throws<RequestNotValidException>(() => exportController.ExportResourceType("Observation"));
+            Assert.Throws<RequestNotValidException>(() => exportController.ExportResourceType(ResourceType.Observation.ToString()));
         }
 
         [Fact]
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
-            var result = exportController.ExportResourceType("Patient") as FhirResult;
+            var result = exportController.ExportResourceType(ResourceType.Patient.ToString()) as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NotImplemented, result.StatusCode);
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
-            Assert.Throws<RequestNotValidException>(() => exportController.ExportResourceTypeById("Patient", "id"));
+            Assert.Throws<RequestNotValidException>(() => exportController.ExportResourceTypeById(ResourceType.Patient.ToString(), "id"));
         }
 
         [Fact]
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = true });
 
-            var result = exportController.ExportResourceTypeById("Group", "id") as FhirResult;
+            var result = exportController.ExportResourceTypeById(ResourceType.Group.ToString(), "id") as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NotImplemented, result.StatusCode);
@@ -81,9 +82,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             exportConfiguration.Value.Returns(exportConfig);
 
             return new ExportController(
-                NullLogger<ExportController>.Instance,
                 Substitute.For<IFhirRequestContextAccessor>(),
-                exportConfiguration);
+                exportConfiguration,
+                NullLogger<ExportController>.Instance);
         }
     }
 }

@@ -17,6 +17,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public class ExportTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly HttpClient _client;
+        private const string PreferHeaderName = "Prefer";
 
         public ExportTests(HttpIntegrationTestFixture<Startup> fixture)
         {
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Group/id/$export")]
         public async Task WhenRequestingExportWithCorrectHeaders_GivenExportIsEnabled_TheServerShouldReturnNotImplemented(string path)
         {
-            HttpRequestMessage request = GenerateExportMessage(path);
+            HttpRequestMessage request = GenerateExportRequest(path);
 
             HttpResponseMessage response = await _client.SendAsync(request);
 
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("")]
         public async Task WhenRequestingExportWithInvalidAcceptHeader_GivenExportIsEnabled_TheServerShouldReturnBadRequest(string acceptHeaderValue)
         {
-            HttpRequestMessage request = GenerateExportMessage(acceptHeader: acceptHeaderValue);
+            HttpRequestMessage request = GenerateExportRequest(acceptHeader: acceptHeaderValue);
 
             HttpResponseMessage response = await _client.SendAsync(request);
 
@@ -57,14 +58,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("")]
         public async Task WhenRequestingExportWithInvalidPreferHeader_GivenExportIsEnabled_TheServerShouldReturnBadRequest(string preferHeaderValue)
         {
-            HttpRequestMessage request = GenerateExportMessage(preferHeader: preferHeaderValue);
+            HttpRequestMessage request = GenerateExportRequest(preferHeader: preferHeaderValue);
 
             HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        private HttpRequestMessage GenerateExportMessage(
+        private HttpRequestMessage GenerateExportRequest(
             string path = "$export",
             string acceptHeader = ContentType.JSON_CONTENT_HEADER,
             string preferHeader = "respond-async")
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             request.RequestUri = new Uri(_client.BaseAddress, path);
             request.Headers.Add(HeaderNames.Accept, acceptHeader);
-            request.Headers.Add("Prefer", preferHeader);
+            request.Headers.Add(PreferHeaderName, preferHeader);
 
             return request;
         }

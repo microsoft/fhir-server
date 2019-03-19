@@ -167,24 +167,20 @@
   <data name="Unauthorized" xml:space="preserve">
     <value>Authentication failed.</value>
   </data>
-  <data name="UnsupportedAcceptHeader" xml:space="preserve">
-    <value>The requested "accept" header is not supported.</value>
-  </data>
-  <data name="UnsupportedContentTypeHeader" xml:space="preserve">
-    <value>The requested "content-type" header is not supported.</value>
-  </data>
   <data name="UnsupportedFormatParameter" xml:space="preserve">
     <value>The requested "_format" parameter is not supported.</value>
+  </data>
+  <data name="UnsupportedHeader" xml:space="preserve">
+    <value>The requested "{0}" header is not supported.</value>
+    <comment>{0} is the header name.</comment>
   </data>
   <data name="UnsupportedOperation" xml:space="preserve">
     <value>The requested {0} operation is not supported.</value>
     <comment>{0} is the operation name</comment>
   </data>
-  <data name="UnsupportedPreferHeader" xml:space="preserve">
-    <value>The requested "prefer" header is not supported.</value>
-  </data>
   <data name="UnsupportedResourceType" xml:space="preserve">
-    <value>Requested operation does not support current resource type.</value>
+    <value>Requested operation does not support resource type: {0}.</value>
+    <comment>{0} is the resource type.</comment>
   </data>
   <data name="UrlResourceIdMismatch" xml:space="preserve">
     <value>Id in the URL must match id in the resource.</value>

@@ -38,13 +38,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ExportConfiguration _exportConfig;
 
         public ExportController(
-            ILogger<ExportController> logger,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IOptions<ExportConfiguration> exportConfig)
+            IOptions<ExportConfiguration> exportConfig,
+            ILogger<ExportController> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(exportConfig, nameof(exportConfig));
+            EnsureArg.IsNotNull(exportConfig?.Value, nameof(exportConfig));
 
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -56,24 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateExportHeadersFilter]
         public IActionResult Export()
         {
-            HttpStatusCode returnCode;
-            OperationOutcome result;
-
-            if (_exportConfig.Enabled)
-            {
-                result = GenerateOperationOutcome(
-                    OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
-                    Resources.NotFoundException);
-
-                returnCode = HttpStatusCode.NotImplemented;
-            }
-            else
-            {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, "Export"));
-            }
-
-            return FhirResult.Create(result, returnCode);
+            return CheckIfExportIsEnabledAndRespond();
         }
 
         [HttpGet]
@@ -84,12 +67,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(type, ResourceType.Patient.ToString(), StringComparison.Ordinal))
             {
-                throw new RequestNotValidException(Resources.UnsupportedResourceType);
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, type));
             }
 
-            // Currently we don't have any functionality. We are going to re-use the logic in Export()
-            // to return the appropriate response code based on whether Export is enabled or not.
-            return Export();
+            return CheckIfExportIsEnabledAndRespond();
         }
 
         [HttpGet]
@@ -100,12 +81,29 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(type, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(id))
             {
-                throw new RequestNotValidException(Resources.UnsupportedResourceType);
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, type));
             }
 
-            // Currently we don't have any functionality. We are going to re-use the logic in Export()
-            // to return the appropriate response code based on whether Export is enabled or not.
-            return Export();
+            return CheckIfExportIsEnabledAndRespond();
+        }
+
+        /// <summary>
+        /// Currently we don't have any export functionality. We will send the appropriate
+        /// response based on whether export is enabled or not.
+        /// </summary>
+        private FhirResult CheckIfExportIsEnabledAndRespond()
+        {
+            if (!_exportConfig.Enabled)
+            {
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, "Export"));
+            }
+
+            OperationOutcome result = GenerateOperationOutcome(
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.NotSupported,
+                Resources.NotFoundException);
+
+            return FhirResult.Create(result, HttpStatusCode.NotImplemented);
         }
 
         private OperationOutcome GenerateOperationOutcome(
