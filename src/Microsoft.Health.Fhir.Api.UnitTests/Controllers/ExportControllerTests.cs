@@ -75,12 +75,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private ExportController GetController(ExportConfiguration exportConfig)
         {
-            IOptions<ExportConfiguration> exportConfiguration = Substitute.For<IOptions<ExportConfiguration>>();
-            exportConfiguration.Value.Returns(exportConfig);
+            var operationConfig = new OperationsConfiguration()
+            {
+                Export = exportConfig,
+            };
+
+            IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            optionsOperationConfiguration.Value.Returns(operationConfig);
 
             return new ExportController(
                 Substitute.For<IFhirRequestContextAccessor>(),
-                exportConfiguration,
+                optionsOperationConfiguration,
                 NullLogger<ExportController>.Instance);
         }
     }

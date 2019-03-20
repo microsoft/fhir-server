@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
         public static ExportController CreateMockExportController()
         {
-            return Mock.TypeWithArguments<ExportController>(Options.Create(new ExportConfiguration()));
+            return Mock.TypeWithArguments<ExportController>(Options.Create(new OperationsConfiguration()));
         }
     }
 }

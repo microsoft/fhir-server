@@ -46,15 +46,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public ExportController(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IOptions<ExportConfiguration> exportConfig,
+            IOptions<OperationsConfiguration> operationsConfig,
             ILogger<ExportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(exportConfig?.Value, nameof(exportConfig));
+            EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _exportConfig = exportConfig.Value;
+            _exportConfig = operationsConfig.Value.Export;
             _logger = logger;
         }
 

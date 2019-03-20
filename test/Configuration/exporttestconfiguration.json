@@ -1,7 +1,9 @@
 {
   "FhirServer": {
-    "Export": {
-       "Enabled": true
-     }
+    "Operations": {
+      "Export": {
+        "Enabled": true
+      }
+    }
   }
 }
