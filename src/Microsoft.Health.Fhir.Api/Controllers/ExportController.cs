@@ -7,19 +7,26 @@ using System.Collections.Generic;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
+    [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
+    [ValidateExportHeadersFilter]
+    [Authorize(PolicyNames.FhirPolicy)]
     public class ExportController : Controller
     {
         /*
@@ -53,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.Export)]
-        [ValidateExportHeadersFilter]
+        [AuditEventType(AuditEventSubType.Export)]
         public IActionResult Export()
         {
             return CheckIfExportIsEnabledAndRespond();
@@ -61,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceType)]
-        [ValidateExportHeadersFilter]
+        [AuditEventType(AuditEventSubType.Export)]
         public IActionResult ExportResourceType(string type)
         {
             // Export by ResourceType is supported only for Patient resource type.
@@ -75,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceTypeById)]
-        [ValidateExportHeadersFilter]
+        [AuditEventType(AuditEventSubType.Export)]
         public IActionResult ExportResourceTypeById(string type, string id)
         {
             // Export by ResourceTypeId is supported only for Group resource type.

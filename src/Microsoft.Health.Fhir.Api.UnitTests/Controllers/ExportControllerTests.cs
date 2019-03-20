@@ -19,6 +19,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     public class ExportControllerTests
     {
+        private ExportController _exportEnabledController;
+
+        public ExportControllerTests()
+        {
+            _exportEnabledController = GetController(new ExportConfiguration() { Enabled = true });
+        }
+
         [Fact]
         public void GivenAnExportRequest_WhenDisabled_ThenBadRequestResponseShouldBeReturned()
         {
@@ -30,9 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenAnExportRequest_WhenEnabled_ThenNotImplementedResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { Enabled = true });
-
-            var result = exportController.Export() as FhirResult;
+            var result = _exportEnabledController.Export() as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NotImplemented, result.StatusCode);
@@ -41,17 +46,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenAnExportByResourceTypeRequest_WhenResourceTypeIsNotPatient_ThenBadRequestResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { Enabled = true });
-
-            Assert.Throws<RequestNotValidException>(() => exportController.ExportResourceType(ResourceType.Observation.ToString()));
+            Assert.Throws<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(ResourceType.Observation.ToString()));
         }
 
         [Fact]
         public void GivenAnExportByResourceTypeRequest_WhenResourceTypeIsPatient_ThenNotImplementedResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { Enabled = true });
-
-            var result = exportController.ExportResourceType(ResourceType.Patient.ToString()) as FhirResult;
+            var result = _exportEnabledController.ExportResourceType(ResourceType.Patient.ToString()) as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NotImplemented, result.StatusCode);
@@ -60,17 +61,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenBadRequestResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { Enabled = true });
-
-            Assert.Throws<RequestNotValidException>(() => exportController.ExportResourceTypeById(ResourceType.Patient.ToString(), "id"));
+            Assert.Throws<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Patient.ToString(), "id"));
         }
 
         [Fact]
         public void GivenAnExportByResourceTypeIdRequest_WhenResourceTypeIsGroup_ThenNotImplementedResponseShouldBeReturned()
         {
-            var exportController = GetController(new ExportConfiguration() { Enabled = true });
-
-            var result = exportController.ExportResourceTypeById(ResourceType.Group.ToString(), "id") as FhirResult;
+            var result = _exportEnabledController.ExportResourceTypeById(ResourceType.Group.ToString(), "id") as FhirResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NotImplemented, result.StatusCode);
