@@ -10,6 +10,7 @@ using static Hl7.Fhir.Model.CapabilityStatement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
     public sealed class ListedCapabilityStatement
     {
         public Uri Url { get; set; }

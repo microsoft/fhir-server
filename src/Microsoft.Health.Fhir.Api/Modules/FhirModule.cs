@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -18,8 +20,10 @@ using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            var jsonParser = new FhirJsonParser();
+            var jsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
             var jsonSerializer = new FhirJsonSerializer();
 
             var xmlParser = new FhirXmlParser();
@@ -52,6 +56,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(jsonSerializer);
             services.AddSingleton(xmlParser);
             services.AddSingleton(xmlSerializer);
+
+            services.AddSingleton<IReadOnlyDictionary<ResourceFormat, Func<string, Resource>>>(x =>
+            {
+                return new Dictionary<ResourceFormat, Func<string, Resource>>
+                {
+                    { ResourceFormat.Json, str => jsonParser.Parse<Resource>(str) },
+                    { ResourceFormat.Xml, str => xmlParser.Parse<Resource>(str) },
+                };
+            });
+
+            services.AddSingleton<ResourceDeserializer>();
 
             services.Add<FormatterConfiguration>()
                 .Singleton()

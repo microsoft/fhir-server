@@ -40,10 +40,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         [Fact]
         public async System.Threading.Tasks.Task GivenAFhirObjectAndXmlContentType_WhenSerializing_ThenTheObjectIsSerializedToTheResponseStream()
         {
-            var formatter = new FhirXmlOutputFormatter(new FhirXmlSerializer(), NullLogger<FhirXmlOutputFormatter>.Instance);
+            var serializer = new FhirXmlSerializer();
+            var formatter = new FhirXmlOutputFormatter(serializer, NullLogger<FhirXmlOutputFormatter>.Instance);
 
             var resource = new OperationOutcome();
-            var serializer = new FhirXmlSerializer();
 
             var defaultHttpContext = new DefaultHttpContext();
             defaultHttpContext.Request.ContentType = ContentType.XML_CONTENT_HEADER;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             defaultHttpContext.Response.Body = responseBody;
 
             var writerFactory = Substitute.For<Func<Stream, Encoding, TextWriter>>();
-            writerFactory.Invoke(Arg.Any<Stream>(), Arg.Any<Encoding>()).Returns(p => new StreamWriter(p.ArgAt<Stream>(0)));
+            writerFactory.Invoke(Arg.Any<Stream>(), Arg.Any<Encoding>()).Returns(p => new StreamWriter(p.ArgAt<Stream>(0), p.ArgAt<Encoding>(1)));
 
             await formatter.WriteResponseBodyAsync(
                 new OutputFormatterWriteContext(
@@ -61,7 +61,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                     resource),
                 Encoding.UTF8);
 
-            Assert.Equal(serializer.SerializeToString(resource), Encoding.UTF8.GetString(responseBody.ToArray()));
+            string expectedString;
+            using (var stream = new MemoryStream())
+            using (var sw = new StreamWriter(stream, Encoding.UTF8))
+            using (var writer = new XmlTextWriter(sw))
+            {
+                serializer.Serialize(resource, writer);
+                expectedString = Encoding.UTF8.GetString(stream.ToArray());
+            }
+
+            Assert.Equal(expectedString, Encoding.UTF8.GetString(responseBody.ToArray()));
 
             responseBody.Dispose();
         }

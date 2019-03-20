@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             collection.Add(x => new CreateResourceHandler(_dataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new UpsertResourceHandler(_dataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new GetResourceHandler(_dataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetResourceHandler(_dataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_dataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();

@@ -4,19 +4,33 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
-using Hl7.Fhir.Serialization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public static class ResourceDeserializer
+    public class ResourceDeserializer
     {
-        private static readonly FhirXmlParser FhirXmlParser = new FhirXmlParser();
-        private static readonly FhirJsonParser FhirJsonParser = new FhirJsonParser();
+        private readonly IReadOnlyDictionary<ResourceFormat, Func<string, Resource>> _deserializers;
 
-        public static Resource Deserialize(ResourceWrapper resourceWrapper)
+        public ResourceDeserializer(IReadOnlyDictionary<ResourceFormat, Func<string, Resource>> deserializers)
+        {
+            EnsureArg.IsNotNull(deserializers, nameof(deserializers));
+
+            _deserializers = deserializers;
+        }
+
+        public ResourceDeserializer(params (ResourceFormat Format, Func<string, Resource> Func)[] deserializers)
+        {
+            EnsureArg.IsNotNull(deserializers, nameof(deserializers));
+
+            _deserializers = deserializers.ToDictionary(x => x.Format, x => x.Func);
+        }
+
+        public Resource Deserialize(ResourceWrapper resourceWrapper)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
@@ -28,25 +42,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return resource;
         }
 
-        internal static Resource DeserializeRaw(RawResource rawResource)
+        internal Resource DeserializeRaw(RawResource rawResource)
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
-            Resource resource;
-
-            switch (rawResource.Format)
+            if (!_deserializers.TryGetValue(rawResource.Format, out var deserializer))
             {
-                case ResourceFormat.Xml:
-                    resource = FhirXmlParser.Parse<Resource>(rawResource.Data);
-                    break;
-                case ResourceFormat.Json:
-                    resource = FhirJsonParser.Parse<Resource>(rawResource.Data);
-                    break;
-                default:
-                    throw new NotSupportedException();
+                throw new NotSupportedException();
             }
 
-            return resource;
+            return deserializer(rawResource.Data);
         }
     }
 }

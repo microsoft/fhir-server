@@ -30,6 +30,7 @@ namespace Microsoft.Health.CosmosDb.Configs
 
         public Uri RelativeDatabaseUri => string.IsNullOrEmpty(DatabaseId) ? null : UriFactory.CreateDatabaseUri(DatabaseId);
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a configuration class")]
         public IList<string> PreferredLocations { get; set; }
 
         public int DataMigrationBatchSize { get; set; } = 100;

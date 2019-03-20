@@ -3,14 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
+using Hl7.Fhir.Serialization;
 
-namespace Microsoft.Health.Fhir.Web
+namespace Microsoft.Health.Fhir.Core.Features
 {
-    public class DevelopmentIdentityProviderApplicationConfiguration
+    internal class DefaultParserSettings
     {
-        public string Id { get; set; }
-
-        public IList<string> Roles { get; } = new List<string>();
+        public static readonly ParserSettings Settings = new ParserSettings { PermissiveParsing = true };
     }
 }

@@ -32,7 +32,7 @@
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.1-beta.61" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
-    <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.2.2" />
+    <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.2.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -67,8 +67,7 @@
       <ParsedSdkVersion><![CDATA[$([System.Text.RegularExpressions.Regex]::Match($(GlobalJsonContent), '"version"\s*:\s*"(\d+.\d+.\d+)"').Groups[1].Value)]]></ParsedSdkVersion>
     </PropertyGroup>
   
-    <Error Condition="$(NETCoreSdkVersion) != $(ParsedSdkVersion)"
-           Text="The .NET SDK version required by $(GlobalJsonPath) is $(ParsedSdkVersion) but that version does not seem to be installed. In order to ensure consistent behavior, please install version $(ParsedSdkVersion) of the .NET SDK from https://dotnet.microsoft.com/download." />
+    <Error Condition="$(NETCoreSdkVersion) != $(ParsedSdkVersion)" Text="The .NET SDK version required by $(GlobalJsonPath) is $(ParsedSdkVersion) but that version does not seem to be installed. In order to ensure consistent behavior, please install version $(ParsedSdkVersion) of the .NET SDK from https://dotnet.microsoft.com/download." />
   </Target>
 
   <Target Name="AddRuntimeConfigFileToBuiltProjectOutputGroupOutput" Condition=" '$(GenerateRuntimeConfigurationFiles)' == 'true'" BeforeTargets="BuiltProjectOutputGroup">

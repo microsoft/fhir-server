@@ -4,12 +4,12 @@ Do Not Translate or Localize
 
 This file is based on or incorporates material from the projects listed below (Third Party IP). The original copyright notice and the license under which Microsoft received such Third Party IP, are set forth below. Such licenses and notices are provided for informational purposes only. Microsoft licenses the Third Party IP to you under the licensing terms for the Microsoft product. Microsoft reserves all other rights not expressly granted under this agreement, whether by implication, estoppel or otherwise.
 
-## AngleSharp 0.9.11
+## AngleSharp 0.11.0
 * Component Source:   https://github.com/AngleSharp/AngleSharp/
 * Component Copyright and License:
   > The MIT License (MIT)
   > 
-  > Copyright (c) 2013 - 2018 AngleSharp
+  > Copyright (c) 2013 - 2019 AngleSharp
   > 
   > Permission is hereby granted, free of charge, to any person obtaining a copy
   > of this software and associated documentation files (the "Software"), to deal
@@ -234,10 +234,10 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   >    END OF TERMS AND CONDITIONS
 
-## Hl7.Fhir.STU3 0.96.0
+## Hl7.Fhir.STU3 1.1.3
 * Component Source:   https://github.com/ewoutkramer/fhir-net-api/
 * Component Copyright and License:  
-  > Copyright (c) 2018, HL7, Firely (info@fire.ly), Microsoft Open Technologies
+  > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
   > and contributors. See the file CONTRIBUTORS for details
   > 
   > All rights reserved.
