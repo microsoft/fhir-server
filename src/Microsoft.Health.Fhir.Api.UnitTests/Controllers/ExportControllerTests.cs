@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenAnExportRequest_WhenEnabled_ThenOperationsNotImplementedExceptionShouldBeThrown()
+        public void GivenAnExportRequest_WhenEnabled_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
             Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.Export());
         }
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenAnExportByResourceTypeRequest_WhenResourceTypeIsPatient_ThenOperationsNotImplementedExceptionShouldBeThrown()
+        public void GivenAnExportByResourceTypeRequest_WhenResourceTypeIsPatient_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
             Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceType(ResourceType.Patient.ToString()));
         }
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenAnExportByResourceTypeIdRequest_WhenResourceTypeIsGroup_ThenOperationsNotImplementedExceptionShouldBeThrown()
+        public void GivenAnExportByResourceTypeIdRequest_WhenResourceTypeIsGroup_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
            Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Group.ToString(), "id"));
         }
