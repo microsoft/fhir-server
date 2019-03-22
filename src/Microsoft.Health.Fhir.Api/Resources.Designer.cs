@@ -133,6 +133,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested operation is not implemented..
+        /// </summary>
+        public static string NotImplemented {
+            get {
+                return ResourceManager.GetString("NotImplemented", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to FHIR Server.
         /// </summary>
         public static string PageTitle {
@@ -223,7 +232,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested {0} operation is not supported..
+        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not supported..
         /// </summary>
         public static string UnsupportedOperation {
             get {

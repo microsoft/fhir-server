@@ -142,6 +142,9 @@
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
   </data>
+  <data name="NotImplemented" xml:space="preserve">
+    <value>The requested operation is not implemented.</value>
+  </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
     <comment>{NumberedPlaceHolder=”FHIR”}</comment>
@@ -175,7 +178,7 @@
     <comment>{0} is the header name.</comment>
   </data>
   <data name="UnsupportedOperation" xml:space="preserve">
-    <value>The requested {0} operation is not supported.</value>
+    <value>The requested "{0}" operation is not supported.</value>
     <comment>{0} is the operation name</comment>
   </data>
   <data name="UnsupportedResourceType" xml:space="preserve">

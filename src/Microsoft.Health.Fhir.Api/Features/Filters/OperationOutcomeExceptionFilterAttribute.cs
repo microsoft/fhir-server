@@ -97,6 +97,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case AuditException _:
                         fhirResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
+                    case OperationNotImplementedException _:
+                        fhirResult.StatusCode = HttpStatusCode.NotImplemented;
+                        break;
                 }
 
                 context.Result = fhirResult;

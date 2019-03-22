@@ -25,7 +25,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    [ValidateExportHeadersFilter]
     [Authorize(PolicyNames.FhirPolicy)]
     public class ExportController : Controller
     {
@@ -60,6 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.Export)]
+        [ValidateExportHeadersFilter]
         [AuditEventType(AuditEventSubType.Export)]
         public IActionResult Export()
         {
@@ -68,6 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceType)]
+        [ValidateExportHeadersFilter]
         [AuditEventType(AuditEventSubType.Export)]
         public IActionResult ExportResourceType(string type)
         {
@@ -82,6 +83,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceTypeById)]
+        [ValidateExportHeadersFilter]
         [AuditEventType(AuditEventSubType.Export)]
         public IActionResult ExportResourceTypeById(string type, string id)
         {
@@ -105,32 +107,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, "Export"));
             }
 
-            OperationOutcome result = GenerateOperationOutcome(
-                OperationOutcome.IssueSeverity.Error,
-                OperationOutcome.IssueType.NotSupported,
-                Resources.NotFoundException);
-
-            return FhirResult.Create(result, HttpStatusCode.NotImplemented);
-        }
-
-        private OperationOutcome GenerateOperationOutcome(
-            OperationOutcome.IssueSeverity issueSeverity,
-            OperationOutcome.IssueType issueType,
-            string diagnosticInfo)
-        {
-            return new OperationOutcome()
-            {
-                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                Issue = new List<OperationOutcome.IssueComponent>
-                {
-                    new OperationOutcome.IssueComponent
-                    {
-                        Severity = issueSeverity,
-                        Code = issueType,
-                        Diagnostics = diagnosticInfo,
-                    },
-                },
-            };
+            throw new OperationNotImplementedException(Resources.NotImplemented);
         }
     }
 }
