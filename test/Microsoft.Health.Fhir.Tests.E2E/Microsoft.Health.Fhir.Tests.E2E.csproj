@@ -26,7 +26,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="2.2.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.9.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.0.1" />
     <PackageReference Include="selenium.chrome.webdriver" Version="2.45.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.1-beta.61" />
