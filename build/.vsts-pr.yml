@@ -4,16 +4,19 @@
 # https://docs.microsoft.com/vsts/pipelines/languages/dotnet-core
 
 name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+variables:
+  buildConfiguration: 'Release'
+jobs:
+- job: Windows
+  pool:
+    vmImage: 'vs2017-win2016'
+  steps:
+  - template: build.yml
 
-phases:
-- template: build.yml
-  parameters:
-    name: Windows
-    queue: 'Hosted VS2017'
-    packageArtifacts: true
-
-- template: build.yml
-  parameters:
-    name: Linux
-    queue: 'Hosted Ubuntu 1604'
-    packageArtifacts: false
+- job: Linux
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - template: build.yml
+    parameters:
+      packageArtifacts: false
