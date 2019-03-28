@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Export
 {
@@ -23,12 +25,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             CommittedBytes = committedBytes;
         }
 
+        [JsonConstructor]
+        public ExportJobOutputComponent()
+        {
+        }
+
+        [JsonProperty(JobRecordProperties.Type)]
         public string Type { get; }
 
+        [JsonProperty(JobRecordProperties.Sequence)]
         public int Sequence { get; }
 
+        [JsonProperty(JobRecordProperties.Count)]
         public int Count { get; }
 
+        [JsonProperty(JobRecordProperties.CommitedBytes)]
         public long CommittedBytes { get; }
     }
 }

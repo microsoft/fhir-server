@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -13,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Messages.Export;
 
 namespace Microsoft.Health.Fhir.Core.Features.Export
 {
-    public class ExportRequestHandler : IRequestHandler<ExportRequest, ExportResponse>
+    public class ExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
         private IDataStore _dataStore;
 
@@ -24,17 +23,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             _dataStore = dataStore;
         }
 
-        public async Task<ExportResponse> Handle(ExportRequest request, CancellationToken cancellationToken)
+        public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var jobRecord = new ExportJobRecord(request);
-            jobRecord.Output.AddError(new ExportJobOutputComponent("error", 1, 1, 12345));
-            jobRecord.Output.AddResult(new ExportJobOutputComponent("Patient", 2, 100, 13452345));
+            var jobRecord = new ExportJobRecord(request, 1);
+            var jobCreationResult = await _dataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
 
-            var result = await _dataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
-
-            return new ExportResponse(jobRecord.Id, result);
+            return new CreateExportResponse(jobRecord.Id, jobCreationResult);
         }
     }
 }

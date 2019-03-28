@@ -4,42 +4,22 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Export
 {
     public class ExportJobOutput
     {
+        [JsonConstructor]
         public ExportJobOutput()
-            : this(new List<ExportJobOutputComponent>(), new List<ExportJobOutputComponent>())
         {
         }
 
-        public ExportJobOutput(List<ExportJobOutputComponent> errors, List<ExportJobOutputComponent> results)
-        {
-            EnsureArg.IsNotNull(errors, nameof(errors));
-            EnsureArg.IsNotNull(results, nameof(results));
+        [JsonProperty(JobRecordProperties.Error)]
+        public List<ExportJobOutputComponent> Errors { get; } = new List<ExportJobOutputComponent>();
 
-            Errors = errors;
-            Results = results;
-        }
-
-        public List<ExportJobOutputComponent> Errors { get; }
-
-        public List<ExportJobOutputComponent> Results { get; }
-
-        public void AddError(ExportJobOutputComponent error)
-        {
-            EnsureArg.IsNotNull(error, nameof(error));
-
-            Errors.Add(error);
-        }
-
-        public void AddResult(ExportJobOutputComponent result)
-        {
-            EnsureArg.IsNotNull(result, nameof(result));
-
-            Results.Add(result);
-        }
+        [JsonProperty(JobRecordProperties.Result)]
+        public List<ExportJobOutputComponent> Results { get; } = new List<ExportJobOutputComponent>();
     }
 }

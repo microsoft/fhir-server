@@ -3,11 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-#pragma warning disable CA1717 // Only FlagsAttribute enums should have plural names
-    public enum ExportJobStatus
-#pragma warning restore CA1717 // Only FlagsAttribute enums should have plural names
+    public enum OperationStatus
     {
         Cancelled,
         Completed,

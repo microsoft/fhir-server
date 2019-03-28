@@ -25,7 +25,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/id/$export")]
         public async Task WhenRequestingExportWithCorrectHeaders_GivenExportIsEnabled_TheServerShouldReturnNotImplemented(string path)
@@ -35,6 +34,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.NotImplemented, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task WhenRequestingExportWithCorrectHeaders_GivenExportIsEnabled_TheServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
+        {
+            string path = "$export";
+            HttpRequestMessage request = GenerateExportRequest(path);
+
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            var uri = response.Content.Headers.ContentLocation;
+            Assert.False(string.IsNullOrEmpty(uri.ToString()));
         }
 
         [Theory]

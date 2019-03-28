@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Export
 {
@@ -17,8 +19,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             Page = page;
         }
 
+        [JsonConstructor]
+        public ExportJobProgress()
+        {
+        }
+
+        [JsonProperty(JobRecordProperties.Query)]
         public string Query { get; }
 
+        [JsonProperty(JobRecordProperties.Page)]
         public int Page { get; }
     }
 }

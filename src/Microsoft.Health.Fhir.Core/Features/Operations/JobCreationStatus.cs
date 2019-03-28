@@ -3,21 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using EnsureThat;
-using MediatR;
-
-namespace Microsoft.Health.Fhir.Core.Messages.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public class ExportRequest : IRequest<ExportResponse>
+    public enum JobCreationStatus
     {
-        public ExportRequest(Uri requestUri)
-        {
-            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-
-            RequestUri = requestUri;
-        }
-
-        public Uri RequestUri { get; }
+        Created,
+        Failed,
+        Updated,
     }
 }

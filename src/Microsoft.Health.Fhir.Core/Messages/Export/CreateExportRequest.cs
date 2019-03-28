@@ -3,22 +3,23 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
+using MediatR;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
-    public class ExportResponse
+    public class CreateExportRequest : IRequest<CreateExportResponse>
     {
-        public ExportResponse(string id, bool exportJobQueued)
+        public CreateExportRequest(Uri requestUri)
         {
-            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            Id = id;
-            ExportJobQueued = exportJobQueued;
+            RequestUri = requestUri;
         }
 
-        public string Id { get; }
-
-        public bool ExportJobQueued { get; }
+        [JsonProperty("requestUri")]
+        public Uri RequestUri { get; }
     }
 }

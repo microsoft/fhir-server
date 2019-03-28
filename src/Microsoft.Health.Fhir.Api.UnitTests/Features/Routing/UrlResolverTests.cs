@@ -13,7 +13,9 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using NSubstitute;
 using Xunit;
 
@@ -233,6 +235,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             };
 
             TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, continuationToken, expectedRouteValues);
+        }
+
+        [Fact]
+        public void GivenAnExportOperation_WhenOperationResultUrlIsResolved_ThenCorrectUrlShouldBeReturned()
+        {
+            const string id = "12345";
+            const string opName = OperationsConstants.Export;
+
+            _urlResolver.ResolveOperationResultUrl(opName, id);
+
+            ValidateUrlRouteContext(
+                RouteNames.GetExportStatusById,
+                routeValues =>
+                {
+                    Assert.Equal(id, routeValues["id"]);
+                });
+        }
+
+        [Fact]
+        public void GivenANonExportOperation_WhenOperationResultUrlIsResolved_ThenOperationNotImplementedExceptionShouldBeThrown()
+        {
+            const string id = "12345";
+            const string opName = "import";
+
+            Assert.Throws<OperationNotImplementedException>(() => _urlResolver.ResolveOperationResultUrl(opName, id));
         }
 
         private void TestAndValidateRouteWithQueryParameter(

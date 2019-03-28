@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
@@ -18,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
     public class InMemoryDataStore : IDataStore
     {
         private static readonly Dictionary<string, List<ResourceWrapper>> List = new Dictionary<string, List<ResourceWrapper>>();
+        private static readonly Dictionary<string, ExportJobRecord> ExportJobData = new Dictionary<string, ExportJobRecord>();
 
         public Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
@@ -108,9 +110,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return $"{resourceType}_{resourceId}";
         }
 
-        public Task<bool> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
+        public Task<JobCreationStatus> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            EnsureArg.IsNotNull(jobRecord);
+
+            if (ExportJobData.ContainsKey(jobRecord.Id))
+            {
+                ExportJobData[jobRecord.Id] = jobRecord;
+                return Task.FromResult(JobCreationStatus.Updated);
+            }
+
+            ExportJobData.Add(jobRecord.Id, jobRecord);
+            return Task.FromResult(JobCreationStatus.Created);
         }
     }
 }
