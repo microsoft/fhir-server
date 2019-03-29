@@ -133,11 +133,11 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested operation is not implemented..
+        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not implemented..
         /// </summary>
-        public static string NotImplemented {
+        public static string OperationNotImplemented {
             get {
-                return ResourceManager.GetString("NotImplemented", resourceCulture);
+                return ResourceManager.GetString("OperationNotImplemented", resourceCulture);
             }
         }
         
@@ -223,11 +223,11 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;{0}&quot; header is not supported..
+        ///   Looks up a localized string similar to Value supplied for the &quot;{0}&quot; header is not supported..
         /// </summary>
-        public static string UnsupportedHeader {
+        public static string UnsupportedHeaderValue {
             get {
-                return ResourceManager.GetString("UnsupportedHeader", resourceCulture);
+                return ResourceManager.GetString("UnsupportedHeaderValue", resourceCulture);
             }
         }
         

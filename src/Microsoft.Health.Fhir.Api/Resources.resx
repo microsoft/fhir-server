@@ -142,8 +142,9 @@
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
   </data>
-  <data name="NotImplemented" xml:space="preserve">
-    <value>The requested operation is not implemented.</value>
+  <data name="OperationNotImplemented" xml:space="preserve">
+    <value>The requested "{0}" operation is not implemented.</value>
+    <comment>{0} is the operation name</comment>
   </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
@@ -173,8 +174,8 @@
   <data name="UnsupportedFormatParameter" xml:space="preserve">
     <value>The requested "_format" parameter is not supported.</value>
   </data>
-  <data name="UnsupportedHeader" xml:space="preserve">
-    <value>The requested "{0}" header is not supported.</value>
+  <data name="UnsupportedHeaderValue" xml:space="preserve">
+    <value>Value supplied for the "{0}" header is not supported.</value>
     <comment>{0} is the header name.</comment>
   </data>
   <data name="UnsupportedOperation" xml:space="preserve">

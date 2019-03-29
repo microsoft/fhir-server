@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 
                     if (!isAcceptHeaderValid)
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeader, HeaderNames.Accept));
+                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
                     }
                 }
             }

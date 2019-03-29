@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
-using System.Collections.Generic;
-using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Authorization;
@@ -107,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, "Export"));
             }
 
-            throw new OperationNotImplementedException(Resources.NotImplemented);
+            throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, "Export"));
         }
     }
 }

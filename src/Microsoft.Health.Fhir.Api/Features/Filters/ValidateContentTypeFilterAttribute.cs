@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             case RouteNames.SearchAllResourcesPost:
                                 break;
                             default:
-                                throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeader, HeaderNames.ContentType));
+                                throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
                         }
                     }
                 }
