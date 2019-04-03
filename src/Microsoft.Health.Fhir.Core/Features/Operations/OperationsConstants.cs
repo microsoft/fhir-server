@@ -10,5 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string Operations = "_operations";
 
         public const string Export = "export";
+
+        public const string ExportJobPartitionKey = "ExportJob";
     }
 }

@@ -3,10 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -23,6 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken));
 
-        Task<JobCreationStatus> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default);
+        Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default);
+
+        Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken = default);
     }
 }

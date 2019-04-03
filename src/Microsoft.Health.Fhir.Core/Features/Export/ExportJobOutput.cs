@@ -17,9 +17,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         }
 
         [JsonProperty(JobRecordProperties.Error)]
-        public List<ExportJobOutputComponent> Errors { get; } = new List<ExportJobOutputComponent>();
+        public List<ExportFileInfo> Errors { get; } = new List<ExportFileInfo>();
 
         [JsonProperty(JobRecordProperties.Result)]
-        public List<ExportJobOutputComponent> Results { get; } = new List<ExportJobOutputComponent>();
+        public List<ExportFileInfo> Results { get; } = new List<ExportFileInfo>();
     }
 }

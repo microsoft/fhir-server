@@ -3,22 +3,25 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
-    public class CreateExportResponse
+    public class GetExportResponse
     {
-        public CreateExportResponse(string id, bool jobCreated)
+        public GetExportResponse(bool jobExists)
+            : this(jobExists, OperationStatus.Unknown)
         {
-            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
-
-            Id = id;
-            JobCreated = jobCreated;
         }
 
-        public string Id { get; }
+        public GetExportResponse(bool jobExists, OperationStatus jobStatus)
+        {
+            JobExists = jobExists;
+            JobStatus = jobStatus;
+        }
 
-        public bool JobCreated { get; }
+        public bool JobExists { get; }
+
+        public OperationStatus JobStatus { get; }
     }
 }

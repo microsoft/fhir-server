@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         public DateTimeOffset QueuedTime { get; }
 
         [JsonProperty(JobRecordProperties.PartitonKey)]
-        public string PartitionKey { get; } = "ExportJob";
+        public string PartitionKey { get; } = OperationsConstants.ExportJobPartitionKey;
 
         [JsonProperty(JobRecordProperties.JobSchemaVersion)]
         public int JobSchemaVersion { get; }

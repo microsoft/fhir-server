@@ -12,5 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Failed,
         Queued,
         Running,
+        Unknown,
     }
 }

@@ -36,20 +36,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAnExportRequest_WhenRequestFails_ThenInternalServerErrorShouldBeReturned()
-        {
-            IFhirRequestContextAccessor fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            fhirRequestContextAccessor.FhirRequestContext.Uri.Returns(new System.Uri("uri string"));
-
-            IMediator mediator = Substitute.For<IMediator>();
-
-            // mediator.ExportAsync().Returns
-
-            // var exportController = GetController(new Ex)
-            await Assert.ThrowsAsync<OperationNotImplementedException>(() => _exportEnabledController.Export());
-        }
-
-        [Fact]
         public void GivenAnExportByResourceTypeRequest_WhenResourceTypeIsNotPatient_ThenRequestNotValidExceptionShouldBeThrown()
         {
             Assert.Throws<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(ResourceType.Observation.ToString()));

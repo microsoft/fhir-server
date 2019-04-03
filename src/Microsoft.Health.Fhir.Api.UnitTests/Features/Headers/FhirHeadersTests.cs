@@ -8,6 +8,7 @@ using System.Globalization;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Net.Http.Headers;
@@ -95,6 +96,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var fhirResult = FhirResult.Create(_mockResource).SetETagHeader(WeakETag.FromVersionId("etag"));
 
             Assert.Equal("W/\"etag\"", fhirResult.Headers[HeaderNames.ETag]);
+        }
+
+        [Fact]
+        public void WhenSettingAContentLocationHeader_ThenFhirResultHasAContentLocationHeader()
+        {
+            string opName = OperationsConstants.Export;
+            string id = Guid.NewGuid().ToString();
+            var operationResultUrl = new Uri($"http://localhost/{OperationsConstants.Operations}/{opName}/{id}");
+
+            var urlResolver = Substitute.For<IUrlResolver>();
+            urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(operationResultUrl);
+
+            var fhirResult = new FhirResult().SetContentLocationHeader(urlResolver, opName, id);
+
+            Assert.Equal(operationResultUrl.AbsoluteUri, fhirResult.Headers[HeaderNames.ContentLocation]);
         }
     }
 }

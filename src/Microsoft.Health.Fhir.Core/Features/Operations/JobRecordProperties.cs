@@ -50,6 +50,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Type = "type";
 
+        public const string FileUri = "fileUri";
+
         public const string Sequence = "sequence";
 
         public const string Count = "count";

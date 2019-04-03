@@ -3,22 +3,25 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
+using MediatR;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
-    public class CreateExportResponse
+    public class GetExportRequest : IRequest<GetExportResponse>
     {
-        public CreateExportResponse(string id, bool jobCreated)
+        public GetExportRequest(Uri requestUri, string jobId)
         {
-            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
+            EnsureArg.IsNotNullOrEmpty(jobId, nameof(jobId));
 
-            Id = id;
-            JobCreated = jobCreated;
+            RequestUri = requestUri;
+            JobId = jobId;
         }
 
-        public string Id { get; }
+        public Uri RequestUri { get; }
 
-        public bool JobCreated { get; }
+        public string JobId { get; }
     }
 }

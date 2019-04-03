@@ -86,14 +86,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri);
 
             HttpStatusCode responseCode;
-            if (response.JobStatus.Equals(JobCreationStatus.Failed))
+            if (response.JobCreated)
             {
-                responseCode = HttpStatusCode.InternalServerError;
-                throw new MicrosoftHealthException(Resources.GeneralInternalError);
+                responseCode = HttpStatusCode.Accepted;
             }
             else
             {
-                responseCode = HttpStatusCode.Accepted;
+                responseCode = HttpStatusCode.InternalServerError;
+                throw new MicrosoftHealthException(Resources.GeneralInternalError);
             }
 
             var fhirResult = new FhirResult()
@@ -137,9 +137,31 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ExportStatusById, Name = RouteNames.GetExportStatusById)]
-        public IActionResult GetExportStatusById(string id)
+        public async Task<IActionResult> GetExportStatusById(string id)
         {
-            throw new NotImplementedException();
+            var result = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, id);
+
+            if (!result.JobExists)
+            {
+                throw new ResourceNotFoundException(Resources.NotFoundException);
+            }
+
+            HttpStatusCode responseCode;
+            if (result.JobStatus.Equals(OperationStatus.Completed))
+            {
+                responseCode = HttpStatusCode.OK;
+            }
+            else
+            {
+                responseCode = HttpStatusCode.Accepted;
+            }
+
+            var fhirResult = new FhirResult()
+            {
+                StatusCode = responseCode,
+            };
+
+            return fhirResult;
         }
 
         /// <summary>

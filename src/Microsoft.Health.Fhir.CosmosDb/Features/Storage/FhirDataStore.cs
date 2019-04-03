@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<JobCreationStatus> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
+        public async Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
@@ -224,19 +224,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 disableAutomaticIdGeneration: true,
                 cancellationToken: cancellationToken);
 
-            return GetJobCreationStatus(result.StatusCode);
+            return result.StatusCode;
         }
 
-        private JobCreationStatus GetJobCreationStatus(HttpStatusCode httpStatus)
+        public async Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken = default)
         {
-            switch (httpStatus)
+            EnsureArg.IsNotNullOrEmpty(jobId);
+
+            try
             {
-                case HttpStatusCode.Created:
-                    return JobCreationStatus.Created;
-                case HttpStatusCode.OK:
-                    return JobCreationStatus.Updated;
-                default:
-                    return JobCreationStatus.Failed;
+                return await _documentClient.ReadDocumentAsync<ExportJobRecord>(
+                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, jobId),
+                    new RequestOptions { PartitionKey = new PartitionKey(OperationsConstants.ExportJobPartitionKey) },
+                    cancellationToken);
+            }
+            catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
             }
         }
 

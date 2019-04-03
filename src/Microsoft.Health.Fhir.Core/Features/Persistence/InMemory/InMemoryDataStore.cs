@@ -6,12 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
@@ -110,18 +110,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return $"{resourceType}_{resourceId}";
         }
 
-        public Task<JobCreationStatus> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
+        public Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(jobRecord);
 
             if (ExportJobData.ContainsKey(jobRecord.Id))
             {
                 ExportJobData[jobRecord.Id] = jobRecord;
-                return Task.FromResult(JobCreationStatus.Updated);
+                return Task.FromResult(HttpStatusCode.OK);
             }
 
             ExportJobData.Add(jobRecord.Id, jobRecord);
-            return Task.FromResult(JobCreationStatus.Created);
+            return Task.FromResult(HttpStatusCode.Created);
+        }
+
+        public Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNullOrEmpty(jobId);
+
+            ExportJobRecord jobRecord = null;
+            ExportJobData.TryGetValue(jobId, out jobRecord);
+
+            return Task.FromResult(jobRecord);
         }
     }
 }

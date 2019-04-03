@@ -12,25 +12,34 @@ using Microsoft.Health.Fhir.Core.Messages.Export;
 
 namespace Microsoft.Health.Fhir.Core.Features.Export
 {
-    public class ExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
+    public class GetExportRequestHandler : IRequestHandler<GetExportRequest, GetExportResponse>
     {
         private IDataStore _dataStore;
 
-        public ExportRequestHandler(IDataStore dataStore)
+        public GetExportRequestHandler(IDataStore dataStore)
         {
             EnsureArg.IsNotNull(dataStore, nameof(dataStore));
 
             _dataStore = dataStore;
         }
 
-        public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
+        public async Task<GetExportResponse> Handle(GetExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var jobRecord = new ExportJobRecord(request, 1);
-            var jobCreationResult = await _dataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
+            var result = await _dataStore.GetExportJobAsync(request.JobId);
 
-            return new CreateExportResponse(jobRecord.Id, jobCreationResult);
+            GetExportResponse exportResponse;
+            if (result == null)
+            {
+                exportResponse = new GetExportResponse(false);
+            }
+            else
+            {
+                exportResponse = new GetExportResponse(true, result.JobStatus);
+            }
+
+            return exportResponse;
         }
     }
 }
