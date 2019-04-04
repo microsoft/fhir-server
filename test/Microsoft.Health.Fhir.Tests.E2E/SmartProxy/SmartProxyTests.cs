@@ -113,7 +113,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
                 // We need to add some delay before we enter the password to avoid
                 // clicking the button before the whole text is entered.
-                Thread.Sleep(TimeSpan.FromMilliseconds(1000));
+              WebDriverWait wait = new WebDriverWait(driver, 5);
+              wait.until(ExpectedConditions.visibilityOfElementLocated(By.Name("passwd")));
 
                 driver.FindElementByName("passwd").SendKeys(testUserPassword);
                 Advance();
