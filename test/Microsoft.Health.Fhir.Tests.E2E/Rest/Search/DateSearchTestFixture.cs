@@ -15,19 +15,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public DateSearchTestFixture()
             : base()
         {
-            FhirClient.DeleteAllResources(ResourceType.Patient).Wait();
+            FhirClient.DeleteAllResources(ResourceType.Observation).Wait();
 
-            Patients = FhirClient.CreateResourcesAsync<Patient>(
-                p => p.BirthDate = "1979-12-31",                // 1979-12-31T00:00:00.0000000 <-> 1979-12-31T23:59:59.9999999
-                p => p.BirthDate = "1980",                      // 1980-01-01T00:00:00.0000000 <-> 1980-12-31T23:59:59.9999999
-                p => p.BirthDate = "1980-05",                   // 1980-05-01T00:00:00.0000000 <-> 1980-05-31T23:59:59.9999999
-                p => p.BirthDate = "1980-05-11",                // 1980-05-11T00:00:00.0000000 <-> 1980-05-11T23:59:59.9999999
-                p => p.BirthDate = "1980-05-11T16:32",          // 1980-05-11T16:32:00.0000000 <-> 1980-05-11T16:32:59.9999999
-                p => p.BirthDate = "1980-05-11T16:32:15",       // 1980-05-11T16:32:15.0000000 <-> 1980-05-11T16:32:15.9999999
-                p => p.BirthDate = "1980-05-11T16:32:15.500",   // 1980-05-11T16:32:15.5000000 <-> 1980-05-11T16:32:15.5000000
-                p => p.BirthDate = "1981-01-01").Result;        // 1981-01-01T00:00:00.0000000 <-> 1981-12-31T23:59:59.9999999
+            Observations = FhirClient.CreateResourcesAsync<Observation>(
+                () => new Observation
+                {
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept
+                    {
+                        Coding = new List<Coding>
+                        {
+                            new Coding
+                            {
+                                Code = "260385009",
+                                System = "http://snomed.info/sct",
+                            },
+                        },
+                    },
+                },
+                p => p.Effective = new FhirDateTime("1979-12-31"),                // 1979-12-31T00:00:00.0000000 <-> 1979-12-31T23:59:59.9999999
+                p => p.Effective = new FhirDateTime("1980"),                      // 1980-01-01T00:00:00.0000000 <-> 1980-12-31T23:59:59.9999999
+                p => p.Effective = new FhirDateTime("1980-05"),                   // 1980-05-01T00:00:00.0000000 <-> 1980-05-31T23:59:59.9999999
+                p => p.Effective = new FhirDateTime("1980-05-11"),                // 1980-05-11T00:00:00.0000000 <-> 1980-05-11T23:59:59.9999999
+                p => p.Effective = new FhirDateTime("1980-05-11T16:32:15"),       // 1980-05-11T16:32:15.0000000 <-> 1980-05-11T16:32:15.9999999
+                p => p.Effective = new FhirDateTime("1980-05-11T16:32:15.500"),   // 1980-05-11T16:32:15.5000000 <-> 1980-05-11T16:32:15.5000000
+                p => p.Effective = new FhirDateTime("1981-01-01")).Result;        // 1981-01-01T00:00:00.0000000 <-> 1981-12-31T23:59:59.9999999
         }
 
-        public IReadOnlyList<Patient> Patients { get; }
+        public IReadOnlyList<Observation> Observations { get; }
     }
 }
