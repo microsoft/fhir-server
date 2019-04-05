@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
         private static IWebElement WaitForAndReturnElement(IWebDriver driver, string elementName, TimeSpan timeout, bool findElementById)
         {
-            // We poll every 100ms to check whether the requested element is available or not.
+            // We poll every 100ms to check whether the requested element is available and enabled.
             // If the element is still not available after "timeout" seconds, we throw a TimeoutException
             var driverWait = new WebDriverWait(driver, timeout)
             {
@@ -162,11 +162,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             IWebElement element;
             if (findElementById)
             {
-                element = driverWait.Until(d => d.FindElement(By.Id(elementName)));
+                driverWait.Until(d => d.FindElement(By.Id(elementName)).Enabled);
+                element = driver.FindElement(By.Id(elementName));
             }
             else
             {
-                element = driverWait.Until(d => d.FindElement(By.Name(elementName)));
+                driverWait.Until(d => d.FindElement(By.Name(elementName)).Enabled);
+                element = driver.FindElement(By.Name(elementName));
             }
 
             return element;
