@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Newtonsoft.Json.Linq;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Support.UI;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -111,12 +112,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 driver.FindElementByName("loginfmt").SendKeys(testUserName);
                 Advance();
 
-                // We need to add some delay before we enter the password to avoid
-                // clicking the button before the whole text is entered.
-              WebDriverWait wait = new WebDriverWait(driver, 5);
-              wait.until(ExpectedConditions.visibilityOfElementLocated(By.Name("passwd")));
+                // We want to make sure the passwd element is available before we try to access it.
+                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+                IWebElement passwdElement = wait.Until(d => d.FindElement(By.Name("passwd")));
 
-                driver.FindElementByName("passwd").SendKeys(testUserPassword);
+                passwdElement.SendKeys(testUserPassword);
                 Advance();
 
                 // Consent, should only be done if we can find the button
