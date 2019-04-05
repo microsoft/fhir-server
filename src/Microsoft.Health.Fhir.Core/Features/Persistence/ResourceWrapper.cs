@@ -6,8 +6,8 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     public class ResourceWrapper
     {
         public ResourceWrapper(
-            Resource resource,
+            ResourceElement resource,
             RawResource rawResource,
             ResourceRequest request,
             bool deleted,
@@ -25,10 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
            : this(
                  IsNotNull(resource).Id,
                  resource.VersionId,
-                 resource.TypeName,
+                 resource.InstanceType,
                  rawResource,
                  request,
-                 resource.Meta?.LastUpdated ?? Clock.UtcNow,
+                 resource.LastUpdated ?? Clock.UtcNow,
                  deleted,
                  searchIndices,
                  compartmentIndices,
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(ResourceTypeName, ResourceId, Version);
         }
 
-        private static Resource IsNotNull(Resource resource)
+        private static ResourceElement IsNotNull(ResourceElement resource)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 

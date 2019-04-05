@@ -7,8 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             string method,
             string uriString,
             string baseUriString,
-            Coding requestType,
+            ResourceElement requestType,
             string correlationId,
             IDictionary<string, StringValues> requestHeaders,
             IDictionary<string, StringValues> responseHeaders)
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public string CorrelationId { get; }
 
-        public Coding RequestType { get; }
+        public ResourceElement RequestType { get; }
 
         public string RouteName { get; set; }
 

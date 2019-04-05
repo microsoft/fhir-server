@@ -6,8 +6,8 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -20,11 +20,13 @@ using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Security;
-using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -46,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            var jsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
+            var jsonParser = new FhirJsonParser();
             var jsonSerializer = new FhirJsonSerializer();
 
             var xmlParser = new FhirXmlParser();
@@ -57,12 +59,28 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(xmlParser);
             services.AddSingleton(xmlSerializer);
 
-            services.AddSingleton<IReadOnlyDictionary<ResourceFormat, Func<string, Resource>>>(x =>
+            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(x =>
             {
-                return new Dictionary<ResourceFormat, Func<string, Resource>>
+                return new Dictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>
                 {
-                    { ResourceFormat.Json, str => jsonParser.Parse<Resource>(str) },
-                    { ResourceFormat.Xml, str => xmlParser.Parse<Resource>(str) },
+                    {
+                        FhirResourceFormat.Json, (str, version, lastModified) =>
+                        {
+                            var resource = jsonParser.Parse<Resource>(str);
+                            resource.VersionId = version;
+                            resource.Meta.LastUpdated = lastModified;
+                            return resource.ToTypedElement().ToResourceElement();
+                        }
+                    },
+                    {
+                        FhirResourceFormat.Xml, (str, version, lastModified) =>
+                        {
+                            var resource = xmlParser.Parse<Resource>(str);
+                            resource.VersionId = version;
+                            resource.Meta.LastUpdated = lastModified;
+                            return resource.ToTypedElement().ToResourceElement();
+                        }
+                    },
                 };
             });
 
@@ -144,6 +162,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IProvideCapability>();
 
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
+
+            var stu3ModelFactory = new Stu3ModelFactory();
+            services.Add(c => stu3ModelFactory).Singleton().AsSelf().AsImplementedInterfaces();
+            ModelFactory.SetModelFactory(stu3ModelFactory);
 
             // Register a factory to resolve a scope that returns all components that provide capabilities
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();

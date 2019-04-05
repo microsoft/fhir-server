@@ -4,19 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Get
 {
     public class GetSystemCapabilitiesResponse
     {
-        public GetSystemCapabilitiesResponse(CapabilityStatement capabilityStatement)
+        public GetSystemCapabilitiesResponse(ResourceElement capabilityStatement)
         {
             EnsureArg.IsNotNull(capabilityStatement, nameof(capabilityStatement));
 
             CapabilityStatement = capabilityStatement;
         }
 
-        public CapabilityStatement CapabilityStatement { get; }
+        public ResourceElement CapabilityStatement { get; }
     }
 }

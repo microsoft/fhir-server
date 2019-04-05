@@ -5,6 +5,7 @@
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using NSubstitute;
@@ -22,6 +23,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
         public ReferenceSearchValueParserTests()
         {
+            ModelExtensions.SetModelFactory();
+
             _fhirRequestContextAccessor.FhirRequestContext.BaseUri.Returns(BaseUri);
 
             _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor);
@@ -55,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
             Assert.NotNull(value);
             Assert.Equal(baseUri == null ? null : new Uri(baseUri), value.BaseUri);
-            Assert.Equal(resourceType, value.ResourceType);
+            Assert.Equal(resourceType.ToString(), value.ResourceType ?? string.Empty);
             Assert.Equal(resourceId, value.ResourceId);
         }
     }

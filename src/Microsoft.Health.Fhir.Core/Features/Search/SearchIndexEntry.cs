@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="searchParameter">The search parameter</param>
         /// <param name="value">The searchable value.</param>
-        public SearchIndexEntry(SearchParameter searchParameter, ISearchValue value)
+        public SearchIndexEntry(SearchParameterInfo searchParameter, ISearchValue value)
         {
             EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
             EnsureArg.IsNotNull(value, nameof(value));
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the search parameter
         /// </summary>
-        public SearchParameter SearchParameter { get; }
+        public SearchParameterInfo SearchParameter { get; }
 
         /// <summary>
         /// Gets the searchable value.

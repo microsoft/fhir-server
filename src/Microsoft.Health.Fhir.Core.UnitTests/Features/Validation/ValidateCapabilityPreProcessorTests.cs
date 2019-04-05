@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -24,6 +25,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
         public ValidateCapabilityPreProcessorTests()
         {
+            ModelExtensions.SetModelFactory();
+
             var statement = CapabilityStatementMock.GetMockedCapabilityStatement();
             CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, new[] { CapabilityStatement.TypeRestfulInteraction.Read });
 

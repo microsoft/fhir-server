@@ -3,11 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.ValueSets;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
 {
@@ -46,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 method: request.Method,
                 uriString: uriInString,
                 baseUriString: baseUriInString,
-                requestType: ValueSets.AuditEventType.RestFulOperation,
+                requestType: new Coding(AuditEventType.System, AuditEventType.RestFulOperationCode).ToResourceElement(),
                 correlationId: correlationId,
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);

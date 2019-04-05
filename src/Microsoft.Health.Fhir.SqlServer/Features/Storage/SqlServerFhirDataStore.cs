@@ -14,12 +14,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.IO;
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, ResourceFormat.Json),
+                            new RawResource(rawResource, FhirResourceFormat.Json),
                             null,
                             new DateTimeOffset(lastModified, TimeSpan.Zero),
                             isDeleted,

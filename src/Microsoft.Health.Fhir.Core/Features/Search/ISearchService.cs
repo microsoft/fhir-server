@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Bundle"/> representing the result.</returns>
-        Task<Bundle> SearchAsync(
+        Task<ResourceElement> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken = default(CancellationToken));
@@ -38,8 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Bundle"/> representing the search result.</returns>
-        Task<Bundle> SearchCompartmentAsync(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, CancellationToken cancellationToken);
+        Task<ResourceElement> SearchCompartmentAsync(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, CancellationToken cancellationToken);
 
-        Task<Bundle> SearchHistoryAsync(string resourceType, string resourceId, PartialDateTime at, PartialDateTime since, int? count, string continuationToken, CancellationToken cancellationToken);
+        Task<ResourceElement> SearchHistoryAsync(string resourceType, string resourceId, PartialDateTime at, PartialDateTime since, int? count, string continuationToken, CancellationToken cancellationToken);
     }
 }

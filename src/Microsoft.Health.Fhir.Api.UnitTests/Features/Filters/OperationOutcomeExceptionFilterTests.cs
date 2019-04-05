@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
@@ -92,13 +93,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var reason = "This is a test reason.";
 
-            OperationOutcome operation = ValidateOperationOutcome(
-                Substitute.For<FhirException>(new OperationOutcome.IssueComponent
-                {
-                    Severity = OperationOutcome.IssueSeverity.Error,
-                    Code = OperationOutcome.IssueType.Invalid,
-                    Diagnostics = reason,
-                }),
+            var operation = ValidateOperationOutcome(
+                Substitute.For<FhirException>(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Invalid,
+                    reason)),
                 HttpStatusCode.BadRequest).Result;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
@@ -182,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(expectedStatusCode, result.StatusCode);
             Assert.Equal(_correlationId, result.Result.Id);
 
-            Assert.IsType<OperationOutcome>(result.Result);
+            Assert.IsType<OperationOutcomeResult>(result);
 
             return result;
         }

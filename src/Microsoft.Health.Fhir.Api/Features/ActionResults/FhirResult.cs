@@ -3,16 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Net;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
     /// Handles the output of a FHIR MVC Action Method
     /// </summary>
-    public class FhirResult : BaseActionResult<Resource>
+    public class FhirResult : BaseActionResult<ResourceElement>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirResult" /> class.
@@ -25,10 +31,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// Initializes a new instance of the <see cref="FhirResult" /> class.
         /// </summary>
         /// <param name="resource">The resource.</param>
-        public FhirResult(Resource resource)
+        public FhirResult(ResourceElement resource)
             : base(resource)
         {
-            EnsureArg.IsNotNull(resource, nameof(resource));
         }
 
         /// <summary>
@@ -36,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// </summary>
         /// <param name="resource">The resource.</param>
         /// <param name="statusCode">The status code.</param>
-        public static FhirResult Create(Resource resource, HttpStatusCode statusCode = HttpStatusCode.OK)
+        public static FhirResult Create(ResourceElement resource, HttpStatusCode statusCode = HttpStatusCode.OK)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -77,6 +82,37 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             {
                 StatusCode = HttpStatusCode.NoContent,
             };
+        }
+
+        /// <inheritdoc />
+        public override Task ExecuteResultAsync(ActionContext context)
+        {
+            EnsureArg.IsNotNull(context, nameof(context));
+
+            HttpResponse response = context.HttpContext.Response;
+
+            if (StatusCode.HasValue)
+            {
+                response.StatusCode = (int)StatusCode.Value;
+            }
+
+            foreach (KeyValuePair<string, StringValues> header in Headers)
+            {
+                response.Headers.Add(header);
+            }
+
+            ActionResult result;
+
+            if (Result == null)
+            {
+                result = new EmptyResult();
+            }
+            else
+            {
+                result = new ObjectResult(Result.ToPoco());
+            }
+
+            return result.ExecuteResultAsync(context);
         }
     }
 }

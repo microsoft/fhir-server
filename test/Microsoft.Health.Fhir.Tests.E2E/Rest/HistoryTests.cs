@@ -5,6 +5,7 @@
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Client = fixture.FhirClient;
 
-            _createdResource = Client.CreateAsync(Samples.GetDefaultObservation()).GetAwaiter().GetResult();
+            _createdResource = Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()).GetAwaiter().GetResult();
         }
 
         protected FhirClient Client { get; set; }

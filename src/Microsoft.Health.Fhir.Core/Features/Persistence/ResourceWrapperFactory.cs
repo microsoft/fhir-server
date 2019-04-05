@@ -5,10 +5,10 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         /// <inheritdoc />
-        public ResourceWrapper Create(Resource resource, bool deleted)
+        public ResourceWrapper Create(ResourceElement resource, bool deleted)
         {
             RawResource rawResource = _rawResourceFactory.Create(resource);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 new ResourceRequest(fhirRequestContext.Uri, fhirRequestContext.Method),
                 deleted,
                 searchIndices,
-                _compartmentIndexer.Extract(resource.ResourceType, searchIndices),
+                _compartmentIndexer.Extract(resource.InstanceType, searchIndices),
                 _claimsIndexer.Extract());
         }
     }

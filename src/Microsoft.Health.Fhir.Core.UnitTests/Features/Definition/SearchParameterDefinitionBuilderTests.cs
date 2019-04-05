@@ -8,6 +8,7 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -26,6 +27,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
         public SearchParameterDefinitionBuilderTests()
         {
+            ModelExtensions.SetModelFactory();
+
             _builderWithInvalidEntries = CreateBuilder("SearchParametersWithInvalidEntries");
             _builderWithInvalidDefinitions = CreateBuilder("SearchParametersWithInvalidDefinitions");
             _builderWithValidEntries = CreateBuilder("SearchParameters");
@@ -80,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             _builderWithValidEntries.Build();
 
-            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[ResourceType.Account];
+            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[ResourceType.Account.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -99,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             _builderWithValidEntries.Build();
 
-            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[resourceType];
+            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[resourceType.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -121,8 +124,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             InvalidDefinitionException ex = Assert.Throws<InvalidDefinitionException>(() => builder.Build());
 
             Assert.Contains(ex.Issues, issue =>
-                issue.Severity == IssueSeverity.Fatal &&
-                issue.Code == IssueType.Invalid &&
+                issue.Severity == IssueSeverity.Fatal.ToString() &&
+                issue.Code == IssueType.Invalid.ToString() &&
                 issue.Diagnostics.StartsWith(expectedIssue));
         }
 

@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 
@@ -36,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            Bundle bundle = await _searchService.SearchCompartmentAsync(message.CompartmentType, message.CompartmentId, message.ResourceType, message.Queries, cancellationToken);
+            var bundle = await _searchService.SearchCompartmentAsync(message.CompartmentType, message.CompartmentId, message.ResourceType, message.Queries, cancellationToken);
 
             Debug.Assert(bundle != null, "SearchService should not return null bundle.");
 

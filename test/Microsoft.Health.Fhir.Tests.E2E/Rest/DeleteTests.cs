@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenDeleting_ThenServerShouldDeleteSuccessfully()
         {
-            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation());
+            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             string resourceId = response.Resource.Id;
             string versionId = response.Resource.Meta.VersionId;
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             List<string> versionIds = new List<string>();
 
-            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation());
+            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             Observation observation = response.Resource;
             string resourceId = observation.Id;
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             List<string> versionIds = new List<string>();
 
-            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation());
+            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             Observation observation = response.Resource;
             string resourceId = observation.Id;

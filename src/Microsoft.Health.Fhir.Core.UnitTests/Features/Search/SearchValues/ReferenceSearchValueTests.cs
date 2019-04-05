@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         {
             _builder.ResourceType = null;
 
-            Assert.Throws<ArgumentNullException>(ParamNameResourceType, () => _builder.ToReferenceSearchValue());
+            Assert.Throws<ArgumentException>(ParamNameResourceType, () => _builder.ToReferenceSearchValue());
         }
 
         [Fact]
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
                 uri = new Uri(uriString);
             }
 
-            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, uri, resourceType, resourceId);
+            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, uri, resourceType.ToString(), resourceId);
 
             Assert.Equal(expected, value.ToString());
         }
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
             public ReferenceSearchValue ToReferenceSearchValue()
             {
-                return new ReferenceSearchValue(Kind, BaseUri, ResourceType, ResourceId);
+                return new ReferenceSearchValue(Kind, BaseUri, ResourceType.ToString(), ResourceId);
             }
         }
     }

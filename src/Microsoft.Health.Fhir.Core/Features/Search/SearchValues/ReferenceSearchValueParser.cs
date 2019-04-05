@@ -7,8 +7,8 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         private const string ResourceTypeCapture = "resourceType";
         private const string ResourceIdCapture = "resourceId";
         private static readonly string[] SupportedSchemes = new string[] { Uri.UriSchemeHttps, Uri.UriSchemeHttp };
-        private static readonly string ResourceTypesPattern = string.Join('|', Enum.GetNames(typeof(ResourceType)));
+        private static readonly string ResourceTypesPattern = string.Join('|', ModelFactory.GetResourceTypeNames());
         private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,64}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
         private static readonly Regex ReferenceRegex = new Regex(
@@ -46,7 +46,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             if (match.Success)
             {
                 string resourceTypeInString = match.Groups[ResourceTypeCapture].Value;
-                ResourceType resourceType = Enum.Parse<ResourceType>(resourceTypeInString);
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
 
@@ -58,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                     return new ReferenceSearchValue(
                         ReferenceKind.InternalOrExternal,
                         null,
-                        resourceType,
+                        resourceTypeInString,
                         resourceId);
                 }
 
@@ -74,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                         return new ReferenceSearchValue(
                             ReferenceKind.Internal,
                             null,
-                            resourceType,
+                            resourceTypeInString,
                             resourceId);
                     }
                     else if (baseUri.IsAbsoluteUri &&
@@ -84,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                         return new ReferenceSearchValue(
                             ReferenceKind.External,
                             baseUri,
-                            resourceType,
+                            resourceTypeInString,
                             resourceId);
                     }
                 }

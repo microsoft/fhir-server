@@ -4,8 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.FhirPath;
-using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
@@ -19,10 +17,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         }
 
         public string FhirPathPredicate { get; }
-
-        internal bool IsSatisfiedBy(CapabilityStatement statement)
-        {
-            return statement.Predicate(FhirPathPredicate);
-        }
     }
 }

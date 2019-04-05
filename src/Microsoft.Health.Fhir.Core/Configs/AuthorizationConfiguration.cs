@@ -5,9 +5,9 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -21,18 +21,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public void ValidateRoles()
         {
-            var issues = new List<OperationOutcome.IssueComponent>();
+            var issues = new List<OperationOutcomeIssue>();
 
             foreach (Role role in Roles)
             {
                 foreach (var validationError in role.Validate(new ValidationContext(role)))
                 {
-                    issues.Add(new OperationOutcome.IssueComponent
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Fatal,
-                        Code = OperationOutcome.IssueType.Invalid,
-                        Diagnostics = validationError.ErrorMessage,
-                    });
+                    issues.Add(new OperationOutcomeIssue(
+                            "Fatal",
+                            "Invalid",
+                            validationError.ErrorMessage));
                 }
             }
 
