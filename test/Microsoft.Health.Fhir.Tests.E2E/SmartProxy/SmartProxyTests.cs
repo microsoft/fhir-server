@@ -109,14 +109,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                     Assert.InRange(waitCount++, 0, 10);
                 }
 
-                driver.FindElementByName("loginfmt").SendKeys(testUserName);
+                IWebElement loginElement = WaitForAndReturnElement(driver, "loginfmt", TimeSpan.FromSeconds(5), false);
+                loginElement.SendKeys(testUserName);
                 Advance();
 
                 // We want to make sure the passwd element is available before we try to access it.
-                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
-                IWebElement passwdElement = wait.Until(d => d.FindElement(By.Name("passwd")));
-
-                passwdElement.SendKeys(testUserPassword);
+                IWebElement passwordElement = WaitForAndReturnElement(driver, "passwd", TimeSpan.FromSeconds(5), false);
+                passwordElement.SendKeys(testUserPassword);
                 Advance();
 
                 // Consent, should only be done if we can find the button
@@ -130,17 +129,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                     // Nothing to do, we are assuming that we are at the SMART App screen.
                 }
 
-                var tokenResponseElement = driver.FindElement(By.Id("tokenresponsefield"));
+                IWebElement tokenResponseElement = WaitForAndReturnElement(driver, "tokenresponsefield", TimeSpan.FromSeconds(10), true);
                 var tokenResponseText = tokenResponseElement.GetAttribute("value");
-
-                // It can take some time for the token to appear, we will wait
-                waitCount = 0;
-                while (string.IsNullOrWhiteSpace(tokenResponseText))
-                {
-                    Thread.Sleep(TimeSpan.FromMilliseconds(1000));
-                    tokenResponseText = tokenResponseElement.GetAttribute("value");
-                    Assert.InRange(waitCount++, 0, 10);
-                }
 
                 // Check the token response, should have right audience
                 var tokenResponse = JObject.Parse(tokenResponseElement.GetAttribute("value"));
@@ -157,6 +147,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 var patientResource = JObject.Parse(patientResponseElement.GetAttribute("value"));
                 Assert.Equal(patient.Id, patientResource["id"].ToString());
             }
+        }
+
+        private static IWebElement WaitForAndReturnElement(IWebDriver driver, string elementName, TimeSpan timeout, bool findElementById)
+        {
+            // We poll every 100ms to check whether the requested element is available or not.
+            // If the element is still not available after "timeout" seconds, we throw a TimeoutException
+            var driverWait = new WebDriverWait(driver, timeout)
+            {
+                PollingInterval = TimeSpan.FromMilliseconds(100),
+            };
+
+            // findElementById determines whether we search by Id or by Name.
+            IWebElement element;
+            if (findElementById)
+            {
+                element = driverWait.Until(d => d.FindElement(By.Id(elementName)));
+            }
+            else
+            {
+                element = driverWait.Until(d => d.FindElement(By.Name(elementName)));
+            }
+
+            return element;
         }
     }
 }
