@@ -62,17 +62,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, params Action<TResource>[] resourceCustomizer)
             where TResource : Resource, new()
         {
-            return await CreateResourcesAsync(client, () => new TResource(), resourceCustomizer);
-        }
-
-        public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, Func<TResource> setup, params Action<TResource>[] resourceCustomizer)
-            where TResource : Resource, new()
-        {
             TResource[] resources = new TResource[resourceCustomizer.Length];
 
             for (int i = 0; i < resources.Length; i++)
             {
-                TResource resource = setup();
+                TResource resource = new TResource();
 
                 resourceCustomizer[i](resource);
 
