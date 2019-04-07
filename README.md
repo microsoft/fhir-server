@@ -10,22 +10,25 @@ With data in the FHIR format, the FHIR Server for Azure enables developers to qu
 * Scripts and ARM templates are available for immediate provisioning in the Microsoft Cloud 
 * Scripts are available to map to Azure AAD and enable role-based access control (RBAC) 
 
-FHIR Server for Azure is built with logical separation, enabling developers with flexibility to modify how it is implemented, and extend its capabilities as needed. The logic layers of the FHIR server are: 
+FHIR Server for Azure is built with logical separation, enabling developers with flexibility to modify how it is implemented, and extend its capabilities as needed. The logic layers of the FHIR server are:
 
-* Hosting Layer – Supports hosting in different environments, with custom configuration of Inversion of Control (IoC) containers. 
-* RESTful API Layer – The implementation of the APIs defined by the HL7 FHIR specification. 
-* Core Logic Layer – The implementation of the core FHIR logic. 
-* Persistence Layer – A pluggable persistence provider enabling the FHIR server to connect to virtually any data persistence utility. FHIR Server for Azure includes a ready-to-use data persistence provider for Azure Cosmos DB (a globally replicated database service that offers rich querying over data). 
+* Hosting Layer – Supports hosting in different environments, with custom configuration of Inversion of Control (IoC) containers.
+* RESTful API Layer – The implementation of the APIs defined by the HL7 FHIR specification.
+* Core Logic Layer – The implementation of the core FHIR logic.
+* Persistence Layer – A pluggable persistence provider enabling the FHIR server to connect to virtually any data persistence utility. FHIR Server for Azure includes a ready-to-use data persistence provider for Azure Cosmos DB (a globally replicated database service that offers rich querying over data).
 
-FHIR Server for Azure empowers developers – saving time when they need to quickly integrate a FHIR server into their own applications or providing them with a foundation on which they can customize their own FHIR service. As an open source project, contributions and feedback from the FHIR developer community will continue to improve this project. 
+FHIR Server for Azure empowers developers – saving time when they need to quickly integrate a FHIR server into their own applications or providing them with a foundation on which they can customize their own FHIR service. As an open source project, contributions and feedback from the FHIR developer community will continue to improve this project.
 
 Privacy and security are top priorities and the FHIR Server for Azure has been developed in support of requirements for Protected Health Information (PHI). All the Azure services used in FHIR Server for Azure [meet the compliance requirements for Protected Health Information](https://www.microsoft.com/en-us/trustcenter/compliance/complianceofferings).
 
-This open source project is fully backed by the Microsoft Healthcare team, but we know that this project will only get better with your feedback and contributions. We are leading the development of this code base, and test builds and deployments daily. 
+This open source project is fully backed by the Microsoft Healthcare team, but we know that this project will only get better with your feedback and contributions. We are leading the development of this code base, and test builds and deployments daily.
+
+There is also a managed offering in Azure called the [Azure API for FHIR](https://azure.microsoft.com/services/azure-api-for-fhir/). This Platform as a Service (PaaS) FHIR server is backed by the open source project in this repository and it offers a turn key solution to provisioning a compliant, secure FHIR service.
 
 # Documentation
 
-- [Deployment](docs/DefaultDeployment.md): Describes how to deploy FHIR Server for Azure. 
+- [Open Source Deployment](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-oss-portal-quickstart): Describes how to deploy FHIR Server for Azure.
+- [PaaS Service Deployment](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-paas-portal-quickstart): Describes how to deploy the Azure API for FHIR.
 - [Azure Active Directory Application Registrations](docs/PortalAppRegistration.md): Describes how to configure Azure Active Directory (AAD) for use with FHIR Server for Azure.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
@@ -33,10 +36,11 @@ This open source project is fully backed by the Microsoft Healthcare team, but w
 - [Debugging](docs/HowToDebug.md): Describes how to debug FHIR Server for Azure using Visual Studio.
 - [Testing with Postman](docs/PostmanTesting.md): Describes how to use Postman for testing FHIR Server for Azure.
 
-## More Information 
+## More Information
 
-* [FHIR Server for Azure Demo by Michael Hansen, Senior Program Manager](https://github.com/hansenms/FhirDemo)
-* [Features](docs/Features.md): This document lists the main features of the FHIR Server for Azure.
+* [Azure API for FHIR documentation](https://docs.microsoft.com/azure/healthcare-apis/)
+* [FHIR Server Samples Repo](https://github.com/Microsoft/fhir-server-samples)
+* [Features](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-features-supported): This document lists the main features of the FHIR Server for Azure and Azure API for FHIR.
 * [Roadmap](docs/Roadmap.md): This document provides a list of features that are planned or in development.
 * Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/industry/health/fhir-server-for-azure-an-open-source-project-for-cloud-based-health-solutions/)
 * Twitter: [Health_IT](https://twitter.com/Health_IT)
