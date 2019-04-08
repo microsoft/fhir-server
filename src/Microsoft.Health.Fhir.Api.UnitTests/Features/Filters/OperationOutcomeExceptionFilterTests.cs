@@ -161,6 +161,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new OperationNotImplementedException("Not implemented."), HttpStatusCode.NotImplemented);
         }
 
+        [Fact]
+        public void GivenAJobNotFoundException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new JobNotFoundException("Job not found."), HttpStatusCode.NotFound);
+        }
+
         private FhirResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);

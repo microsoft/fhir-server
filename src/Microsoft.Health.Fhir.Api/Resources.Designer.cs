@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The request job &quot;{0}&quot; was not found..
+        /// </summary>
+        public static string JobNotFoundException {
+            get {
+                return ResourceManager.GetString("JobNotFoundException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to API.
         /// </summary>
         public static string MenuAPI {

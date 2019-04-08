@@ -76,5 +76,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             fhirResult.Headers.Add(HeaderNames.ContentLocation, url.ToString());
             return fhirResult;
         }
+
+        public static FhirResult SetContentTypeHeader(this FhirResult fhirResult, string contentTypeValue)
+        {
+            EnsureArg.IsNotNullOrEmpty(contentTypeValue);
+
+            fhirResult.Headers.Add(HeaderNames.ContentType, contentTypeValue);
+            return fhirResult;
+        }
     }
 }

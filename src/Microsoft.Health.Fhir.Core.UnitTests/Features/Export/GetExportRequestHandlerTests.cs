@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using NSubstitute;
@@ -20,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
     {
         private readonly IDataStore _dataStore;
         private readonly IMediator _mediator;
-        private readonly Uri _requestUri = new Uri("https://localhost/$export/");
+        private const string CreateRequestUrl = "https://localhost/$export/";
 
         public GetExportRequestHandlerTests()
         {
@@ -34,29 +36,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         }
 
         [Fact]
-        public async void GivenAFhirMediator_WhenGettingAnExistingExportJob_ThenResponseShouldBeSuccesful()
-        {
-            var exportRequest = new CreateExportRequest(_requestUri);
-            var jobRecord = new ExportJobRecord(exportRequest, 1);
-
-            _dataStore.GetExportJobAsync(Arg.Any<string>())
-                .Returns(x => jobRecord);
-
-            var outcome = await _mediator.GetExportStatusAsync(_requestUri, jobRecord.Id);
-
-            Assert.True(outcome.JobExists);
-        }
-
-        [Fact]
-        public async void GivenAFhirMediator_WhenGettingANonExistingExportJob_ThenResponseShouldBeSuccesful()
+        public async void GivenAFhirMediator_WhenGettingANonExistingExportJob_ThenHttpResponseShouldBeNotFound()
         {
             ExportJobRecord jobRecord = null;
             _dataStore.GetExportJobAsync(Arg.Any<string>())
                 .Returns(x => jobRecord);
 
-            var outcome = await _mediator.GetExportStatusAsync(_requestUri, "id");
+            var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), "id");
 
-            Assert.False(outcome.JobExists);
+            Assert.False(result.JobExists);
+            Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
+        }
+
+        [Fact]
+        public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
+        {
+            var jobRecord = new ExportJobRecord(new CreateExportRequest(new Uri(CreateRequestUrl)), 1);
+            jobRecord.JobStatus = OperationStatus.Completed;
+
+            _dataStore.GetExportJobAsync(Arg.Any<string>())
+                .Returns(x => jobRecord);
+
+            var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
+
+            Assert.True(result.JobExists);
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.NotNull(result.JobResult);
+        }
+
+        [Fact]
+        public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
+        {
+            var jobRecord = new ExportJobRecord(new CreateExportRequest(new Uri(CreateRequestUrl)), 1);
+            jobRecord.JobStatus = OperationStatus.Running;
+
+            _dataStore.GetExportJobAsync(Arg.Any<string>())
+                .Returns(x => jobRecord);
+
+            var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
+
+            Assert.True(result.JobExists);
+            Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
+            Assert.Null(result.JobResult);
         }
     }
 }

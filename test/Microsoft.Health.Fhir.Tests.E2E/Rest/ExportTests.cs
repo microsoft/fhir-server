@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Net.Http.Headers;
 using Xunit;
@@ -48,6 +49,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var uri = response.Content.Headers.ContentLocation;
             Assert.False(string.IsNullOrEmpty(uri.ToString()));
+        }
+
+        [Fact]
+        public async Task WhenRequestingExportStatus_GivenExportJobExists_TheServerShouldReturnAccepted()
+        {
+            // Sending an export request so that a job record will be created in the system.
+            string path = "$export";
+            HttpRequestMessage request = GenerateExportRequest(path);
+
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            var uri = response.Content.Headers.ContentLocation;
+            HttpRequestMessage getStatusRequest = new HttpRequestMessage()
+            {
+                Method = HttpMethod.Get,
+                RequestUri = uri,
+            };
+
+            var getStatusResponse = await _client.SendAsync(getStatusRequest);
+            Assert.Equal(HttpStatusCode.Accepted, getStatusResponse.StatusCode);
+        }
+
+        [Fact]
+        public async Task WhenRequestingExportStatus_GivenExportJobDoesNotExist_TheServerShouldReturnNotFound()
+        {
+            string getPath = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + Guid.NewGuid();
+            HttpRequestMessage getStatusRequest = new HttpRequestMessage()
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(_client.BaseAddress, getPath),
+            };
+
+            var getStatusResponse = await _client.SendAsync(getStatusRequest);
+            Assert.Equal(HttpStatusCode.NotFound, getStatusResponse.StatusCode);
         }
 
         [Theory]

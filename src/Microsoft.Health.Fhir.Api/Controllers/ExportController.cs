@@ -137,29 +137,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ExportStatusById, Name = RouteNames.GetExportStatusById)]
+        [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> GetExportStatusById(string id)
         {
-            var result = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, id);
+            var getExportResult = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, id);
 
-            if (!result.JobExists)
+            if (!getExportResult.JobExists)
             {
-                throw new ResourceNotFoundException(Resources.NotFoundException);
-            }
-
-            HttpStatusCode responseCode;
-            if (result.JobStatus.Equals(OperationStatus.Completed))
-            {
-                responseCode = HttpStatusCode.OK;
-            }
-            else
-            {
-                responseCode = HttpStatusCode.Accepted;
+                throw new JobNotFoundException(string.Format(Resources.JobNotFoundException, id));
             }
 
             var fhirResult = new FhirResult()
             {
-                StatusCode = responseCode,
+                StatusCode = getExportResult.StatusCode,
             };
+
+            if (fhirResult.StatusCode == HttpStatusCode.OK)
+            {
+                fhirResult.SetContentTypeHeader("application/json");
+            }
 
             return fhirResult;
         }

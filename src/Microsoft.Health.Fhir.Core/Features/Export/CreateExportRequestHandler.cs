@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // TODO: Later we will add some logic here that will check whether a duplucate job already exists
+            // TODO: Later we will add some logic here that will check whether a duplicate job already exists
             // and handle it accordingly. For now we just assume all export jobs are unique and create a new one.
 
             var jobRecord = new ExportJobRecord(request, 1);
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
 
             // Upsert returns http Created for new documents and http OK if it updated an existing document.
             // We expect the former in this scenario.
-            if (responseCode == System.Net.HttpStatusCode.Created)
+            if (responseCode == HttpStatusCode.Created)
             {
                 return new CreateExportResponse(jobRecord.Id, true);
             }

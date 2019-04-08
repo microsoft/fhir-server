@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         break;
                     case ResourceNotFoundException _:
+                    case JobNotFoundException _:
                         fhirResult.StatusCode = HttpStatusCode.NotFound;
                         break;
                     case MethodNotAllowedException _:

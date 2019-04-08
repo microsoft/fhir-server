@@ -112,5 +112,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 
             Assert.Equal(operationResultUrl.AbsoluteUri, fhirResult.Headers[HeaderNames.ContentLocation]);
         }
+
+        [Fact]
+        public void WhenSettingAContentTypeHeader_ThenFhirResultHasAContentTypeHeader()
+        {
+            string contentTypeValue = "application/json";
+            var fhirResult = new FhirResult().SetContentTypeHeader(contentTypeValue);
+
+            Assert.Equal(contentTypeValue, fhirResult.Headers[HeaderNames.ContentType]);
+        }
     }
 }
