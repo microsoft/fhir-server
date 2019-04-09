@@ -111,6 +111,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 driver.FindElementByName("loginfmt").SendKeys(testUserName);
                 Advance();
 
+                // We need to add some delay before we start entering the password (to make sure
+                // the element is available and we do not miss sending some keys).
+                Thread.Sleep(TimeSpan.FromMilliseconds(1000));
+
                 driver.FindElementByName("passwd").SendKeys(testUserPassword);
                 Advance();
 

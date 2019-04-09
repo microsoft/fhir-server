@@ -1,35 +1,21 @@
 parameters:
   # Default values
-  name: Windows
-  queue: 'Hosted VS2017'
   packageArtifacts: true
 
-phases:
-- phase: ${{ parameters.name }}
-  queue: '${{ parameters.queue }}'
+steps:
+- task: DotNetCoreInstaller@0
+  inputs:
+    version: '2.2.103' 
 
-  variables:
-    solution: '**/*.sln'
-    buildPlatform: 'Any CPU'
-    buildConfiguration: 'Release'
+- script: dotnet build --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) /warnaserror
+  displayName: 'dotnet build $(buildConfiguration)'
 
-  steps:
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet test UnitTests'
+  inputs:
+    command: test
+    projects: '**/*UnitTests/*.csproj'
+    arguments: '--configuration $(buildConfiguration)'
 
-  - task: NuGetToolInstaller@0
-
-  - task: DotNetCoreInstaller@0
-    inputs:
-      version: '2.2.103' 
-
-  - script: dotnet build --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) /warnaserror
-    displayName: 'dotnet build $(buildConfiguration)'
-
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet test UnitTests'
-    inputs:
-      command: test
-      projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration)'
-
-  - ${{ if eq(parameters.packageArtifacts, 'true') }}:
-    - template: package.yml
+- ${{ if eq(parameters.packageArtifacts, 'true') }}:
+  - template: package.yml

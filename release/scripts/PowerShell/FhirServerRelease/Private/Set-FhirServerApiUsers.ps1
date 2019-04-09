@@ -58,7 +58,7 @@ function Set-FhirServerApiUsers {
         $userUpn = Get-UserUpn -UserId $userId -TenantDomain $TenantDomain
 
         # See if the user exists
-        $aadUser = Get-AzureADUser -searchstring $userId
+        $aadUser = Get-AzureADUser -Filter "userPrincipalName eq '$userUpn'"
 
         Add-Type -AssemblyName System.Web
         $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
