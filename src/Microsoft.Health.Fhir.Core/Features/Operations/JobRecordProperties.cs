@@ -46,11 +46,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Error = "error";
 
-        public const string Result = "result";
-
         public const string Type = "type";
 
-        public const string FileUri = "fileUri";
+        public const string Url = "url";
 
         public const string Sequence = "sequence";
 

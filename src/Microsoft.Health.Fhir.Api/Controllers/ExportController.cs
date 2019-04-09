@@ -85,24 +85,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri);
 
-            HttpStatusCode responseCode;
-            if (response.JobCreated)
+            if (!response.JobCreated)
             {
-                responseCode = HttpStatusCode.Accepted;
-            }
-            else
-            {
-                responseCode = HttpStatusCode.InternalServerError;
                 throw new MicrosoftHealthException(Resources.GeneralInternalError);
             }
 
-            var fhirResult = new FhirResult()
+            var operationResult = new OperationResult()
             {
-                StatusCode = responseCode,
+                StatusCode = HttpStatusCode.Accepted,
             };
-            fhirResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.Id);
+            operationResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.Id);
 
-            return fhirResult;
+            return operationResult;
         }
 
         [HttpGet]
@@ -147,17 +141,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new JobNotFoundException(string.Format(Resources.JobNotFoundException, id));
             }
 
-            var fhirResult = new FhirResult()
+            // If the job is complete, we need to return the completed data to the client. Else we need
+            // to return 202.
+            OperationResult operationResult;
+            if (getExportResult.StatusCode == HttpStatusCode.OK)
             {
-                StatusCode = getExportResult.StatusCode,
-            };
-
-            if (fhirResult.StatusCode == HttpStatusCode.OK)
+                operationResult = new OperationResult(getExportResult.JobResult);
+                operationResult.StatusCode = HttpStatusCode.OK;
+                operationResult.SetContentTypeHeader("application/json");
+            }
+            else
             {
-                fhirResult.SetContentTypeHeader("application/json");
+                operationResult = new OperationResult();
+                operationResult.StatusCode = HttpStatusCode.Accepted;
             }
 
-            return fhirResult;
+            return operationResult;
         }
 
         /// <summary>

@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         [JsonProperty(JobRecordProperties.Type)]
         public string Type { get; }
 
-        [JsonProperty(JobRecordProperties.FileUri)]
+        [JsonProperty(JobRecordProperties.Url)]
         public Uri FileUri { get; }
 
         [JsonProperty(JobRecordProperties.Sequence)]

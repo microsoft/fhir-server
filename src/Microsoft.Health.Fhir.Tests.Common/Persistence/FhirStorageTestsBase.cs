@@ -401,7 +401,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         [Fact]
         public async Task WhenExportRequestDoesNotExist_WhenGettingExportStatus_ThenGetsJobDoesNotExist()
         {
-            string id = Guid.NewGuid().ToString();
+            string id = "exportJobId-1234567";
             Uri requestUri = new Uri("https://localhost/_operation/export/" + id);
             var exportStatus = await Mediator.GetExportStatusAsync(requestUri, id);
 
