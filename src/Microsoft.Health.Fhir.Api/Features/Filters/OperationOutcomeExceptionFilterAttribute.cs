@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case ResourceNotValidException _:
                     case BadRequestException _:
+                    case RequestNotValidException _:
                         fhirResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
                     case ResourceConflictException _:
@@ -95,6 +96,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case UnsupportedConfigurationException _:
                     case AuditException _:
                         fhirResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
+                    case OperationNotImplementedException _:
+                        fhirResult.StatusCode = HttpStatusCode.NotImplemented;
                         break;
                 }
 

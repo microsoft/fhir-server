@@ -133,6 +133,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not implemented..
+        /// </summary>
+        public static string OperationNotImplemented {
+            get {
+                return ResourceManager.GetString("OperationNotImplemented", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to FHIR Server.
         /// </summary>
         public static string PageTitle {
@@ -205,29 +214,38 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;accept&quot; header is not supported..
-        /// </summary>
-        public static string UnsupportedAcceptHeader {
-            get {
-                return ResourceManager.GetString("UnsupportedAcceptHeader", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;content-type&quot; header is not supported..
-        /// </summary>
-        public static string UnsupportedContentTypeHeader {
-            get {
-                return ResourceManager.GetString("UnsupportedContentTypeHeader", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The requested &quot;_format&quot; parameter is not supported..
         /// </summary>
         public static string UnsupportedFormatParameter {
             get {
                 return ResourceManager.GetString("UnsupportedFormatParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value supplied for the &quot;{0}&quot; header is not supported..
+        /// </summary>
+        public static string UnsupportedHeaderValue {
+            get {
+                return ResourceManager.GetString("UnsupportedHeaderValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not supported..
+        /// </summary>
+        public static string UnsupportedOperation {
+            get {
+                return ResourceManager.GetString("UnsupportedOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Requested operation does not support resource type: {0}..
+        /// </summary>
+        public static string UnsupportedResourceType {
+            get {
+                return ResourceManager.GetString("UnsupportedResourceType", resourceCulture);
             }
         }
         

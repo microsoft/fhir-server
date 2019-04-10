@@ -142,6 +142,10 @@
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
   </data>
+  <data name="OperationNotImplemented" xml:space="preserve">
+    <value>The requested "{0}" operation is not implemented.</value>
+    <comment>{0} is the operation name</comment>
+  </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
     <comment>{NumberedPlaceHolder=”FHIR”}</comment>
@@ -167,14 +171,20 @@
   <data name="Unauthorized" xml:space="preserve">
     <value>Authentication failed.</value>
   </data>
-  <data name="UnsupportedAcceptHeader" xml:space="preserve">
-    <value>The requested "accept" header is not supported.</value>
-  </data>
-  <data name="UnsupportedContentTypeHeader" xml:space="preserve">
-    <value>The requested "content-type" header is not supported.</value>
-  </data>
   <data name="UnsupportedFormatParameter" xml:space="preserve">
     <value>The requested "_format" parameter is not supported.</value>
+  </data>
+  <data name="UnsupportedHeaderValue" xml:space="preserve">
+    <value>Value supplied for the "{0}" header is not supported.</value>
+    <comment>{0} is the header name.</comment>
+  </data>
+  <data name="UnsupportedOperation" xml:space="preserve">
+    <value>The requested "{0}" operation is not supported.</value>
+    <comment>{0} is the operation name</comment>
+  </data>
+  <data name="UnsupportedResourceType" xml:space="preserve">
+    <value>Requested operation does not support resource type: {0}.</value>
+    <comment>{0} is the resource type.</comment>
   </data>
   <data name="UrlResourceIdMismatch" xml:space="preserve">
     <value>Id in the URL must match id in the resource.</value>
