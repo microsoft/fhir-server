@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -80,14 +79,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (!_exportConfig.Enabled)
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, "Export"));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
             }
 
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri);
 
             if (!response.JobCreated)
             {
-                throw new MicrosoftHealthException(Resources.GeneralInternalError);
+                throw new JobNotCreatedException(Resources.GeneralInternalError);
             }
 
             var operationResult = new OperationResult()
@@ -141,14 +140,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new JobNotFoundException(string.Format(Resources.JobNotFoundException, id));
             }
 
-            // If the job is complete, we need to return the completed data to the client. Else we need
-            // to return 202.
+            // If the job is complete, we need to return 200 along the completed data to the client.
+            // Else we need to return 202.
             OperationResult operationResult;
             if (getExportResult.StatusCode == HttpStatusCode.OK)
             {
                 operationResult = new OperationResult(getExportResult.JobResult);
                 operationResult.StatusCode = HttpStatusCode.OK;
-                operationResult.SetContentTypeHeader("application/json");
+                operationResult.SetContentTypeHeader(OperationsConstants.ExportContentTypeHeaderValue);
             }
             else
             {
@@ -167,10 +166,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (!_exportConfig.Enabled)
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, "Export"));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
             }
 
-            throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, "Export"));
+            throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, OperationsConstants.Export));
         }
     }
 }

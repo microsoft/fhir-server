@@ -30,23 +30,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         }
 
         [JsonConstructor]
-        public ExportFileInfo()
+        protected ExportFileInfo()
         {
         }
 
         [JsonProperty(JobRecordProperties.Type)]
-        public string Type { get; }
+        public string Type { get; private set; }
 
         [JsonProperty(JobRecordProperties.Url)]
-        public Uri FileUri { get; }
+        public Uri FileUri { get; private set; }
 
         [JsonProperty(JobRecordProperties.Sequence)]
-        public int Sequence { get; }
+        public int Sequence { get; private set; }
 
         [JsonProperty(JobRecordProperties.Count)]
-        public int Count { get; }
+        public int Count { get; private set; }
 
         [JsonProperty(JobRecordProperties.CommitedBytes)]
-        public long CommittedBytes { get; }
+        public long CommittedBytes { get; private set; }
     }
 }

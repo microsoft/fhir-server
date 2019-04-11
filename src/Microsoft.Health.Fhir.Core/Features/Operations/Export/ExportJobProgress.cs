@@ -20,14 +20,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         }
 
         [JsonConstructor]
-        public ExportJobProgress()
+        protected ExportJobProgress()
         {
         }
 
         [JsonProperty(JobRecordProperties.Query)]
-        public string Query { get; }
+        public string Query { get; private set; }
 
         [JsonProperty(JobRecordProperties.Page)]
-        public int Page { get; }
+        public int Page { get; private set; }
     }
 }

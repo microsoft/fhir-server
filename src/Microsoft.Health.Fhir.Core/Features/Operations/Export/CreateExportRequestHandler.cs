@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             // and handle it accordingly. For now we just assume all export jobs are unique and create a new one.
 
             var jobRecord = new ExportJobRecord(request, 1);
+
             var responseCode = await _dataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
 
             // Upsert returns http Created for new documents and http OK if it updated an existing document.

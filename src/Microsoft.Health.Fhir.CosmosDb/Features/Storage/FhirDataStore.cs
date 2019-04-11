@@ -217,14 +217,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
-            var result = await _documentClient.UpsertDocumentAsync(
+            try
+            {
+                var result = await _documentClient.UpsertDocumentAsync(
                 _collectionUri,
                 jobRecord,
                 new RequestOptions() { PartitionKey = new PartitionKey(jobRecord.PartitionKey) },
                 disableAutomaticIdGeneration: true,
                 cancellationToken: cancellationToken);
 
-            return result.StatusCode;
+                return result.StatusCode;
+            }
+            catch (DocumentClientException e)
+            {
+                if (e.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
+                {
+                    throw new ServiceUnavailableException();
+                }
+
+                throw;
+            }
         }
 
         public async Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken = default)

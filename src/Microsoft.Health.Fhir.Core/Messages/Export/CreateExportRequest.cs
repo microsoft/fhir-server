@@ -6,6 +6,7 @@
 using System;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Export
@@ -19,7 +20,12 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             RequestUri = requestUri;
         }
 
-        [JsonProperty("requestUri")]
-        public Uri RequestUri { get; }
+        [JsonConstructor]
+        protected CreateExportRequest()
+        {
+        }
+
+        [JsonProperty(JobRecordProperties.RequestUri)]
+        public Uri RequestUri { get; private set; }
     }
 }

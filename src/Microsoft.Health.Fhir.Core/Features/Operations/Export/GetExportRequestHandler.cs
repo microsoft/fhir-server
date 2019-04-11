@@ -41,10 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
 
             // We have an existing job. Let us determine the response based on the status of the
             // export operation.
-            HttpStatusCode responseCode;
             if (result.JobStatus == OperationStatus.Completed)
             {
-                responseCode = HttpStatusCode.OK;
                 var jobResult = new ExportJobResult(
                     new Instant(result.QueuedTime),
                     result.Request.RequestUri,
@@ -52,12 +50,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
                     result.Output,
                     result.Errors);
 
-                exportResponse = new GetExportResponse(true, responseCode, jobResult);
+                exportResponse = new GetExportResponse(true, HttpStatusCode.OK, jobResult);
             }
             else
             {
-                responseCode = HttpStatusCode.Accepted;
-                exportResponse = new GetExportResponse(true, responseCode);
+                exportResponse = new GetExportResponse(true, HttpStatusCode.Accepted);
             }
 
             return exportResponse;
