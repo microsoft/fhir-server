@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class ExportConfiguration
@@ -11,5 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Determines whether export is enabled or not.
         /// </summary>
         public bool Enabled { get; set; }
+
+        /// <summary>
+        /// List of destinations that are supported for export operation.
+        /// </summary>
+        public List<string> SupportedDestinations { get; } = new List<string>();
     }
 }

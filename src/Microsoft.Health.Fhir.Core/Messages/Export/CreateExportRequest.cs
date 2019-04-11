@@ -6,6 +6,7 @@
 using System;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
@@ -18,6 +19,18 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             RequestUri = requestUri;
         }
 
+        public CreateExportRequest(Uri requestUri, string destinationType, string destinationConnectionString)
+        {
+            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
+            EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
+            EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString, nameof(destinationConnectionString));
+
+            RequestUri = requestUri;
+            DestinationInformation = new DestinationInfo(destinationType, destinationConnectionString);
+        }
+
         public Uri RequestUri { get; }
+
+        public DestinationInfo DestinationInformation { get; }
     }
 }

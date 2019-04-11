@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             SchemaVersion = 1;
             Status = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
+            SecretName = Id;
             QueuedTime = DateTimeOffset.Now;
             LastModifiedTime = DateTimeOffset.Now;
         }
@@ -36,6 +37,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Request)]
         public Uri RequestUri { get; private set; }
+
+        [JsonProperty(JobRecordProperties.SecretName)]
+        public string SecretName { get; private set; }
 
         [JsonProperty(JobRecordProperties.Id)]
         public string Id { get; private set; }
