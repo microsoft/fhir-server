@@ -7,7 +7,6 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -35,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             GetExportResponse exportResponse;
             if (result == null)
             {
-                exportResponse = new GetExportResponse(false, HttpStatusCode.NotFound);
+                exportResponse = new GetExportResponse(jobExists: false, HttpStatusCode.NotFound);
                 return exportResponse;
             }
 
@@ -44,17 +43,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             if (result.JobStatus == OperationStatus.Completed)
             {
                 var jobResult = new ExportJobResult(
-                    new Instant(result.QueuedTime),
-                    result.Request.RequestUri,
-                    false /* requiresAccessToken */,
+                    result.QueuedTime,
+                    result.RequestUri,
+                    requiresAccessToken: false,
                     result.Output,
                     result.Errors);
 
-                exportResponse = new GetExportResponse(true, HttpStatusCode.OK, jobResult);
+                exportResponse = new GetExportResponse(jobExists: true, HttpStatusCode.OK, jobResult);
             }
             else
             {
-                exportResponse = new GetExportResponse(true, HttpStatusCode.Accepted);
+                exportResponse = new GetExportResponse(jobExists: true, HttpStatusCode.Accepted);
             }
 
             return exportResponse;

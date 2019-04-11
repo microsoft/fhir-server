@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Messages.Export;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Export
@@ -17,15 +16,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
     /// </summary>
     public class ExportJobRecord
     {
-        public ExportJobRecord(CreateExportRequest exportRequest, int jobSchemaVersion)
+        public ExportJobRecord(Uri exportRequestUri)
         {
-            EnsureArg.IsNotNull(exportRequest, nameof(exportRequest));
-            EnsureArg.IsGt(jobSchemaVersion, 0, nameof(jobSchemaVersion));
+            EnsureArg.IsNotNull(exportRequestUri, nameof(exportRequestUri));
 
-            Request = exportRequest;
-            JobSchemaVersion = jobSchemaVersion;
+            RequestUri = exportRequestUri;
 
             // Default values
+            JobSchemaVersion = 1;
             JobStatus = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
             QueuedTime = DateTimeOffset.Now;
@@ -38,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         }
 
         [JsonProperty(JobRecordProperties.Request)]
-        public CreateExportRequest Request { get; private set; }
+        public Uri RequestUri { get; private set; }
 
         [JsonProperty(JobRecordProperties.Id)]
         public string Id { get; private set; }
@@ -50,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         public DateTimeOffset QueuedTime { get; private set; }
 
         [JsonProperty(JobRecordProperties.PartitonKey)]
-        public string PartitionKey { get; private set; } = OperationsConstants.ExportJobPartitionKey;
+        public string PartitionKey { get; } = OperationsConstants.ExportJobPartitionKey;
 
         [JsonProperty(JobRecordProperties.JobSchemaVersion)]
         public int JobSchemaVersion { get; private set; }

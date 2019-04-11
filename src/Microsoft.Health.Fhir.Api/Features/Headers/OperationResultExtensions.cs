@@ -10,12 +10,13 @@ using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
-    public static class OperationHeaders
+    public static class OperationResultExtensions
     {
         // Generates the url to be included in the response based on the operation and sets the content location header.
         public static OperationResult SetContentLocationHeader(this OperationResult operationResult, IUrlResolver urlResolver, string operationName, string id)
         {
             EnsureArg.IsNotNullOrEmpty(operationName, nameof(operationName));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
 
             var url = urlResolver.ResolveOperationResultUrl(operationName, id);

@@ -20,6 +20,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     public class ExportControllerTests
     {
         private ExportController _exportEnabledController;
+        private IMediator _mediator = Substitute.For<IMediator>();
+        private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
         public ExportControllerTests()
         {
@@ -58,11 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Group.ToString(), "id"));
         }
 
-        private ExportController GetController(
-            ExportConfiguration exportConfig,
-            IMediator mediator = null,
-            IFhirRequestContextAccessor fhirRequestContextAccessor = null,
-            IUrlResolver urlResolver = null)
+        private ExportController GetController(ExportConfiguration exportConfig)
         {
             var operationConfig = new OperationsConfiguration()
             {
@@ -73,9 +72,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             optionsOperationConfiguration.Value.Returns(operationConfig);
 
             return new ExportController(
-                mediator ?? Substitute.For<IMediator>(),
-                fhirRequestContextAccessor ?? Substitute.For<IFhirRequestContextAccessor>(),
-                urlResolver ?? Substitute.For<IUrlResolver>(),
+                _mediator,
+                _fhirRequestContextAccessor,
+                _urlResolver,
                 optionsOperationConfiguration,
                 NullLogger<ExportController>.Instance);
         }

@@ -12,7 +12,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Messages.Export;
 using NSubstitute;
 using Xunit;
 
@@ -39,8 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         public async void GivenAFhirMediator_WhenGettingANonExistingExportJob_ThenHttpResponseShouldBeNotFound()
         {
             ExportJobRecord jobRecord = null;
-            _dataStore.GetExportJobAsync(Arg.Any<string>())
-                .Returns(x => jobRecord);
+            _dataStore.GetExportJobAsync("id").Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), "id");
 
@@ -51,27 +49,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         [Fact]
         public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            var jobRecord = new ExportJobRecord(new CreateExportRequest(new Uri(CreateRequestUrl)), 1);
+            var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
             jobRecord.JobStatus = OperationStatus.Completed;
 
-            _dataStore.GetExportJobAsync(Arg.Any<string>())
-                .Returns(x => jobRecord);
+            _dataStore.GetExportJobAsync(jobRecord.Id).Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 
             Assert.True(result.JobExists);
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.NotNull(result.JobResult);
+
+            // Check whether required fields are present.
+            Assert.NotNull(result.JobResult.Output);
+            Assert.NotEqual(default(DateTimeOffset), result.JobResult.TransactionTime);
+            Assert.NotNull(result.JobResult.RequestUri);
         }
 
         [Fact]
         public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
         {
-            var jobRecord = new ExportJobRecord(new CreateExportRequest(new Uri(CreateRequestUrl)), 1);
+            var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
             jobRecord.JobStatus = OperationStatus.Running;
 
-            _dataStore.GetExportJobAsync(Arg.Any<string>())
-                .Returns(x => jobRecord);
+            _dataStore.GetExportJobAsync(jobRecord.Id).Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 

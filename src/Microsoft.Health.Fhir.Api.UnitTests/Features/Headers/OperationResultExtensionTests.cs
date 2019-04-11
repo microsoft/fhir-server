@@ -14,10 +14,10 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 {
-    public class OperationHeadersTests
+    public class OperationResultExtensionTests
     {
         [Fact]
-        public void WhenSettingAContentLocationHeader_ThenOperationResultHasAContentLocationHeader()
+        public void GivenAnOperationResult_WhenSettingAContentLocationHeader_ThenOperationResultHasAContentLocationHeader()
         {
             string opName = OperationsConstants.Export;
             string id = Guid.NewGuid().ToString();
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         }
 
         [Fact]
-        public void WhenSettingAContentTypeHeader_ThenOperationResultHasAContentTypeHeader()
+        public void GivenAnOperationResult_WhenSettingAContentTypeHeader_ThenOperationResultHasAContentTypeHeader()
         {
             string contentTypeValue = "application/json";
             var operationResult = new OperationResult().SetContentTypeHeader(contentTypeValue);

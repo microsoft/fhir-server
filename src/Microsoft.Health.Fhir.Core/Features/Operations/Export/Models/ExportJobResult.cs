@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Export
@@ -17,9 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
     /// </summary>
     public class ExportJobResult
     {
-        public ExportJobResult(Instant transactionTime, Uri requestUri, bool requiresAccessToken, IList<ExportFileInfo> output, IList<ExportFileInfo> errors)
+        public ExportJobResult(DateTimeOffset transactionTime, Uri requestUri, bool requiresAccessToken, IList<ExportFileInfo> output, IList<ExportFileInfo> errors)
         {
-            EnsureArg.IsNotNull(transactionTime, nameof(transactionTime));
+            EnsureArg.IsNotDefault<DateTimeOffset>(transactionTime, nameof(transactionTime));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNull(output, nameof(output));
             EnsureArg.IsNotNull(errors, nameof(errors));
@@ -31,13 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             Errors = errors;
         }
 
-        [JsonConstructor]
-        public ExportJobResult()
-        {
-        }
-
         [JsonProperty("transactionTime")]
-        public Instant TransactionTime { get; }
+        public DateTimeOffset TransactionTime { get; }
 
         [JsonProperty("request")]
         public Uri RequestUri { get; }

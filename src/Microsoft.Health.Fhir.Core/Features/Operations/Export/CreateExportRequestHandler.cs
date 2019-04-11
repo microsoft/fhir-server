@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             // TODO: Later we will add some logic here that will check whether a duplicate job already exists
             // and handle it accordingly. For now we just assume all export jobs are unique and create a new one.
 
-            var jobRecord = new ExportJobRecord(request, 1);
+            var jobRecord = new ExportJobRecord(request.RequestUri);
 
             var responseCode = await _dataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
 
@@ -39,11 +39,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             // We expect the former in this scenario.
             if (responseCode == HttpStatusCode.Created)
             {
-                return new CreateExportResponse(jobRecord.Id, true);
+                return new CreateExportResponse(jobRecord.Id, jobCreated: true);
             }
             else
             {
-                return new CreateExportResponse(jobRecord.Id, false);
+                return new CreateExportResponse(jobRecord.Id, jobCreated: false);
             }
         }
     }

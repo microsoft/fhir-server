@@ -16,6 +16,7 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -204,7 +205,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
                 {
                     // TODO: Eventually, we might want to have our own RequestTooLargeException?
-                    throw new ServiceUnavailableException();
+                    throw new RequestRateExceededException(dce.RetryAfter);
                 }
 
                 _logger.LogError(dce, "Unhandled Document Client Exception");
@@ -228,11 +229,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 return result.StatusCode;
             }
-            catch (DocumentClientException e)
+            catch (DocumentClientException dce)
             {
-                if (e.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
+                if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
                 {
-                    throw new ServiceUnavailableException();
+                    throw new RequestRateExceededException(dce.RetryAfter);
                 }
 
                 throw;

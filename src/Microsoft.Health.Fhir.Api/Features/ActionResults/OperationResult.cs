@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
         public ExportJobResult JobResult { get; }
 
-        internal IHeaderDictionary Headers { get; set; } = new HeaderDictionary();
+        internal IHeaderDictionary Headers { get; } = new HeaderDictionary();
 
         public override Task ExecuteResultAsync(ActionContext context)
         {

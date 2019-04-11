@@ -11,7 +11,7 @@ using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
-    public static class FhirHeaders
+    public static class FhirResultExtensions
     {
         public static FhirResult SetLocationHeader(this FhirResult fhirResult, IUrlResolver urlResolver)
         {
