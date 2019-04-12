@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Web
 
             services.AddControlPlaneCosmosDb(Configuration);
 
-            services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration);
+            services.AddFhirServer(Configuration).AddFhirServerCosmosDb(Configuration).AddFhirServerSqlApi();
 
             AddApplicationInsightsTelemetry(services);
         }
