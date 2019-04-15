@@ -7,10 +7,10 @@ using System;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Sql.Api.Features.Filters;
-using Microsoft.Health.Fhir.Sql.Api.Features.Routing;
+using Microsoft.Health.Fhir.SqlServer.Api.Features.Filters;
+using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
 
-namespace Microsoft.Health.Fhir.Sql.Api.Controllers
+namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
     [NotImplementedExceptionFilter]
     [Route(KnownRoutes.SchemaRoot)]

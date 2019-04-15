@@ -4,14 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
-    public static class FhirServerBuilderSqlApiRegistrationExtensions
+    public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IServiceCollection AddFhirServerSqlApi(this IServiceCollection serviceCollection)
+        public static IServiceCollection AddFhirServerExperimentalSqlServer(this IServiceCollection serviceCollection)
         {
             EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+
+            // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
+            // During normal usage, the controller should be automatically discovered. 
+            serviceCollection.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
 
             return serviceCollection;
         }

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Newtonsoft.Json.Linq;
 
-namespace Microsoft.Health.Fhir.Sql.Api.Features.Filters
+namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
 {
     public class NotImplementedExceptionFilterAttribute : ActionFilterAttribute
     {

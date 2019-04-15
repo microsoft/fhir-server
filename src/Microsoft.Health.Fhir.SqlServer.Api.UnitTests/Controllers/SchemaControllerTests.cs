@@ -5,10 +5,10 @@
 
 using System;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Sql.Api.Controllers;
+using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Sql.Api.UnitTests.Controllers
+namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
 {
     public class SchemaControllerTests
     {
