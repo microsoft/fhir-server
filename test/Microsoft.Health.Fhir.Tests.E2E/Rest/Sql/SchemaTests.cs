@@ -7,8 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
 
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
                 new object[] { "_schema/versions/123/script" },
             };
 
-        [Theory]
+        [RunLocalOnlyTheory]
         [MemberData(nameof(Data))]
         public async Task WhenRequestingSchema_GivenGetMethod_TheServerShouldReturnNotImplemented(string path)
         {
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         }
 
         // Investigate why these return 415 in the test project, but 404 when running in postman
-        [Theory]
+        [RunLocalOnlyTheory]
         [MemberData(nameof(Data))]
         public async Task WhenRequestingSchema_GivenPostMethod_TheServerShouldReturnNotFound(string path)
         {
@@ -48,21 +48,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         }
 
         // Investigate why these return 415 in the test project, but 404 when running in postman
-        [Theory]
+        [RunLocalOnlyTheory]
         [MemberData(nameof(Data))]
         public async Task WhenRequestingSchema_GivenPutMethod_TheServerShouldReturnNotFound(string path)
         {
             await SendAndVerifyStatusCode(HttpMethod.Put, path, HttpStatusCode.UnsupportedMediaType);
         }
 
-        [Theory]
+        [RunLocalOnlyTheory]
         [MemberData(nameof(Data))]
         public async Task WhenRequestingSchema_GivenDeleteMethod_TheServerShouldReturnNotFound(string path)
         {
             await SendAndVerifyStatusCode(HttpMethod.Delete, path, HttpStatusCode.NotFound);
         }
 
-        [Fact]
+        [RunLocalOnlyFact]
         public async Task WhenRequestingScript_GivenNonIntegerVersion_TheServerShouldReturnNotFound()
         {
             await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/abc/script", HttpStatusCode.NotFound);
