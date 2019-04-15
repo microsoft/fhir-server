@@ -15,7 +15,7 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
 
             // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
-            // During normal usage, the controller should be automatically discovered. 
+            // During normal usage, the controller should be automatically discovered.
             serviceCollection.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
 
             return serviceCollection;
