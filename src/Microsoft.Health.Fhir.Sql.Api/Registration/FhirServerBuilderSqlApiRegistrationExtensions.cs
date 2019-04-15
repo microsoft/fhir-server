@@ -4,17 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlApiRegistrationExtensions
     {
-        public static IFhirServerBuilder AddFhirServerSqlApi(this IFhirServerBuilder fhirServerBuilder)
+        public static IServiceCollection AddFhirServerSqlApi(this IServiceCollection serviceCollection)
         {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
 
-            return fhirServerBuilder;
+            return serviceCollection;
         }
     }
 }
