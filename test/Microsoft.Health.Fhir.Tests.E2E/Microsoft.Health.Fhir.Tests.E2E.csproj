@@ -39,6 +39,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.Api\Microsoft.Health.Fhir.SqlServer.Api.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj" />
     <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
