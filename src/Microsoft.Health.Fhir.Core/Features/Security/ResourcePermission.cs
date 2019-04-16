@@ -3,18 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.ControlPlane.Core.Features.Rbac;
+using System.Collections.Generic;
 
-namespace Microsoft.Health.ControlPlane.CosmosDb.Features.Storage.Rbac
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public static class CosmosRoleExtensions
+    public class ResourcePermission
     {
-        public static Role ToRole(this CosmosRole cosmosRole)
+        public ResourcePermission()
         {
-            return new Role(
-                cosmosRole.Name,
-                cosmosRole.ResourcePermissions,
-                cosmosRole.ETag);
+            Actions = new List<ResourceAction>();
         }
+
+        public ResourcePermission(IList<ResourceAction> resourceActions)
+        {
+            Actions = resourceActions;
+        }
+
+        public IList<ResourceAction> Actions { get; }
     }
 }

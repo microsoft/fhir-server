@@ -23,7 +23,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Health.ControlPlane.CosmosDb\Microsoft.Health.ControlPlane.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />

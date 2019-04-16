@@ -37,7 +37,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Abstractions\Microsoft.Health.Abstractions.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.ControlPlane.Core\Microsoft.Health.ControlPlane.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
