@@ -54,10 +54,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             filter.OnActionExecuted(_context);
 
-            var result = _context.Result as FhirResult;
+            var result = _context.Result as OperationOutcomeActionResult;
 
             Assert.NotNull(result);
-            Assert.Equal(_correlationId, result.Resource.Id);
+            Assert.Equal(_correlationId, result.OperationOutcomeError.Id);
         }
 
         [Fact]
@@ -69,15 +69,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             filter.OnActionExecuted(_context);
 
-            var result = _context.Result as FhirResult;
+            var result = _context.Result as OperationOutcomeActionResult;
 
             Assert.NotNull(result);
-            Assert.Equal(HttpStatusCode.Gone, result.StatusCode.GetValueOrDefault());
+            Assert.Equal(HttpStatusCode.Gone, result.StatusCode);
             Assert.Equal("W/\"version2\"", result.Headers[HeaderNames.ETag]);
 
-            var operation = result.Resource;
+            var operation = result.OperationOutcomeError;
             Assert.NotNull(operation);
-            Assert.Equal(_correlationId, result.Resource.Id);
+            Assert.Equal(_correlationId, result.OperationOutcomeError.Id);
         }
 
         [Fact]
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                     Code = OperationOutcome.IssueType.Invalid,
                     Diagnostics = reason,
                 }),
-                HttpStatusCode.BadRequest).Resource as OperationOutcome;
+                HttpStatusCode.BadRequest).OperationOutcomeError as OperationOutcome;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 {
                     new ValidationFailure(propertyName, reason),
                 }),
-                HttpStatusCode.BadRequest).Resource as OperationOutcome;
+                HttpStatusCode.BadRequest).OperationOutcomeError as OperationOutcome;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             TimeSpan retryAfter = TimeSpan.FromSeconds(1.5);
 
-            FhirResult result = ValidateOperationOutcome(new RequestRateExceededException(retryAfter), (HttpStatusCode)429);
+            OperationOutcomeActionResult result = ValidateOperationOutcome(new RequestRateExceededException(retryAfter), (HttpStatusCode)429);
 
             Assert.Contains(
                 result.Headers,
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new JobNotFoundException("Job not found."), HttpStatusCode.NotFound);
         }
 
-        private FhirResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
+        private OperationOutcomeActionResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
 
@@ -175,13 +175,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             filter.OnActionExecuted(_context);
 
-            var result = _context.Result as FhirResult;
+            var result = _context.Result as OperationOutcomeActionResult;
 
             Assert.NotNull(result);
-            Assert.Equal(expectedStatusCode, result.StatusCode.GetValueOrDefault());
-            Assert.Equal(_correlationId, result.Resource.Id);
+            Assert.Equal(expectedStatusCode, result.StatusCode);
+            Assert.Equal(_correlationId, result.OperationOutcomeError.Id);
 
-            Assert.IsType<OperationOutcome>(result.Resource);
+            Assert.IsType<OperationOutcome>(result.OperationOutcomeError);
 
             return result;
         }

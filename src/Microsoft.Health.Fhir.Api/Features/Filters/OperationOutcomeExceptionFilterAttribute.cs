@@ -14,12 +14,12 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
-using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             if (context.Exception is FhirException fhirException)
             {
-                var fhirResult = FhirResult.Create(
+                var operationOutcomeResult = new OperationOutcomeActionResult(
                     new OperationOutcome
                     {
                         Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
@@ -58,62 +58,62 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 switch (fhirException)
                 {
                     case ResourceGoneException resourceGoneException:
-                        fhirResult.StatusCode = HttpStatusCode.Gone;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Gone;
                         if (!string.IsNullOrEmpty(resourceGoneException.DeletedResource?.VersionId))
                         {
-                            fhirResult.SetETagHeader(WeakETag.FromVersionId(resourceGoneException.DeletedResource.VersionId));
+                            operationOutcomeResult.Headers.Add(HeaderNames.ETag, WeakETag.FromVersionId(resourceGoneException.DeletedResource.VersionId).ToString());
                         }
 
                         break;
                     case ResourceNotFoundException _:
                     case JobNotFoundException _:
-                        fhirResult.StatusCode = HttpStatusCode.NotFound;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.NotFound;
                         break;
                     case MethodNotAllowedException _:
-                        fhirResult.StatusCode = HttpStatusCode.MethodNotAllowed;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.MethodNotAllowed;
                         break;
                     case ServiceUnavailableException _:
                     case OpenIdConfigurationException _:
-                        fhirResult.StatusCode = HttpStatusCode.ServiceUnavailable;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.ServiceUnavailable;
                         break;
                     case ResourceNotValidException _:
                     case BadRequestException _:
                     case RequestNotValidException _:
-                        fhirResult.StatusCode = HttpStatusCode.BadRequest;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
                     case ResourceConflictException _:
-                        fhirResult.StatusCode = HttpStatusCode.Conflict;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Conflict;
                         break;
                     case UnsupportedMediaTypeException _:
-                        fhirResult.StatusCode = HttpStatusCode.UnsupportedMediaType;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.UnsupportedMediaType;
                         break;
                     case PreconditionFailedException _:
-                        fhirResult.StatusCode = HttpStatusCode.PreconditionFailed;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.PreconditionFailed;
                         break;
                     case InvalidSearchOperationException _:
                     case SearchOperationNotSupportedException _:
-                        fhirResult.StatusCode = HttpStatusCode.Forbidden;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:
                     case AuditException _:
-                        fhirResult.StatusCode = HttpStatusCode.InternalServerError;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
                     case OperationNotImplementedException _:
-                        fhirResult.StatusCode = HttpStatusCode.NotImplemented;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.NotImplemented;
                         break;
                 }
 
-                context.Result = fhirResult;
+                context.Result = operationOutcomeResult;
                 context.ExceptionHandled = true;
             }
             else if (context.Exception is MicrosoftHealthException microsoftHealthException)
             {
-                FhirResult healthExceptionResult;
+                OperationOutcomeActionResult healthExceptionResult;
 
                 switch (microsoftHealthException)
                 {
                     case RequestRateExceededException ex:
-                        healthExceptionResult = FhirResult.Create(
+                        healthExceptionResult = new OperationOutcomeActionResult(
                             new OperationOutcome
                             {
                                 Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         break;
                     default:
-                        healthExceptionResult = FhirResult.Create(
+                        healthExceptionResult = new OperationOutcomeActionResult(
                             new OperationOutcome
                             {
                                 Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,

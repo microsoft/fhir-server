@@ -59,9 +59,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
                 .Received()
                 .ExecuteResultAsync(
                     Arg.Any<HttpContext>(),
-                    Arg.Is<FhirResult>(x => x.StatusCode == HttpStatusCode.InternalServerError &&
-                                            ((OperationOutcome)x.Resource).Id == _correlationId &&
-                                            ((OperationOutcome)x.Resource).Issue[0].Diagnostics == diagnosticMessage));
+                    Arg.Is<OperationOutcomeActionResult>(x => x.StatusCode == HttpStatusCode.InternalServerError &&
+                                            x.OperationOutcomeError.Id == _correlationId &&
+                                            x.OperationOutcomeError.Issue[0].Diagnostics == diagnosticMessage));
         }
 
         [Fact]
