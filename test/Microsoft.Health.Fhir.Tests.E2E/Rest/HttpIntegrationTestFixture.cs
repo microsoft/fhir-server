@@ -18,7 +18,6 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
