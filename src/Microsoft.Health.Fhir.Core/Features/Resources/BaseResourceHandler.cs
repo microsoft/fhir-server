@@ -16,22 +16,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
         protected BaseResourceHandler(
-            IDataStore dataStore,
+            IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory)
         {
-            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
+            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
 
             ConformanceProvider = conformanceProvider;
-            DataStore = dataStore;
+            FhirDataStore = fhirDataStore;
             _resourceWrapperFactory = resourceWrapperFactory;
         }
 
         protected Lazy<IConformanceProvider> ConformanceProvider { get; }
 
-        protected IDataStore DataStore { get; }
+        protected IFhirDataStore FhirDataStore { get; }
 
         protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted)
         {

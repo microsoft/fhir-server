@@ -37,17 +37,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly RawResourceFactory _rawResourceFactory;
         private readonly ResourceRequest _resourceRequest = new ResourceRequest("http://fhir", HttpMethod.Post);
         private readonly string _correlationId;
-        private readonly IDataStore _dataStore;
+        private readonly IFhirDataStore _fhirDataStore;
 
         public SearchServiceTests()
         {
             _bundleFactory = new BundleFactory(_urlResolver, _fhirRequestContextAccessor, Deserializers.ResourceDeserializer);
-            _dataStore = Substitute.For<IDataStore>();
+            _fhirDataStore = Substitute.For<IFhirDataStore>();
 
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
                 .Returns(x => new SearchOptions());
 
-            _searchService = new TestSearchService(_searchOptionsFactory, _bundleFactory, _dataStore);
+            _searchService = new TestSearchService(_searchOptionsFactory, _bundleFactory, _fhirDataStore);
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
 
             _urlResolver.ResolveRouteUrl(Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(SearchUrl);
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
             _urlResolver.ResolveRouteUrl(Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(new Uri("http://narwhal"));
 
-            _dataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
+            _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
 
             var bundle = await _searchService.SearchHistoryAsync(resourceType, resourceId, PartialDateTime.Parse("2018"), null, null, null, CancellationToken.None);
 
@@ -182,8 +182,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private class TestSearchService : SearchService
         {
-            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IDataStore dataStore)
-                : base(searchOptionsFactory, bundleFactory, dataStore)
+            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore)
+                : base(searchOptionsFactory, bundleFactory, fhirDataStore)
             {
                 SearchImplementation = options => null;
             }

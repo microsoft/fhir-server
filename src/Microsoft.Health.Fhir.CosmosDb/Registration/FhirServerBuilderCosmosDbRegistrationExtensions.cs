@@ -31,7 +31,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
         /// <param name="configuration">The configuration for the server</param>
         /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddFhirServerCosmosDb(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
+        public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
@@ -50,7 +50,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("FhirServer:CosmosDb").Bind(cosmosCollectionConfiguration));
 
-            services.Add<FhirCosmosDataStore>()
+            services.Add<CosmosFhirDataStore>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();

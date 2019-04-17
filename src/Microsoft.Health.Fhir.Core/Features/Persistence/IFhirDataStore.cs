@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public interface IDataStore
+    public interface IFhirDataStore
     {
         Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
