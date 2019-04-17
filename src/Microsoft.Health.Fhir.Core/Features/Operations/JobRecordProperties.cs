@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Id = "id";
 
-        public const string JobHash = "jobHash";
+        public const string Hash = "hash";
 
         public const string Status = "status";
 

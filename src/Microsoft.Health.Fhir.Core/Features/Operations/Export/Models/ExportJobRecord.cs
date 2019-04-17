@@ -41,8 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         [JsonProperty(JobRecordProperties.Id)]
         public string Id { get; private set; }
 
-        [JsonProperty(JobRecordProperties.JobHash)]
-        public string JobHash { get; private set; }
+        [JsonProperty(JobRecordProperties.Hash)]
+        public string Hash { get; private set; }
 
         [JsonProperty(JobRecordProperties.QueuedTime)]
         public DateTimeOffset QueuedTime { get; private set; }

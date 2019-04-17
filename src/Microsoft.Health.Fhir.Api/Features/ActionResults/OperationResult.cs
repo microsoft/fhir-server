@@ -14,6 +14,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
+    /// <summary>
+    /// Used to handle the result of an operations. Currently supports only Export.
+    /// </summary>
     public class OperationResult : ActionResult
     {
         public OperationResult(HttpStatusCode statusCode)
@@ -35,11 +38,18 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
         internal IHeaderDictionary Headers { get; } = new HeaderDictionary();
 
+        /// <summary>
+        /// Creates a result with HttpStatusCode Accepted.
+        /// </summary>
         public static OperationResult Accepted()
         {
             return new OperationResult(HttpStatusCode.Accepted);
         }
 
+        /// <summary>
+        /// Creates a result with HttpStatusCode Ok.
+        /// </summary>
+        /// <param name="jobResult">The job result that must be part of the ActionResult.</param>
         public static OperationResult Ok(ExportJobResult jobResult)
         {
             EnsureArg.IsNotNull(jobResult);

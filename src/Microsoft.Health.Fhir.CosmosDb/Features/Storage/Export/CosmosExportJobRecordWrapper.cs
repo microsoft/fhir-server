@@ -10,6 +10,9 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export
 {
+    /// <summary>
+    /// A wrapper around the <see cref="ExportJobRecord"/> class that contains metadata specific to CosmosDb.
+    /// </summary>
     internal class CosmosExportJobRecordWrapper
     {
         public CosmosExportJobRecordWrapper(ExportJobRecord exportJobRecord)
@@ -21,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export
         }
 
         [JsonConstructor]
-        private CosmosExportJobRecordWrapper()
+        protected CosmosExportJobRecordWrapper()
         {
         }
 

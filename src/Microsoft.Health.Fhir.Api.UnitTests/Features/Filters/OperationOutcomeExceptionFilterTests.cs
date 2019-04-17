@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                     Code = OperationOutcome.IssueType.Invalid,
                     Diagnostics = reason,
                 }),
-                HttpStatusCode.BadRequest).OperationOutcomeError as OperationOutcome;
+                HttpStatusCode.BadRequest).OperationOutcomeError;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 {
                     new ValidationFailure(propertyName, reason),
                 }),
-                HttpStatusCode.BadRequest).OperationOutcomeError as OperationOutcome;
+                HttpStatusCode.BadRequest).OperationOutcomeError;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }

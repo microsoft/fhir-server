@@ -385,7 +385,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         }
 
         [Fact]
-        public async Task WhenGivenExistingExportRequest_WhenGettingExportStatus_ThenGetsJobExists()
+        public async Task GivenExportRequestThatExists_WhenGettingExportStatus_ThenGetsJobExists()
         {
             Uri requestUri = new Uri("https://localhost/$export");
             var result = await Mediator.ExportAsync(requestUri);
@@ -399,7 +399,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         }
 
         [Fact]
-        public async Task WhenExportRequestDoesNotExist_WhenGettingExportStatus_ThenGetsJobDoesNotExist()
+        public async Task GivenExportRequestDoesNotExist_WhenGettingExportStatus_ThenGetsJobDoesNotExist()
         {
             string id = "exportJobId-1234567";
             Uri requestUri = new Uri("https://localhost/_operation/export/" + id);

@@ -11,8 +11,8 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.Core.Features.Export
 {
     /// <summary>
-    /// This class is used to hold data that needs to be returned to the client when the
-    /// export job completes. This is a subset of the data present in ExportJobRecord.
+    /// Class used to hold data that needs to be returned to the client when the
+    /// export job completes. This is a subset of the data present in <see cref="ExportJobRecord"/>.
     /// </summary>
     public class ExportJobResult
     {

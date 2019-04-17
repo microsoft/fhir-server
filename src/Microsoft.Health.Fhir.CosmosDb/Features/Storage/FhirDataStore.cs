@@ -226,7 +226,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 var result = await _documentClient.UpsertDocumentAsync(
                     _collectionUri,
                     cosmosExportJob,
-                    new RequestOptions() { PartitionKey = new PartitionKey(cosmosExportJob.PartitionKey) },
+                    new RequestOptions() { PartitionKey = new PartitionKey(OperationsConstants.ExportJobPartitionKey) },
                     disableAutomaticIdGeneration: true,
                     cancellationToken: cancellationToken);
 
