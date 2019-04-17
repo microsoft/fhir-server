@@ -17,14 +17,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             WeakETag weakETag,
             bool allowCreate,
             bool keepHistory,
-            CancellationToken cancellationToken = default(CancellationToken));
+            CancellationToken cancellationToken);
 
-        Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken));
+        Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken);
 
-        Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken));
+        Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken);
 
-        Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default);
+        Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken);
 
-        Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken = default);
+        Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken);
     }
 }

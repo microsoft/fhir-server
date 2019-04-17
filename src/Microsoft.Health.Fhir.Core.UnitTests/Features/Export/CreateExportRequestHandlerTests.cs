@@ -5,6 +5,7 @@
 
 using System;
 using System.Net;
+using System.Threading;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         [Fact]
         public async void GivenAFhirMediator_WhenSavingAnExportJobSucceeds_ThenResponseShouldBeSuccess()
         {
-            _dataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>()).Returns(HttpStatusCode.Created);
+            _dataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(HttpStatusCode.Created);
 
             var outcome = await _mediator.ExportAsync(new Uri(RequestUrl));
 
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         [Fact]
         public async void GivenAFhirMediator_WhenSavingAnExportJobFails_ThenResponseShouldBeFailure()
         {
-            _dataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>()).Returns(HttpStatusCode.BadRequest);
+            _dataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(HttpStatusCode.BadRequest);
 
             var outcome = await _mediator.ExportAsync(new Uri(RequestUrl));
 

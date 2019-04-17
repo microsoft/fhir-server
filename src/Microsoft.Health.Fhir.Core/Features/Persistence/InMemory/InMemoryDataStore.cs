@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             WeakETag weakETag,
             bool allowCreate,
             bool keepHistory,
-            CancellationToken cancellationToken = default(CancellationToken))
+            CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return Task.FromResult(new UpsertOutcome(upsertedVersion, outcome));
         }
 
-        public Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
+        public Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return Task.FromResult(List[lookupKey].LastOrDefault());
         }
 
-        public Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
+        public Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return $"{resourceType}_{resourceId}";
         }
 
-        public Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
+        public Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobRecord);
 
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return Task.FromResult(HttpStatusCode.Created);
         }
 
-        public Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken = default)
+        public Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrEmpty(jobId);
 

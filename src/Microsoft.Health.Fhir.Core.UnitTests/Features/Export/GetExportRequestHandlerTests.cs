@@ -5,6 +5,7 @@
 
 using System;
 using System.Net;
+using System.Threading;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         public async void GivenAFhirMediator_WhenGettingANonExistingExportJob_ThenHttpResponseShouldBeNotFound()
         {
             ExportJobRecord jobRecord = null;
-            _dataStore.GetExportJobAsync("id").Returns(jobRecord);
+            _dataStore.GetExportJobAsync("id", Arg.Any<CancellationToken>()).Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), "id");
 
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
             jobRecord.Status = OperationStatus.Completed;
 
-            _dataStore.GetExportJobAsync(jobRecord.Id).Returns(jobRecord);
+            _dataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
             jobRecord.Status = OperationStatus.Running;
 
-            _dataStore.GetExportJobAsync(jobRecord.Id).Returns(jobRecord);
+            _dataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 

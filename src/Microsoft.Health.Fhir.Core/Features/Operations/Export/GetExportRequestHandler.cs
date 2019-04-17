@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var result = await _dataStore.GetExportJobAsync(request.JobId);
+            var result = await _dataStore.GetExportJobAsync(request.JobId, cancellationToken);
 
             GetExportResponse exportResponse;
             if (result == null)

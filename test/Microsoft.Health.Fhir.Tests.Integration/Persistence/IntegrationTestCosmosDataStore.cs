@@ -99,27 +99,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             WeakETag weakETag,
             bool allowCreate,
             bool keepHistory,
-            CancellationToken cancellationToken = default(CancellationToken))
+            CancellationToken cancellationToken)
         {
             return await _dataStore.UpsertAsync(resource, weakETag, allowCreate, keepHistory, cancellationToken);
         }
 
-        public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
             return await _dataStore.GetAsync(key, cancellationToken);
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
         {
             await _dataStore.HardDeleteAsync(key, cancellationToken);
         }
 
-        public async Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
+        public async Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             return await _dataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
         }
 
-        public async Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken = default)
+        public async Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
         {
             return await _dataStore.GetExportJobAsync(jobId, cancellationToken);
         }
