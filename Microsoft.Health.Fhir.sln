@@ -58,6 +58,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SqlSe
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SqlServer.Api.UnitTests", "src\Microsoft.Health.Fhir.SqlServer.Api.UnitTests\Microsoft.Health.Fhir.SqlServer.Api.UnitTests.csproj", "{6746C0B9-3B51-4118-8C5D-9592359F7A71}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.SqlServer", "src\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj", "{87849B3F-5D12-41CA-A082-FAC065EF9FD8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -144,6 +146,10 @@ Global
 		{6746C0B9-3B51-4118-8C5D-9592359F7A71}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6746C0B9-3B51-4118-8C5D-9592359F7A71}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6746C0B9-3B51-4118-8C5D-9592359F7A71}.Release|Any CPU.Build.0 = Release|Any CPU
+		{87849B3F-5D12-41CA-A082-FAC065EF9FD8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87849B3F-5D12-41CA-A082-FAC065EF9FD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87849B3F-5D12-41CA-A082-FAC065EF9FD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87849B3F-5D12-41CA-A082-FAC065EF9FD8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -170,6 +176,7 @@ Global
 		{A6EDEC42-6828-4ADE-A0B4-2042B4AC65F7} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{1C93EE4A-2704-4E22-8A17-1CCC73F3807E} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{6746C0B9-3B51-4118-8C5D-9592359F7A71} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
+		{87849B3F-5D12-41CA-A082-FAC065EF9FD8} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
