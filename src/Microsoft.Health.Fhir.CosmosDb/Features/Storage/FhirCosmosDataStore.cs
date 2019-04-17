@@ -29,20 +29,20 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public sealed class FhirDataStore : IDataStore, IProvideCapability
+    public sealed class FhirCosmosDataStore : IDataStore, IProvideCapability
     {
         private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
-        private readonly ILogger<FhirDataStore> _logger;
+        private readonly ILogger<FhirCosmosDataStore> _logger;
         private readonly Uri _collectionUri;
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="FhirDataStore"/> class.
+        /// Initializes a new instance of the <see cref="FhirCosmosDataStore"/> class.
         /// </summary>
         /// <param name="documentClient">
         /// A function that returns an <see cref="IDocumentClient"/>.
@@ -54,14 +54,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="fhirRequestContextAccessor">The fhir request context accessor.</param>
         /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="logger">The logger instance.</param>
-        public FhirDataStore(
+        public FhirCosmosDataStore(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
-            ILogger<FhirDataStore> logger)
+            ILogger<FhirCosmosDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
