@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
 
             // We have an existing job. Let us determine the response based on the status of the
             // export operation.
-            if (result.JobStatus == OperationStatus.Completed)
+            if (result.Status == OperationStatus.Completed)
             {
                 var jobResult = new ExportJobResult(
                     result.QueuedTime,

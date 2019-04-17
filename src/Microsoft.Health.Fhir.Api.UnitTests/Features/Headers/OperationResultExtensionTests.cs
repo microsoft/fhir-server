@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var urlResolver = Substitute.For<IUrlResolver>();
             urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(operationResultUrl);
 
-            var operationResult = new OperationResult().SetContentLocationHeader(urlResolver, opName, id);
+            var operationResult = OperationResult.Accepted().SetContentLocationHeader(urlResolver, opName, id);
 
             Assert.Equal(operationResultUrl.AbsoluteUri, operationResult.Headers[HeaderNames.ContentLocation]);
         }
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         public void GivenAnOperationResult_WhenSettingAContentTypeHeader_ThenOperationResultHasAContentTypeHeader()
         {
             string contentTypeValue = "application/json";
-            var operationResult = new OperationResult().SetContentTypeHeader(contentTypeValue);
+            var operationResult = OperationResult.Accepted().SetContentTypeHeader(contentTypeValue);
 
             Assert.Equal(contentTypeValue, operationResult.Headers[HeaderNames.ContentType]);
         }

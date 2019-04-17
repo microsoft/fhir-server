@@ -12,23 +12,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     /// </summary>
     public static class JobRecordProperties
     {
+        public const string JobRecord = "JobRecord";
+
         public const string PartitonKey = "partitionKey";
 
         public const string Id = "id";
 
         public const string JobHash = "jobHash";
 
-        public const string JobStatus = "jobStatus";
+        public const string Status = "status";
 
         public const string LastModified = "lastModified";
 
-        public const string JobQueuedTime = "jobQueuedTime";
+        public const string QueuedTime = "queuedTime";
 
-        public const string JobStartTime = "jobStartTime";
+        public const string StartTime = "startTime";
 
-        public const string JobEndTime = "jobEndTime";
+        public const string EndTime = "endTime";
 
-        public const string JobCancelledTime = "jobCancelledTime";
+        public const string CancelledTime = "cancelledTime";
 
         public const string NumberOfConsecutiveFailures = "numberOfConsecutiveFailures";
 
@@ -58,6 +60,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string CommitedBytes = "committedBytes";
 
-        public const string JobSchemaVersion = "jobSchemaVersion";
+        public const string SchemaVersion = "schemaVersion";
     }
 }

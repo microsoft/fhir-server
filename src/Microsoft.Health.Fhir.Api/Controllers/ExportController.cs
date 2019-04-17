@@ -89,10 +89,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new JobNotCreatedException(Resources.GeneralInternalError);
             }
 
-            var operationResult = new OperationResult()
-            {
-                StatusCode = HttpStatusCode.Accepted,
-            };
+            var operationResult = OperationResult.Accepted();
             operationResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.Id);
 
             return operationResult;
@@ -145,14 +142,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             OperationResult operationResult;
             if (getExportResult.StatusCode == HttpStatusCode.OK)
             {
-                operationResult = new OperationResult(getExportResult.JobResult);
-                operationResult.StatusCode = HttpStatusCode.OK;
+                operationResult = OperationResult.Ok(getExportResult.JobResult);
                 operationResult.SetContentTypeHeader(OperationsConstants.ExportContentTypeHeaderValue);
             }
             else
             {
-                operationResult = new OperationResult();
-                operationResult.StatusCode = HttpStatusCode.Accepted;
+                operationResult = OperationResult.Accepted();
             }
 
             return operationResult;

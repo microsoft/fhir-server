@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Task = System.Threading.Tasks.Task;
@@ -214,18 +215,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken = default)
+        public async Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
 
             try
             {
                 var result = await _documentClient.UpsertDocumentAsync(
-                _collectionUri,
-                jobRecord,
-                new RequestOptions() { PartitionKey = new PartitionKey(jobRecord.PartitionKey) },
-                disableAutomaticIdGeneration: true,
-                cancellationToken: cancellationToken);
+                    _collectionUri,
+                    cosmosExportJob,
+                    new RequestOptions() { PartitionKey = new PartitionKey(cosmosExportJob.PartitionKey) },
+                    disableAutomaticIdGeneration: true,
+                    cancellationToken: cancellationToken);
 
                 return result.StatusCode;
             }
@@ -240,16 +243,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken = default)
+        public async Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrEmpty(jobId);
 
             try
             {
-                return await _documentClient.ReadDocumentAsync<ExportJobRecord>(
+                var cosmosExportJobRecord = await _documentClient.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
                     UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, jobId),
                     new RequestOptions { PartitionKey = new PartitionKey(OperationsConstants.ExportJobPartitionKey) },
                     cancellationToken);
+
+                return cosmosExportJobRecord.Document?.JobRecord;
             }
             catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {

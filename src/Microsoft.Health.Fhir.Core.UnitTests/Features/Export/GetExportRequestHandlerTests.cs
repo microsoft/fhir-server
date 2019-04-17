@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
             var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
-            jobRecord.JobStatus = OperationStatus.Completed;
+            jobRecord.Status = OperationStatus.Completed;
 
             _dataStore.GetExportJobAsync(jobRecord.Id).Returns(jobRecord);
 
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
         {
             var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
-            jobRecord.JobStatus = OperationStatus.Running;
+            jobRecord.Status = OperationStatus.Running;
 
             _dataStore.GetExportJobAsync(jobRecord.Id).Returns(jobRecord);
 

@@ -23,8 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             RequestUri = exportRequestUri;
 
             // Default values
-            JobSchemaVersion = 1;
-            JobStatus = OperationStatus.Queued;
+            SchemaVersion = 1;
+            Status = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
             QueuedTime = DateTimeOffset.Now;
             LastModifiedTime = DateTimeOffset.Now;
@@ -44,14 +44,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         [JsonProperty(JobRecordProperties.JobHash)]
         public string JobHash { get; private set; }
 
-        [JsonProperty(JobRecordProperties.JobQueuedTime)]
+        [JsonProperty(JobRecordProperties.QueuedTime)]
         public DateTimeOffset QueuedTime { get; private set; }
 
-        [JsonProperty(JobRecordProperties.PartitonKey)]
-        public string PartitionKey { get; } = OperationsConstants.ExportJobPartitionKey;
-
-        [JsonProperty(JobRecordProperties.JobSchemaVersion)]
-        public int JobSchemaVersion { get; private set; }
+        [JsonProperty(JobRecordProperties.SchemaVersion)]
+        public int SchemaVersion { get; private set; }
 
         [JsonProperty(JobRecordProperties.Output)]
         public List<ExportFileInfo> Output { get; private set; } = new List<ExportFileInfo>();
@@ -59,20 +56,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
         [JsonProperty(JobRecordProperties.Error)]
         public List<ExportFileInfo> Errors { get; private set; } = new List<ExportFileInfo>();
 
-        [JsonProperty(JobRecordProperties.JobStatus)]
-        public OperationStatus JobStatus { get; set; }
+        [JsonProperty(JobRecordProperties.Status)]
+        public OperationStatus Status { get; set; }
 
         [JsonProperty(JobRecordProperties.LastModified)]
         public DateTimeOffset LastModifiedTime { get; set; }
 
-        [JsonProperty(JobRecordProperties.JobStartTime)]
-        public DateTimeOffset? JobStartTime { get; set; }
+        [JsonProperty(JobRecordProperties.StartTime)]
+        public DateTimeOffset? StartTime { get; set; }
 
-        [JsonProperty(JobRecordProperties.JobEndTime)]
-        public DateTimeOffset? JobEndTime { get; set; }
+        [JsonProperty(JobRecordProperties.EndTime)]
+        public DateTimeOffset? EndTime { get; set; }
 
-        [JsonProperty(JobRecordProperties.JobCancelledTime)]
-        public DateTimeOffset? JobCancelledTime { get; set; }
+        [JsonProperty(JobRecordProperties.CancelledTime)]
+        public DateTimeOffset? CancelledTime { get; set; }
 
         [JsonProperty(JobRecordProperties.NumberOfConsecutiveFailures)]
         public int NumberOfConsecutiveFailures { get; set; }
