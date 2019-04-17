@@ -11,9 +11,9 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class CosmosDbStorageTests : FhirStorageTestsBase, IClassFixture<IntegrationTestFhirCosmosDataStore>
+    public class CosmosDbStorageTests : FhirStorageTestsBase, IClassFixture<IntegrationTestCosmosFhirDataStore>
     {
-        public CosmosDbStorageTests(IntegrationTestFhirCosmosDataStore dataStore)
+        public CosmosDbStorageTests(IntegrationTestCosmosFhirDataStore dataStore)
             : base(dataStore)
         {
         }
