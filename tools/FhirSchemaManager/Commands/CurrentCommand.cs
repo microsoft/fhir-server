@@ -7,13 +7,11 @@ using System;
 
 namespace FhirSchemaManager.Commands
 {
-    public static class Apply
+    public static class CurrentCommand
     {
-        public static void Handler(string connectionString, Uri fhirServer, int version)
+        public static void Handler(Uri fhirServer)
         {
-            Console.WriteLine($"--connection-string {connectionString}");
             Console.WriteLine($"--fhir-server {fhirServer}");
-            Console.WriteLine($"--version {version}");
         }
     }
 }

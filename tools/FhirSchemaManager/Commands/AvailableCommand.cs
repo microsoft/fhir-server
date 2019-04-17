@@ -7,7 +7,7 @@ using System;
 
 namespace FhirSchemaManager.Commands
 {
-    public static class Available
+    public static class AvailableCommand
     {
         public static void Handler(Uri fhirServer)
         {

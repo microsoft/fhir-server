@@ -35,8 +35,8 @@ namespace FhirSchemaManager
             {
                 fhirServerOption,
             };
-            currentCommand.Handler = CommandHandler.Create<Uri>(Current.Handler);
-            currentCommand.Argument.AddValidator(symbol => Validators.Required.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
+            currentCommand.Handler = CommandHandler.Create<Uri>(CurrentCommand.Handler);
+            currentCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
 
             var applyCommand = new Command(CommandNames.Apply, Resources.ApplyCommandDescription)
             {
@@ -44,17 +44,17 @@ namespace FhirSchemaManager
                 fhirServerOption,
                 versionOption,
             };
-            applyCommand.Handler = CommandHandler.Create<string, Uri, int>(Apply.Handler);
-            applyCommand.Argument.AddValidator(symbol => Validators.Required.Validate(symbol, connectionStringOption, Resources.ConnectionStringRequiredValidation));
-            applyCommand.Argument.AddValidator(symbol => Validators.Required.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
-            applyCommand.Argument.AddValidator(symbol => Validators.Required.Validate(symbol, versionOption, Resources.VersionRequiredValidation));
+            applyCommand.Handler = CommandHandler.Create<string, Uri, int>(ApplyCommand.Handler);
+            applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, connectionStringOption, Resources.ConnectionStringRequiredValidation));
+            applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
+            applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, versionOption, Resources.VersionRequiredValidation));
 
             var availableCommand = new Command(CommandNames.Available, Resources.AvailableCommandDescription)
             {
                 fhirServerOption,
             };
-            availableCommand.Handler = CommandHandler.Create<Uri>(Available.Handler);
-            availableCommand.Argument.AddValidator(symbol => Validators.Required.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
+            availableCommand.Handler = CommandHandler.Create<Uri>(AvailableCommand.Handler);
+            availableCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
 
             rootCommand.AddCommand(applyCommand);
             rootCommand.AddCommand(availableCommand);
