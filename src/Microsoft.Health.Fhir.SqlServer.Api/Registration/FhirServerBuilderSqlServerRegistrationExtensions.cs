@@ -18,6 +18,8 @@ namespace Microsoft.Extensions.DependencyInjection
             // During normal usage, the controller should be automatically discovered.
             serviceCollection.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
 
+            serviceCollection.AddSqlServer();
+
             return serviceCollection;
         }
     }
