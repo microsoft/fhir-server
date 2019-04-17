@@ -33,6 +33,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
+        public void GivenACodeableConceptWithTextThatIsTheSameAsTheDisplayOfACoding_WhenConverted_ThenATokenSearchValueShouldNotBeCreatedForTheConceptText()
+        {
+            const string system = "system";
+            const string text = "text";
+
+            Test(
+                cc =>
+                {
+                    cc.Text = text;
+                    cc.Coding.Add(new Coding(system, null, text));
+                },
+                ValidateToken,
+                new Token(system: system, text: text));
+        }
+
+        [Fact]
+        public void GivenACodeableConceptWithTextThatIsDifferentThanTheDisplayOfACoding_WhenConverted_ThenATokenSearchValueShouldBeCreatedForTheConceptText()
+        {
+            const string system = "system";
+            const string conceptText = "conceptText";
+            const string codingDisplayText = "codingDisplay";
+
+            Test(
+                cc =>
+                {
+                    cc.Text = conceptText;
+                    cc.Coding.Add(new Coding(system, null, codingDisplayText));
+                },
+                ValidateToken,
+                new Token(system: system, text: codingDisplayText),
+                new Token(text: conceptText));
+        }
+
+        [Fact]
         public void GivenACodeableConceptWithNullCoding_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             Test(cc => cc.Coding = null);
@@ -40,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 
         [Theory]
         [MemberData(nameof(GetMultipleCodingDataSource))]
-        public void GivenACodeableConceptWithCodings_WhenConverted_ThenOneOrMultipleTokenSearchValuesShouldBeCreated(params Token[] tokens)
+        public void GivenACodeableConceptWithCodings_WhenConverted_ThenOneOrMultipleTokenSearchValuesShouldBetCreated(params Token[] tokens)
         {
             Test(
                 cc => cc.Coding.AddRange(tokens.Select(token => new Coding(token.System, token.Code, token.Text))),

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -16,21 +17,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexEntry"/> class.
         /// </summary>
-        /// <param name="paramName">The search parameter name.</param>
+        /// <param name="searchParameter">The search parameter</param>
         /// <param name="value">The searchable value.</param>
-        public SearchIndexEntry(string paramName, ISearchValue value)
+        public SearchIndexEntry(SearchParameter searchParameter, ISearchValue value)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(paramName, nameof(paramName));
+            EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
             EnsureArg.IsNotNull(value, nameof(value));
 
-            ParamName = paramName;
+            SearchParameter = searchParameter;
             Value = value;
         }
 
         /// <summary>
-        /// Gets the parameter name.
+        /// Gets the search parameter
         /// </summary>
-        public string ParamName { get; }
+        public SearchParameter SearchParameter { get; }
 
         /// <summary>
         /// Gets the searchable value.
