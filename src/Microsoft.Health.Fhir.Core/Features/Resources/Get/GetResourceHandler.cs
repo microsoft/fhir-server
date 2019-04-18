@@ -21,11 +21,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         private readonly ResourceDeserializer _deserializer;
 
         public GetResourceHandler(
-            IDataStore dataStore,
+            IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceDeserializer deserializer)
-            : base(dataStore, conformanceProvider, resourceWrapperFactory)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
 
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 
             var key = message.ResourceKey;
 
-            var currentDoc = await DataStore.GetAsync(key, cancellationToken);
+            var currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
 
             if (currentDoc == null)
             {

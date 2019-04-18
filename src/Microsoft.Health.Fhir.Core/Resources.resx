@@ -257,7 +257,7 @@
     <value>Resource type '{0}' is not supported.</value>
   </data>
   <data name="ResourcePermissionEmpty" xml:space="preserve">
-    <value>Role '{0}' must have one or more ResourcePermissions.</value>
+    <value>Role must have one or more resource permissions.</value>
   </data>
   <data name="ResourceVersionConflict" xml:space="preserve">
     <value>The supplied version '{0}' did not match.</value>
@@ -267,7 +267,7 @@
     <value>Role name cannot be null or empty.</value>
   </data>
   <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
-    <value>Role '{0}' contains a ResourcePermission with no Actions.</value>
+    <value>Role contains a resource permissions with no actions.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>

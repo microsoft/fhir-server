@@ -15,13 +15,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
 {
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
-        private IDataStore _dataStore;
+        private IFhirDataStore _fhirDataStore;
 
-        public CreateExportRequestHandler(IDataStore dataStore)
+        public CreateExportRequestHandler(IFhirDataStore dataStore)
         {
             EnsureArg.IsNotNull(dataStore, nameof(dataStore));
 
-            _dataStore = dataStore;
+            _fhirDataStore = dataStore;
         }
 
         public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
 
             var jobRecord = new ExportJobRecord(request.RequestUri);
 
-            var responseCode = await _dataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
+            var responseCode = await _fhirDataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
 
             // Upsert returns http Created for new documents and http OK if it updated an existing document.
             // We expect the former in this scenario.

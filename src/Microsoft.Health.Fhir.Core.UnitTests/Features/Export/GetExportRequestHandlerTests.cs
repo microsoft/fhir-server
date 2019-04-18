@@ -20,16 +20,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 {
     public class GetExportRequestHandlerTests
     {
-        private readonly IDataStore _dataStore;
+        private readonly IFhirDataStore _fhirDataStore;
         private readonly IMediator _mediator;
         private const string CreateRequestUrl = "https://localhost/$export/";
 
         public GetExportRequestHandlerTests()
         {
-            _dataStore = Substitute.For<IDataStore>();
+            _fhirDataStore = Substitute.For<IFhirDataStore>();
 
             var collection = new ServiceCollection();
-            collection.Add(x => new GetExportRequestHandler(_dataStore)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetExportRequestHandler(_fhirDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         public async void GivenAFhirMediator_WhenGettingANonExistingExportJob_ThenHttpResponseShouldBeNotFound()
         {
             ExportJobRecord jobRecord = null;
-            _dataStore.GetExportJobAsync("id", Arg.Any<CancellationToken>()).Returns(jobRecord);
+            _fhirDataStore.GetExportJobAsync("id", Arg.Any<CancellationToken>()).Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), "id");
 
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
             jobRecord.Status = OperationStatus.Completed;
 
-            _dataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobRecord);
+            _fhirDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
             jobRecord.Status = OperationStatus.Running;
 
-            _dataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobRecord);
+            _fhirDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobRecord);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 

@@ -16,20 +16,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
 {
     public class GetExportRequestHandler : IRequestHandler<GetExportRequest, GetExportResponse>
     {
-        private IDataStore _dataStore;
+        private IFhirDataStore _fhirDataStore;
 
-        public GetExportRequestHandler(IDataStore dataStore)
+        public GetExportRequestHandler(IFhirDataStore dataStore)
         {
             EnsureArg.IsNotNull(dataStore, nameof(dataStore));
 
-            _dataStore = dataStore;
+            _fhirDataStore = dataStore;
         }
 
         public async Task<GetExportResponse> Handle(GetExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var result = await _dataStore.GetExportJobAsync(request.JobId, cancellationToken);
+            var result = await _fhirDataStore.GetExportJobAsync(request.JobId, cancellationToken);
 
             GetExportResponse exportResponse;
             if (result == null)

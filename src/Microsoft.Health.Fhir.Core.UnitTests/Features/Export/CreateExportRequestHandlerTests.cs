@@ -19,16 +19,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 {
     public class CreateExportRequestHandlerTests
     {
-        private readonly IDataStore _dataStore;
+        private readonly IFhirDataStore _fhirDataStore;
         private readonly IMediator _mediator;
         private const string RequestUrl = "https://localhost/$export/";
 
         public CreateExportRequestHandlerTests()
         {
-            _dataStore = Substitute.For<IDataStore>();
+            _fhirDataStore = Substitute.For<IFhirDataStore>();
 
             var collection = new ServiceCollection();
-            collection.Add(x => new CreateExportRequestHandler(_dataStore)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new CreateExportRequestHandler(_fhirDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         [Fact]
         public async void GivenAFhirMediator_WhenSavingAnExportJobSucceeds_ThenResponseShouldBeSuccess()
         {
-            _dataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(HttpStatusCode.Created);
+            _fhirDataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(HttpStatusCode.Created);
 
             var outcome = await _mediator.ExportAsync(new Uri(RequestUrl));
 
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         [Fact]
         public async void GivenAFhirMediator_WhenSavingAnExportJobFails_ThenResponseShouldBeFailure()
         {
-            _dataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(HttpStatusCode.BadRequest);
+            _fhirDataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(HttpStatusCode.BadRequest);
 
             var outcome = await _mediator.ExportAsync(new Uri(RequestUrl));
 

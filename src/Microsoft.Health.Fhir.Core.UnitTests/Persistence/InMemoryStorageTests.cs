@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
     public class InMemoryStorageTests : FhirStorageTestsBase
     {
         public InMemoryStorageTests()
-            : base(new InMemoryDataStore())
+            : base(new InMemoryFhirDataStore())
         {
         }
     }

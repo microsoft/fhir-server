@@ -25,21 +25,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IBundleFactory _bundleFactory;
-        private readonly IDataStore _dataStore;
+        private readonly IFhirDataStore _fhirDataStore;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
         /// </summary>
         /// <param name="searchOptionsFactory">The search options factory.</param>
         /// <param name="bundleFactory">The bundle factory</param>
-        /// <param name="dataStore">The data store</param>
-        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IDataStore dataStore)
+        /// <param name="fhirDataStore">The data store</param>
+        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
 
             _searchOptionsFactory = searchOptionsFactory;
             _bundleFactory = bundleFactory;
-            _dataStore = dataStore;
+            _fhirDataStore = fhirDataStore;
         }
 
         /// <inheritdoc />
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // The 'deleted' state has no effect because history will return deleted resources
             if (searchByResourceId && searchResult.Results.Any() == false)
             {
-                var resource = await _dataStore.GetAsync(new ResourceKey(resourceType, resourceId), cancellationToken);
+                var resource = await _fhirDataStore.GetAsync(new ResourceKey(resourceType, resourceId), cancellationToken);
 
                 if (resource == null)
                 {
