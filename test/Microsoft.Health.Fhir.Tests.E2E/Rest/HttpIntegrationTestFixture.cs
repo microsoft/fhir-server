@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UseStartup(typeof(TStartup))
                 .ConfigureServices(serviceCollection =>
                 {
-                    serviceCollection.AddFhirServerExperimentalSqlServer();
+                    serviceCollection.AddExperimentalSqlServer();
 
                     // ensure that HttpClients
                     // use a message handler for the test server

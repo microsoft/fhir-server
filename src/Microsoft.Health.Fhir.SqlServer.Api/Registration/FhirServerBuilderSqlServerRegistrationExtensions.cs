@@ -10,7 +10,7 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IServiceCollection AddFhirServerExperimentalSqlServer(this IServiceCollection serviceCollection)
+        public static IServiceCollection AddExperimentalSqlServer(this IServiceCollection serviceCollection)
         {
             EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
 
