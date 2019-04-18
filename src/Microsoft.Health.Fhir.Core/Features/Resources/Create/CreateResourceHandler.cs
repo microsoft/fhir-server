@@ -19,10 +19,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
     public class CreateResourceHandler : BaseResourceHandler, IRequestHandler<CreateResourceRequest, UpsertResourceResponse>
     {
         public CreateResourceHandler(
-            IDataStore dataStore,
+            IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory)
-            : base(dataStore, conformanceProvider, resourceWrapperFactory)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
         {
         }
 
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
-            UpsertOutcome result = await DataStore.UpsertAsync(
+            UpsertOutcome result = await FhirDataStore.UpsertAsync(
                 resourceWrapper,
                 weakETag: null,
                 allowCreate: true,

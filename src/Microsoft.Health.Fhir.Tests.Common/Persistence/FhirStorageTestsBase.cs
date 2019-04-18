@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         private readonly CapabilityStatement _conformance;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
-        public FhirStorageTestsBase(IDataStore dataStore)
+        public FhirStorageTestsBase(IFhirDataStore dataStore)
         {
             _conformance = CapabilityStatementMock.GetMockedCapabilityStatement();
 

@@ -24,14 +24,14 @@ using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposin
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class IntegrationTestCosmosDataStore : IDataStore, IDisposable
+    public class IntegrationTestCosmosFhirDataStore : IFhirDataStore, IDisposable
     {
         private readonly IDocumentClient _documentClient;
-        private readonly FhirDataStore _dataStore;
+        private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
 
-        public IntegrationTestCosmosDataStore()
+        public IntegrationTestCosmosFhirDataStore()
         {
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
@@ -76,14 +76,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
             var fhirRequestContextAccessor = new FhirRequestContextAccessor();
 
-            _dataStore = new FhirDataStore(
+            _fhirDataStore = new CosmosFhirDataStore(
                 new NonDisposingScope(_documentClient),
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
                 fhirRequestContextAccessor,
                 optionsMonitor,
-                NullLogger<FhirDataStore>.Instance);
+                NullLogger<CosmosFhirDataStore>.Instance);
         }
 
         public void Dispose()
@@ -99,17 +99,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             bool keepHistory,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            return await _dataStore.UpsertAsync(resource, weakETag, allowCreate, keepHistory, cancellationToken);
+            return await _fhirDataStore.UpsertAsync(resource, weakETag, allowCreate, keepHistory, cancellationToken);
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
         {
-            return await _dataStore.GetAsync(key, cancellationToken);
+            return await _fhirDataStore.GetAsync(key, cancellationToken);
         }
 
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
         {
-            await _dataStore.HardDeleteAsync(key, cancellationToken);
+            await _fhirDataStore.HardDeleteAsync(key, cancellationToken);
         }
     }
 }

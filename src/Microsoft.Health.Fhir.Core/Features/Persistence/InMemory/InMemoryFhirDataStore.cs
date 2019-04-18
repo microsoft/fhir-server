@@ -14,7 +14,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
 {
-    public class InMemoryDataStore : IDataStore
+    public class InMemoryFhirDataStore : IFhirDataStore
     {
         private static readonly Dictionary<string, List<ResourceWrapper>> List = new Dictionary<string, List<ResourceWrapper>>();
 

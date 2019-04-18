@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Health.ControlPlane.CosmosDb\Microsoft.Health.ControlPlane.CosmosDb.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.CosmosDb\Microsoft.Health.CosmosDb.csproj" />
   </ItemGroup>
 
 </Project>

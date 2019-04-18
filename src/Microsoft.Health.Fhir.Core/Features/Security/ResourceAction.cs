@@ -7,7 +7,7 @@ using System.Runtime.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
-namespace Microsoft.Health.ControlPlane.Core.Features.Rbac
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ResourceAction
