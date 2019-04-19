@@ -54,6 +54,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 _messageHandler = Server.CreateHandler();
                 IsUsingInProcTestServer = true;
+
+                // We need to suppress the execution context because there is no boundary between the client and server while using TestServer
+                _messageHandler = new SuppressExecutionContextHandler(_messageHandler);
             }
             else
             {
