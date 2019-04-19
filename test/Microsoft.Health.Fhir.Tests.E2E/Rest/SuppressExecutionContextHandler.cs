@@ -9,6 +9,10 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    /// <summary>
+    /// An HTTP handler that suppresses the execution context flow.
+    /// Workaround from: https://github.com/aspnet/AspNetCore/issues/7975#issuecomment-481536061
+    /// </summary>
     internal class SuppressExecutionContextHandler : DelegatingHandler
     {
         public SuppressExecutionContextHandler(HttpMessageHandler innerHandler)
