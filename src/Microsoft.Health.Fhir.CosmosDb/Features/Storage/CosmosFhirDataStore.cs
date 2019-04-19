@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _hardDelete = new HardDelete();
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(
+        public async Task<UpsertOutcome<ResourceWrapper>> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         ct),
                     cancellationToken);
 
-                return new UpsertOutcome(response.Wrapper, response.OutcomeType);
+                return new UpsertOutcome<ResourceWrapper>(response.Wrapper, response.OutcomeType);
             }
             catch (DocumentClientException dce)
             {

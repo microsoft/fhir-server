@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
         private static readonly Dictionary<string, List<ResourceWrapper>> List = new Dictionary<string, List<ResourceWrapper>>();
         private static readonly Dictionary<string, ExportJobRecord> ExportJobData = new Dictionary<string, ExportJobRecord>();
 
-        public Task<UpsertOutcome> UpsertAsync(
+        public Task<UpsertOutcome<ResourceWrapper>> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
 
             List[lookupKey].Add(upsertedVersion);
 
-            return Task.FromResult(new UpsertOutcome(upsertedVersion, outcome));
+            return Task.FromResult(new UpsertOutcome<ResourceWrapper>(upsertedVersion, outcome));
         }
 
         public Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)

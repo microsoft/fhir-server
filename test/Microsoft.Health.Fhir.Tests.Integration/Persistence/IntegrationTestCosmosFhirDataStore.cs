@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _documentClient?.Dispose();
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(
+        public async Task<UpsertOutcome<ResourceWrapper>> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,

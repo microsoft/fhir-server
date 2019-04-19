@@ -7,17 +7,18 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class UpsertOutcome
+    public class UpsertOutcome<T>
+        where T : class
     {
-        public UpsertOutcome(ResourceWrapper wrapper, SaveOutcomeType outcomeType)
+        public UpsertOutcome(T wrapper, SaveOutcomeType outcomeType)
         {
-            EnsureArg.IsNotNull(wrapper);
+            EnsureArg.IsNotNull(wrapper, nameof(wrapper));
 
             Wrapper = wrapper;
             OutcomeType = outcomeType;
         }
 
-        public ResourceWrapper Wrapper { get; }
+        public T Wrapper { get; }
 
         public SaveOutcomeType OutcomeType { get; }
     }

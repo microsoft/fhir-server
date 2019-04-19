@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface IFhirDataStore
     {
-        Task<UpsertOutcome> UpsertAsync(
+        Task<UpsertOutcome<ResourceWrapper>> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,

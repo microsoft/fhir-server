@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
-            UpsertOutcome result = await FhirDataStore.UpsertAsync(
+            UpsertOutcome<ResourceWrapper> result = await FhirDataStore.UpsertAsync(
                 resourceWrapper,
                 weakETag: null,
                 allowCreate: true,
