@@ -17,6 +17,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// Controller class enabling Azure Active Directory SMART on FHIR Proxy Capability
     /// </summary>
     [TypeFilter(typeof(AadSmartOnFhirProxyFeatureFilterAttribute))]
+    [TypeFilter(typeof(AadSmartOnFhirProxyExceptionFilterAttribute))]
     [Route("AadSmartOnFhirProxy")]
     public class AadSmartOnFhirProxyController : Controller
     {
@@ -120,11 +123,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = "state")] string state,
             [FromQuery(Name = "aud")] string aud)
         {
-            EnsureArg.IsNotNull(responseType, nameof(responseType));
-            EnsureArg.IsNotNull(clientId, nameof(clientId));
-            EnsureArg.IsNotNull(redirectUri, nameof(redirectUri));
-            EnsureArg.IsNotNull(aud, nameof(aud));
-
             if (string.IsNullOrEmpty(launch))
             {
                 launch = Base64UrlEncoder.Encode("{}");
@@ -136,27 +134,37 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 { "l", launch },
             };
 
-            string newState = Base64UrlEncoder.Encode(newStateObj.ToString());
+            var queryBuilder = new QueryBuilder();
 
-            Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
-
-            var queryBuilder = new QueryBuilder
+            if (!string.IsNullOrEmpty(responseType))
             {
-                { "response_type", responseType },
-                { "redirect_uri", callbackUrl.AbsoluteUri },
-                { "client_id", clientId },
-            };
+                queryBuilder.Add("response_type", responseType);
+            }
 
-            if (!_isAadV2)
+            if (!string.IsNullOrEmpty(clientId))
+            {
+                queryBuilder.Add("client_id", clientId);
+            }
+
+            try
+            {
+                var callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
+                queryBuilder.Add("redirect_uri", callbackUrl.AbsoluteUri);
+            }
+            catch
+            {
+                // ignore the error and continue.  We will redirect to AAD and the proper error will be returned to the caller
+            }
+
+            if (!_isAadV2 && !string.IsNullOrEmpty(aud))
             {
                 queryBuilder.Add("resource", aud);
             }
-            else
+            else if (!string.IsNullOrEmpty(scope))
             {
                 // Azure AD v2.0 uses fully qualified scopes and does not allow '/' (slash)
                 // We add qualification to scopes and replace '/' -> '$'
 
-                EnsureArg.IsNotNull(scope, nameof(scope));
                 var scopes = scope.Split(' ');
                 var scopesBuilder = new StringBuilder();
                 string[] wellKnownScopes = { "profile", "openid", "email", "offline_access" };
@@ -178,7 +186,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 queryBuilder.Add("scope", Uri.EscapeDataString(newScopes));
             }
 
-            queryBuilder.Add("state", newState);
+            if (!string.IsNullOrEmpty(state))
+            {
+                string newState = Base64UrlEncoder.Encode(newStateObj.ToString());
+                queryBuilder.Add("state", newState);
+            }
 
             return Redirect($"{_aadAuthorizeEndpoint}{queryBuilder}");
         }
@@ -210,8 +222,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 var errorQueryBuilder = new QueryBuilder
                 {
                     { "error", error },
-                    { "error_description", errorDescription },
                 };
+
+                if (!string.IsNullOrEmpty(errorDescription))
+                {
+                    errorQueryBuilder.Add("error_description", errorDescription);
+                }
+
                 return Redirect($"{redirectUrl}{errorQueryBuilder}");
             }
 
@@ -225,18 +242,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 newState = launchStateParameters["s"].ToString();
                 compoundCode = Base64UrlEncoder.Encode(launchParameters.ToString(Newtonsoft.Json.Formatting.None));
             }
-            catch
+            catch (Exception ex)
             {
-                _logger.LogError("Error parsing launch parameters.");
-                return BadRequest("Invalid launch context parameters");
+                _logger.LogError($"Error parsing launch parameters: {ex.Message}");
+                throw new AadSmartOnFhirProxyBadRequestException("Invalid launch context parameters", ex);
             }
 
             var queryBuilder = new QueryBuilder
             {
                 { "code", compoundCode },
                 { "state", newState },
-                { "session_state", sessionState },
             };
+
+            if (!string.IsNullOrEmpty(sessionState))
+            {
+                queryBuilder.Add("session_state", sessionState);
+            }
+
             return Redirect($"{redirectUrl}{queryBuilder}");
         }
 
@@ -258,8 +280,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromForm(Name = "client_id")] string clientId,
             [FromForm(Name = "client_secret")] string clientSecret)
         {
-            EnsureArg.IsNotNull(grantType, nameof(grantType));
-            EnsureArg.IsNotNull(clientId, nameof(clientId));
+            try
+            {
+                EnsureArg.IsNotNull(grantType, nameof(grantType));
+                EnsureArg.IsNotNull(clientId, nameof(clientId));
+                EnsureArg.IsNotNull(clientSecret, nameof(clientSecret));
+            }
+            catch (ArgumentNullException ex)
+            {
+                throw new AadSmartOnFhirProxyBadRequestException(ex.Message, ex);
+            }
 
             var client = _httpClientFactory.CreateClient();
 
@@ -290,8 +320,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 };
             }
 
-            EnsureArg.IsNotNull(compoundCode, nameof(compoundCode));
-            EnsureArg.IsNotNull(redirectUri, nameof(redirectUri));
+            try
+            {
+                EnsureArg.IsNotNull(compoundCode, nameof(compoundCode));
+                EnsureArg.IsNotNull(redirectUri, nameof(redirectUri));
+            }
+            catch (ArgumentNullException ex)
+            {
+                throw new AadSmartOnFhirProxyBadRequestException(ex.Message, ex);
+            }
 
             JObject decodedCompoundCode;
             string code;
@@ -300,10 +337,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 decodedCompoundCode = JObject.Parse(Base64UrlEncoder.Decode(compoundCode));
                 code = decodedCompoundCode["code"].ToString();
             }
-            catch
+            catch (Exception ex)
             {
-                _logger.LogError("Error decoding compound code");
-                return BadRequest("Invalid compound authorization code");
+                _logger.LogError($"Error decoding compound code: {ex.Message}");
+                throw new AadSmartOnFhirProxyBadRequestException("Invalid compound authorization code", ex);
             }
 
             Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });

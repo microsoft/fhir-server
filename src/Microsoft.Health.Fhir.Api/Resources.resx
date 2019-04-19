@@ -189,6 +189,9 @@
   <data name="UrlResourceIdMismatch" xml:space="preserve">
     <value>Id in the URL must match id in the resource.</value>
   </data>
+  <data name="ValueCannotBeNull" xml:space="preserve">
+    <value>Value cannot be null.  Parameter name: {0}.</value>
+  </data>
   <data name="ViewNotFound" xml:space="preserve">
     <value>View was not found.</value>
   </data>
