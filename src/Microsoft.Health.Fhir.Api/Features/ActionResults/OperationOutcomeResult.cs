@@ -18,9 +18,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     /// This action result is specifically used when we want to return an error
     /// to the client with the appropriate OperationOutcome.
     /// </summary>
-    public class OperationOutcomeActionResult : ActionResult
+    public class OperationOutcomeResult : ActionResult
     {
-        public OperationOutcomeActionResult(OperationOutcome outcome, HttpStatusCode statusCode)
+        public OperationOutcomeResult(OperationOutcome outcome, HttpStatusCode statusCode)
         {
             EnsureArg.IsNotNull(outcome, nameof(outcome));
 

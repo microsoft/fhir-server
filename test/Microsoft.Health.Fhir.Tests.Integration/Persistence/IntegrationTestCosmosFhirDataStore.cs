@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
@@ -16,7 +15,7 @@ using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
@@ -94,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _documentClient?.Dispose();
         }
 
-        public async Task<UpsertOutcome<ResourceWrapper>> UpsertAsync(
+        public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
@@ -114,14 +113,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _fhirDataStore.HardDeleteAsync(key, cancellationToken);
         }
 
-        public async Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
-            return await _fhirDataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
+            return await _fhirDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
         }
 
-        public async Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
+        public async Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
         {
             return await _fhirDataStore.GetExportJobAsync(jobId, cancellationToken);
+        }
+
+        public async Task<ExportJobOutcome> ReplaceExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        {
+            return await _fhirDataStore.ReplaceExportJobAsync(jobRecord, eTag, cancellationToken);
         }
     }
 }

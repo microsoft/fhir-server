@@ -6,10 +6,9 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 {
     /// <summary>
     /// Class to hold metadata for an individual export request.

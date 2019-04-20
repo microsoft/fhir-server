@@ -6,7 +6,7 @@
 using EnsureThat;
 using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Core.Exceptions
+namespace Microsoft.Health.Fhir.Core.Exceptions.Operations
 {
     public class JobNotCreatedException : FhirException
     {

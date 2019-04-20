@@ -4,13 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net;
 using System.Threading;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using NSubstitute;
 using Xunit;
@@ -37,21 +37,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         [Fact]
         public async void GivenAFhirMediator_WhenSavingAnExportJobSucceeds_ThenResponseShouldBeSuccess()
         {
-            _fhirDataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(HttpStatusCode.Created);
+            var exportOutcome = new ExportJobOutcome(new ExportJobRecord(new Uri(RequestUrl)), WeakETag.FromVersionId("eTag"));
+            _fhirDataStore.CreateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(exportOutcome);
 
             var outcome = await _mediator.ExportAsync(new Uri(RequestUrl));
 
             Assert.True(outcome.JobCreated);
-        }
-
-        [Fact]
-        public async void GivenAFhirMediator_WhenSavingAnExportJobFails_ThenResponseShouldBeFailure()
-        {
-            _fhirDataStore.UpsertExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(HttpStatusCode.BadRequest);
-
-            var outcome = await _mediator.ExportAsync(new Uri(RequestUrl));
-
-            Assert.False(outcome.JobCreated);
         }
     }
 }

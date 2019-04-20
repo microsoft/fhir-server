@@ -8,11 +8,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 
-namespace Microsoft.Health.Fhir.Core.Features.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class GetExportRequestHandler : IRequestHandler<GetExportRequest, GetExportResponse>
     {
@@ -38,16 +38,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
                 return exportResponse;
             }
 
-            // We have an existing job. Let us determine the response based on the status of the
-            // export operation.
-            if (result.Status == OperationStatus.Completed)
+            // We have an existing job. We will determine the response based on the status of the export operation.
+            if (result.JobRecord.Status == OperationStatus.Completed)
             {
                 var jobResult = new ExportJobResult(
-                    result.QueuedTime,
-                    result.RequestUri,
+                    result.JobRecord.QueuedTime,
+                    result.JobRecord.RequestUri,
                     requiresAccessToken: false,
-                    result.Output,
-                    result.Errors);
+                    result.JobRecord.Output,
+                    result.JobRecord.Errors);
 
                 exportResponse = new GetExportResponse(jobExists: true, HttpStatusCode.OK, jobResult);
             }

@@ -3,15 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 
-namespace Microsoft.Health.Fhir.Core.Features.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
@@ -32,19 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Export
             // and handle it accordingly. For now we just assume all export jobs are unique and create a new one.
 
             var jobRecord = new ExportJobRecord(request.RequestUri);
+            ExportJobOutcome result = await _fhirDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
-            var responseCode = await _fhirDataStore.UpsertExportJobAsync(jobRecord, cancellationToken);
-
-            // Upsert returns http Created for new documents and http OK if it updated an existing document.
-            // We expect the former in this scenario.
-            if (responseCode == HttpStatusCode.Created)
-            {
-                return new CreateExportResponse(jobRecord.Id, jobCreated: true);
-            }
-            else
-            {
-                return new CreateExportResponse(jobRecord.Id, jobCreated: false);
-            }
+            // If job creation had failed, we would have thrown an exception.
+            return new CreateExportResponse(jobRecord.Id, jobCreated: true);
         }
     }
 }

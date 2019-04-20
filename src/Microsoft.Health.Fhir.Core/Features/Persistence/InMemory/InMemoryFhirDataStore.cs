@@ -6,12 +6,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
@@ -21,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
         private static readonly Dictionary<string, List<ResourceWrapper>> List = new Dictionary<string, List<ResourceWrapper>>();
         private static readonly Dictionary<string, ExportJobRecord> ExportJobData = new Dictionary<string, ExportJobRecord>();
 
-        public Task<UpsertOutcome<ResourceWrapper>> UpsertAsync(
+        public Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
@@ -72,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
 
             List[lookupKey].Add(upsertedVersion);
 
-            return Task.FromResult(new UpsertOutcome<ResourceWrapper>(upsertedVersion, outcome));
+            return Task.FromResult(new UpsertOutcome(upsertedVersion, outcome));
         }
 
         public Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
@@ -110,28 +109,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return $"{resourceType}_{resourceId}";
         }
 
-        public Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        public Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobRecord);
 
             if (ExportJobData.ContainsKey(jobRecord.Id))
             {
-                ExportJobData[jobRecord.Id] = jobRecord;
-                return Task.FromResult(HttpStatusCode.OK);
+                return Task.FromResult<ExportJobOutcome>(null);
             }
 
             ExportJobData.Add(jobRecord.Id, jobRecord);
-            return Task.FromResult(HttpStatusCode.Created);
+            return Task.FromResult(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag")));
         }
 
-        public Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
+        public Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrEmpty(jobId);
 
             ExportJobRecord jobRecord = null;
             ExportJobData.TryGetValue(jobId, out jobRecord);
 
-            return Task.FromResult(jobRecord);
+            if (jobRecord == null)
+            {
+                return Task.FromResult<ExportJobOutcome>(null);
+            }
+
+            return Task.FromResult(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag")));
+        }
+
+        public Task<ExportJobOutcome> ReplaceExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord);
+
+            if (!ExportJobData.ContainsKey(jobRecord.Id))
+            {
+                return Task.FromResult<ExportJobOutcome>(null);
+            }
+
+            ExportJobData[jobRecord.Id] = jobRecord;
+            return Task.FromResult(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag")));
         }
     }
 }

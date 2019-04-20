@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
-using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Export
 {

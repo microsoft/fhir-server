@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 {
-    public class OperationResultExtensionTests
+    public class OperationResultExtensionsTests
     {
         [Fact]
         public void GivenAnOperationResult_WhenSettingAContentLocationHeader_ThenOperationResultHasAContentLocationHeader()

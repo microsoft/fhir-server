@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             resource.Id = "id1";
             var wrapper = CreateResourceWrapper(resource, false);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(new UpsertOutcome<ResourceWrapper>(wrapper, SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(new UpsertOutcome(wrapper, SaveOutcomeType.Created));
 
             await _mediator.CreateResourceAsync(resource);
 
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             resource.Id = null;
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome<ResourceWrapper>(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
+                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
             await _mediator.UpsertResourceAsync(resource);
 
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
             {
                 _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                    .Returns(x => new UpsertOutcome<ResourceWrapper>(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
+                    .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
                 await _mediator.UpsertResourceAsync(resource);
 
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             }
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome<ResourceWrapper>(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
+                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
 
             var outcome = await _mediator.UpsertResourceAsync(resource);
 
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             }
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome<ResourceWrapper>(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Updated));
+                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Updated));
 
             var outcome = await _mediator.UpsertResourceAsync(resource, null);
 

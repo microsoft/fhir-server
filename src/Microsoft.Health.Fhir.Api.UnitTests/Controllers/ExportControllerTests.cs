@@ -10,10 +10,12 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
@@ -30,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAnExportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
+        public async Task GivenAnExportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = false });
 

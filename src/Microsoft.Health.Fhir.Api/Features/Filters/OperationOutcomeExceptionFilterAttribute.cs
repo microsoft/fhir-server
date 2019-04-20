@@ -15,6 +15,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             if (context.Exception is FhirException fhirException)
             {
-                var operationOutcomeResult = new OperationOutcomeActionResult(
+                var operationOutcomeResult = new OperationOutcomeResult(
                     new OperationOutcome
                     {
                         Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
@@ -96,6 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case UnsupportedConfigurationException _:
                     case AuditException _:
+                    case JobNotCreatedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
                     case OperationNotImplementedException _:
@@ -108,12 +110,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
             else if (context.Exception is MicrosoftHealthException microsoftHealthException)
             {
-                OperationOutcomeActionResult healthExceptionResult;
+                OperationOutcomeResult healthExceptionResult;
 
                 switch (microsoftHealthException)
                 {
                     case RequestRateExceededException ex:
-                        healthExceptionResult = new OperationOutcomeActionResult(
+                        healthExceptionResult = new OperationOutcomeResult(
                             new OperationOutcome
                             {
                                 Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
@@ -138,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         break;
                     default:
-                        healthExceptionResult = new OperationOutcomeActionResult(
+                        healthExceptionResult = new OperationOutcomeResult(
                             new OperationOutcome
                             {
                                 Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,

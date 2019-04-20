@@ -16,7 +16,7 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
@@ -385,7 +385,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         }
 
         [Fact]
-        public async Task GivenExportRequestThatExists_WhenGettingExportStatus_ThenGetsJobExists()
+        public async Task GivenExportJobThatExists_WhenGettingExportStatus_ThenGetsJobExists()
         {
             Uri requestUri = new Uri("https://localhost/$export");
             var result = await Mediator.ExportAsync(requestUri);
@@ -399,7 +399,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
         }
 
         [Fact]
-        public async Task GivenExportRequestDoesNotExist_WhenGettingExportStatus_ThenGetsJobDoesNotExist()
+        public async Task GivenExportJobThatDoesNotExist_WhenGettingExportStatus_ThenGetsJobDoesNotExist()
         {
             string id = "exportJobId-1234567";
             Uri requestUri = new Uri("https://localhost/_operation/export/" + id);

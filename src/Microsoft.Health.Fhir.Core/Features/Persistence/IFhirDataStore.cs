@@ -3,16 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface IFhirDataStore
     {
-        Task<UpsertOutcome<ResourceWrapper>> UpsertAsync(
+        Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
@@ -23,8 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken);
 
-        Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken);
+        Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken);
 
-        Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken);
+        Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken);
+
+        Task<ExportJobOutcome> ReplaceExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken);
     }
 }

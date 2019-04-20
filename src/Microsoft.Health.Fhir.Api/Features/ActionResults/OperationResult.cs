@@ -9,13 +9,13 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Core.Features.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
-    /// Used to handle the result of an operations. Currently supports only Export.
+    /// Used to return the result of an operation. Currently supports only Export.
     /// </summary>
     public class OperationResult : ActionResult
     {
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Creates a result with HttpStatusCode Ok.
         /// </summary>
-        /// <param name="jobResult">The job result that must be part of the ActionResult.</param>
+        /// <param name="jobResult">The job result that must be returned as part of the OperationResult.</param>
         public static OperationResult Ok(ExportJobResult jobResult)
         {
             EnsureArg.IsNotNull(jobResult);

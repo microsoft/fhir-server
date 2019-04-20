@@ -17,6 +17,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             filter.OnActionExecuted(_context);
 
-            var result = _context.Result as OperationOutcomeActionResult;
+            var result = _context.Result as OperationOutcomeResult;
 
             Assert.NotNull(result);
             Assert.Equal(_correlationId, result.OperationOutcomeError.Id);
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             filter.OnActionExecuted(_context);
 
-            var result = _context.Result as OperationOutcomeActionResult;
+            var result = _context.Result as OperationOutcomeResult;
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.Gone, result.StatusCode);
@@ -142,7 +143,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             TimeSpan retryAfter = TimeSpan.FromSeconds(1.5);
 
-            OperationOutcomeActionResult result = ValidateOperationOutcome(new RequestRateExceededException(retryAfter), (HttpStatusCode)429);
+            OperationOutcomeResult result = ValidateOperationOutcome(new RequestRateExceededException(retryAfter), (HttpStatusCode)429);
 
             Assert.Contains(
                 result.Headers,
@@ -167,7 +168,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new JobNotFoundException("Job not found."), HttpStatusCode.NotFound);
         }
 
-        private OperationOutcomeActionResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
+        [Fact]
+        public void GivenAJobNotCreatedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new JobNotCreatedException("Job not created."), HttpStatusCode.InternalServerError);
+        }
+
+        private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
 
@@ -175,7 +182,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             filter.OnActionExecuted(_context);
 
-            var result = _context.Result as OperationOutcomeActionResult;
+            var result = _context.Result as OperationOutcomeResult;
 
             Assert.NotNull(result);
             Assert.Equal(expectedStatusCode, result.StatusCode);

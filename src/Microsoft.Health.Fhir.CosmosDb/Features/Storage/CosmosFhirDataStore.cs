@@ -23,8 +23,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
@@ -86,7 +85,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _hardDelete = new HardDelete();
         }
 
-        public async Task<UpsertOutcome<ResourceWrapper>> UpsertAsync(
+        public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
@@ -112,7 +111,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         ct),
                     cancellationToken);
 
-                return new UpsertOutcome<ResourceWrapper>(response.Wrapper, response.OutcomeType);
+                return new UpsertOutcome(response.Wrapper, response.OutcomeType);
             }
             catch (DocumentClientException dce)
             {
@@ -215,7 +214,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<HttpStatusCode> UpsertExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
@@ -226,11 +225,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 var result = await _documentClient.UpsertDocumentAsync(
                     _collectionUri,
                     cosmosExportJob,
-                    new RequestOptions() { PartitionKey = new PartitionKey(OperationsConstants.ExportJobPartitionKey) },
+                    new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     disableAutomaticIdGeneration: true,
                     cancellationToken: cancellationToken);
 
-                return result.StatusCode;
+                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
             }
             catch (DocumentClientException dce)
             {
@@ -243,22 +242,65 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<ExportJobRecord> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
+        public async Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrEmpty(jobId);
 
             try
             {
-                var cosmosExportJobRecord = await _documentClient.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
+                DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await _documentClient.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
                     UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, jobId),
-                    new RequestOptions { PartitionKey = new PartitionKey(OperationsConstants.ExportJobPartitionKey) },
+                    new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     cancellationToken);
 
-                return cosmosExportJobRecord.Document?.JobRecord;
+                var eTagHeaderValue = cosmosExportJobRecord.ResponseHeaders["ETag"];
+                var outcome = new ExportJobOutcome(cosmosExportJobRecord?.Document.JobRecord, WeakETag.FromVersionId(eTagHeaderValue));
+                return outcome;
             }
             catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;
+            }
+        }
+
+        public async Task<ExportJobOutcome> ReplaceExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
+
+            // Create access condition so that record is replaced only if eTag matches.
+            AccessCondition condition = new AccessCondition()
+            {
+                Type = AccessConditionType.IfMatch,
+                Condition = eTag.ToString(),
+            };
+
+            var requestOptions = new RequestOptions()
+            {
+                AccessCondition = condition,
+                PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
+            };
+
+            try
+            {
+                var result = await _documentClient.ReplaceDocumentAsync(
+                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, jobRecord.Id),
+                    cosmosExportJob,
+                    requestOptions,
+                    cancellationToken: cancellationToken);
+
+                var latestETag = result.Resource.ETag;
+                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(latestETag));
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
+                throw;
             }
         }
 

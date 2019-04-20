@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using EnsureThat;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 {
     /// <summary>
     /// Class used to hold data that needs to be returned to the client when the

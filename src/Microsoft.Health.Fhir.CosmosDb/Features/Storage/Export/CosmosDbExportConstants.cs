@@ -3,14 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export
 {
-    public static class OperationsConstants
+    public static class CosmosDbExportConstants
     {
-        public const string Operations = "_operations";
-
-        public const string Export = "export";
-
-        public const string ExportContentTypeHeaderValue = "application/json";
+        public const string ExportJobPartitionKey = "ExportJob";
     }
 }

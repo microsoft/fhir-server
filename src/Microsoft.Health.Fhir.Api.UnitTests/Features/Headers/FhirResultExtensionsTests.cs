@@ -16,12 +16,12 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 {
-    public class FhirResultExtensionTests
+    public class FhirResultExtensionsTests
     {
         private const string ETagFormat = "W/\"{0}\"";
         private readonly Resource _mockResource;
 
-        public FhirResultExtensionTests()
+        public FhirResultExtensionsTests()
         {
             var id = Guid.NewGuid().ToString();
             var version = Guid.NewGuid().ToString();

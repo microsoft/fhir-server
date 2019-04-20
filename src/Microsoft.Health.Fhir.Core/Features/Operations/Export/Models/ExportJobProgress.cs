@@ -4,10 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 {
     public class ExportJobProgress
     {
