@@ -52,8 +52,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <param name="jobResult">The job result that must be returned as part of the OperationResult.</param>
         public static OperationResult Ok(ExportJobResult jobResult)
         {
-            EnsureArg.IsNotNull(jobResult);
-
             return new OperationResult(jobResult, HttpStatusCode.OK);
         }
 

@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var jobRecord = new ExportJobRecord(request.RequestUri);
             ExportJobOutcome result = await _fhirDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
-            // If job creation had failed, we would have thrown an exception.
+            // If job creation had failed we would have thrown an exception.
             return new CreateExportResponse(jobRecord.Id, jobCreated: true);
         }
     }

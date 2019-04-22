@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                var result = await _documentClient.UpsertDocumentAsync(
+                ResourceResponse<Document> result = await _documentClient.CreateDocumentAsync(
                     _collectionUri,
                     cosmosExportJob,
                     new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
@@ -233,18 +233,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (DocumentClientException dce)
             {
-                if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
+                if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
 
+                _logger.LogError(dce, "Unhandled Document Client Exception");
                 throw;
             }
         }
 
         public async Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrEmpty(jobId);
+            EnsureArg.IsNotNullOrWhiteSpace(jobId);
 
             try
             {
@@ -254,12 +255,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     cancellationToken);
 
                 var eTagHeaderValue = cosmosExportJobRecord.ResponseHeaders["ETag"];
-                var outcome = new ExportJobOutcome(cosmosExportJobRecord?.Document.JobRecord, WeakETag.FromVersionId(eTagHeaderValue));
+                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(eTagHeaderValue));
+
                 return outcome;
             }
-            catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
+            catch (DocumentClientException dce)
             {
-                return null;
+                if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    return null;
+                }
+
+                _logger.LogError(dce, "Unhandled Document Client Exception");
+                throw;
             }
         }
 
@@ -270,7 +278,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
 
             // Create access condition so that record is replaced only if eTag matches.
-            AccessCondition condition = new AccessCondition()
+            var condition = new AccessCondition()
             {
                 Type = AccessConditionType.IfMatch,
                 Condition = eTag.ToString(),
@@ -284,22 +292,33 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                var result = await _documentClient.ReplaceDocumentAsync(
+                ResourceResponse<Document> replaceResult = await _documentClient.ReplaceDocumentAsync(
                     UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, jobRecord.Id),
                     cosmosExportJob,
                     requestOptions,
                     cancellationToken: cancellationToken);
 
-                var latestETag = result.Resource.ETag;
+                var latestETag = replaceResult.Resource.ETag;
                 return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(latestETag));
             }
             catch (DocumentClientException dce)
             {
-                if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
+                if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
 
+                if (dce.StatusCode == HttpStatusCode.PreconditionFailed)
+                {
+                    throw new ResourceConflictException(eTag);
+                }
+
+                if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    return null;
+                }
+
+                _logger.LogError(dce, "Unhandled Document Client Exception");
                 throw;
             }
         }

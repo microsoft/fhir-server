@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         // Generates the url to be included in the response based on the operation and sets the content location header.
         public static OperationResult SetContentLocationHeader(this OperationResult operationResult, IUrlResolver urlResolver, string operationName, string id)
         {
-            EnsureArg.IsNotNullOrEmpty(operationName, nameof(operationName));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+            EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
             var url = urlResolver.ResolveOperationResultUrl(operationName, id);
 
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 
         public static OperationResult SetContentTypeHeader(this OperationResult oeprationResult, string contentTypeValue)
         {
-            EnsureArg.IsNotNullOrEmpty(contentTypeValue);
+            EnsureArg.IsNotNullOrWhiteSpace(contentTypeValue);
 
             oeprationResult.Headers.Add(HeaderNames.ContentType, contentTypeValue);
             return oeprationResult;

@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-            EnsureArg.IsNotNullOrEmpty(jobId, nameof(jobId));
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
             var request = new GetExportRequest(requestUri, jobId);
 

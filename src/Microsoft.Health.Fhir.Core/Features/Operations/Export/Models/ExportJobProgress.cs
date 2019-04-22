@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     {
         public ExportJobProgress(string query, int page)
         {
-            EnsureArg.IsNotNullOrEmpty(query, nameof(query));
+            EnsureArg.IsNotNullOrWhiteSpace(query, nameof(query));
 
             Query = query;
             Page = page;

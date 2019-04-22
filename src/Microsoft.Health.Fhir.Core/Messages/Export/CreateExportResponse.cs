@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
     {
         public CreateExportResponse(string id, bool jobCreated)
         {
-            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
             Id = id;
             JobCreated = jobCreated;

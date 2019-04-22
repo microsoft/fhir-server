@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
+            // Prepare get export status request.
             var uri = response.Content.Headers.ContentLocation;
             HttpRequestMessage getStatusRequest = new HttpRequestMessage()
             {
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
 
             var getStatusResponse = await _client.SendAsync(getStatusRequest);
+
             Assert.Equal(HttpStatusCode.Accepted, getStatusResponse.StatusCode);
         }
 

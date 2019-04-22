@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions.Operations
         public OperationNotImplementedException(string message)
             : base(message)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
 
             Issues.Add(new OperationOutcome.IssueComponent
             {

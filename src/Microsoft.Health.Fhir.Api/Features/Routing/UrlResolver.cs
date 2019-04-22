@@ -179,8 +179,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public Uri ResolveOperationResultUrl(string operationName, string id)
         {
-            EnsureArg.IsNotNullOrEmpty(operationName, nameof(operationName));
-            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+            EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
             if (!string.Equals(operationName, OperationsConstants.Export, StringComparison.OrdinalIgnoreCase))
             {

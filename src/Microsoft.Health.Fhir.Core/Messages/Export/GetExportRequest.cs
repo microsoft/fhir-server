@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public GetExportRequest(Uri requestUri, string jobId)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-            EnsureArg.IsNotNullOrEmpty(jobId, nameof(jobId));
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
             RequestUri = requestUri;
             JobId = jobId;

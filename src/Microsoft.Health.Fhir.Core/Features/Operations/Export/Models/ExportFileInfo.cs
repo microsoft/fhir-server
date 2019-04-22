@@ -9,6 +9,10 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 {
+    /// <summary>
+    /// Represents metadata required for each file that is generated as part of the
+    /// export operation.
+    /// </summary>
     public class ExportFileInfo
     {
         public ExportFileInfo(

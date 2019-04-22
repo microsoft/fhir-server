@@ -6,9 +6,8 @@
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     /// <summary>
-    /// Class for keeping track of the different json properties that will be stored
-    /// for each job record. Some of these will be common across different operations
-    /// and others might be specific.
+    /// Class for keeping track of the property names of the metadata for each job/operation.
+    /// Some of these will be common across different operations and others might be specific.
     /// </summary>
     public static class JobRecordProperties
     {
@@ -37,8 +36,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TotalNumberOfFailures = "totalNumberOfFailures";
 
         public const string Request = "request";
-
-        public const string RequestUri = "requestUri";
 
         public const string Progress = "progress";
 

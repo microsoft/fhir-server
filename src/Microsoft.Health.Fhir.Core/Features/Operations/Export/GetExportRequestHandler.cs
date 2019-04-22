@@ -29,24 +29,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var result = await _fhirDataStore.GetExportJobAsync(request.JobId, cancellationToken);
+            ExportJobOutcome outcome = await _fhirDataStore.GetExportJobAsync(request.JobId, cancellationToken);
 
             GetExportResponse exportResponse;
-            if (result == null)
+            if (outcome == null)
             {
                 exportResponse = new GetExportResponse(jobExists: false, HttpStatusCode.NotFound);
                 return exportResponse;
             }
 
             // We have an existing job. We will determine the response based on the status of the export operation.
-            if (result.JobRecord.Status == OperationStatus.Completed)
+            if (outcome.JobRecord.Status == OperationStatus.Completed)
             {
                 var jobResult = new ExportJobResult(
-                    result.JobRecord.QueuedTime,
-                    result.JobRecord.RequestUri,
+                    outcome.JobRecord.QueuedTime,
+                    outcome.JobRecord.RequestUri,
                     requiresAccessToken: false,
-                    result.JobRecord.Output,
-                    result.JobRecord.Errors);
+                    outcome.JobRecord.Output,
+                    outcome.JobRecord.Errors);
 
                 exportResponse = new GetExportResponse(jobExists: true, HttpStatusCode.OK, jobResult);
             }
