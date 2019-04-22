@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
                     x[2] = new HashSet<string> { "testParam" };
                     return true;
                 });
-            var searchIndexEntries = new List<SearchIndexEntry> { new SearchIndexEntry("testParam", new ReferenceSearchValue(ReferenceKind.Internal, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType), resourceId)) };
+            var searchIndexEntries = new List<SearchIndexEntry> { new SearchIndexEntry(new SearchParameter { Name = "testParam" }, new ReferenceSearchValue(ReferenceKind.Internal, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType), resourceId)) };
             CompartmentIndices compartmentIndices = compartmentIndexer.Extract(resourceType, searchIndexEntries);
 
             IReadOnlyCollection<string> resourceIds = null;
