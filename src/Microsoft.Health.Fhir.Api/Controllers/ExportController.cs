@@ -85,13 +85,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri);
 
-            if (!response.JobCreated)
-            {
-                throw new JobNotCreatedException(Resources.GeneralInternalError);
-            }
-
             var operationResult = OperationResult.Accepted();
-            operationResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.Id);
+            operationResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
 
             return operationResult;
         }
@@ -132,11 +127,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> GetExportStatusById(string id)
         {
             var getExportResult = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, id);
-
-            if (!getExportResult.JobExists)
-            {
-                throw new JobNotFoundException(string.Format(Resources.JobNotFoundException, id));
-            }
 
             // If the job is complete, we need to return 200 along the completed data to the client.
             // Else we need to return 202.

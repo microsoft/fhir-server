@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -14,6 +15,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -390,31 +392,30 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             var requestUri = new Uri("https://localhost/$export");
             CreateExportResponse result = await Mediator.ExportAsync(requestUri);
 
-            Assert.True(result.JobCreated);
+            Assert.NotEmpty(result.JobId);
         }
 
         [Fact]
-        public async Task GivenExportJobThatExists_WhenGettingExportStatus_ThenGetsJobExists()
+        public async Task GivenExportJobThatExists_WhenGettingExportStatus_ThenGetsHttpStatuscodeAccepted()
         {
             Uri requestUri = new Uri("https://localhost/$export");
             var result = await Mediator.ExportAsync(requestUri);
 
-            Assert.True(result.JobCreated);
+            Assert.NotEmpty(result.JobId);
 
-            requestUri = new Uri("https://localhost/_operation/export/" + result.Id);
-            var exportStatus = await Mediator.GetExportStatusAsync(requestUri, result.Id);
+            requestUri = new Uri("https://localhost/_operation/export/" + result.JobId);
+            var exportStatus = await Mediator.GetExportStatusAsync(requestUri, result.JobId);
 
-            Assert.True(exportStatus.JobExists);
+            Assert.Equal(HttpStatusCode.Accepted, exportStatus.StatusCode);
         }
 
         [Fact]
-        public async Task GivenExportJobThatDoesNotExist_WhenGettingExportStatus_ThenGetsJobDoesNotExist()
+        public async Task GivenExportJobThatDoesNotExist_WhenGettingExportStatus_ThenJobNotFoundExceptionIsThrown()
         {
             string id = "exportJobId-1234567";
             Uri requestUri = new Uri("https://localhost/_operation/export/" + id);
-            var exportStatus = await Mediator.GetExportStatusAsync(requestUri, id);
 
-            Assert.False(exportStatus.JobExists);
+            await Assert.ThrowsAsync<JobNotFoundException>(async () => await Mediator.GetExportStatusAsync(requestUri, id));
         }
 
         private async Task ExecuteAndVerifyException<TException>(Func<Task> action)

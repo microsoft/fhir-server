@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new GetExportRequest(requestUri, jobId);
 
-            var response = await mediator.Send(request, cancellationToken);
+            GetExportResponse response = await mediator.Send(request, cancellationToken);
             return response;
         }
     }

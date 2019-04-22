@@ -21,6 +21,7 @@ using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -263,7 +264,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
-                    return null;
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
                 }
 
                 _logger.LogError(dce, "Unhandled Document Client Exception");
@@ -315,7 +316,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
-                    return null;
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
                 }
 
                 _logger.LogError(dce, "Unhandled Document Client Exception");

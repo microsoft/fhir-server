@@ -37,18 +37,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         }
 
         [Fact]
-        public async void GivenAFhirMediator_WhenGettingANonExistingExportJob_ThenHttpResponseShouldBeNotFound()
-        {
-            ExportJobOutcome jobOutcome = null;
-            _fhirDataStore.GetExportJobAsync("id", Arg.Any<CancellationToken>()).Returns(jobOutcome);
-
-            var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), "id");
-
-            Assert.False(result.JobExists);
-            Assert.Equal(HttpStatusCode.NotFound, result.StatusCode);
-        }
-
-        [Fact]
         public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
             var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
@@ -59,7 +47,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 
-            Assert.True(result.JobExists);
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.NotNull(result.JobResult);
 
@@ -80,7 +67,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 
-            Assert.True(result.JobExists);
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Null(result.JobResult);
         }

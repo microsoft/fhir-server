@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Task = System.Threading.Tasks.Task;
 
@@ -113,11 +114,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
         {
             EnsureArg.IsNotNull(jobRecord);
 
-            if (ExportJobData.ContainsKey(jobRecord.Id))
-            {
-                return Task.FromResult<ExportJobOutcome>(null);
-            }
-
             ExportJobData.Add(jobRecord.Id, jobRecord);
             return Task.FromResult(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag")));
         }
@@ -126,14 +122,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
         {
             EnsureArg.IsNotNullOrEmpty(jobId);
 
-            ExportJobRecord jobRecord = null;
-            ExportJobData.TryGetValue(jobId, out jobRecord);
-
-            if (jobRecord == null)
+            if (!ExportJobData.ContainsKey(jobId))
             {
-                return Task.FromResult<ExportJobOutcome>(null);
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
             }
 
+            ExportJobRecord jobRecord = ExportJobData[jobId];
             return Task.FromResult(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag")));
         }
 
@@ -143,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
 
             if (!ExportJobData.ContainsKey(jobRecord.Id))
             {
-                return Task.FromResult<ExportJobOutcome>(null);
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
             }
 
             ExportJobData[jobRecord.Id] = jobRecord;

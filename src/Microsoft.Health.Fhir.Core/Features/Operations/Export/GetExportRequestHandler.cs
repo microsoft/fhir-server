@@ -31,14 +31,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             ExportJobOutcome outcome = await _fhirDataStore.GetExportJobAsync(request.JobId, cancellationToken);
 
-            GetExportResponse exportResponse;
-            if (outcome == null)
-            {
-                exportResponse = new GetExportResponse(jobExists: false, HttpStatusCode.NotFound);
-                return exportResponse;
-            }
-
             // We have an existing job. We will determine the response based on the status of the export operation.
+            GetExportResponse exportResponse;
             if (outcome.JobRecord.Status == OperationStatus.Completed)
             {
                 var jobResult = new ExportJobResult(
@@ -48,11 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     outcome.JobRecord.Output,
                     outcome.JobRecord.Errors);
 
-                exportResponse = new GetExportResponse(jobExists: true, HttpStatusCode.OK, jobResult);
+                exportResponse = new GetExportResponse(HttpStatusCode.OK, jobResult);
             }
             else
             {
-                exportResponse = new GetExportResponse(jobExists: true, HttpStatusCode.Accepted);
+                exportResponse = new GetExportResponse(HttpStatusCode.Accepted);
             }
 
             return exportResponse;

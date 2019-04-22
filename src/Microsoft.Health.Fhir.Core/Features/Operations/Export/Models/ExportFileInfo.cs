@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             int count,
             long committedBytes)
         {
-            EnsureArg.IsNotNullOrEmpty(type);
+            EnsureArg.IsNotNullOrWhiteSpace(type);
             EnsureArg.IsNotNull(fileUri);
 
             Type = type;

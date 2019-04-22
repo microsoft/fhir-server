@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 
             var outcome = await _mediator.ExportAsync(new Uri(RequestUrl));
 
-            Assert.True(outcome.JobCreated);
+            Assert.NotEmpty(outcome.JobId);
         }
     }
 }

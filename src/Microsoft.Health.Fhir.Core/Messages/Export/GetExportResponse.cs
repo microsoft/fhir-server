@@ -10,19 +10,16 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class GetExportResponse
     {
-        public GetExportResponse(bool jobExists, HttpStatusCode statusCode)
-            : this(jobExists, statusCode, null)
+        public GetExportResponse(HttpStatusCode statusCode)
+            : this(statusCode, null)
         {
         }
 
-        public GetExportResponse(bool jobExists, HttpStatusCode statusCode, ExportJobResult jobResult)
+        public GetExportResponse(HttpStatusCode statusCode, ExportJobResult jobResult)
         {
-            JobExists = jobExists;
             StatusCode = statusCode;
             JobResult = jobResult;
         }
-
-        public bool JobExists { get; }
 
         public HttpStatusCode StatusCode { get; }
 
