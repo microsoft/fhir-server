@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 
         [Theory]
         [MemberData(nameof(GetMultipleCodingDataSource))]
-        public void GivenACodeableConceptWithCodings_WhenConverted_ThenOneOrMultipleTokenSearchValuesShouldBetCreated(params Token[] tokens)
+        public void GivenACodeableConceptWithCodings_WhenConverted_ThenOneOrMultipleTokenSearchValuesShouldBeCreated(params Token[] tokens)
         {
             Test(
                 cc => cc.Coding.AddRange(tokens.Select(token => new Coding(token.System, token.Code, token.Text))),
