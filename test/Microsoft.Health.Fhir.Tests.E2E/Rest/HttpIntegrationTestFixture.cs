@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             _dataStore = dataStore;
             _format = format;
+
             SetUpEnvironmentVariables();
 
             string environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");

@@ -10,7 +10,7 @@ using Xunit.Sdk;
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
-    /// An XunitTestFramework implementation that allows parameterizing class fixtures.
+    /// An XunitTestFramework implementation that allows parameterizing class fixtures with combinations of argument values.
     /// To use, decorate the test assembly with
     /// [assembly: TestFramework(typeName: "Microsoft.Health.Extensions.Xunit.FixtureArgumentSetsXunitTestFramework", assemblyName: "Microsoft.Health.Extensions.Xunit")]
     /// </summary>

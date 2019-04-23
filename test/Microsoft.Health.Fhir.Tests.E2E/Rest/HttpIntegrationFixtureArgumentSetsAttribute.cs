@@ -9,6 +9,11 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    /// <summary>
+    /// Indicates the combinations of data stores and response formats that tests should be verified with.
+    /// Must be placed on test classes where the class fixture is parameterized with DataStore and Format.
+    /// Can optionally be placed on individual methods to override the class-level behavior.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
     public sealed class HttpIntegrationFixtureArgumentSetsAttribute : FixtureArgumentSetsAttribute
     {
