@@ -11,6 +11,9 @@ using Xunit.Sdk;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
+    /// <summary>
+    /// An implementation of <see cref="XunitTestFrameworkDiscoverer"/> that supports discovering tests with parameterized fixtures.
+    /// </summary>
     public class FixtureArgumentSetsXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer, ITestFrameworkDiscoverer
     {
         public FixtureArgumentSetsXunitTestFrameworkDiscoverer(IAssemblyInfo assemblyInfo, ISourceInformationProvider sourceProvider, IMessageSink diagnosticMessageSink, IXunitTestCollectionFactory collectionFactory = null)
@@ -18,55 +21,50 @@ namespace Microsoft.Health.Extensions.Xunit
         {
         }
 
-        protected override ITestClass CreateTestClass(ITypeInfo @class)
-        {
-            var originalTestClass = base.CreateTestClass(@class);
-            var attributeInfo = originalTestClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).SingleOrDefault();
-
-            if (attributeInfo == null)
-            {
-                return originalTestClass;
-            }
-
-            return new FixtureArgumentSetsTestClass(originalTestClass, EnumHelper.ExpandEnumFlagsFromAttributeData(attributeInfo));
-        }
-
         protected override bool FindTestsForType(ITestClass testClass, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkDiscoveryOptions discoveryOptions)
         {
-            if (!(testClass is FixtureArgumentSetsTestClass fixtureArgumentsSetsTestClass))
+            var attributeInfo = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).SingleOrDefault();
+
+            if (attributeInfo == null)
             {
                 return base.FindTestsForType(testClass, includeSourceInformation, messageBus, discoveryOptions);
             }
 
-            var classLevelClosedSets = CartesianProduct(fixtureArgumentsSetsTestClass.ParameterSets).Select(e => e.ToArray()).ToArray();
+            // get the class-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
+            SingleFlagEnum[][] classLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(attributeInfo);
+
+            // convert these to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
+            SingleFlagEnum[][] classLevelClosedParameterSets = CartesianProduct(classLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
 
             foreach (var method in testClass.Class.GetMethods(true))
             {
                 IAttributeInfo fixtureParameterAttributeInfo = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).SingleOrDefault();
 
-                SingleFlagEnum[][] closedSets = classLevelClosedSets;
+                SingleFlagEnum[][] closedSets = classLevelClosedParameterSets;
 
                 if (fixtureParameterAttributeInfo != null)
                 {
-                    SingleFlagEnum[][] methodLevelOpenSets = EnumHelper.ExpandEnumFlagsFromAttributeData(fixtureParameterAttributeInfo);
-                    Array.Resize(ref methodLevelOpenSets, fixtureArgumentsSetsTestClass.ParameterSets.Length);
+                    // get the method-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
+                    SingleFlagEnum[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttributeInfo);
 
                     bool hasOverride = false;
-                    for (int i = 0; i < methodLevelOpenSets.Length; i++)
+                    for (int i = 0; i < methodLevelOpenParameterSets.Length; i++)
                     {
-                        if (methodLevelOpenSets[i]?.Length > 0)
+                        if (methodLevelOpenParameterSets[i]?.Length > 0)
                         {
                             hasOverride = true;
                         }
                         else
                         {
-                            methodLevelOpenSets[i] = fixtureArgumentsSetsTestClass.ParameterSets[i];
+                            // means take the class-level set
+                            methodLevelOpenParameterSets[i] = classLevelOpenParameterSets[i];
                         }
                     }
 
                     if (hasOverride)
                     {
-                        closedSets = CartesianProduct(methodLevelOpenSets).Select(e => e.ToArray()).ToArray();
+                        // convert to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
+                        closedSets = CartesianProduct(methodLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
                     }
                 }
 
@@ -85,8 +83,44 @@ namespace Microsoft.Health.Extensions.Xunit
             return true;
         }
 
+        private static SingleFlagEnum[][] ExpandEnumFlagsFromAttributeData(IAttributeInfo attributeInfo)
+        {
+            bool IsPowerOfTwo(long x)
+            {
+                return (x != 0) && ((x & (x - 1)) == 0);
+            }
+
+            IEnumerable<SingleFlagEnum> GetSingleValuedFlags(Enum e)
+            {
+                if (e is null)
+                {
+                    yield break;
+                }
+
+                var enumAsLong = Convert.ToInt64(e);
+
+                foreach (Enum value in Enum.GetValues(e.GetType()))
+                {
+                    var flagAsLong = Convert.ToInt64(value);
+                    if (IsPowerOfTwo(flagAsLong))
+                    {
+                        if ((enumAsLong & flagAsLong) != 0)
+                        {
+                            yield return new SingleFlagEnum(value);
+                        }
+                    }
+                }
+            }
+
+            return attributeInfo
+                .GetConstructorArguments()
+                .Cast<Enum>()
+                .Select(e => GetSingleValuedFlags(e).ToArray())
+                .ToArray();
+        }
+
         /// <summary>
-        /// Creates the cartesian product.
+        /// Computes the cartesian product of a sequence of sequences.
         /// </summary>
         /// <typeparam name="TSource">The type of the elements of the input sequences.</typeparam>
         /// <param name="sequences">The input sequence.</param>
@@ -98,30 +132,6 @@ namespace Microsoft.Health.Extensions.Xunit
             return sequences.Aggregate(
                 emptyProduct,
                 (accumulator, sequence) => accumulator.SelectMany(a => sequence.Select(s => a.Concat(Enumerable.Repeat(s, 1)))));
-        }
-
-        private class FixtureArgumentSetsTestClass : ITestClass
-        {
-            private readonly ITestClass _testClassImplementation;
-
-            [Obsolete("Intended to be called by the deserializer only.")]
-            public FixtureArgumentSetsTestClass() => throw new NotSupportedException();
-
-            public FixtureArgumentSetsTestClass(ITestClass testClassImplementation, SingleFlagEnum[][] parameterSets)
-            {
-                _testClassImplementation = testClassImplementation;
-                ParameterSets = parameterSets;
-            }
-
-            public SingleFlagEnum[][] ParameterSets { get; }
-
-            public ITypeInfo Class => _testClassImplementation.Class;
-
-            public ITestCollection TestCollection => _testClassImplementation.TestCollection;
-
-            void IXunitSerializable.Deserialize(IXunitSerializationInfo info) => throw new NotSupportedException();
-
-            void IXunitSerializable.Serialize(IXunitSerializationInfo info) => throw new NotSupportedException();
         }
     }
 }

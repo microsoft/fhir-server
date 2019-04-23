@@ -9,6 +9,11 @@ using Xunit.Sdk;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
+    /// <summary>
+    /// An XunitTestFramework implementation that allows parameterizing class fixtures.
+    /// To use, decorate the test assembly with
+    /// [assembly: TestFramework(typeName: "Microsoft.Health.Extensions.Xunit.FixtureArgumentSetsXunitTestFramework", assemblyName: "Microsoft.Health.Extensions.Xunit")]
+    /// </summary>
     public class FixtureArgumentSetsXunitTestFramework : XunitTestFramework
     {
         public FixtureArgumentSetsXunitTestFramework(IMessageSink messageSink)

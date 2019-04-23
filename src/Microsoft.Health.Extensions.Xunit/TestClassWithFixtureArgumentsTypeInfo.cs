@@ -11,6 +11,10 @@ using Xunit.Sdk;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
+    /// <summary>
+    /// A special <see cref="ITypeInfo"/> for a test class that will use a fixture instantiated with with a single set of constructor arguments.
+    /// The <see cref="Name"/> property is customized to be of the form Namespace.Class(Arg1, Arg2)
+    /// </summary>
     public class TestClassWithFixtureArgumentsTypeInfo : IReflectionTypeInfo
     {
         private readonly ITypeInfo _typeInfoImplementation;

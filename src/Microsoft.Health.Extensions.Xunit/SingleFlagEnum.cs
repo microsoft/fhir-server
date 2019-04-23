@@ -8,15 +8,18 @@ using EnsureThat;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
+    /// <summary>
+    /// A struct encapsulating an enum value where the numeric value only has a single bit set.
+    /// </summary>
     public struct SingleFlagEnum : IEquatable<SingleFlagEnum>
     {
         public SingleFlagEnum(Enum enumValue)
         {
             EnsureArg.IsNotNull(enumValue, nameof(enumValue));
 
-            if (!EnumHelper.IsPowerOfTwo(Convert.ToInt64(enumValue)))
+            if (!IsPowerOfTwo(Convert.ToInt64(enumValue)))
             {
-                throw new ArgumentException("Value must be have a single flag", nameof(enumValue));
+                throw new ArgumentException("Value must be have a single bit set", nameof(enumValue));
             }
 
             EnumValue = enumValue;
@@ -47,6 +50,11 @@ namespace Microsoft.Health.Extensions.Xunit
         public override int GetHashCode()
         {
             return EnumValue != null ? EnumValue.GetHashCode() : 0;
+        }
+
+        private static bool IsPowerOfTwo(long x)
+        {
+            return (x != 0) && ((x & (x - 1)) == 0);
         }
     }
 }

@@ -8,6 +8,10 @@ using EnsureThat;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
+    /// <summary>
+    /// Derive from this attribute to declare sets of arguments that a class fixture's constructor should be called with.
+    /// Arguments are required to be flags enums.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = false)]
     public abstract class FixtureArgumentSetsAttribute : Attribute
     {

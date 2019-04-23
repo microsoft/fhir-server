@@ -16,6 +16,9 @@ using Xunit.Sdk;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
+    /// <summary>
+    /// The custom <see cref="XunitTestFrameworkExecutor"/> that has special handling for test classes that use fixtures with parameterized constructor arguments.
+    /// </summary>
     public class FixtureArgumentSetsXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
         public FixtureArgumentSetsXunitTestFrameworkExecutor(AssemblyName assemblyName, ISourceInformationProvider sourceInformationProvider, IMessageSink diagnosticMessageSink)
@@ -52,13 +55,15 @@ namespace Microsoft.Health.Extensions.Xunit
 
             protected override Task<RunSummary> RunTestClassAsync(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases)
             {
-                if (!(testClass.Class is TestClassWithFixtureArgumentsTypeInfo closedVariantTypeInfo))
+                if (!(testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments))
                 {
                     return base.RunTestClassAsync(testClass, @class, testCases);
                 }
 
+                // this is a test class that needs special logic for instantiating its fixture.
+
                 var combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
-                foreach (var variant in closedVariantTypeInfo.FixtureArguments)
+                foreach (var variant in classWithFixtureArguments.FixtureArguments)
                 {
                     combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
                 }
@@ -77,6 +82,11 @@ namespace Microsoft.Health.Extensions.Xunit
             }
         }
 
+        /// <summary>
+        /// <see cref="XunitTestCase"/> facts have special optimized serialization. Their deserialization needs to be able to instantiate
+        /// the synthetics classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
+        /// <see cref="TestClassWithFixtureArgumentsTypeInfo"/> with Arg1 and Arg2 as the fixture arguments
+        /// </summary>
         private class MyAssemblyInfo : IAssemblyInfo
         {
             private readonly IAssemblyInfo _assemblyInfoImplementation;
@@ -98,18 +108,27 @@ namespace Microsoft.Health.Extensions.Xunit
 
             public ITypeInfo GetType(string typeName)
             {
+                // parse out the (Arg1, Arg2)
                 var match = _argumentsRegex.Match(typeName);
                 if (!match.Success)
                 {
                     return _assemblyInfoImplementation.GetType(typeName);
                 }
 
+                // retrieve the real type
                 var typeInfo = _assemblyInfoImplementation.GetType(typeName.Substring(0, match.Index));
                 Debug.Assert(typeInfo != null, $"Could not find type {typeName} in assembly");
 
+                // now get the the arguments. We don't know what type they are, so we look at the FixtureArgumentSetsAttribute on the class and look at its arguments
                 IAttributeInfo attributeInfo = typeInfo.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).Single();
 
-                SingleFlagEnum[] arguments = EnumHelper.ExpandEnumFlagsFromAttributeData(attributeInfo).Zip(match.Groups["VALUE"].Captures, (e, c) => new SingleFlagEnum((Enum)Enum.Parse(e[0].EnumValue.GetType(), c.Value))).ToArray();
+                SingleFlagEnum[] arguments = attributeInfo
+                    .GetConstructorArguments()
+                    .Cast<Enum>()
+                    .Zip(
+                        match.Groups["VALUE"].Captures,
+                        (e, c) => new SingleFlagEnum((Enum)Enum.Parse(e.GetType(), c.Value)))
+                    .ToArray();
 
                 return new TestClassWithFixtureArgumentsTypeInfo(typeInfo, arguments);
             }
