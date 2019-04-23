@@ -6,16 +6,10 @@
 
   <ItemGroup>
     <None Remove="Features\Schema\Migrations\1.sql" />
-    <None Remove="Features\Schema\Migrations\2.sql" />
-    <None Remove="Features\Schema\Migrations\3.sql" />
-    <None Remove="Features\Schema\Migrations\4.sql" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\1.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\2.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\3.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\4.sql" />
   </ItemGroup>
 
   <ItemGroup>
