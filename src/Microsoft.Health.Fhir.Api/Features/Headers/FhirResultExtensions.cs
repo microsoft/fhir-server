@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
     {
         public static FhirResult SetLocationHeader(this FhirResult fhirResult, IUrlResolver urlResolver)
         {
-            var resource = fhirResult.Resource;
+            var resource = fhirResult.Payload;
             if (!string.IsNullOrEmpty(resource.Id) && !string.IsNullOrWhiteSpace(resource.Meta.VersionId))
             {
                 var url = urlResolver.ResolveResourceUrl(resource, true);
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 
         public static FhirResult SetETagHeader(this FhirResult fhirResult)
         {
-            var resource = fhirResult.Resource;
+            var resource = fhirResult.Payload;
             if (resource != null && resource.Meta != null)
             {
                 return fhirResult.SetETagHeader(WeakETag.FromVersionId(resource.Meta.VersionId));
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 
         public static FhirResult SetLastModifiedHeader(this FhirResult fhirResult)
         {
-            var resource = fhirResult.Resource;
+            var resource = fhirResult.Payload;
             if (resource != null)
             {
                 if (resource.Meta != null && resource.Meta.LastUpdated.HasValue)

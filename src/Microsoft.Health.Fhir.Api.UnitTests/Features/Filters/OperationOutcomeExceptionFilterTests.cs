@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var result = _context.Result as OperationOutcomeResult;
 
             Assert.NotNull(result);
-            Assert.Equal(_correlationId, result.OperationOutcomeError.Id);
+            Assert.Equal(_correlationId, result.Payload.Id);
         }
 
         [Fact]
@@ -76,9 +76,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(HttpStatusCode.Gone, result.StatusCode);
             Assert.Equal("W/\"version2\"", result.Headers[HeaderNames.ETag]);
 
-            var operation = result.OperationOutcomeError;
+            var operation = result.Payload;
             Assert.NotNull(operation);
-            Assert.Equal(_correlationId, result.OperationOutcomeError.Id);
+            Assert.Equal(_correlationId, result.Payload.Id);
         }
 
         [Fact]
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                     Code = OperationOutcome.IssueType.Invalid,
                     Diagnostics = reason,
                 }),
-                HttpStatusCode.BadRequest).OperationOutcomeError;
+                HttpStatusCode.BadRequest).Payload;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 {
                     new ValidationFailure(propertyName, reason),
                 }),
-                HttpStatusCode.BadRequest).OperationOutcomeError;
+                HttpStatusCode.BadRequest).Payload;
 
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
@@ -180,9 +180,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             Assert.NotNull(result);
             Assert.Equal(expectedStatusCode, result.StatusCode);
-            Assert.Equal(_correlationId, result.OperationOutcomeError.Id);
+            Assert.Equal(_correlationId, result.Payload.Id);
 
-            Assert.IsType<OperationOutcome>(result.OperationOutcomeError);
+            Assert.IsType<OperationOutcome>(result.Payload);
 
             return result;
         }

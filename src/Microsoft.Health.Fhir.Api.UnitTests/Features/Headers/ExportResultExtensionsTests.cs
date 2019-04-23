@@ -14,30 +14,30 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 {
-    public class OperationResultExtensionsTests
+    public class ExportResultExtensionsTests
     {
         [Fact]
-        public void GivenAnOperationResult_WhenSettingAContentLocationHeader_ThenOperationResultHasAContentLocationHeader()
+        public void GivenAnExportResult_WhenSettingAContentLocationHeader_TheExportResultHasAContentLocationHeader()
         {
             string opName = OperationsConstants.Export;
             string id = Guid.NewGuid().ToString();
-            var operationResultUrl = new Uri($"http://localhost/{OperationsConstants.Operations}/{opName}/{id}");
+            var exportOperationUrl = new Uri($"http://localhost/{OperationsConstants.Operations}/{opName}/{id}");
 
             var urlResolver = Substitute.For<IUrlResolver>();
-            urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(operationResultUrl);
+            urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(exportOperationUrl);
 
-            var operationResult = OperationResult.Accepted().SetContentLocationHeader(urlResolver, opName, id);
+            var exportResult = ExportResult.Accepted().SetContentLocationHeader(urlResolver, opName, id);
 
-            Assert.Equal(operationResultUrl.AbsoluteUri, operationResult.Headers[HeaderNames.ContentLocation]);
+            Assert.Equal(exportOperationUrl.AbsoluteUri, exportResult.Headers[HeaderNames.ContentLocation]);
         }
 
         [Fact]
-        public void GivenAnOperationResult_WhenSettingAContentTypeHeader_ThenOperationResultHasAContentTypeHeader()
+        public void GivenAnExportResult_WhenSettingAContentTypeHeader_ThenExportResultHasAContentTypeHeader()
         {
             string contentTypeValue = "application/json";
-            var operationResult = OperationResult.Accepted().SetContentTypeHeader(contentTypeValue);
+            var exportResult = ExportResult.Accepted().SetContentTypeHeader(contentTypeValue);
 
-            Assert.Equal(contentTypeValue, operationResult.Headers[HeaderNames.ContentType]);
+            Assert.Equal(contentTypeValue, exportResult.Headers[HeaderNames.ContentType]);
         }
     }
 }
