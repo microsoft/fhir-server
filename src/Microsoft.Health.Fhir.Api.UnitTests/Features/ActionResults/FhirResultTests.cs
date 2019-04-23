@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
 
             result.ExecuteResult(context);
 
-            Assert.Null(result.Payload);
+            Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.Gone, result.StatusCode.GetValueOrDefault());
             Assert.Equal(0, context.HttpContext.Request.Body.Length);
         }
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
 
             result.ExecuteResult(context);
 
-            Assert.Null(result.Payload);
+            Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.NoContent, result.StatusCode.GetValueOrDefault());
         }
 
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
 
             result.ExecuteResult(context);
 
-            Assert.Null(result.Payload);
+            Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.NotFound, result.StatusCode.GetValueOrDefault());
         }
     }

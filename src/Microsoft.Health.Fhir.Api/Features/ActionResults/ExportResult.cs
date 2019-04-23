@@ -15,16 +15,14 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     public class ExportResult : BaseActionResult<ExportJobResult>
     {
         public ExportResult(HttpStatusCode statusCode)
+            : base(null, statusCode)
         {
-            StatusCode = statusCode;
         }
 
         public ExportResult(ExportJobResult jobResult, HttpStatusCode statusCode)
+            : base(jobResult, statusCode)
         {
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
-
-            Payload = jobResult;
-            StatusCode = statusCode;
         }
 
         /// <summary>

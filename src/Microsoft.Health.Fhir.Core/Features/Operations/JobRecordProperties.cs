@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     /// </summary>
     public static class JobRecordProperties
     {
-        public const string JobRecord = "JobRecord";
+        public const string JobRecord = "jobRecord";
 
         public const string PartitonKey = "partitionKey";
 

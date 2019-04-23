@@ -278,18 +278,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
 
-            // Create access condition so that record is replaced only if eTag matches.
-            var condition = new AccessCondition()
-            {
-                Type = AccessConditionType.IfMatch,
-                Condition = eTag.ToString(),
-            };
-
             var requestOptions = new RequestOptions()
             {
-                AccessCondition = condition,
                 PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
             };
+
+            // Create access condition so that record is replaced only if eTag matches.
+            if (eTag != null)
+            {
+                requestOptions.AccessCondition = new AccessCondition()
+                {
+                    Type = AccessConditionType.IfMatch,
+                    Condition = eTag.ToString(),
+                };
+            }
 
             try
             {

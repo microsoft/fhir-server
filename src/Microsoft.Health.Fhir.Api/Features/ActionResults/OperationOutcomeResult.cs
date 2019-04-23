@@ -16,11 +16,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     public class OperationOutcomeResult : BaseActionResult<OperationOutcome>
     {
         public OperationOutcomeResult(OperationOutcome outcome, HttpStatusCode statusCode)
+            : base(outcome, statusCode)
         {
             EnsureArg.IsNotNull(outcome, nameof(outcome));
-
-            Payload = outcome;
-            StatusCode = statusCode;
         }
     }
 }

@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 actionDescriptor.ControllerName,
                 actionDescriptor.ActionName,
                 (HttpStatusCode)context.HttpContext.Response.StatusCode,
-                fhirResult?.Payload?.TypeName);
+                fhirResult?.Result?.TypeName);
 
             base.OnResultExecuted(context);
         }

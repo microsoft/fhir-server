@@ -13,12 +13,27 @@ using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
-    public abstract class BaseActionResult<T> : ActionResult
+    public abstract class BaseActionResult<TResult> : ActionResult
     {
+        protected BaseActionResult()
+        {
+        }
+
+        protected BaseActionResult(TResult result)
+        {
+            Result = result;
+        }
+
+        protected BaseActionResult(TResult result, HttpStatusCode statusCode)
+            : this(result)
+        {
+            StatusCode = statusCode;
+        }
+
         /// <summary>
         /// Gets the payload associated with this action result.
         /// </summary>
-        public T Payload { get; protected set; }
+        public TResult Result { get; }
 
         /// <summary>
         /// Gets or sets the status code.
@@ -47,13 +62,13 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             }
 
             ActionResult result;
-            if (Payload == null)
+            if (Result == null)
             {
                 result = new EmptyResult();
             }
             else
             {
-                result = new ObjectResult(Payload);
+                result = new ObjectResult(Result);
             }
 
             return result.ExecuteResultAsync(context);

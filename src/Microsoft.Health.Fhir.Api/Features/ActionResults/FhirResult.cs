@@ -26,10 +26,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// </summary>
         /// <param name="resource">The resource.</param>
         public FhirResult(Resource resource)
+            : base(resource)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
-
-            Payload = resource;
         }
 
         /// <summary>
