@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EnsureThat;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -21,6 +22,9 @@ namespace Microsoft.Health.Extensions.Xunit
 
         public TestClassWithFixtureArgumentsTypeInfo(ITypeInfo typeInfoImplementation, IReadOnlyList<SingleFlagEnum> fixtureArguments)
         {
+            EnsureArg.IsNotNull(typeInfoImplementation, nameof(typeInfoImplementation));
+            EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
+
             _typeInfoImplementation = typeInfoImplementation;
             FixtureArguments = fixtureArguments;
             Name = $"{typeInfoImplementation.Name}({string.Join(", ", fixtureArguments.Select(v => $"{v.EnumValue}"))})";

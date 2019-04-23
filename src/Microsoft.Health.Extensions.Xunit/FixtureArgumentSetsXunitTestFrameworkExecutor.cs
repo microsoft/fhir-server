@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -55,6 +56,10 @@ namespace Microsoft.Health.Extensions.Xunit
 
             protected override Task<RunSummary> RunTestClassAsync(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases)
             {
+                EnsureArg.IsNotNull(testClass, nameof(testClass));
+                EnsureArg.IsNotNull(@class, nameof(@class));
+                EnsureArg.IsNotNull(testCases, nameof(testCases));
+
                 if (!(testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments))
                 {
                     return base.RunTestClassAsync(testClass, @class, testCases);
@@ -108,6 +113,8 @@ namespace Microsoft.Health.Extensions.Xunit
 
             public ITypeInfo GetType(string typeName)
             {
+                EnsureArg.IsNotNull(typeName, nameof(typeName));
+
                 // parse out the (Arg1, Arg2)
                 var match = _argumentsRegex.Match(typeName);
                 if (!match.Success)

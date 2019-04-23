@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EnsureThat;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -23,6 +24,10 @@ namespace Microsoft.Health.Extensions.Xunit
 
         protected override bool FindTestsForType(ITestClass testClass, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkDiscoveryOptions discoveryOptions)
         {
+            EnsureArg.IsNotNull(testClass, nameof(testClass));
+            EnsureArg.IsNotNull(messageBus, nameof(messageBus));
+            EnsureArg.IsNotNull(discoveryOptions, nameof(discoveryOptions));
+
             var attributeInfo = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).SingleOrDefault();
 
             if (attributeInfo == null)
@@ -127,6 +132,8 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <returns>An <see cref="IEnumerable{T}"/> that contains the cartesian product of the input sequences.</returns>
         public static IEnumerable<IEnumerable<TSource>> CartesianProduct<TSource>(IEnumerable<IEnumerable<TSource>> sequences)
         {
+            EnsureArg.IsNotNull(sequences, nameof(sequences));
+
             IEnumerable<IEnumerable<TSource>> emptyProduct = new[] { Enumerable.Empty<TSource>() };
 
             return sequences.Aggregate(

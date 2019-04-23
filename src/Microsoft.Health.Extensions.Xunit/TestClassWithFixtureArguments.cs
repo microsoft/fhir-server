@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using EnsureThat;
 using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
@@ -28,6 +29,10 @@ namespace Microsoft.Health.Extensions.Xunit
 
         public TestClassWithFixtureArguments(ITestCollection testCollection, ITypeInfo underlyingClass, SingleFlagEnum[] fixtureArguments)
         {
+            EnsureArg.IsNotNull(testCollection, nameof(testCollection));
+            EnsureArg.IsNotNull(underlyingClass, nameof(underlyingClass));
+            EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
+
             _underlyingClass = underlyingClass;
             Class = new TestClassWithFixtureArgumentsTypeInfo(underlyingClass, fixtureArguments);
             FixtureArguments = fixtureArguments;
