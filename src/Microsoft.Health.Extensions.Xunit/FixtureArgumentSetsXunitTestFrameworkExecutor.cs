@@ -60,7 +60,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 var combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
                 foreach (var variant in closedVariantTypeInfo.FixtureArguments)
                 {
-                    combinedMappings.Add(variant.GetType(), variant);
+                    combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
                 }
 
                 return new XunitTestClassRunner(

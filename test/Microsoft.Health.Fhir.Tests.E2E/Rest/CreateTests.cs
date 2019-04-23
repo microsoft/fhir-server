@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Validation;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
@@ -20,6 +21,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json | Format.Xml)]
     public class CreateTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         public CreateTests(HttpIntegrationTestFixture<Startup> fixture)

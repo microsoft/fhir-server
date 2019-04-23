@@ -6,11 +6,13 @@
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class HealthTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly HttpClient _client;

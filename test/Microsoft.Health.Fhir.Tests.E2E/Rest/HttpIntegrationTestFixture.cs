@@ -96,8 +96,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public FhirClient FhirClient { get; }
 
-        public Lazy<FhirClient> FhirXmlClient { get; set; }
-
         protected TestServer Server { get; private set; }
 
         public string GenerateFullUrl(string relativeUrl)

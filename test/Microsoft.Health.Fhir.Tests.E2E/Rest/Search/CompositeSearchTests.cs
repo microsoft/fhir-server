@@ -6,11 +6,13 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class CompositeSearchTests : SearchTestsBase<CompositeSearchTestFixture>
     {
         private const string ObservationWith1MinuteApgarScore = "ObservationWith1MinuteApgarScore";
