@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Net.Http.Headers;
 using Xunit;
@@ -25,10 +26,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/id/$export")]
-        public async Task WhenRequestingExportWithCorrectHeaders_GivenExportIsEnabled_TheServerShouldReturnNotImplemented(string path)
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeaders_ThenServerShouldReturnNotImplemented(string path)
         {
             HttpRequestMessage request = GenerateExportRequest(path);
 
@@ -37,12 +37,64 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotImplemented, response.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeaders_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
+        {
+            string path = "$export";
+            HttpRequestMessage request = GenerateExportRequest(path);
+
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            var uri = response.Content.Headers.ContentLocation;
+            Assert.False(string.IsNullOrEmpty(uri.ToString()));
+        }
+
+        [Fact]
+        public async Task GivenExportJobExists_WhenRequestingExportStatus_ThenServerShouldReturnAccepted()
+        {
+            // Sending an export request so that a job record will be created in the system.
+            string path = "$export";
+            HttpRequestMessage request = GenerateExportRequest(path);
+
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            // Prepare get export status request.
+            var uri = response.Content.Headers.ContentLocation;
+            HttpRequestMessage getStatusRequest = new HttpRequestMessage()
+            {
+                Method = HttpMethod.Get,
+                RequestUri = uri,
+            };
+
+            var getStatusResponse = await _client.SendAsync(getStatusRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, getStatusResponse.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenExportJobDoesNotExist_WhenRequestingExportStatus_ThenServerShouldReturnNotFound()
+        {
+            string getPath = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + Guid.NewGuid();
+            HttpRequestMessage getStatusRequest = new HttpRequestMessage()
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(_client.BaseAddress, getPath),
+            };
+
+            var getStatusResponse = await _client.SendAsync(getStatusRequest);
+            Assert.Equal(HttpStatusCode.NotFound, getStatusResponse.StatusCode);
+        }
+
         [Theory]
         [InlineData("application/json")]
         [InlineData("applicaiton/xml")]
         [InlineData("*/*")]
         [InlineData("")]
-        public async Task WhenRequestingExportWithInvalidAcceptHeader_GivenExportIsEnabled_TheServerShouldReturnBadRequest(string acceptHeaderValue)
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithInvalidAcceptHeader_ThenServerShouldReturnBadRequest(string acceptHeaderValue)
         {
             HttpRequestMessage request = GenerateExportRequest(acceptHeader: acceptHeaderValue);
 
@@ -56,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("respond-status")]
         [InlineData("*")]
         [InlineData("")]
-        public async Task WhenRequestingExportWithInvalidPreferHeader_GivenExportIsEnabled_TheServerShouldReturnBadRequest(string preferHeaderValue)
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithInvalidPreferHeader_ThenServerShouldReturnBadRequest(string preferHeaderValue)
         {
             HttpRequestMessage request = GenerateExportRequest(preferHeader: preferHeaderValue);
 

@@ -5,20 +5,17 @@
 
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
-    public class UpsertOutcome
+    public class CreateExportResponse
     {
-        public UpsertOutcome(ResourceWrapper wrapper, SaveOutcomeType outcomeType)
+        public CreateExportResponse(string id)
         {
-            EnsureArg.IsNotNull(wrapper, nameof(wrapper));
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
-            Wrapper = wrapper;
-            OutcomeType = outcomeType;
+            JobId = id;
         }
 
-        public ResourceWrapper Wrapper { get; }
-
-        public SaveOutcomeType OutcomeType { get; }
+        public string JobId { get; }
     }
 }

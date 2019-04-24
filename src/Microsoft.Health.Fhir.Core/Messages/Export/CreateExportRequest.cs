@@ -3,22 +3,21 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
+using MediatR;
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
-    public class UpsertOutcome
+    public class CreateExportRequest : IRequest<CreateExportResponse>
     {
-        public UpsertOutcome(ResourceWrapper wrapper, SaveOutcomeType outcomeType)
+        public CreateExportRequest(Uri requestUri)
         {
-            EnsureArg.IsNotNull(wrapper, nameof(wrapper));
+            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            Wrapper = wrapper;
-            OutcomeType = outcomeType;
+            RequestUri = requestUri;
         }
 
-        public ResourceWrapper Wrapper { get; }
-
-        public SaveOutcomeType OutcomeType { get; }
+        public Uri RequestUri { get; }
     }
 }

@@ -6,14 +6,14 @@
 using EnsureThat;
 using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Core.Exceptions
+namespace Microsoft.Health.Fhir.Core.Exceptions.Operations
 {
     public class OperationNotImplementedException : FhirException
     {
         public OperationNotImplementedException(string message)
             : base(message)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
 
             Issues.Add(new OperationOutcome.IssueComponent
             {
