@@ -4,11 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Filters;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
@@ -16,12 +20,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
     [Route(KnownRoutes.SchemaRoot)]
     public class SchemaController : Controller
     {
+        private readonly SchemaInformation _schemaInformation;
+        private readonly IUrlResolver _urlResolver;
         private readonly ILogger<SchemaController> _logger;
 
-        public SchemaController(ILogger<SchemaController> logger)
+        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, ILogger<SchemaController> logger)
         {
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _schemaInformation = schemaInformation;
+            _urlResolver = urlResolver;
             _logger = logger;
         }
 
@@ -31,7 +41,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         {
             _logger.LogInformation("Attempting to get available schemas");
 
-            throw new NotImplementedException(Resources.AvailableVersionsNotImplemented);
+            var availableSchemas = new List<object>();
+            var currentVersion = (int?)_schemaInformation.Current ?? 0;
+            foreach (var version in Enum.GetValues(typeof(SchemaVersion)).Cast<SchemaVersion>().Where(sv => (int)sv >= currentVersion))
+            {
+                var routeValues = new Dictionary<string, object> { { "id", (int)version } };
+                Uri scriptUri = _urlResolver.ResolveRouteNameUrl(RouteNames.Script, routeValues);
+                availableSchemas.Add(new { id = version, script = scriptUri });
+            }
+
+            return new JsonResult(availableSchemas);
         }
 
         [HttpGet]
@@ -44,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         }
 
         [HttpGet]
-        [Route(KnownRoutes.Script)]
+        [Route(KnownRoutes.Script, Name = RouteNames.Script)]
         public ActionResult SqlScript(int id)
         {
             _logger.LogInformation($"Attempting to get script for schema version: {id}");
