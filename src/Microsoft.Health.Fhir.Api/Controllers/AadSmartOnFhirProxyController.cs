@@ -215,7 +215,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = "error")] string error,
             [FromQuery(Name = "error_description")] string errorDescription)
         {
-            var redirectUrl = new Uri(Base64UrlEncoder.Decode(encodedRedirect));
+            Uri redirectUrl = null;
+
+            try
+            {
+                redirectUrl = new Uri(Base64UrlEncoder.Decode(encodedRedirect));
+            }
+            catch (FormatException ex)
+            {
+                throw new AadSmartOnFhirProxyBadRequestException(string.Format(Resources.InvalidRedirectUri, redirectUrl), ex);
+            }
 
             if (!string.IsNullOrEmpty(error))
             {
@@ -245,7 +254,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError($"Error parsing launch parameters: {ex.Message}");
-                throw new AadSmartOnFhirProxyBadRequestException("Invalid launch context parameters", ex);
+                throw new AadSmartOnFhirProxyBadRequestException(Resources.InvalidLaunchContext, ex);
             }
 
             var queryBuilder = new QueryBuilder
@@ -288,7 +297,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (ArgumentNullException ex)
             {
-                throw new AadSmartOnFhirProxyBadRequestException(ex.Message, ex);
+                throw new AadSmartOnFhirProxyBadRequestException(string.Format(Resources.ValueCannotBeNull, ex.ParamName), ex);
             }
 
             var client = _httpClientFactory.CreateClient();
@@ -327,7 +336,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (ArgumentNullException ex)
             {
-                throw new AadSmartOnFhirProxyBadRequestException(ex.Message, ex);
+                throw new AadSmartOnFhirProxyBadRequestException(string.Format(Resources.ValueCannotBeNull, ex.ParamName), ex);
             }
 
             JObject decodedCompoundCode;
@@ -340,7 +349,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError($"Error decoding compound code: {ex.Message}");
-                throw new AadSmartOnFhirProxyBadRequestException("Invalid compound authorization code", ex);
+                throw new AadSmartOnFhirProxyBadRequestException(Resources.InvalidCompoundCode, ex);
             }
 
             Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });

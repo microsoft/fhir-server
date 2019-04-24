@@ -97,6 +97,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid compound authorization code..
+        /// </summary>
+        public static string InvalidCompoundCode {
+            get {
+                return ResourceManager.GetString("InvalidCompoundCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid launch context parameters..
+        /// </summary>
+        public static string InvalidLaunchContext {
+            get {
+                return ResourceManager.GetString("InvalidLaunchContext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Provided value for redirect Uri: {0} is not a valid Uri..
+        /// </summary>
+        public static string InvalidRedirectUri {
+            get {
+                return ResourceManager.GetString("InvalidRedirectUri", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to API.
         /// </summary>
         public static string MenuAPI {

@@ -11,16 +11,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     public class TestHttpMessageHandler : DelegatingHandler
     {
-        private HttpResponseMessage _response;
-
         public TestHttpMessageHandler(HttpResponseMessage message)
         {
-            _response = message;
+            Response = message;
         }
+
+        public HttpResponseMessage Response { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            return await Task.FromResult(_response);
+            return await Task.FromResult(Response);
         }
     }
 }

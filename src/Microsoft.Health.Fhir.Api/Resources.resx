@@ -129,6 +129,16 @@
   <data name="GeneralInternalError" xml:space="preserve">
     <value>There was an error processing your request.</value>
   </data>
+  <data name="InvalidCompoundCode" xml:space="preserve">
+    <value>Invalid compound authorization code.</value>
+  </data>
+  <data name="InvalidLaunchContext" xml:space="preserve">
+    <value>Invalid launch context parameters.</value>
+  </data>
+  <data name="InvalidRedirectUri" xml:space="preserve">
+    <value>Provided value for redirect Uri: {0} is not a valid Uri.</value>
+    <comment>{0} is a parameter passed in for redirection.</comment>
+  </data>
   <data name="MenuAPI" xml:space="preserve">
     <value>API</value>
   </data>
@@ -191,6 +201,7 @@
   </data>
   <data name="ValueCannotBeNull" xml:space="preserve">
     <value>Value cannot be null.  Parameter name: {0}.</value>
+    <comment>Error message for missing query parameter, {0} is the parameter name</comment>
   </data>
   <data name="ViewNotFound" xml:space="preserve">
     <value>View was not found.</value>

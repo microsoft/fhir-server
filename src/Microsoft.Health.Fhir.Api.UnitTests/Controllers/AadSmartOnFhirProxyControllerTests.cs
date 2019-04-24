@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using NSubstitute;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
         private readonly FeatureConfiguration _featureConfiguration = new FeatureConfiguration();
         private readonly AadSmartOnFhirProxyController _controller;
+        private TestHttpMessageHandler _httpMessageHandler;
 
         public AadSmartOnFhirProxyControllerTests()
         {
@@ -49,16 +51,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             using (StreamReader r = new StreamReader(Assembly.GetExecutingAssembly().
                 GetManifestResourceStream("Microsoft.Health.Fhir.Api.UnitTests.Controllers.openid-configuration.json")))
             {
-                    openIdConfiguration = r.ReadToEnd();
+                openIdConfiguration = r.ReadToEnd();
             }
 
-            var httpMessageHandler = new TestHttpMessageHandler(new HttpResponseMessage()
+            _httpMessageHandler = new TestHttpMessageHandler(new HttpResponseMessage()
             {
                 StatusCode = System.Net.HttpStatusCode.OK,
                 Content = new StringContent(openIdConfiguration),
             });
 
-            var httpClient = new HttpClient(httpMessageHandler);
+            var httpClient = new HttpClient(_httpMessageHandler);
 
             _httpClientFactory.CreateClient().Returns(httpClient);
 
@@ -77,8 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("code", "clientId", "https://testurl.com", "launch", null, null, null)]
         [InlineData("code", "clientId", "https://testurl.com", "launch", "scope", null, null)]
         [InlineData("code", "clientId", "https://testurl.com", "launch", "scope", "state", null)]
-
-        public void GivenIncompleteQueryPamas_WhenAuthorizeRequestAction_ThenRedirectResultReturned(
+        public void GivenIncompleteQueryParams_WhenAuthorizeRequestAction_ThenRedirectResultReturned(
             string responseType, string clientId, string redirectUri, string launch, string scope, string state, string aud)
         {
             Uri redirect = null;
@@ -91,9 +92,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var result = _controller.Authorize(responseType, clientId, redirect, launch, scope, state, aud);
 
-            Assert.IsType<RedirectResult>(result);
+            var redirectResult = result as RedirectResult;
+            Assert.NotNull(redirectResult);
 
-            var uri = new Uri(((RedirectResult)result).Url);
+            var uri = new Uri(redirectResult.Url);
             var queryParams = HttpUtility.ParseQueryString(uri.Query);
 
             Assert.Equal(responseType, queryParams["response_type"]);
@@ -113,6 +115,44 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
                 Assert.NotNull(queryParams["state"]);
             }
+        }
+
+        [Theory]
+        [InlineData("Zm9v", null, null, null)] // Zm9v is "foo" base64 encoded
+        [InlineData("aHR0cDovL3Rlc3QudXJs", null, null, null)] // aHR0cDovL3Rlc3QudXJs is "http://test.url" base64 encoded
+        [InlineData("aHR0cDovL3Rlc3QudXJs", "code", null, null)]
+        [InlineData("aHR0cDovL3Rlc3QudXJs", "code", "state", null)]
+        public void GivenInvalidQueryParams_WhenCallbackRequestAction_ThenBadRequestExceptionThrown(
+            string redirectUrl, string code, string state, string sessionState)
+        {
+                Assert.Throws<AadSmartOnFhirProxyBadRequestException>(() => _controller.Callback(redirectUrl, code, state, sessionState, null, null));
+        }
+
+        [Theory]
+        [InlineData(null, null, null, null, null)]
+        [InlineData("authorization_code", null, null, null, null)]
+        [InlineData("authorization_code", "clientId", null, null, null)]
+        [InlineData("authorization_code", "clientId", "clientSecret", null, null)]
+        [InlineData("authorization_code", "clientId", "clientSecret", "InvalidCode", null)]
+        [InlineData("authorization_code", "clientId", "clientSecret", "eyAiY29kZSIgOiAiZm9vIiB9", null)] // eyAiY29kZSIgOiAiZm9vIiB9 is { "code" : "foo" } base 64 encoded
+        public void GivenInvalidQueryParams_WhenTokenRequestAction_ThenBadRequestExceptionThrown(
+            string grantType, string clientId, string clientSecret, string compoundCode, string redirectUriString)
+        {
+            Uri redirectUri = null;
+            if (redirectUriString != null)
+            {
+                redirectUri = new Uri(redirectUriString);
+            }
+
+            _urlResolver.ResolveRouteNameUrl(Arg.Any<string>(), Arg.Any<IDictionary<string, object>>()).Returns(redirectUri);
+
+            _httpMessageHandler.Response = new HttpResponseMessage()
+            {
+                StatusCode = System.Net.HttpStatusCode.OK,
+                Content = new StringContent("{ \"client_id\" : \"client id\", \"scope\" : \"scope\"}"),
+            };
+
+            Assert.ThrowsAsync<AadSmartOnFhirProxyBadRequestException>(() => _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret)).Wait();
         }
     }
 }

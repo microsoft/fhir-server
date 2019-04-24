@@ -9,12 +9,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 {
     public class AadSmartOnFhirProxyBadRequestException : Exception
     {
-        public AadSmartOnFhirProxyBadRequestException(string message, ArgumentNullException innerException)
-            : base(message, innerException)
-        {
-            message = string.Format(Resources.ValueCannotBeNull, innerException.ParamName);
-        }
-
         public AadSmartOnFhirProxyBadRequestException(string message, Exception innerException)
             : base(message, innerException)
         {
