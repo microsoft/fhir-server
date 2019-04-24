@@ -73,6 +73,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [InlineData(null, null, null, null, null, null, null)]
+        [InlineData(null, null, null, "launch", null, null, null)]
+        [InlineData("code", null, null, "launch", null, null, null)]
+        [InlineData("code", "clientId", null, "launch", null, null, null)]
         [InlineData("code", null, null, null, null, null, null)]
         [InlineData("code", "clientId", null, null, null, null, null)]
         [InlineData("code", "clientId", "https://testurl.com", null, null, null, null)]

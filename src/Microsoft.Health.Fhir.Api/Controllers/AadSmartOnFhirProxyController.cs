@@ -151,9 +151,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 var callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
                 queryBuilder.Add("redirect_uri", callbackUrl.AbsoluteUri);
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore the error and continue.  We will redirect to AAD and the proper error will be returned to the caller
+                _logger.LogWarning(ex, "Redirect URL passed to Authorize failed to resolve.");
             }
 
             if (!_isAadV2 && !string.IsNullOrEmpty(aud))
