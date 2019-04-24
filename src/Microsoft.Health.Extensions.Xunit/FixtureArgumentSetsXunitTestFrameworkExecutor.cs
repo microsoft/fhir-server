@@ -25,7 +25,7 @@ namespace Microsoft.Health.Extensions.Xunit
         public FixtureArgumentSetsXunitTestFrameworkExecutor(AssemblyName assemblyName, ISourceInformationProvider sourceInformationProvider, IMessageSink diagnosticMessageSink)
             : base(assemblyName, sourceInformationProvider, diagnosticMessageSink)
         {
-            AssemblyInfo = new MyAssemblyInfo(AssemblyInfo);
+            AssemblyInfo = new FixtureArgumentsAssemblyInfo(AssemblyInfo);
         }
 
         protected override void RunTestCases(IEnumerable<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
@@ -92,12 +92,12 @@ namespace Microsoft.Health.Extensions.Xunit
         /// the synthetics classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
         /// <see cref="TestClassWithFixtureArgumentsTypeInfo"/> with Arg1 and Arg2 as the fixture arguments
         /// </summary>
-        private class MyAssemblyInfo : IAssemblyInfo
+        private class FixtureArgumentsAssemblyInfo : IAssemblyInfo
         {
             private readonly IAssemblyInfo _assemblyInfoImplementation;
             private readonly Regex _argumentsRegex = new Regex(@"\((\s*(?<VALUE>[^, )]+)\s*,?)*\)");
 
-            public MyAssemblyInfo(IAssemblyInfo assemblyInfoImplementation)
+            public FixtureArgumentsAssemblyInfo(IAssemblyInfo assemblyInfoImplementation)
             {
                 _assemblyInfoImplementation = assemblyInfoImplementation;
             }
