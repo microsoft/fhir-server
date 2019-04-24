@@ -117,6 +117,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             }
         }
 
+        [Fact]
+        public void GivenMissingAudParamToV1AAd_WhenAuthorizeRequestAction_ThenRedirectResultReturned()
+        {
+            _securityConfiguration.Authentication = new AuthenticationConfiguration
+            {
+                Audience = "testaudience",
+                Authority = "http://testauthority.com/",
+            };
+
+            var v1Controller = new AadSmartOnFhirProxyController(
+                Options.Create(_securityConfiguration),
+                _httpClientFactory,
+                _urlResolver,
+                _logger);
+
+            var redirect = new Uri("http://test.uri");
+
+            _urlResolver.ResolveRouteNameUrl(Arg.Any<string>(), Arg.Any<IDictionary<string, object>>()).Returns(redirect);
+
+            var result = _controller.Authorize("code", "clientId", redirect, "launch", null, "state", null);
+
+            var redirectResult = result as RedirectResult;
+            Assert.NotNull(redirectResult);
+
+            var uri = new Uri(redirectResult.Url);
+            var queryParams = HttpUtility.ParseQueryString(uri.Query);
+
+            Assert.Null(queryParams["resource"]);
+        }
+
         [Theory]
         [InlineData("Zm9v", null, null, null)] // Zm9v is "foo" base64 encoded
         [InlineData("aHR0cDovL3Rlc3QudXJs", null, null, null)] // aHR0cDovL3Rlc3QudXJs is "http://test.url" base64 encoded
