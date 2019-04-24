@@ -89,7 +89,7 @@ namespace Microsoft.Health.Extensions.Xunit
 
         /// <summary>
         /// <see cref="XunitTestCase"/> facts have special optimized serialization. Their deserialization needs to be able to instantiate
-        /// the synthetics classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
+        /// the synthetic classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
         /// <see cref="TestClassWithFixtureArgumentsTypeInfo"/> with Arg1 and Arg2 as the fixture arguments
         /// </summary>
         private class FixtureArgumentsAssemblyInfo : IAssemblyInfo
