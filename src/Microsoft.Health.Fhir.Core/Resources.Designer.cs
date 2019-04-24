@@ -340,6 +340,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested job &quot;{0}&quot; was not found..
+        /// </summary>
+        internal static string JobNotFound {
+            get {
+                return ResourceManager.GetString("JobNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Malformed search value &apos;{0}&apos;..
         /// </summary>
         internal static string MalformedSearchValue {

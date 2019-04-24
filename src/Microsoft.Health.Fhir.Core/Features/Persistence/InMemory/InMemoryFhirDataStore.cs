@@ -10,6 +10,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
@@ -17,13 +19,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
     public class InMemoryFhirDataStore : IFhirDataStore
     {
         private static readonly Dictionary<string, List<ResourceWrapper>> List = new Dictionary<string, List<ResourceWrapper>>();
+        private static readonly Dictionary<string, ExportJobRecord> ExportJobData = new Dictionary<string, ExportJobRecord>();
 
         public Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
             bool keepHistory,
-            CancellationToken cancellationToken = default(CancellationToken))
+            CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -72,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return Task.FromResult(new UpsertOutcome(upsertedVersion, outcome));
         }
 
-        public Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
+        public Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
@@ -91,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
             return Task.FromResult(List[lookupKey].LastOrDefault());
         }
 
-        public Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken = default(CancellationToken))
+        public Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
@@ -105,6 +108,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.InMemory
         private static string GetKey(string resourceType, string resourceId)
         {
             return $"{resourceType}_{resourceId}";
+        }
+
+        public Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord);
+
+            ExportJobData.Add(jobRecord.Id, jobRecord);
+            return Task.FromResult(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag")));
+        }
+
+        public Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrEmpty(jobId);
+
+            if (!ExportJobData.ContainsKey(jobId))
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
+            }
+
+            ExportJobRecord jobRecord = ExportJobData[jobId];
+            return Task.FromResult(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag")));
+        }
+
+        public Task<ExportJobOutcome> ReplaceExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord);
+
+            if (!ExportJobData.ContainsKey(jobRecord.Id))
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+            }
+
+            ExportJobData[jobRecord.Id] = jobRecord;
+            return Task.FromResult(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag")));
         }
     }
 }

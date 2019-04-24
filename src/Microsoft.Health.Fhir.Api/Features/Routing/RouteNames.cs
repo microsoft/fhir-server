@@ -34,5 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string AadSmartOnFhirProxyCallback = "AadSmartOnFhirProxyCallback";
 
         internal const string AadSmartOnFhirProxyToken = "AadSmartOnFhirProxyToken";
+
+        internal const string GetExportStatusById = "GetExportStatusById";
     }
 }
