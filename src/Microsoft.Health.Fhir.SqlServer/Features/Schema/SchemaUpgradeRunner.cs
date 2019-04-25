@@ -31,11 +31,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             {
                 connection.Open();
                 var server = new Server(new ServerConnection(connection));
-                server.ConnectionContext.ExecuteNonQuery(GetStringContent(version));
+                server.ConnectionContext.ExecuteNonQuery(GetMigrationScript(version));
             }
         }
 
-        private static string GetStringContent(int version)
+        private static string GetMigrationScript(int version)
         {
             string resourceName = $"{typeof(SchemaUpgradeRunner).Namespace}.Migrations.{version}.sql";
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
