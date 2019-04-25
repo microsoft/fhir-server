@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
 {
     public class SchemaControllerTests
     {
-        private SchemaController _schemaController;
+        private readonly SchemaController _schemaController;
 
         public SchemaControllerTests()
         {
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenAnAvailableVersionstRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
+        public void GivenAnAvailableVersionsRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
         {
             Assert.Throws<NotImplementedException>(() => _schemaController.AvailableVersions());
         }

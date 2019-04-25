@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.SqlServer.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -29,11 +30,21 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            serviceCollection.Add<SchemaUpgradeRunner>()
+                .Singleton()
+                .AsSelf();
+
+            serviceCollection.Add<SchemaInformation>()
+                .Singleton()
+                .AsSelf();
+
+            serviceCollection.Add<SchemaInitializer>()
+                .Singleton()
+                .AsService<IStartable>();
+
             // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
             // During normal usage, the controller should be automatically discovered.
             serviceCollection.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
-
-            serviceCollection.AddSqlServer();
 
             return serviceCollection;
         }
