@@ -5,11 +5,13 @@
 
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class TokenSearchTests : SearchTestsBase<TokenSearchTestFixture>
     {
         public TokenSearchTests(TokenSearchTestFixture fixture)

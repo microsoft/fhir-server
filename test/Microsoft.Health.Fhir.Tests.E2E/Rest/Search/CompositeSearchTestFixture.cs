@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 
@@ -25,8 +26,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             "ObservationWithBloodPressure",
         };
 
-        public CompositeSearchTestFixture()
-            : base()
+        public CompositeSearchTestFixture(DataStore dataStore, Format format)
+            : base(dataStore, format)
         {
             var resultDictionary = new Dictionary<string, Observation>(TestFileNames.Length);
 

@@ -9,12 +9,14 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class ExportTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly HttpClient _client;

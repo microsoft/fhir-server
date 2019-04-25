@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 
@@ -12,8 +13,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public class NumberSearchTestFixture : HttpIntegrationTestFixture<Startup>
     {
-        public NumberSearchTestFixture()
-            : base()
+        public NumberSearchTestFixture(DataStore dataStore, Format format)
+            : base(dataStore, format)
         {
             // Prepare the resources used for number search tests.
             FhirClient.DeleteAllResources(ResourceType.Immunization).Wait();
