@@ -66,8 +66,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                     CommandType = CommandType.StoredProcedure,
                 };
 
-                upsertCommand.Parameters.AddWithValue("@Version", schemaVersion);
-                upsertCommand.Parameters.AddWithValue("@Status", status);
+                upsertCommand.Parameters.AddWithValue("@version", schemaVersion);
+                upsertCommand.Parameters.AddWithValue("@status", status);
 
                 connection.Open();
                 upsertCommand.ExecuteNonQuery();
