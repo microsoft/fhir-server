@@ -15,6 +15,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public interface ISearchParameterDefinitionManager
     {
         /// <summary>
+        /// Gets the list of all search parameters.
+        /// </summary>
+        IEnumerable<SearchParameter> AllSearchParameters { get; }
+
+        /// <summary>
         /// Gets list of search parameters for the given <paramref name="resourceType"/>.
         /// </summary>
         /// <param name="resourceType">The resource type whose list of search parameters should be returned.</param>
