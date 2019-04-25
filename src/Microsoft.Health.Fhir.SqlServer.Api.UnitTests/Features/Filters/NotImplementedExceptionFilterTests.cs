@@ -18,30 +18,33 @@ using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
-public class NotImplementedExceptionFilterTests
+namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features.Filters
 {
-    private readonly ActionExecutedContext _context;
-
-    public NotImplementedExceptionFilterTests()
+    public class NotImplementedExceptionFilterTests
     {
-        _context = new ActionExecutedContext(
-            new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
-            new List<IFilterMetadata>(),
-            Mock.TypeWithArguments<SchemaController>(NullLogger<SchemaController>.Instance));
-    }
+        private readonly ActionExecutedContext _context;
 
-    [Fact]
-    public void GivenANotImplementedException_WhenExecutingAnAction_ThenTheResponseShouldBeAJsonResultWithStatusCode()
-    {
-        var filter = new NotImplementedExceptionFilterAttribute();
+        public NotImplementedExceptionFilterTests()
+        {
+            _context = new ActionExecutedContext(
+                new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
+                new List<IFilterMetadata>(),
+                Mock.TypeWithArguments<SchemaController>(NullLogger<SchemaController>.Instance));
+        }
 
-        _context.Exception = Substitute.For<NotImplementedException>();
+        [Fact]
+        public void GivenANotImplementedException_WhenExecutingAnAction_ThenTheResponseShouldBeAJsonResultWithStatusCode()
+        {
+            var filter = new NotImplementedExceptionFilterAttribute();
 
-        filter.OnActionExecuted(_context);
+            _context.Exception = Substitute.For<NotImplementedException>();
 
-        var result = _context.Result as JsonResult;
+            filter.OnActionExecuted(_context);
 
-        Assert.NotNull(result);
-        Assert.Equal((int)HttpStatusCode.NotImplemented, result.StatusCode);
+            var result = _context.Result as JsonResult;
+
+            Assert.NotNull(result);
+            Assert.Equal((int)HttpStatusCode.NotImplemented, result.StatusCode);
+        }
     }
 }

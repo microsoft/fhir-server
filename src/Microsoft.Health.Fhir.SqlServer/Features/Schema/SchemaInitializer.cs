@@ -3,7 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Data;
 using System.Data.SqlClient;
+using System.Threading.Tasks.Dataflow;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -42,53 +45,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 return;
             }
 
-            if (!IsSchemaTableInitialized())
+            GetCurrentSchemaVersion();
+
+            // GetCurrentVersion doesn't exist, so run version 1.
+            if (_schemaInformation.Current == null)
             {
-                CreateSchemaTable();
+                _schemaUpgradeRunner.ApplySchema(1);
+                GetCurrentSchemaVersion();
             }
 
-            SetCurrentSchemaVersion();
-
-            if (_schemaInformation.Current == null || _schemaInformation.Current < _schemaInformation.Min)
+            if (_schemaInformation.Current < _schemaInformation.MinimumSupportedVersion)
             {
                 int current = (int?)_schemaInformation.Current ?? 0;
 
-                for (int i = current + 1; i <= (int)_schemaInformation.Min; i++)
+                for (int i = current + 1; i <= (int)_schemaInformation.MinimumSupportedVersion; i++)
                 {
+                    _schemaUpgradeRunner.InsertSchemaVersion(i);
                     _schemaUpgradeRunner.ApplySchema(i);
+                    _schemaUpgradeRunner.CompleteSchemaVersion(i);
                 }
             }
         }
 
-        private void CreateSchemaTable()
+        private void GetCurrentSchemaVersion()
         {
             using (var connection = new SqlConnection(_sqlServerDataStoreConfiguration.ConnectionString))
             {
-                var command = new SqlCommand("CREATE TABLE SchemaTable ( Version int PRIMARY KEY, Status varchar(10) )", connection);
-
-                connection.Open();
-                command.ExecuteNonQuery();
-            }
-        }
-
-        private bool IsSchemaTableInitialized()
-        {
-            using (var connection = new SqlConnection(_sqlServerDataStoreConfiguration.ConnectionString))
-            {
-                var command = new SqlCommand("SELECT count(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'SchemaTable'", connection);
-
-                connection.Open();
-                var tableCount = command.ExecuteScalar() as int?;
-
-                return tableCount == 1;
-            }
-        }
-
-        private void SetCurrentSchemaVersion()
-        {
-            using (var connection = new SqlConnection(_sqlServerDataStoreConfiguration.ConnectionString))
-            {
-                var command = new SqlCommand("SELECT MAX(Version) FROM SchemaTable WHERE Status = 'complete'", connection);
+                var command = new SqlCommand("dbo.SelectCurrentSchemaVersion", connection)
+                {
+                    CommandType = CommandType.StoredProcedure,
+                };
 
                 connection.Open();
                 int? version = null;
@@ -98,8 +84,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                     version = command.ExecuteScalar() as int?;
                 }
                 catch (SqlException ex)
+                when (ex.Number.Equals(2812) && ex.Procedure.Equals("dbo.SelectCurrentSchemaVersion", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    _logger.LogWarning(ex, "Could not retrieve the version from the database.");
+                    _logger.LogInformation(ex, "Attempted to get current version and stored procedure wasn't found. This is the sign that this is a new database and we should continue.");
                 }
 
                 _schemaInformation.Current = (SchemaVersion?)version;
@@ -132,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             {
                 Initialize();
 
-                SetCurrentSchemaVersion();
+                GetCurrentSchemaVersion();
             }
             else
             {
