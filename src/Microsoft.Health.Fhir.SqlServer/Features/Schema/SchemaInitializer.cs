@@ -53,15 +53,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 GetCurrentSchemaVersion();
             }
 
-            if (_schemaInformation.Current < _schemaInformation.MinimumSupportedVersion)
+            if (_schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
             {
                 int current = (int?)_schemaInformation.Current ?? 0;
 
-                for (int i = current + 1; i <= (int)_schemaInformation.MinimumSupportedVersion; i++)
+                for (int i = current + 1; i <= (int)_schemaInformation.MaximumSupportedVersion; i++)
                 {
-                    _schemaUpgradeRunner.InsertSchemaVersion(i);
                     _schemaUpgradeRunner.ApplySchema(i);
-                    _schemaUpgradeRunner.CompleteSchemaVersion(i);
                 }
             }
         }

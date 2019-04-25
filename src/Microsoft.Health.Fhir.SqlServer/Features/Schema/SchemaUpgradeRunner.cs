@@ -27,12 +27,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 
         public void ApplySchema(int version)
         {
+            if (version != 1)
+            {
+                InsertSchemaVersion(version);
+            }
+
             using (var connection = new SqlConnection(_sqlServerDataStoreConfiguration.ConnectionString))
             {
                 connection.Open();
                 var server = new Server(new ServerConnection(connection));
                 server.ConnectionContext.ExecuteNonQuery(GetMigrationScript(version));
             }
+
+            CompleteSchemaVersion(version);
         }
 
         private static string GetMigrationScript(int version)
@@ -47,12 +54,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             }
         }
 
-        public void InsertSchemaVersion(int schemaVersion)
+        private void InsertSchemaVersion(int schemaVersion)
         {
             UpsertSchemaVersion(schemaVersion, "started");
         }
 
-        public void CompleteSchemaVersion(int schemaVersion)
+        private void CompleteSchemaVersion(int schemaVersion)
         {
             UpsertSchemaVersion(schemaVersion, "complete");
         }

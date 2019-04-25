@@ -11,6 +11,10 @@ BEGIN
 END
 GO
 
+INSERT INTO dbo.SchemaVersion
+VALUES (1, 'started')
+GO
+
 CREATE PROCEDURE dbo.SelectCurrentSchemaVersion
 AS BEGIN
     SELECT MAX([Version])
@@ -36,8 +40,4 @@ AS BEGIN
         VALUES (@version, @status)
     END
 END
-GO
-
-INSERT INTO dbo.SchemaVersion
-VALUES (1, 'complete')
 GO
