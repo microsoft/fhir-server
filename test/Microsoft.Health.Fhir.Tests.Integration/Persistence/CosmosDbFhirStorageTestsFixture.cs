@@ -6,8 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -15,24 +13,21 @@ using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
-using NonDisposingScope = Microsoft.Health.CosmosDb.Features.Storage.NonDisposingScope;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class IntegrationTestCosmosFhirDataStore : IFhirDataStore, IDisposable
+    public class CosmosDbFhirStorageTestsFixture : IScoped<IFhirDataStore>
     {
         private readonly IDocumentClient _documentClient;
-        private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
 
-        public IntegrationTestCosmosFhirDataStore()
+        public CosmosDbFhirStorageTestsFixture()
         {
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
@@ -77,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
             var fhirRequestContextAccessor = new FhirRequestContextAccessor();
 
-            _fhirDataStore = new CosmosFhirDataStore(
+            Value = new CosmosFhirDataStore(
                 new NonDisposingScope(_documentClient),
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
@@ -87,45 +82,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<CosmosFhirDataStore>.Instance);
         }
 
+        public IFhirDataStore Value { get; }
+
         public void Dispose()
         {
             _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId)).GetAwaiter().GetResult();
             _documentClient?.Dispose();
-        }
-
-        public async Task<UpsertOutcome> UpsertAsync(
-            ResourceWrapper resource,
-            WeakETag weakETag,
-            bool allowCreate,
-            bool keepHistory,
-            CancellationToken cancellationToken)
-        {
-            return await _fhirDataStore.UpsertAsync(resource, weakETag, allowCreate, keepHistory, cancellationToken);
-        }
-
-        public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
-        {
-            return await _fhirDataStore.GetAsync(key, cancellationToken);
-        }
-
-        public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
-        {
-            await _fhirDataStore.HardDeleteAsync(key, cancellationToken);
-        }
-
-        public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
-        {
-            return await _fhirDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
-        }
-
-        public async Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
-        {
-            return await _fhirDataStore.GetExportJobAsync(jobId, cancellationToken);
-        }
-
-        public async Task<ExportJobOutcome> ReplaceExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
-        {
-            return await _fhirDataStore.ReplaceExportJobAsync(jobRecord, eTag, cancellationToken);
         }
     }
 }
