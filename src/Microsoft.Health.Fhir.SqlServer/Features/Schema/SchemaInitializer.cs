@@ -6,7 +6,6 @@
 using System;
 using System.Data;
 using System.Data.SqlClient;
-using System.Threading.Tasks.Dataflow;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
