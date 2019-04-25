@@ -46,8 +46,4 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Features\Persistence\InMemory\" />
-  </ItemGroup>
-
 </Project>
