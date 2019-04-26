@@ -6,6 +6,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Web;
@@ -13,6 +14,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json | Format.Xml)]
     public class SmartProxyBadRequestTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly FhirClient _client;
