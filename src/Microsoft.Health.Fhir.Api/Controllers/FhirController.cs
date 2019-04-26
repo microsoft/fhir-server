@@ -211,7 +211,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Returns the history of all resources in the system
         /// </summary>
         /// <param name="at">Instant for history to return.</param>
-        /// <param name="since">Starting time for history to return.</param>
+        /// <param name="since">Starting time for history to return (inclusive).</param>
+        /// <param name="before">Ending time for history to return (exclusive)</param>
         /// <param name="count">Number of items to return.</param>
         /// <param name="ct">Continuation token.</param>
         [HttpGet]
@@ -221,10 +222,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> SystemHistory(
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            Bundle response = await _mediator.SearchResourceHistoryAsync(since, at, count, ct, HttpContext.RequestAborted);
+            Bundle response = await _mediator.SearchResourceHistoryAsync(since, before, at, count, ct, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -234,7 +236,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="type">The resource type.</param>
         /// <param name="at">Instant for history to return.</param>
-        /// <param name="since">Starting time for history to return.</param>
+        /// <param name="since">Starting time for history to return (inclusive).</param>
+        /// <param name="before">Ending time for history to return (exclusive).</param>
         /// <param name="count">Number of items to return.</param>
         /// <param name="ct">Continuation token.</param>
         [HttpGet]
@@ -245,10 +248,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string type,
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime before,
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            Bundle response = await _mediator.SearchResourceHistoryAsync(type, since, at, count, ct, HttpContext.RequestAborted);
+            Bundle response = await _mediator.SearchResourceHistoryAsync(type, since, before, at, count, ct, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -259,7 +263,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="type">The resource type.</param>
         /// <param name="id">The identifier.</param>
         /// <param name="at">Instant for history to return.</param>
-        /// <param name="since">Starting time for history to return.</param>
+        /// <param name="since">Starting time for history to return (inclusive).</param>
+        /// <param name="before">Ending time for hitory to return (exclusive).</param>
         /// <param name="count">Number of items to return.</param>
         /// <param name="ct">Continuation token.</param>
         [HttpGet]
@@ -271,10 +276,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string id,
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime before,
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            Bundle response = await _mediator.SearchResourceHistoryAsync(type, id, since, at, count, ct, HttpContext.RequestAborted);
+            Bundle response = await _mediator.SearchResourceHistoryAsync(type, id, since, before, at, count, ct, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }

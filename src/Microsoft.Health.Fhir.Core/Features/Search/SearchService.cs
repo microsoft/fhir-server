@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceId,
             PartialDateTime at,
             PartialDateTime since,
+            PartialDateTime before,
             int? count,
             string continuationToken,
             CancellationToken cancellationToken)
@@ -105,9 +106,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, at.ToString()));
             }
-            else if (since != null)
+            else
             {
-                queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
+                if (since != null)
+                {
+                    queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
+                }
+
+                if (before != null)
+                {
+                    queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"lt{before}"));
+                }
             }
 
             if (count.HasValue && count > 0)
