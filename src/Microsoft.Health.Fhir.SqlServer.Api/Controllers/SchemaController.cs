@@ -42,8 +42,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
             _logger.LogInformation("Attempting to get available schemas");
 
             var availableSchemas = new List<object>();
-            var currentVersion = (int?)_schemaInformation.Current ?? 0;
-            foreach (var version in Enum.GetValues(typeof(SchemaVersion)).Cast<SchemaVersion>().Where(sv => (int)sv >= currentVersion))
+            var currentVersion = _schemaInformation.Current ?? 0;
+            foreach (var version in Enum.GetValues(typeof(SchemaVersion)).Cast<SchemaVersion>().Where(sv => sv >= currentVersion))
             {
                 var routeValues = new Dictionary<string, object> { { "id", (int)version } };
                 Uri scriptUri = _urlResolver.ResolveRouteNameUrl(RouteNames.Script, routeValues);
