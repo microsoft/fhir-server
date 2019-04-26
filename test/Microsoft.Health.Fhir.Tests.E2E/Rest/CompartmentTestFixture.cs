@@ -5,6 +5,7 @@
 
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -13,6 +14,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     public class CompartmentTestFixture : HttpIntegrationTestFixture<Startup>, IAsyncLifetime
     {
+        public CompartmentTestFixture(DataStore dataStore, Format format)
+            : base(dataStore, format)
+        {
+        }
+
         public Patient Patient { get; private set; }
 
         public Observation Observation { get; private set; }

@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                yield return new SearchIndexEntry(searchParameter.Name, new CompositeSearchValue(componentValues));
+                yield return new SearchIndexEntry(searchParameter, new CompositeSearchValue(componentValues));
             }
         }
 
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.Expression,
                 context))
             {
-                yield return new SearchIndexEntry(searchParameter.Name, searchValue);
+                yield return new SearchIndexEntry(searchParameter, searchValue);
             }
         }
 

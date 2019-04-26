@@ -4,20 +4,27 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     public class ExportControllerTests
     {
         private ExportController _exportEnabledController;
+        private IMediator _mediator = Substitute.For<IMediator>();
+        private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
         public ExportControllerTests()
         {
@@ -25,17 +32,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenAnExportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
+        public async Task GivenAnExportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(new ExportConfiguration() { Enabled = false });
 
-            Assert.Throws<RequestNotValidException>(() => exportController.Export());
-        }
-
-        [Fact]
-        public void GivenAnExportRequest_WhenEnabled_ThenOperationNotImplementedExceptionShouldBeThrown()
-        {
-            Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.Export());
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export());
         }
 
         [Fact]
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void GivenAnExportByResourceTypeIdRequest_WhenResourceTypeIsGroup_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
-           Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Group.ToString(), "id"));
+            Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Group.ToString(), "id"));
         }
 
         private ExportController GetController(ExportConfiguration exportConfig)
@@ -73,7 +74,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             optionsOperationConfiguration.Value.Returns(operationConfig);
 
             return new ExportController(
-                Substitute.For<IFhirRequestContextAccessor>(),
+                _mediator,
+                _fhirRequestContextAccessor,
+                _urlResolver,
                 optionsOperationConfiguration,
                 NullLogger<ExportController>.Instance);
         }

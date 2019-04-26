@@ -361,7 +361,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
         private void TestAndValidateOutput(string parameterName, ISearchValue value, params (string Name, object Value)[][] expectedValues)
         {
-            SearchIndexEntry entry = new SearchIndexEntry(parameterName, value);
+            SearchIndexEntry entry = new SearchIndexEntry(new SearchParameter { Name = parameterName }, value);
 
             IReadOnlyList<JObject> generatedObjects = _generator.Generate(entry);
 

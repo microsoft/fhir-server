@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -32,16 +33,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <typeparam name="TStartup">The target web project startup</typeparam>
     public class HttpIntegrationTestFixture<TStartup> : IDisposable
     {
+        private readonly DataStore _dataStore;
+        private readonly Format _format;
         private string _environmentUrl;
         private HttpMessageHandler _messageHandler;
 
-        public HttpIntegrationTestFixture()
-            : this(Path.Combine("src"))
+        public HttpIntegrationTestFixture(DataStore dataStore, Format format)
+            : this(Path.Combine("src"), dataStore, format)
         {
         }
 
-        protected HttpIntegrationTestFixture(string targetProjectParentDirectory)
+        protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format)
         {
+            _dataStore = dataStore;
+            _format = format;
+
             SetUpEnvironmentVariables();
 
             string environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
@@ -72,8 +78,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             HttpClient = CreateHttpClient();
 
-            FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
-            FhirXmlClient = new Lazy<FhirClient>(() => new FhirClient(HttpClient, ResourceFormat.Xml));
+            switch (_format)
+            {
+                case Format.Json:
+                    FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
+                    break;
+                case Format.Xml:
+                    FhirClient = new FhirClient(HttpClient, ResourceFormat.Xml);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
         public bool IsUsingInProcTestServer { get; }
@@ -81,8 +96,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public HttpClient HttpClient { get; }
 
         public FhirClient FhirClient { get; }
-
-        public Lazy<FhirClient> FhirXmlClient { get; set; }
 
         protected TestServer Server { get; private set; }
 

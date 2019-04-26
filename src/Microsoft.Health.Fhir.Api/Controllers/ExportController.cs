@@ -3,8 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
+using System.Net;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -12,11 +15,17 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -37,20 +46,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
          * of operations. Then we can refactor this controller accordingly.
          */
 
+        private readonly IMediator _mediator;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly IUrlResolver _urlResolver;
         private readonly ExportConfiguration _exportConfig;
         private readonly ILogger<ExportController> _logger;
 
         public ExportController(
+            IMediator mediator,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<ExportController> logger)
         {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _urlResolver = urlResolver;
             _exportConfig = operationsConfig.Value.Export;
             _logger = logger;
         }
@@ -59,9 +76,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Export)]
         [ValidateExportHeadersFilter]
         [AuditEventType(AuditEventSubType.Export)]
-        public IActionResult Export()
+        public async Task<IActionResult> Export()
         {
-            return CheckIfExportIsEnabledAndRespond();
+            if (!_exportConfig.Enabled)
+            {
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
+            }
+
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri);
+
+            var exportResult = ExportResult.Accepted();
+            exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
+
+            return exportResult;
         }
 
         [HttpGet]
@@ -94,6 +121,29 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return CheckIfExportIsEnabledAndRespond();
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.ExportStatusById, Name = RouteNames.GetExportStatusById)]
+        [AuditEventType(AuditEventSubType.Export)]
+        public async Task<IActionResult> GetExportStatusById(string id)
+        {
+            var getExportResult = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, id);
+
+            // If the job is complete, we need to return 200 along the completed data to the client.
+            // Else we need to return 202.
+            ExportResult exportActionResult;
+            if (getExportResult.StatusCode == HttpStatusCode.OK)
+            {
+                exportActionResult = ExportResult.Ok(getExportResult.JobResult);
+                exportActionResult.SetContentTypeHeader(OperationsConstants.ExportContentTypeHeaderValue);
+            }
+            else
+            {
+                exportActionResult = ExportResult.Accepted();
+            }
+
+            return exportActionResult;
+        }
+
         /// <summary>
         /// Currently we don't have any export functionality. We will send the appropriate
         /// response based on whether export is enabled or not.
@@ -102,10 +152,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (!_exportConfig.Enabled)
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, "Export"));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
             }
 
-            throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, "Export"));
+            throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, OperationsConstants.Export));
         }
     }
 }

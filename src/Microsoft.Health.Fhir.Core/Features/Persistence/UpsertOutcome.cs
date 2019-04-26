@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         public UpsertOutcome(ResourceWrapper wrapper, SaveOutcomeType outcomeType)
         {
-            EnsureArg.IsNotNull(wrapper);
+            EnsureArg.IsNotNull(wrapper, nameof(wrapper));
 
             Wrapper = wrapper;
             OutcomeType = outcomeType;

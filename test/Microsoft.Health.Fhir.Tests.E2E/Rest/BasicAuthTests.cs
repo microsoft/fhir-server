@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
@@ -18,9 +19,10 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
-    /// NOTE: These tests will fail if security is disabled.
+    /// NOTE: These tests will fail if security is disabled..
     /// </summary>
     [Trait(Traits.Category, Categories.Authorization)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
