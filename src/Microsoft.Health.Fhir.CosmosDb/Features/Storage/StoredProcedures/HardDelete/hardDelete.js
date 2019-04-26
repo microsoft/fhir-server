@@ -39,7 +39,7 @@ function hardDelete(resourceTypeName, resourceId) {
         };
 
         let isQueryAccepted = collection.queryDocuments(
-            collection.getSelfLink(),
+            collectionLink,
             query,
             {},
             function (err, documents, responseOptions) {

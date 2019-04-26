@@ -17,20 +17,18 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class GetExportRequestHandlerTests
     {
-        private readonly IFhirDataStore _fhirDataStore;
+        private readonly IFhirOperationsDataStore _fhirOperationsDataStore = Substitute.For<IFhirOperationsDataStore>();
         private readonly IMediator _mediator;
         private const string CreateRequestUrl = "https://localhost/$export/";
 
         public GetExportRequestHandlerTests()
         {
-            _fhirDataStore = Substitute.For<IFhirDataStore>();
-
             var collection = new ServiceCollection();
-            collection.Add(x => new GetExportRequestHandler(_fhirDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetExportRequestHandler(_fhirOperationsDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -43,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             jobRecord.Status = OperationStatus.Completed;
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
 
-            _fhirDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
+            _fhirOperationsDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 
@@ -63,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             jobRecord.Status = OperationStatus.Running;
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
 
-            _fhirDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
+            _fhirOperationsDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 

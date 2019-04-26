@@ -3,13 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
+using System;
+
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public class ExportConfiguration
+    public interface IFhirDataStoreContext
     {
-        /// <summary>
-        /// Determines whether export is enabled or not.
-        /// </summary>
-        public bool Enabled { get; set; }
+        string DatabaseId { get; }
+
+        string CollectionId { get; }
+
+        Uri CollectionUri { get; }
+
+        int? ContinuationTokenSizeLimitInKb { get; }
     }
 }

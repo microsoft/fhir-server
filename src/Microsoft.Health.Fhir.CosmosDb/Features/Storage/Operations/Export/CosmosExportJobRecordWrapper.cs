@@ -4,16 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
 {
     /// <summary>
     /// A wrapper around the <see cref="ExportJobRecord"/> class that contains metadata specific to CosmosDb.
     /// </summary>
-    internal class CosmosExportJobRecordWrapper
+    internal class CosmosExportJobRecordWrapper : SystemData
     {
         public CosmosExportJobRecordWrapper(ExportJobRecord exportJobRecord)
         {
@@ -31,10 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export
         [JsonProperty(JobRecordProperties.JobRecord)]
         public ExportJobRecord JobRecord { get; private set; }
 
-        [JsonProperty(JobRecordProperties.PartitonKey)]
+        [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey { get; } = CosmosDbExportConstants.ExportJobPartitionKey;
-
-        [JsonProperty(JobRecordProperties.Id)]
-        public string Id { get; private set; }
     }
 }

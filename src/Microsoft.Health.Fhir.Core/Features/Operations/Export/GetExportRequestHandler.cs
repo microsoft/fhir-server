@@ -9,27 +9,26 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class GetExportRequestHandler : IRequestHandler<GetExportRequest, GetExportResponse>
     {
-        private IFhirDataStore _fhirDataStore;
+        private IFhirOperationsDataStore _fhirOperationsDataStore;
 
-        public GetExportRequestHandler(IFhirDataStore dataStore)
+        public GetExportRequestHandler(IFhirOperationsDataStore fhirOperationsDataStore)
         {
-            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
+            EnsureArg.IsNotNull(fhirOperationsDataStore, nameof(fhirOperationsDataStore));
 
-            _fhirDataStore = dataStore;
+            _fhirOperationsDataStore = fhirOperationsDataStore;
         }
 
         public async Task<GetExportResponse> Handle(GetExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            ExportJobOutcome outcome = await _fhirDataStore.GetExportJobAsync(request.JobId, cancellationToken);
+            ExportJobOutcome outcome = await _fhirOperationsDataStore.GetExportJobAsync(request.JobId, cancellationToken);
 
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;

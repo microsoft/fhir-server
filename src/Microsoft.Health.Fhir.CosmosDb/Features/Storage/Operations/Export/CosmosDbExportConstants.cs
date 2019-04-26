@@ -3,12 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Legacy
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
 {
-    public static class LegacySearchValueConstants
+    public static class CosmosDbExportConstants
     {
-        public const string CompositeSystemName = "cs";
-
-        public const string CompositeCodeName = "cc";
+        public const string ExportJobPartitionKey = "ExportJob";
     }
 }

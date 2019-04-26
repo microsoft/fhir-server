@@ -8,20 +8,19 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
-        private IFhirDataStore _fhirDataStore;
+        private IFhirOperationsDataStore _fhirOperationsDataStore;
 
-        public CreateExportRequestHandler(IFhirDataStore dataStore)
+        public CreateExportRequestHandler(IFhirOperationsDataStore fhirOperationsDataStore)
         {
-            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
+            EnsureArg.IsNotNull(fhirOperationsDataStore, nameof(fhirOperationsDataStore));
 
-            _fhirDataStore = dataStore;
+            _fhirOperationsDataStore = fhirOperationsDataStore;
         }
 
         public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
@@ -32,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // and handle it accordingly. For now we just assume all export jobs are unique and create a new one.
 
             var jobRecord = new ExportJobRecord(request.RequestUri);
-            ExportJobOutcome result = await _fhirDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
+            ExportJobOutcome result = await _fhirOperationsDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
             // If job creation had failed we would have thrown an exception.
             return new CreateExportResponse(jobRecord.Id);

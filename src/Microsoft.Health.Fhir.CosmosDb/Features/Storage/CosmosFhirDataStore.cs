@@ -15,18 +15,12 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Task = System.Threading.Tasks.Task;
@@ -36,12 +30,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
         private readonly IDocumentClient _documentClient;
-        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
-        private readonly CosmosCollectionConfiguration _collectionConfiguration;
+        private readonly IFhirDataStoreContext _fhirDataStoreContext;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
-        private readonly Uri _collectionUri;
+
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
 
@@ -52,36 +45,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// A function that returns an <see cref="IDocumentClient"/>.
         /// Note that this is a function so that the lifetime of the instance is not directly controlled by the IoC container.
         /// </param>
-        /// <param name="cosmosDataStoreConfiguration">The data store configuration</param>
+        /// <param name="fhirDataStoreContext">The data store context.</param>
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
-        /// <param name="fhirRequestContextAccessor">The fhir request context accessor.</param>
-        /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="logger">The logger instance.</param>
         public CosmosFhirDataStore(
             IScoped<IDocumentClient> documentClient,
-            CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+            IFhirDataStoreContext fhirDataStoreContext,
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ILogger<CosmosFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
-            EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
+            EnsureArg.IsNotNull(fhirDataStoreContext, nameof(fhirDataStoreContext));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
-            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
-
+            _documentClient = documentClient.Value;
+            _fhirDataStoreContext = fhirDataStoreContext;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
-            _documentClient = new FhirDocumentClient(documentClient.Value, fhirRequestContextAccessor, cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb);
-            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
-            _collectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(_collectionConfiguration.CollectionId);
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
         }
@@ -104,7 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _upsertWithHistoryProc.Execute(
                         _documentClient,
-                        _collectionUri,
+                        _fhirDataStoreContext.CollectionUri,
                         cosmosWrapper,
                         weakETag?.VersionId,
                         allowCreate,
@@ -173,7 +158,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 return await _documentClient.ReadDocumentAsync<FhirCosmosResourceWrapper>(
-                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, key.Id),
+                    UriFactory.CreateDocumentUri(_fhirDataStoreContext.DatabaseId, _fhirDataStoreContext.CollectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);
             }
@@ -194,7 +179,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _documentClient,
-                        _collectionUri,
+                        _fhirDataStoreContext.CollectionUri,
                         key,
                         ct),
                     cancellationToken);
@@ -215,124 +200,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
-
-            var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
-
-            try
-            {
-                ResourceResponse<Document> result = await _documentClient.CreateDocumentAsync(
-                    _collectionUri,
-                    cosmosExportJob,
-                    new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
-                    disableAutomaticIdGeneration: true,
-                    cancellationToken: cancellationToken);
-
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
-            }
-            catch (DocumentClientException dce)
-            {
-                if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
-                {
-                    throw new RequestRateExceededException(dce.RetryAfter);
-                }
-
-                _logger.LogError(dce, "Unhandled Document Client Exception");
-                throw;
-            }
-        }
-
-        public async Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(jobId);
-
-            try
-            {
-                DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await _documentClient.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
-                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, jobId),
-                    new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
-                    cancellationToken);
-
-                var eTagHeaderValue = cosmosExportJobRecord.ResponseHeaders["ETag"];
-                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(eTagHeaderValue));
-
-                return outcome;
-            }
-            catch (DocumentClientException dce)
-            {
-                if (dce.StatusCode == HttpStatusCode.NotFound)
-                {
-                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
-                }
-
-                _logger.LogError(dce, "Unhandled Document Client Exception");
-                throw;
-            }
-        }
-
-        public async Task<ExportJobOutcome> ReplaceExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
-
-            var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
-
-            var requestOptions = new RequestOptions()
-            {
-                PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
-            };
-
-            // Create access condition so that record is replaced only if eTag matches.
-            if (eTag != null)
-            {
-                requestOptions.AccessCondition = new AccessCondition()
-                {
-                    Type = AccessConditionType.IfMatch,
-                    Condition = eTag.ToString(),
-                };
-            }
-
-            try
-            {
-                ResourceResponse<Document> replaceResult = await _documentClient.ReplaceDocumentAsync(
-                    UriFactory.CreateDocumentUri(_cosmosDataStoreConfiguration.DatabaseId, _collectionConfiguration.CollectionId, jobRecord.Id),
-                    cosmosExportJob,
-                    requestOptions,
-                    cancellationToken: cancellationToken);
-
-                var latestETag = replaceResult.Resource.ETag;
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(latestETag));
-            }
-            catch (DocumentClientException dce)
-            {
-                if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
-                {
-                    throw new RequestRateExceededException(dce.RetryAfter);
-                }
-
-                if (dce.StatusCode == HttpStatusCode.PreconditionFailed)
-                {
-                    throw new ResourceConflictException(eTag);
-                }
-
-                if (dce.StatusCode == HttpStatusCode.NotFound)
-                {
-                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
-                }
-
-                _logger.LogError(dce, "Unhandled Document Client Exception");
-                throw;
-            }
-        }
-
         internal IDocumentQuery<T> CreateDocumentQuery<T>(
             SqlQuerySpec sqlQuerySpec,
             FeedOptions feedOptions = null)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
-            CosmosQueryContext context = new CosmosQueryContext(_collectionUri, sqlQuerySpec, feedOptions);
+            CosmosQueryContext context = new CosmosQueryContext(_fhirDataStoreContext.CollectionUri, sqlQuerySpec, feedOptions);
 
             return _cosmosDocumentQueryFactory.Create<T>(_documentClient, context);
         }
