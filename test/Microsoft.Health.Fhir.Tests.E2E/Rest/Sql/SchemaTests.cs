@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
@@ -29,10 +30,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
             new List<object[]>
             {
                 new object[] { "_schema/compatibility" },
-                new object[] { "_schema/versions" },
                 new object[] { "_schema/versions/current" },
                 new object[] { "_schema/versions/123/script" },
             };
+
+        [RunLocalOnlyFact]
+        public async Task WhenRequestingAvailable_GivenAServerThatHasSchemas_JsonShouldBeReturned()
+        {
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(_client.BaseAddress, "_schema/versions"),
+            };
+
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var jArrayResponse = JArray.Parse(await response.Content.ReadAsStringAsync());
+
+            Assert.NotEmpty(jArrayResponse);
+
+            JToken firstResult = jArrayResponse.First;
+            string scriptUrl = $"{_client.BaseAddress}_schema/versions/{firstResult["id"]}/script";
+            Assert.Equal(scriptUrl, firstResult["script"]);
+        }
 
         [RunLocalOnlyTheory]
         [MemberData(nameof(Data))]
