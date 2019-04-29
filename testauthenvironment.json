@@ -32,6 +32,16 @@
             ]
         },
         {
+            "name": "mlresearcher",
+            "resourcePermissions": [
+                {
+                    "actions": [
+                        "Export"
+                    ]
+                }
+            ]
+        },
+        {
             "name": "director",
             "resourcePermissions": [
                 {
@@ -48,7 +58,8 @@
                     "actions": [
                         "Read",
                         "Write",
-                        "HardDelete"
+                        "HardDelete",
+                        "Export"
                     ]
                 }
             ]
@@ -71,6 +82,12 @@
             "id": "frank",
             "roles": [
                 "clinician"
+            ]
+        },
+        {
+            "id": "steve",
+            "roles": [
+                "mlresearcher"
             ]
         },
         {

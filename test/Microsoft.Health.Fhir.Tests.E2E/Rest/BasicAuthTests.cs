@@ -177,5 +177,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(createdResource.Meta.VersionId, readResource.Meta.VersionId);
             Assert.Equal(createdResource.Meta.LastUpdated, readResource.Meta.LastUpdated);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenExportResources_GivenAUserWithNoExportPermissions_TheServerShouldReturnForbidden()
+        {
+            await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ExportAsync());
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenExportResources_GivenAUserWithExportPermissions_TheServerShouldReturnSuccess()
+        {
+            await Client.RunAsUser(TestUsers.ExportUser, TestApplications.NativeClient);
+
+            await Client.ExportAsync();
+        }
     }
 }

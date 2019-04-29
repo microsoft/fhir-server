@@ -243,6 +243,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return await CreateResponseAsync<Bundle>(response);
         }
 
+        public async Task<string> ExportAsync()
+        {
+            var message = new HttpRequestMessage(HttpMethod.Get, "$export");
+
+            message.Headers.Add("Accept", "application/fhir+json");
+            message.Headers.Add("Prefer", "respond-async");
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            IEnumerable<string> contentLocation = response.Content.Headers.GetValues("Content-Location");
+
+            return contentLocation.First();
+        }
+
         private StringContent CreateStringContent(Resource resource)
         {
             return new StringContent(_serialize(resource, SummaryType.False), Encoding.UTF8, _contentType);
