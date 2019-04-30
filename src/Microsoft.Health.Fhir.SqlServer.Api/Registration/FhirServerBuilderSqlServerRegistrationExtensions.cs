@@ -33,9 +33,7 @@ namespace Microsoft.Extensions.DependencyInjection
                     }
 
                     return config;
-                })
-                .Singleton()
-                .AsSelf();
+                });
 
             serviceCollection.Add<SchemaUpgradeRunner>()
                 .Singleton()

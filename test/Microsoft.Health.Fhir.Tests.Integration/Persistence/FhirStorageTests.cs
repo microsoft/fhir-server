@@ -29,20 +29,24 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.Common.Persistence
+namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public abstract class FhirStorageTestsBase
+    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+    public class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly CapabilityStatement _conformance;
-        private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
-        public FhirStorageTestsBase(IFhirDataStore dataStore)
+        public FhirStorageTests(FhirStorageTestsFixture fixture)
         {
+            IFhirDataStore dataStore = fixture.DataStore;
+
             _conformance = CapabilityStatementMock.GetMockedCapabilityStatement();
 
             CapabilityStatementMock.SetupMockResource(_conformance, ResourceType.Observation, null);
@@ -62,8 +66,8 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
             // which will try to deserialize the raw resource. We should mock it as well.
             var rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
 
-            _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
-            _resourceWrapperFactory
+            var resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
+            resourceWrapperFactory
                 .Create(Arg.Any<Resource>(), Arg.Any<bool>())
                 .Returns(x =>
                 {
@@ -74,10 +78,10 @@ namespace Microsoft.Health.Fhir.Tests.Common.Persistence
 
             var collection = new ServiceCollection();
 
-            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory));
-            collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory, Deserializers.ResourceDeserializer));
-            collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), _resourceWrapperFactory));
+            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory));
+            collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, Deserializers.ResourceDeserializer));
+            collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory));
             collection.AddSingleton(typeof(IRequestHandler<CreateExportRequest, CreateExportResponse>), new CreateExportRequestHandler(dataStore));
             collection.AddSingleton(typeof(IRequestHandler<GetExportRequest, GetExportResponse>), new GetExportRequestHandler(dataStore));
 
