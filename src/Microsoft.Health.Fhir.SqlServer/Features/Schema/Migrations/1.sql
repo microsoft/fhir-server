@@ -4,59 +4,67 @@ GO
 
 -- Drop existing types
 
-SET @sql =''
+DECLARE @sql nvarchar(max) =''
 
-SELECT @sql = @sql + 'DROP PROCEDURE ' + [name] + '; '
+SELECT @sql = @sql + 'DROP PROCEDURE ' + name + '; '
 FROM sys.procedures
 
-SELECT @sql = @sql + 'DROP TABLE ' + [name] + '; '
+SELECT @sql = @sql + 'DROP TABLE ' + name + '; '
 FROM sys.tables
 
-SELECT @sql = @sql + 'DROP TYPE ' + [name] + '; '
+SELECT @sql = @sql + 'DROP TYPE ' + name + '; '
 FROM sys.table_types
 
-SELECT @sql = @sql + 'DROP SEQUENCE ' + [name] + '; '
+SELECT @sql = @sql + 'DROP SEQUENCE ' + name + '; '
 FROM sys.sequences
-exec(@sql)
+
+EXEC(@sql)
 
 GO
 
-IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'SchemaVersion' AND TABLE_SCHEMA = 'dbo')
+-- Schema bootstrap
+
+CREATE TABLE SchemaVersion
+(
+    Version int PRIMARY KEY,
+    Status varchar(10)
+)
+
+INSERT INTO SchemaVersion
+VALUES
+    (1, 'started')
+
+GO
+
+CREATE PROCEDURE SelectCurrentSchemaVersion
+AS
 BEGIN
-    CREATE TABLE dbo.SchemaVersion (
-        [Version] int PRIMARY KEY, 
-        [Status] varchar(10) 
-    )
+    SELECT MAX(Version)
+    FROM SchemaVersion
+    WHERE Status = 'complete'
 END
 GO
 
-INSERT INTO dbo.SchemaVersion
-VALUES (1, 'started')
-GO
-
-CREATE PROCEDURE dbo.SelectCurrentSchemaVersion
-AS BEGIN
-    SELECT MAX([Version])
-    FROM dbo.SchemaVersion 
-    WHERE [Status] = 'complete'
-END
-GO
-
-CREATE PROCEDURE dbo.UpsertSchemaVersion(
-        @version int,
-        @status varchar(10) 
-    )
-AS BEGIN
-    IF EXISTS(SELECT * FROM dbo.SchemaVersion WHERE [Version] = @version)
+CREATE PROCEDURE UpsertSchemaVersion(
+    @version int,
+    @status varchar(10)
+)
+AS
+BEGIN
+    IF EXISTS(SELECT *
+    FROM SchemaVersion
+    WHERE Version = @version)
     BEGIN
-        UPDATE dbo.SchemaVersion
-        SET [Status] = @status
-        WHERE [Version] = @version
+        UPDATE SchemaVersion
+        SET Status = @status
+        WHERE Version = @version
     END
     ELSE
     BEGIN
-        INSERT INTO dbo.SchemaVersion ([Version], [Status])
-        VALUES (@version, @status)
+        INSERT INTO SchemaVersion
+            (Version, Status)
+        VALUES
+            (@version, @status)
     END
 END
 GO
@@ -64,122 +72,135 @@ GO
 
 -- Create metadata tables
 
-CREATE TABLE [dbo].[SearchParam]
+CREATE TABLE SearchParam
 (
-    [SearchParamId] smallint IDENTITY(1,1) NOT NULL,
-    [Id] varchar(128) NOT NULL,
-    [Name] varchar(128) NOT NULL
+    SearchParamId smallint IDENTITY(1,1) NOT NULL,
+    Id varchar(128) NOT NULL,
+    Name varchar(128) NOT NULL
 )
 
-CREATE TABLE [dbo].[ResourceType]
+CREATE TABLE ResourceType
 (
-    [ResourceTypeId] smallint IDENTITY(1,1) NOT NULL,
-    [Name] nvarchar(50) NOT NULL
+    ResourceTypeId smallint IDENTITY(1,1) NOT NULL,
+    Name nvarchar(50) NOT NULL
+)
+
+
+-- Create System and QuantityCode tables
+
+CREATE TABLE System
+(
+    SystemId int IDENTITY(1,1) NOT NULL,
+    System nvarchar(256) NOT NULL,
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_System ON System (
+    System
+)
+
+CREATE TABLE QuantityCode
+(
+    QuantityCodeId int IDENTITY(1,1) NOT NULL,
+    QuantityCode nvarchar(256) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on QuantityCode
+(
+    QuantityCode
 )
 
 -- Resource Table
 
-CREATE TABLE [dbo].[Resource]
+CREATE TABLE Resource
 (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [ResourceId] [varchar](64) NOT NULL,
-    [Version] [int] NOT NULL,
-    [ResourceSurrogateId] [bigint] NOT NULL,
-    [LastUpdated] [datetime] NULL,
-    [RawResource] [varbinary](max) NOT NULL
+    ResourceTypeId smallint NOT NULL,
+    ResourceId varchar(64) NOT NULL,
+    Version int NOT NULL,
+    ResourceSurrogateId bigint NOT NULL,
+    LastUpdated datetime NULL,
+    RawResource varbinary(max) NOT NULL
 )
 
-CREATE UNIQUE CLUSTERED INDEX [IXC_Resource] ON [dbo].[Resource] (
+CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON Resource (
     ResourceSurrogateId
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX [IX_Resource_ResourceTypeId_ResourceId_Version] ON [dbo].[Resource] (
-    [ResourceTypeId], 
-    [ResourceId],
-    [Version]
-)
-
--- System Table
-
-CREATE TABLE [dbo].[System] (
-    [SystemId] int IDENTITY(1,1) NOT NULL,
-    [System] nvarchar(256) NOT NULL,
-)
-
-CREATE UNIQUE CLUSTERED INDEX [IXC_System] ON [dbo].[System] (
-    [System]
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON Resource (
+    ResourceTypeId, 
+    ResourceId,
+    Version
 )
 
 -- Table types for table-valued parameters
 
-CREATE TYPE [dbo].[ResourceTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [ResourceId] [varchar](64) NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [Etag] varchar(128) NULL,
-    [AllowCreate] bit NOT NULL,
-    [RawResource] [varbinary](max)
+CREATE TYPE ResourceTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    ResourceId varchar(64) NOT NULL,
+    LocalId int NOT NULL,
+    Etag varchar(128) NULL,
+    AllowCreate bit NOT NULL,
+    RawResource varbinary(max)
 )
 
-CREATE TYPE [dbo].[DateSearchParamTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [SearchParamId] [smallint] NOT NULL,
-    [StartTime] [datetime2](7) NOT NULL,
-    [EndTime] [datetime2](7) NOT NULL
+CREATE TYPE DateSearchParamTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    LocalId int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    StartTime datetime2(7) NOT NULL,
+    EndTime datetime2(7) NOT NULL
 )
 
-CREATE TYPE [dbo].[NumberSearchParamTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [SearchParamId] [smallint] NOT NULL,
-    [Number] [decimal](18, 6) NULL
+CREATE TYPE NumberSearchParamTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    LocalId int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Number decimal(18, 6) NULL
 )
 
-CREATE TYPE [dbo].[QuantitySearchParamTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [SearchParamId] [smallint] NOT NULL,
-    [System] [nvarchar](256) NULL,
-    [Code] [nvarchar](256) NULL,
-    [Quantity] [decimal](18, 6) NULL
+CREATE TYPE QuantitySearchParamTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    LocalId int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    System nvarchar(256) NULL,
+    Code nvarchar(256) NULL,
+    Quantity decimal(18, 6) NULL
 )
 
-CREATE TYPE [dbo].[ReferenceSearchParamTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [SearchParamId] [smallint] NOT NULL,
-    [BaseUri] [varchar](512) NULL,
-    [ReferenceResourceTypeId] [smallint] NULL,
-    [ReferenceResourceId] [varchar](64) NOT NULL
+CREATE TYPE ReferenceSearchParamTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    LocalId int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    BaseUri varchar(512) NULL,
+    ReferenceResourceTypeId smallint NULL,
+    ReferenceResourceId varchar(64) NOT NULL
 )
 
-CREATE TYPE [dbo].[StringSearchParamTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [SearchParamId] [smallint] NOT NULL,
-    [Value] [nvarchar](512) NOT NULL
+CREATE TYPE StringSearchParamTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    LocalId int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Value nvarchar(512) NOT NULL
 )
 
-CREATE TYPE [dbo].[TokenSearchParamTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [SearchParamId] [smallint] NOT NULL,
-    [System] [nvarchar](256) NULL,
-    [Code] [nvarchar](256) NULL
+CREATE TYPE TokenSearchParamTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    LocalId int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    System nvarchar(256) NULL,
+    Code nvarchar(256) NULL
 )
 
-CREATE TYPE [dbo].[TokenTextSearchParamTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [SearchParamId] [smallint] NOT NULL,
-    [Text] [nvarchar](512) NULL
+CREATE TYPE TokenTextSearchParamTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    LocalId int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Text nvarchar(512) NULL
 )
 
-CREATE TYPE [dbo].[UriSearchParamTableType] AS TABLE (
-    [ResourceTypeId] [smallint] NOT NULL,
-    [LocalId] [int] NOT NULL,
-    [SearchParamId] [smallint] NOT NULL,
-    [Uri] [varchar](256) NOT NULL
+CREATE TYPE UriSearchParamTableType AS TABLE (
+    ResourceTypeId smallint NOT NULL,
+    LocalId int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Uri varchar(256) NOT NULL
 )
 
