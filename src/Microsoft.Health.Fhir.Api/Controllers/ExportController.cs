@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    [Authorize(PolicyNames.FhirPolicy)]
+    [Authorize(PolicyNames.ExportPolicy)]
     public class ExportController : Controller
     {
         /*
@@ -76,7 +76,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Export)]
         [ValidateExportHeadersFilter]
         [AuditEventType(AuditEventSubType.Export)]
-        [Authorize(PolicyNames.ExportPolicy)]
         public async Task<IActionResult> Export()
         {
             if (!_exportConfig.Enabled)
@@ -96,7 +95,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ExportResourceType)]
         [ValidateExportHeadersFilter]
         [AuditEventType(AuditEventSubType.Export)]
-        [Authorize(PolicyNames.ExportPolicy)]
         public IActionResult ExportResourceType(string type)
         {
             // Export by ResourceType is supported only for Patient resource type.
@@ -112,7 +110,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ExportResourceTypeById)]
         [ValidateExportHeadersFilter]
         [AuditEventType(AuditEventSubType.Export)]
-        [Authorize(PolicyNames.ExportPolicy)]
         public IActionResult ExportResourceTypeById(string type, string id)
         {
             // Export by ResourceTypeId is supported only for Group resource type.
@@ -127,7 +124,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ExportStatusById, Name = RouteNames.GetExportStatusById)]
         [AuditEventType(AuditEventSubType.Export)]
-        [Authorize(PolicyNames.ExportPolicy)]
         public async Task<IActionResult> GetExportStatusById(string id)
         {
             var getExportResult = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, id);
