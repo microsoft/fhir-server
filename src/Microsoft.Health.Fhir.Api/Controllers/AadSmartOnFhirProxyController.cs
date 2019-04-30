@@ -293,7 +293,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 EnsureArg.IsNotNull(grantType, nameof(grantType));
                 EnsureArg.IsNotNull(clientId, nameof(clientId));
-                EnsureArg.IsNotNull(clientSecret, nameof(clientSecret));
             }
             catch (ArgumentNullException ex)
             {
