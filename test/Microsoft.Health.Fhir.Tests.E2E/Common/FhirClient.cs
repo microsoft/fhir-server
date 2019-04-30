@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            IEnumerable<string> contentLocation = response.Content.Headers.GetValues("Content-Location");
+            IEnumerable<string> contentLocation = response.Content.Headers.GetValues(HeaderNames.ContentLocation);
 
             return contentLocation.First();
         }

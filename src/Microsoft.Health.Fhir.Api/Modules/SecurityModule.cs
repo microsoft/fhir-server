@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // Set the token handler to not do auto inbound mapping. (e.g. "roles" -> "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
             JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
+            bool configureDefaultPolicy = true;
+
             if (_securityConfiguration.Enabled)
             {
                 services.AddAuthentication(options =>
@@ -66,15 +68,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     services.AddSingleton(_securityConfiguration.Authorization);
                     services.AddSingleton<IAuthorizationPolicy, RoleBasedAuthorizationPolicy>();
                     services.AddSingleton<IAuthorizationHandler, ResourceActionHandler>();
-                }
-                else
-                {
-                    services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy));
+
+                    configureDefaultPolicy = false;
                 }
             }
-            else
+
+            if (configureDefaultPolicy)
             {
-                services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.FhirPolicy, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy));
+                services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.FhirPolicy, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy, PolicyNames.ExportPolicy));
             }
         }
 
