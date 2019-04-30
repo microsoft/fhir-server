@@ -15,7 +15,9 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -30,7 +32,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
         private readonly IDocumentClient _documentClient;
-        private readonly IFhirDataStoreContext _fhirDataStoreContext;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
@@ -45,31 +46,46 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// A function that returns an <see cref="IDocumentClient"/>.
         /// Note that this is a function so that the lifetime of the instance is not directly controlled by the IoC container.
         /// </param>
-        /// <param name="fhirDataStoreContext">The data store context.</param>
+        /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
+        /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         public CosmosFhirDataStore(
             IScoped<IDocumentClient> documentClient,
-            IFhirDataStoreContext fhirDataStoreContext,
+            CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
-            EnsureArg.IsNotNull(fhirDataStoreContext, nameof(fhirDataStoreContext));
+            EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
+            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _documentClient = documentClient.Value;
-            _fhirDataStoreContext = fhirDataStoreContext;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
+
+            CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
+
+            DatabaseId = cosmosDataStoreConfiguration.DatabaseId;
+            CollectionId = collectionConfiguration.CollectionId;
+            CollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfiguration.CollectionId);
+
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
         }
+
+        private string DatabaseId { get; }
+
+        private string CollectionId { get; }
+
+        private Uri CollectionUri { get; }
 
         public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
@@ -89,7 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _upsertWithHistoryProc.Execute(
                         _documentClient,
-                        _fhirDataStoreContext.CollectionUri,
+                        CollectionUri,
                         cosmosWrapper,
                         weakETag?.VersionId,
                         allowCreate,
@@ -158,7 +174,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 return await _documentClient.ReadDocumentAsync<FhirCosmosResourceWrapper>(
-                    UriFactory.CreateDocumentUri(_fhirDataStoreContext.DatabaseId, _fhirDataStoreContext.CollectionId, key.Id),
+                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);
             }
@@ -179,7 +195,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _documentClient,
-                        _fhirDataStoreContext.CollectionUri,
+                        CollectionUri,
                         key,
                         ct),
                     cancellationToken);
@@ -206,7 +222,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
-            CosmosQueryContext context = new CosmosQueryContext(_fhirDataStoreContext.CollectionUri, sqlQuerySpec, feedOptions);
+            CosmosQueryContext context = new CosmosQueryContext(CollectionUri, sqlQuerySpec, feedOptions);
 
             return _cosmosDocumentQueryFactory.Create<T>(_documentClient, context);
         }

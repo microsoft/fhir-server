@@ -13,7 +13,9 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -24,40 +26,55 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.GetAvaila
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
-    public sealed class CosmosFhirOperationsDataStore : IFhirOperationsDataStore
+    public sealed class CosmosFhirOperationDataStore : IFhirOperationDataStore
     {
+        private static readonly string RequestEntityTooLargeStatusCodeInString = ((int)HttpStatusCode.RequestEntityTooLarge).ToString();
+
         private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
-        private readonly IFhirDataStoreContext _fhirDataStoreContext;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger _logger;
 
         private readonly GetAvailableExportJobs _getAvailableExportJobs = new GetAvailableExportJobs();
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CosmosFhirOperationsDataStore"/> class.
+        /// Initializes a new instance of the <see cref="CosmosFhirOperationDataStore"/> class.
         /// </summary>
         /// <param name="documentClientFactory">The factory for <see cref="IDocumentClient"/>.</param>
-        /// <param name="fhirDataStoreContext">The data store context.</param>
+        /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
+        /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger.</param>
-        public CosmosFhirOperationsDataStore(
+        public CosmosFhirOperationDataStore(
             Func<IScoped<IDocumentClient>> documentClientFactory,
-            IFhirDataStoreContext fhirDataStoreContext,
+            CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
-            ILogger<CosmosFhirOperationsDataStore> logger)
+            ILogger<CosmosFhirOperationDataStore> logger)
         {
             EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
-            EnsureArg.IsNotNull(fhirDataStoreContext, nameof(fhirDataStoreContext));
+            EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
+            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _documentClientFactory = documentClientFactory;
-            _fhirDataStoreContext = fhirDataStoreContext;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
+
+            CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
+
+            DatabaseId = cosmosDataStoreConfiguration.DatabaseId;
+            CollectionId = collectionConfiguration.CollectionId;
+            CollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfiguration.CollectionId);
         }
 
         private IDocumentClient DocumentClient => _documentClientFactory().Value;
+
+        private string DatabaseId { get; }
+
+        private string CollectionId { get; }
+
+        private Uri CollectionUri { get; }
 
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
@@ -68,7 +85,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             try
             {
                 ResourceResponse<Document> result = await DocumentClient.CreateDocumentAsync(
-                    _fhirDataStoreContext.CollectionUri,
+                    CollectionUri,
                     cosmosExportJob,
                     new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     disableAutomaticIdGeneration: true,
@@ -78,7 +95,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (DocumentClientException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
@@ -95,7 +112,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             try
             {
                 DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await DocumentClient.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
-                    UriFactory.CreateDocumentUri(_fhirDataStoreContext.DatabaseId, _fhirDataStoreContext.CollectionId, jobId),
+                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobId),
                     new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     cancellationToken);
 
@@ -106,7 +123,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (DocumentClientException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
@@ -144,7 +161,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             try
             {
                 ResourceResponse<Document> replaceResult = await DocumentClient.ReplaceDocumentAsync(
-                    UriFactory.CreateDocumentUri(_fhirDataStoreContext.DatabaseId, _fhirDataStoreContext.CollectionId, jobRecord.Id),
+                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobRecord.Id),
                     cosmosExportJob,
                     requestOptions,
                     cancellationToken: cancellationToken);
@@ -154,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (DocumentClientException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
@@ -182,7 +199,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 StoredProcedureResponse<IReadOnlyCollection<CosmosExportJobRecordWrapper>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _getAvailableExportJobs.ExecuteAsync(
                         DocumentClient,
-                        _fhirDataStoreContext.CollectionUri,
+                        CollectionUri,
                         maximumNumberOfConcurrentJobsAllowed,
                         (ushort)jobHeartbeatTimeoutThreshold.TotalSeconds,
                         ct),
@@ -192,9 +209,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (DocumentClientException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+                if (dce.Error?.Message?.Contains(RequestEntityTooLargeStatusCodeInString, StringComparison.Ordinal) == true)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw new RequestRateExceededException(null);
                 }
 
                 _logger.LogError(dce, "Unhandled Document Client Exception");

@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private static readonly ExportJobRecord _exportJobRecord = new ExportJobRecord(new Uri("https://localhost/ExportJob/"));
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
-        private readonly IFhirOperationsDataStore _fhirOperationsDataStore = Substitute.For<IFhirOperationsDataStore>();
+        private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
 
         private ExportJobTask _exportJobTask;
 
@@ -32,12 +32,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             _cancellationToken = _cancellationTokenSource.Token;
 
-            _fhirOperationsDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x => new ExportJobOutcome(_exportJobRecord, _weakETag));
+            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x => new ExportJobOutcome(_exportJobRecord, _weakETag));
 
             _exportJobTask = new ExportJobTask(
                 _exportJobRecord,
                 _weakETag,
-                _fhirOperationsDataStore,
+                _fhirOperationDataStore,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             bool capturedStatusUpdate = false;
 
-            _fhirOperationsDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Running), _weakETag, _cancellationToken).Returns(_ =>
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Running), _weakETag, _cancellationToken).Returns(_ =>
             {
                 capturedStatusUpdate = true;
 
@@ -63,14 +63,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var newETag = WeakETag.FromVersionId("1");
 
-            _fhirOperationsDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Running), _weakETag, _cancellationToken).Returns(_ =>
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Running), _weakETag, _cancellationToken).Returns(_ =>
             {
                 return new ExportJobOutcome(_exportJobRecord, newETag);
             });
 
             bool capturedStatusUpdate = false;
 
-            _fhirOperationsDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Completed), newETag, _cancellationToken).Returns(_ =>
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Completed), newETag, _cancellationToken).Returns(_ =>
             {
                 capturedStatusUpdate = true;
 
@@ -86,11 +86,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenTaskCouldNotBeAcquired_WhenExecuted_ThenNoFurtherActionShouldBeTaken()
         {
-            _fhirOperationsDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(_ => Task.Run(new Func<Task<ExportJobOutcome>>(() => throw new JobConflictException())));
+            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(_ => Task.Run(new Func<Task<ExportJobOutcome>>(() => throw new JobConflictException())));
 
             await _exportJobTask.ExecuteAsync(_cancellationToken);
 
-            await _fhirOperationsDataStore.ReceivedWithAnyArgs(1).UpdateExportJobAsync(null, null, _cancellationToken);
+            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).UpdateExportJobAsync(null, null, _cancellationToken);
         }
     }
 }

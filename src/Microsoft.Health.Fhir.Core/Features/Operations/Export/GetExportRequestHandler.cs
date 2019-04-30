@@ -15,20 +15,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class GetExportRequestHandler : IRequestHandler<GetExportRequest, GetExportResponse>
     {
-        private IFhirOperationsDataStore _fhirOperationsDataStore;
+        private IFhirOperationDataStore _fhirOperationDataStore;
 
-        public GetExportRequestHandler(IFhirOperationsDataStore fhirOperationsDataStore)
+        public GetExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore)
         {
-            EnsureArg.IsNotNull(fhirOperationsDataStore, nameof(fhirOperationsDataStore));
+            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
 
-            _fhirOperationsDataStore = fhirOperationsDataStore;
+            _fhirOperationDataStore = fhirOperationDataStore;
         }
 
         public async Task<GetExportResponse> Handle(GetExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            ExportJobOutcome outcome = await _fhirOperationsDataStore.GetExportJobAsync(request.JobId, cancellationToken);
+            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobAsync(request.JobId, cancellationToken);
 
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;

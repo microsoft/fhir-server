@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public interface IFhirOperationsDataStore
+    public interface IFhirOperationDataStore
     {
         Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken);
 

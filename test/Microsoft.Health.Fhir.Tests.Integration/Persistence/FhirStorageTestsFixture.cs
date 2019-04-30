@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class FhirStorageTestsFixture : IDisposable
     {
         private readonly IScoped<IFhirDataStore> _scopedStore;
-        private readonly IScoped<IFhirOperationsDataStore> _scopedOperationsDataStore;
+        private readonly IScoped<IFhirOperationDataStore> _scopedFhirOperationDataStore;
         private readonly IScoped<IFhirStorageTestHelper> _scopedTestHelper;
 
         public FhirStorageTestsFixture(DataStore dataStore)
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     var fixture = new CosmosDbFhirStorageTestsFixture();
 
                     _scopedStore = fixture;
-                    _scopedOperationsDataStore = fixture;
+                    _scopedFhirOperationDataStore = fixture;
                     _scopedTestHelper = fixture;
                     break;
                 case Common.FixtureParameters.DataStore.Sql:
@@ -37,14 +37,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IFhirDataStore DataStore => _scopedStore.Value;
 
-        public IFhirOperationsDataStore OperationsDataStore => _scopedOperationsDataStore.Value;
+        public IFhirOperationDataStore OperationDataStore => _scopedFhirOperationDataStore.Value;
 
         public IFhirStorageTestHelper TestHelper => _scopedTestHelper.Value;
 
         public void Dispose()
         {
             _scopedStore?.Dispose();
-            _scopedOperationsDataStore?.Dispose();
+            _scopedFhirOperationDataStore?.Dispose();
             _scopedTestHelper?.Dispose();
         }
     }

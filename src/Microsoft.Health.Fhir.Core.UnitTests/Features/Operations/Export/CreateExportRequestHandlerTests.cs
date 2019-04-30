@@ -20,14 +20,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class CreateExportRequestHandlerTests
     {
-        private readonly IFhirOperationsDataStore _fhirOperationsDataStore = Substitute.For<IFhirOperationsDataStore>();
+        private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly IMediator _mediator;
         private const string RequestUrl = "https://localhost/$export/";
 
         public CreateExportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(x => new CreateExportRequestHandler(_fhirOperationsDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new CreateExportRequestHandler(_fhirOperationDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public async void GivenAFhirMediator_WhenSavingAnExportJobSucceeds_ThenResponseShouldBeSuccess()
         {
             var exportOutcome = new ExportJobOutcome(new ExportJobRecord(new Uri(RequestUrl)), WeakETag.FromVersionId("eTag"));
-            _fhirOperationsDataStore.CreateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(exportOutcome);
+            _fhirOperationDataStore.CreateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(exportOutcome);
 
             var outcome = await _mediator.ExportAsync(new Uri(RequestUrl));
 

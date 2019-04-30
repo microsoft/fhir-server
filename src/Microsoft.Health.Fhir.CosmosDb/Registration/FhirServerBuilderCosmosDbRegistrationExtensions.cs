@@ -51,10 +51,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("FhirServer:CosmosDb").Bind(cosmosCollectionConfiguration));
 
-            services.Add<FhirDataStoreContext>()
-                .Singleton()
-                .AsService<IFhirDataStoreContext>();
-
             services.Add<CosmosFhirDataStore>()
                 .Scoped()
                 .AsSelf()
@@ -105,7 +101,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<CosmosFhirOperationsDataStore>()
+            services.Add<CosmosFhirOperationDataStore>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

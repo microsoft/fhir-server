@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportJobTask
     {
         private readonly ExportJobRecord _exportJobRecord;
-        private readonly IFhirOperationsDataStore _fhirOperationsDataStore;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly ILogger _logger;
 
         private WeakETag _weakETag;
@@ -24,16 +24,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public ExportJobTask(
             ExportJobRecord exportJobRecord,
             WeakETag weakETag,
-            IFhirOperationsDataStore fhirOperationsDataStore,
+            IFhirOperationDataStore fhirOperationDataStore,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
             EnsureArg.IsNotNull(weakETag, nameof(weakETag));
-            EnsureArg.IsNotNull(fhirOperationsDataStore, nameof(fhirOperationsDataStore));
+            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _exportJobRecord = exportJobRecord;
-            _fhirOperationsDataStore = fhirOperationsDataStore;
+            _fhirOperationDataStore = fhirOperationDataStore;
             _logger = logger;
 
             _weakETag = weakETag;
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             _exportJobRecord.Status = operationStatus;
 
-            ExportJobOutcome updatedExportJobOutcome = await _fhirOperationsDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
+            ExportJobOutcome updatedExportJobOutcome = await _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
 
             _weakETag = updatedExportJobOutcome.ETag;
         }

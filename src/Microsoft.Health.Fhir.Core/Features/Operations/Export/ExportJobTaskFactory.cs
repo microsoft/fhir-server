@@ -17,17 +17,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ExportJobTaskFactory : IExportJobTaskFactory
     {
-        private readonly IFhirOperationsDataStore _fhirOperationsDataStore;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly ILoggerFactory _loggerFactory;
 
         public ExportJobTaskFactory(
-            IFhirOperationsDataStore fhirOperationsDataStore,
+            IFhirOperationDataStore fhirOperationDataStore,
             ILoggerFactory loggerFactory)
         {
-            EnsureArg.IsNotNull(fhirOperationsDataStore, nameof(fhirOperationsDataStore));
+            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
-            _fhirOperationsDataStore = fhirOperationsDataStore;
+            _fhirOperationDataStore = fhirOperationDataStore;
             _loggerFactory = loggerFactory;
         }
 
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var exportJobTask = new ExportJobTask(
                 exportJobRecord,
                 weakETag,
-                _fhirOperationsDataStore,
+                _fhirOperationDataStore,
                 _loggerFactory.CreateLogger<ExportJobTask>());
 
             using (ExecutionContext.SuppressFlow())

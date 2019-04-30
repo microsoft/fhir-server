@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private static readonly TimeSpan DefaultJobHeartbeatTimeoutThreshold = TimeSpan.FromMinutes(10);
         private static readonly TimeSpan DefaultJobPollingFrequency = TimeSpan.FromMilliseconds(100);
 
-        private readonly IFhirOperationsDataStore _fhirOperationsDataStore = Substitute.For<IFhirOperationsDataStore>();
+        private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly IExportJobTaskFactory _exportJobTaskFactory = Substitute.For<IExportJobTaskFactory>();
 
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobConfiguration.JobPollingFrequency = DefaultJobPollingFrequency;
 
             _exportJobWorker = new ExportJobWorker(
-                _fhirOperationsDataStore,
+                _fhirOperationDataStore,
                 Options.Create(_exportJobConfiguration),
                 _exportJobTaskFactory,
                 NullLogger<ExportJobWorker>.Instance);
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             ExportJobOutcome job = CreateExportJobOutcome();
 
-            SetupOperationsDataStore(job);
+            SetupOperationDataStore(job);
 
             _exportJobTaskFactory.Create(job.JobRecord, job.ETag, _cancellationToken).Returns(Task.CompletedTask);
 
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             ExportJobOutcome job = CreateExportJobOutcome();
 
-            SetupOperationsDataStore(job);
+            SetupOperationDataStore(job);
 
             _exportJobTaskFactory.Create(job.JobRecord, job.ETag, _cancellationToken).Returns(Task.Run(async () => { await Task.Delay(1000); }));
 
@@ -90,14 +90,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             ExportJobOutcome job1 = CreateExportJobOutcome();
             ExportJobOutcome job2 = CreateExportJobOutcome();
 
-            SetupOperationsDataStore(
+            SetupOperationDataStore(
                 job1,
                 maximumNumberOfConcurrentJobsAllowed: MaximumNumberOfConcurrentJobsAllowed);
 
             _exportJobTaskFactory.Create(job1.JobRecord, job1.ETag, _cancellationToken).Returns(Task.Run(() =>
             {
                 // Simulate the fact a new job now becomes available.
-                SetupOperationsDataStore(
+                SetupOperationDataStore(
                     job2,
                     maximumNumberOfConcurrentJobsAllowed: MaximumNumberOfConcurrentJobsAllowed);
 
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(isSecondJobCalled);
         }
 
-        private void SetupOperationsDataStore(
+        private void SetupOperationDataStore(
             ExportJobOutcome job,
             ushort maximumNumberOfConcurrentJobsAllowed = DefaultMaximumNumberOfConcurrentJobAllowed,
             TimeSpan? jobHeartbeatTimeoutThreshold = null,
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 jobPollingFrequency = DefaultJobPollingFrequency;
             }
 
-            _fhirOperationsDataStore.GetAvailableExportJobsAsync(
+            _fhirOperationDataStore.GetAvailableExportJobsAsync(
                 maximumNumberOfConcurrentJobsAllowed,
                 jobHeartbeatTimeoutThreshold.Value,
                 _cancellationToken)

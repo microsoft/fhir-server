@@ -19,11 +19,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
     public class ExportJobTaskTests : IClassFixture<FhirStorageTestsFixture>
     {
-        private IFhirOperationsDataStore _dataStore;
+        private IFhirOperationDataStore _dataStore;
 
         public ExportJobTaskTests(FhirStorageTestsFixture fixture)
         {
-            _dataStore = fixture.OperationsDataStore;
+            _dataStore = fixture.OperationDataStore;
         }
 
         [Fact]

@@ -6,7 +6,6 @@
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -27,8 +26,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<ExportJobWorker>()
                 .Singleton()
                 .AsSelf();
-
-            services.AddHostedService<ExportJobWorkerBackgroundService>();
         }
     }
 }

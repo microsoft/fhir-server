@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
     /// <summary>
     /// A wrapper around the <see cref="ExportJobRecord"/> class that contains metadata specific to CosmosDb.
     /// </summary>
-    internal class CosmosExportJobRecordWrapper : SystemData
+    internal class CosmosExportJobRecordWrapper
     {
         public CosmosExportJobRecordWrapper(ExportJobRecord exportJobRecord)
         {
@@ -34,5 +34,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
 
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey { get; } = CosmosDbExportConstants.ExportJobPartitionKey;
+
+        [JsonProperty(KnownDocumentProperties.Id)]
+        public string Id { get; set; }
+
+        [JsonProperty(KnownDocumentProperties.ETag)]
+        public string ETag { get; protected set; }
+
+        [JsonProperty(KnownDocumentProperties.IsSystem)]
+        public bool IsSystem { get; } = false;
     }
 }

@@ -21,19 +21,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ExportJobWorker
     {
-        private readonly IFhirOperationsDataStore _fhirOperationsDataStore;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly IExportJobTaskFactory _exportJobTaskFactory;
         private readonly ILogger _logger;
 
-        public ExportJobWorker(IFhirOperationsDataStore fhirOperationsDataStore, IOptions<ExportJobConfiguration> exportJobConfiguration, IExportJobTaskFactory exportJobTaskFactory, ILogger<ExportJobWorker> logger)
+        public ExportJobWorker(IFhirOperationDataStore fhirOperationDataStore, IOptions<ExportJobConfiguration> exportJobConfiguration, IExportJobTaskFactory exportJobTaskFactory, ILogger<ExportJobWorker> logger)
         {
-            EnsureArg.IsNotNull(fhirOperationsDataStore, nameof(fhirOperationsDataStore));
+            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _fhirOperationsDataStore = fhirOperationsDataStore;
+            _fhirOperationDataStore = fhirOperationDataStore;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _exportJobTaskFactory = exportJobTaskFactory;
             _logger = logger;
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // Get list of available jobs.
                     if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
                     {
-                        IReadOnlyCollection<ExportJobOutcome> jobs = await _fhirOperationsDataStore.GetAvailableExportJobsAsync(
+                        IReadOnlyCollection<ExportJobOutcome> jobs = await _fhirOperationDataStore.GetAvailableExportJobsAsync(
                             _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
                             _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
                             cancellationToken);
@@ -61,9 +61,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         runningTasks.AddRange(jobs.Select(job => _exportJobTaskFactory.Create(job.JobRecord, job.ETag, cancellationToken)));
                     }
 
-                    await Task.Delay(_exportJobConfiguration.JobPollingFrequency);
+                    await Task.Delay(_exportJobConfiguration.JobPollingFrequency, cancellationToken);
                 }
-                catch (Exception ex) when (!(ex is OperationCanceledException && cancellationToken.IsCancellationRequested))
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    // Cancel requested.
+                }
+                catch (Exception ex)
                 {
                     // The job failed.
                     _logger.LogError(ex, "Unhandled exception in the worker.");

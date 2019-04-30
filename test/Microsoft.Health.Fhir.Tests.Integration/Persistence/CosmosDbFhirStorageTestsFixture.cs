@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Microsoft.Azure.Documents;
+using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
@@ -24,14 +25,14 @@ using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class CosmosDbFhirStorageTestsFixture : IScoped<IFhirDataStore>, IScoped<IFhirOperationsDataStore>, IScoped<IFhirStorageTestHelper>
+    public class CosmosDbFhirStorageTestsFixture : IScoped<IFhirDataStore>, IScoped<IFhirOperationDataStore>, IScoped<IFhirStorageTestHelper>
     {
         private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
 
         private IFhirDataStore _fhirDataStore;
-        private IFhirOperationsDataStore _fhirOperationsDataStore;
+        private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
 
         private int _disposed = 0;
@@ -82,31 +83,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
 
-            var fhirDataStoreContext = new FhirDataStoreContext(
-                _cosmosDataStoreConfiguration,
-                optionsMonitor);
-
             var documentClient = new NonDisposingScope(_documentClient);
 
             _fhirDataStore = new CosmosFhirDataStore(
                 documentClient,
-                fhirDataStoreContext,
+                _cosmosDataStoreConfiguration,
+                optionsMonitor,
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
                 NullLogger<CosmosFhirDataStore>.Instance);
 
-            _fhirOperationsDataStore = new CosmosFhirOperationsDataStore(
+            _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 () => documentClient,
-                fhirDataStoreContext,
+                _cosmosDataStoreConfiguration,
+                optionsMonitor,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
-                NullLogger<CosmosFhirOperationsDataStore>.Instance);
+                NullLogger<CosmosFhirOperationDataStore>.Instance);
 
-            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_documentClient, fhirDataStoreContext);
+            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(
+                _documentClient,
+                UriFactory.CreateDocumentCollectionUri(_cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId));
         }
 
         IFhirDataStore IScoped<IFhirDataStore>.Value => _fhirDataStore;
 
-        IFhirOperationsDataStore IScoped<IFhirOperationsDataStore>.Value => _fhirOperationsDataStore;
+        IFhirOperationDataStore IScoped<IFhirOperationDataStore>.Value => _fhirOperationDataStore;
 
         IFhirStorageTestHelper IScoped<IFhirStorageTestHelper>.Value => _fhirStorageTestHelper;
 

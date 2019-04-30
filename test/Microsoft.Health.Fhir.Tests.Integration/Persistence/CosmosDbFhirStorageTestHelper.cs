@@ -3,11 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -16,18 +16,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private const string ExportJobPartitionKey = "ExportJob";
 
         private readonly IDocumentClient _documentClient;
-        private readonly IFhirDataStoreContext _fhirDataStoreContext;
+        private readonly Uri _collectionUri;
 
-        public CosmosDbFhirStorageTestHelper(IDocumentClient documentClient, IFhirDataStoreContext fhirDataStoreContext)
+        public CosmosDbFhirStorageTestHelper(
+            IDocumentClient documentClient,
+            Uri collectionUri)
         {
             _documentClient = documentClient;
-            _fhirDataStoreContext = fhirDataStoreContext;
+            _collectionUri = collectionUri;
         }
 
         public async Task DeleteAllExportJobRecordsAsync()
         {
             IDocumentQuery<Document> query = _documentClient.CreateDocumentQuery<Document>(
-                _fhirDataStoreContext.CollectionUri,
+                _collectionUri,
                 new SqlQuerySpec("SELECT doc._self FROM doc"),
                 new FeedOptions() { PartitionKey = new PartitionKey(ExportJobPartitionKey) })
                 .AsDocumentQuery();

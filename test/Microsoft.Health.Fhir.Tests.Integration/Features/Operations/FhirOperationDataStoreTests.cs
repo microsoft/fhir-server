@@ -23,15 +23,15 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-    public class CosmosFhirOperationsDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
+    public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
-        private IFhirOperationsDataStore _dataStore;
+        private IFhirOperationDataStore _dataStore;
         private IFhirStorageTestHelper _testHelper;
         private Mediator _mediator;
 
-        public CosmosFhirOperationsDataStoreTests(FhirStorageTestsFixture fixture)
+        public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {
-            _dataStore = fixture.OperationsDataStore;
+            _dataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
 
             var collection = new ServiceCollection();

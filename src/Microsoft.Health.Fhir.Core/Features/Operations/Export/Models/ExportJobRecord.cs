@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             SchemaVersion = 1;
             Status = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
-            QueuedTime = DateTimeOffset.Now;
+            QueuedTime = DateTimeOffset.UtcNow;
         }
 
         [JsonConstructor]
