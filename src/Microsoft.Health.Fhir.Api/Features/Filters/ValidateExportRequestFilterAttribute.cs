@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
 
-            _supportedDestinationTypes = operationsConfig.Value.Export.SupportedDestinations;
+            _supportedDestinationTypes = new HashSet<string>(operationsConfig.Value.Export.SupportedDestinations);
             _supportedQueryParams = new HashSet<string>()
             {
                 KnownQueryParameterNames.DestinationType,
