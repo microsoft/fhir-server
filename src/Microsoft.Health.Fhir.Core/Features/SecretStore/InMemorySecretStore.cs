@@ -9,6 +9,9 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.SecretStore
 {
+    /// <summary>
+    /// Implementation of <see cref="ISecretStore"/> to be used for local tests and deployments.
+    /// </summary>
     public class InMemorySecretStore : ISecretStore
     {
         private Dictionary<string, string> _secrets = new Dictionary<string, string>();
@@ -17,12 +20,13 @@ namespace Microsoft.Health.Fhir.Core.Features.SecretStore
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName);
 
-            if (!_secrets.ContainsKey(secretName))
+            SecretWrapper wrapper = null;
+            if (_secrets.TryGetValue(secretName, out string secretValue))
             {
-                return null;
+                wrapper = new SecretWrapper(secretName, secretValue);
             }
 
-            return Task.FromResult(new SecretWrapper(secretName, _secrets[secretName]));
+            return Task.FromResult(wrapper);
         }
 
         public Task<SecretWrapper> SetSecretAsync(string secretName, string secretValue)
@@ -39,10 +43,14 @@ namespace Microsoft.Health.Fhir.Core.Features.SecretStore
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName);
 
-            var result = new SecretWrapper(secretName, _secrets[secretName]);
-            _secrets.Remove(secretName);
+            SecretWrapper wrapper = null;
+            if (_secrets.TryGetValue(secretName, out string secretValue))
+            {
+                wrapper = new SecretWrapper(secretName, secretValue);
+                _secrets.Remove(secretName);
+            }
 
-            return Task.FromResult(result);
+            return Task.FromResult(wrapper);
         }
     }
 }

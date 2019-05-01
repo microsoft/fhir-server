@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.SecretStore
         public SecretWrapper(string secretName, string secretValue)
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName, nameof(secretName));
-            EnsureArg.IsNotEmptyOrWhitespace(secretValue, nameof(secretValue));
+            EnsureArg.IsNotNullOrWhiteSpace(secretValue, nameof(secretValue));
 
             SecretName = secretName;
             SecretValue = secretValue;

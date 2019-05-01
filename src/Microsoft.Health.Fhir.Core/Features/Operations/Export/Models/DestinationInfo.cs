@@ -12,8 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     {
         public DestinationInfo(string destinationType, string destinationConnectionString)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(destinationType);
-            EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString);
+            EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
+            EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString, nameof(destinationConnectionString));
 
             DestinationType = destinationType;
             DestinationConnectionString = destinationConnectionString;

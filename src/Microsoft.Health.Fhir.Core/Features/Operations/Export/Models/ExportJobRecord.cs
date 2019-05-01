@@ -15,6 +15,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord
     {
+        private const string SecretPrefix = "Export_Destination_";
+
         public ExportJobRecord(Uri exportRequestUri)
         {
             EnsureArg.IsNotNull(exportRequestUri, nameof(exportRequestUri));
@@ -25,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             SchemaVersion = 1;
             Status = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
-            SecretName = Id;
+            SecretName = SecretPrefix + Id;
             QueuedTime = DateTimeOffset.Now;
             LastModifiedTime = DateTimeOffset.Now;
         }

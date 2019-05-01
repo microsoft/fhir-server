@@ -31,8 +31,8 @@ namespace Microsoft.Extensions.DependencyInjection
             if (string.IsNullOrWhiteSpace(keyVaultConfig.EndPoint))
             {
                 fhirServerBuilder.Services.Add<InMemorySecretStore>()
-                .Singleton()
-                .AsService<ISecretStore>();
+                    .Singleton()
+                    .AsService<ISecretStore>();
             }
             else
             {
@@ -43,8 +43,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     return new KeyVaultSecretStore(kvClient, new Uri(keyVaultConfig.EndPoint));
                 })
-                .Singleton()
-                .AsService<ISecretStore>();
+                    .Singleton()
+                    .AsService<ISecretStore>();
             }
 
             return fhirServerBuilder;

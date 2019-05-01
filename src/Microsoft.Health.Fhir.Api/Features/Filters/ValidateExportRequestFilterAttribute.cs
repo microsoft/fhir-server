@@ -7,8 +7,10 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -25,19 +27,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     {
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
-        private readonly List<string> _supportedDestinationTypes;
+        private readonly HashSet<string> _supportedDestinationTypes;
 
         // For now we will use a hardcoded list to determine what query parameters we will
         // allow for export requests. In the future, once we add export and other operations
         // to the capabilities statement, we can derive this list from there (via the ConformanceProvider).
-        private readonly List<string> _supportedQueryParams;
+        private readonly HashSet<string> _supportedQueryParams;
 
         public ValidateExportRequestFilterAttribute(IOptions<OperationsConfiguration> operationsConfig)
         {
             EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
 
             _supportedDestinationTypes = operationsConfig.Value.Export.SupportedDestinations;
-            _supportedQueryParams = new List<string>()
+            _supportedQueryParams = new HashSet<string>()
             {
                 KnownQueryParameterNames.DestinationType,
                 KnownQueryParameterNames.DestinationConnectionSettings,
@@ -62,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, PreferHeaderName));
             }
 
-            var queryCollection = context.HttpContext.Request.Query;
+            IQueryCollection queryCollection = context.HttpContext.Request.Query;
 
             // Validate that the request does not contain query parameters that are not supported.
             foreach (string paramName in queryCollection.Keys)
@@ -73,15 +75,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 }
             }
 
-            if (!queryCollection.ContainsKey(KnownQueryParameterNames.DestinationType)
-               || string.IsNullOrWhiteSpace(queryCollection[KnownQueryParameterNames.DestinationType])
-               || !_supportedDestinationTypes.Contains(queryCollection[KnownQueryParameterNames.DestinationType]))
+            if (!queryCollection.TryGetValue(KnownQueryParameterNames.DestinationType, out StringValues destinationTypeValue)
+               || string.IsNullOrWhiteSpace(destinationTypeValue)
+               || !_supportedDestinationTypes.Contains(destinationTypeValue))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedParameterValue, KnownQueryParameterNames.DestinationType));
             }
 
-            if (!queryCollection.ContainsKey(KnownQueryParameterNames.DestinationConnectionSettings)
-                || string.IsNullOrWhiteSpace(queryCollection[KnownQueryParameterNames.DestinationConnectionSettings]))
+            if (!queryCollection.TryGetValue(KnownQueryParameterNames.DestinationConnectionSettings, out StringValues destinationSettingValue)
+                || string.IsNullOrWhiteSpace(destinationSettingValue))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedParameterValue, KnownQueryParameterNames.DestinationConnectionSettings));
             }
