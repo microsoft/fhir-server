@@ -36,7 +36,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
         throw new Error(errorMessages.InputWasArray);
     }
 
-    if (!stringIsNullOrEmpty(matchVersionId) || !allowCreate) {
+    if (!stringIsNullOrEmpty(matchVersionId) || !allowCreate || doc.isDeleted) {
         tryReplace(doc, replacePrimaryCallback, matchVersionId);
     } else {
         tryCreate(doc, createPrimaryCallback);
@@ -91,6 +91,11 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                 }
 
                 let document = documents[0];
+
+                if (doc.isDeleted && document.isDeleted) {
+                    // don't create another version if already deleted
+                    throw new Error(errorMessages.DocumentNotFound);
+                }
 
                 let documentVersion = document.version;
 

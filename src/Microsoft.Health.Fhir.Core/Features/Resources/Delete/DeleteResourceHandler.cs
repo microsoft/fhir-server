@@ -45,28 +45,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
             else
             {
-                ResourceWrapper existing = await FhirDataStore.GetAsync(key, cancellationToken);
+                var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(message.ResourceKey.ResourceType));
+                emptyInstance.Id = message.ResourceKey.Id;
 
-                version = existing?.Version;
+                ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true);
 
-                if (existing?.IsDeleted == false)
-                {
-                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(existing.ResourceTypeName));
-                    emptyInstance.Id = existing.ResourceId;
+                bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true);
+                UpsertOutcome result = await FhirDataStore.UpsertAsync(
+                    deletedWrapper,
+                    weakETag: null,
+                    allowCreate: true,
+                    keepHistory: keepHistory,
+                    cancellationToken: cancellationToken);
 
-                    bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
-
-                    UpsertOutcome result = await FhirDataStore.UpsertAsync(
-                        deletedWrapper,
-                        WeakETag.FromVersionId(existing.Version),
-                        allowCreate: true,
-                        keepHistory: keepHistory,
-                        cancellationToken: cancellationToken);
-
-                    version = result.Wrapper.Version;
-                }
+                version = result?.Wrapper.Version;
             }
 
             if (string.IsNullOrWhiteSpace(version))
