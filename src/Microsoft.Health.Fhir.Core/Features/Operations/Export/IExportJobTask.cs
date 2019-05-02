@@ -10,18 +10,15 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
-    /// <summary>
-    /// Provides mechanism to create a new export job task.
-    /// </summary>
-    public interface IExportJobTaskFactory
+    public interface IExportJobTask
     {
         /// <summary>
-        /// Creates a new export job task.
+        /// Executes the export job task.
         /// </summary>
-        /// <param name="exportJobRecord">The job record.</param>
-        /// <param name="weakETag">The version ETag associated with the job record.</param>
+        /// <param name="exportJobRecord">The export job record.</param>
+        /// <param name="weakETag">The version ETag.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the export job.</returns>
-        Task Create(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken);
+        /// <returns>A <see cref="Task"/> representing the export job task.</returns>
+        Task ExecuteAsync(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken);
     }
 }

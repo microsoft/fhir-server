@@ -35,8 +35,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x => new ExportJobOutcome(_exportJobRecord, _weakETag));
 
             _exportJobTask = new ExportJobTask(
-                _exportJobRecord,
-                _weakETag,
                 _fhirOperationDataStore,
                 NullLogger<ExportJobTask>.Instance);
         }
@@ -54,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 return new ExportJobOutcome(_exportJobRecord, _weakETag);
             });
 
-            await _exportJobTask.ExecuteAsync(_cancellationToken);
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.True(capturedStatusUpdate);
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
@@ -77,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 return new ExportJobOutcome(_exportJobRecord, _weakETag);
             });
 
-            await _exportJobTask.ExecuteAsync(_cancellationToken);
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.True(capturedStatusUpdate);
             Assert.Equal(OperationStatus.Failed, _exportJobRecord.Status);
@@ -88,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(_ => Task.Run(new Func<Task<ExportJobOutcome>>(() => throw new JobConflictException())));
 
-            await _exportJobTask.ExecuteAsync(_cancellationToken);
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             await _fhirOperationDataStore.ReceivedWithAnyArgs(1).UpdateExportJobAsync(null, null, _cancellationToken);
         }

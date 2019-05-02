@@ -26,7 +26,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
-        private readonly IExportJobTaskFactory _exportJobTaskFactory = Substitute.For<IExportJobTaskFactory>();
+        private readonly Func<IExportJobTask> _exportJobTaskFactory = Substitute.For<Func<IExportJobTask>>();
+        private readonly IExportJobTask _task = Substitute.For<IExportJobTask>();
 
         private readonly ExportJobWorker _exportJobWorker;
 
@@ -38,6 +39,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed = DefaultMaximumNumberOfConcurrentJobAllowed;
             _exportJobConfiguration.JobHeartbeatTimeoutThreshold = DefaultJobHeartbeatTimeoutThreshold;
             _exportJobConfiguration.JobPollingFrequency = DefaultJobPollingFrequency;
+
+            _exportJobTaskFactory().Returns(_task);
 
             _exportJobWorker = new ExportJobWorker(
                 _fhirOperationDataStore,
@@ -55,13 +58,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             SetupOperationDataStore(job);
 
-            _exportJobTaskFactory.Create(job.JobRecord, job.ETag, _cancellationToken).Returns(Task.CompletedTask);
-
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency);
 
             await _exportJobWorker.ExecuteAsync(_cancellationToken);
 
-            await _exportJobTaskFactory.Received().Create(job.JobRecord, job.ETag, _cancellationToken);
+            _exportJobTaskFactory().Received(1);
         }
 
         [Fact]
@@ -71,13 +72,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             SetupOperationDataStore(job);
 
-            _exportJobTaskFactory.Create(job.JobRecord, job.ETag, _cancellationToken).Returns(Task.Run(async () => { await Task.Delay(1000); }));
+            _task.ExecuteAsync(job.JobRecord, job.ETag, _cancellationToken).Returns(Task.Run(async () => { await Task.Delay(1000); }));
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 2);
 
             await _exportJobWorker.ExecuteAsync(_cancellationToken);
 
-            await _exportJobTaskFactory.Received(1).Create(job.JobRecord, job.ETag, _cancellationToken);
+            _exportJobTaskFactory.Received(1);
         }
 
         [Fact]
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 job1,
                 maximumNumberOfConcurrentJobsAllowed: MaximumNumberOfConcurrentJobsAllowed);
 
-            _exportJobTaskFactory.Create(job1.JobRecord, job1.ETag, _cancellationToken).Returns(Task.Run(() =>
+            _task.ExecuteAsync(job1.JobRecord, job1.ETag, _cancellationToken).Returns(Task.Run(() =>
             {
                 // Simulate the fact a new job now becomes available.
                 SetupOperationDataStore(
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             bool isSecondJobCalled = false;
 
-            _exportJobTaskFactory.Create(job2.JobRecord, job2.ETag, _cancellationToken).Returns(Task.Run(() =>
+            _task.ExecuteAsync(job2.JobRecord, job2.ETag, _cancellationToken).Returns(Task.Run(() =>
             {
                 // The task was called and therefore we can cancel the worker.
                 isSecondJobCalled = true;

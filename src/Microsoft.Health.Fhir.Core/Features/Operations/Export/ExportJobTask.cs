@@ -13,34 +13,33 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
-    public class ExportJobTask
+    public class ExportJobTask : IExportJobTask
     {
-        private readonly ExportJobRecord _exportJobRecord;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly ILogger _logger;
 
+        private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
 
         public ExportJobTask(
-            ExportJobRecord exportJobRecord,
-            WeakETag weakETag,
             IFhirOperationDataStore fhirOperationDataStore,
             ILogger<ExportJobTask> logger)
         {
-            EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
-            EnsureArg.IsNotNull(weakETag, nameof(weakETag));
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _exportJobRecord = exportJobRecord;
             _fhirOperationDataStore = fhirOperationDataStore;
             _logger = logger;
-
-            _weakETag = weakETag;
         }
 
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        /// <inheritdoc />
+        public async Task ExecuteAsync(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
+
+            _exportJobRecord = exportJobRecord;
+            _weakETag = weakETag;
+
             try
             {
                 // TODO: Implement the actual export logic here.

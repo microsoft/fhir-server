@@ -23,10 +23,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly IExportJobTaskFactory _exportJobTaskFactory;
+        private readonly Func<IExportJobTask> _exportJobTaskFactory;
         private readonly ILogger _logger;
 
-        public ExportJobWorker(IFhirOperationDataStore fhirOperationDataStore, IOptions<ExportJobConfiguration> exportJobConfiguration, IExportJobTaskFactory exportJobTaskFactory, ILogger<ExportJobWorker> logger)
+        public ExportJobWorker(IFhirOperationDataStore fhirOperationDataStore, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
                             cancellationToken);
 
-                        runningTasks.AddRange(jobs.Select(job => _exportJobTaskFactory.Create(job.JobRecord, job.ETag, cancellationToken)));
+                        runningTasks.AddRange(jobs.Select(job => Task.Run(() => _exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken))));
                     }
 
                     await Task.Delay(_exportJobConfiguration.JobPollingFrequency, cancellationToken);

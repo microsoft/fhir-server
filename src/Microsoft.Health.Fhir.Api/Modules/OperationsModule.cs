@@ -19,9 +19,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.Add<ExportJobTaskFactory>()
-                .Singleton()
-                .AsService<IExportJobTaskFactory>();
+            services.Add<ExportJobTask>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<IExportJobTask>(sp => sp.GetRequiredService<ExportJobTask>())
+                .Transient()
+                .AsSelf()
+                .AsFactory();
 
             services.Add<ExportJobWorker>()
                 .Singleton()

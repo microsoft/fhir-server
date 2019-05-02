@@ -19,11 +19,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
     public class ExportJobTaskTests : IClassFixture<FhirStorageTestsFixture>
     {
-        private IFhirOperationDataStore _dataStore;
+        private readonly IFhirOperationDataStore _dataStore;
+        private readonly ExportJobTask _exportJobTask;
 
         public ExportJobTaskTests(FhirStorageTestsFixture fixture)
         {
             _dataStore = fixture.OperationDataStore;
+
+            _exportJobTask = new ExportJobTask(_dataStore, NullLogger<ExportJobTask>.Instance);
         }
 
         [Fact]
@@ -33,9 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             ExportJobOutcome job = await _dataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
-            var task = new ExportJobTask(job.JobRecord, job.ETag, _dataStore, NullLogger<ExportJobTask>.Instance);
-
-            await task.ExecuteAsync(CancellationToken.None);
+            await _exportJobTask.ExecuteAsync(job.JobRecord, job.ETag, CancellationToken.None);
 
             ExportJobOutcome actual = await _dataStore.GetExportJobAsync(jobRecord.Id, CancellationToken.None);
 
@@ -56,9 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             ExportJobOutcome updatedJob = await _dataStore.UpdateExportJobAsync(jobRecord, initialJob.ETag, CancellationToken.None);
 
             // Create a new task with the old ETag.
-            var task = new ExportJobTask(initialJob.JobRecord, initialJob.ETag, _dataStore, NullLogger<ExportJobTask>.Instance);
-
-            await task.ExecuteAsync(CancellationToken.None);
+            await _exportJobTask.ExecuteAsync(initialJob.JobRecord, initialJob.ETag, CancellationToken.None);
 
             ExportJobOutcome actual = await _dataStore.GetExportJobAsync(jobRecord.Id, CancellationToken.None);
 
