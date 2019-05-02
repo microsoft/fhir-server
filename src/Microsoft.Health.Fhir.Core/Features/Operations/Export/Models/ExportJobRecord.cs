@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord
     {
-        private const string SecretPrefix = "Export_Destination_";
+        private const string SecretPrefix = "Export-Destination-";
 
         public ExportJobRecord(Uri exportRequestUri)
         {
