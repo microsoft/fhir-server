@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new SearchParameter[0]);
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, searchParameterDefinitionManager, NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, searchParameterDefinitionManager, NullLogger<SqlServerFhirModel>.Instance);
 
             Value = new SqlServerFhirDataStore(config, sqlServerFhirModel, NullLogger<SqlServerFhirDataStore>.Instance);
         }

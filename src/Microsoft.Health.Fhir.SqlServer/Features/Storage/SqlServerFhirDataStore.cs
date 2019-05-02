@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
         {
+            await _model.EnsureInitialized();
+
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken);
@@ -124,6 +126,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
+            await _model.EnsureInitialized();
+
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken);
@@ -199,6 +203,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
         {
+            await _model.EnsureInitialized();
+
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken);

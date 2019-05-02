@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _connectionString = fixture.TestConnectionString;
         }
 
-        [Fact]
+        [Fact(Skip = "test infrastructure missing")]
         public void GivenASqlDataReader_WhenReadingFieldsWithCorrectNamesAndOrdinals_ReturnsCorrectData()
         {
             using (var connection = new SqlConnection(_connectionString))
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [Fact(Skip = "test infrastructure missing")]
         [Conditional("DEBUG")] // checks are only enabled on debug builds.
         public void GivenASqlDataReader_WhenReadingFieldsWithIncorrectCorrectNamesAndOrdinals_Throws()
         {
