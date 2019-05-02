@@ -113,8 +113,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // result set 1
                         while (reader.Read())
                         {
-                            short id = reader.GetInt16(0);
-                            string resourceTypeName = reader.GetString(1);
+                            short id = reader.GetInt16("ResourceTypeId", 0);
+                            string resourceTypeName = reader.GetString("Name", 1);
+
                             _resourceTypeToId.Add(resourceTypeName, id);
                             _resourceTypeIdToTypeName.Add(id, resourceTypeName);
                         }
@@ -124,7 +125,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            _searchParamUriToId.Add(reader.GetString(0), reader.GetInt16(1));
+                            _searchParamUriToId.Add(
+                                reader.GetString("Uri", 0),
+                                reader.GetInt16("SearchParamId", 1));
                         }
 
                         // result set 3
@@ -132,7 +135,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            _systemToId.TryAdd(reader.GetString(0), reader.GetInt32(1));
+                            _systemToId.TryAdd(
+                                reader.GetString("System", 0),
+                                reader.GetInt32("SystemId", 1));
                         }
 
                         // result set 4
@@ -140,7 +145,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            _quantityCodeToId.TryAdd(reader.GetString(0), reader.GetInt32(1));
+                            _quantityCodeToId.TryAdd(
+                                reader.GetString("QuantityCode", 0),
+                                reader.GetInt32("QuantityCodeId", 1));
                         }
                     }
                 }

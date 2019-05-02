@@ -40,8 +40,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
             }
 
-            string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName }.ToString();
-            var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true };
+            TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName }.ToString();
+            var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
 
             var schemaUpgradeRunner = new SchemaUpgradeRunner(config);
 
@@ -59,6 +59,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         public IFhirDataStore Value { get; }
+
+        public string TestConnectionString { get; }
 
         public void Dispose()
         {

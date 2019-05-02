@@ -164,14 +164,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        int version = sqlDataReader.GetInt32(0);
-                        DateTime lastModified = sqlDataReader.GetDateTime(1);
-                        var isDeleted = sqlDataReader.GetBoolean(2);
-                        var isHistory = sqlDataReader.GetBoolean(3);
+                        int version = sqlDataReader.GetInt32("Version", 0);
+                        DateTime lastModified = sqlDataReader.GetDateTime("LastUpdated", 1);
+                        var isDeleted = sqlDataReader.GetBoolean("IsDeleted", 2);
+                        var isHistory = sqlDataReader.GetBoolean("IsHistory", 3);
 
                         string rawResource;
 
-                        using (var dataStream = sqlDataReader.GetStream(4))
+                        using (var dataStream = sqlDataReader.GetStream("RawResource", 4))
                         using (var gzipStream = new GZipStream(dataStream, CompressionMode.Decompress))
                         using (var reader = new StreamReader(gzipStream, ResourceEncoding))
                         {
