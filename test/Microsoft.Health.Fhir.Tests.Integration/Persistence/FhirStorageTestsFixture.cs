@@ -4,15 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class FhirStorageTestsFixture : IDisposable
+    public class FhirStorageTestsFixture : IAsyncLifetime, IDisposable
     {
+        private readonly IAsyncLifetime _fixture;
+
         private readonly IScoped<IFhirDataStore> _scopedStore;
         private readonly IScoped<IFhirOperationDataStore> _scopedFhirOperationDataStore;
         private readonly IScoped<IFhirStorageTestHelper> _scopedTestHelper;
@@ -27,6 +31,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     _scopedStore = fixture;
                     _scopedFhirOperationDataStore = fixture;
                     _scopedTestHelper = fixture;
+
+                    _fixture = fixture;
                     break;
                 case Common.FixtureParameters.DataStore.Sql:
                     throw new NotSupportedException();
@@ -47,5 +53,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _scopedFhirOperationDataStore?.Dispose();
             _scopedTestHelper?.Dispose();
         }
+
+        public Task InitializeAsync() => _fixture.InitializeAsync();
+
+        public Task DisposeAsync() => _fixture.DisposeAsync();
     }
 }
