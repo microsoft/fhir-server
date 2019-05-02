@@ -14,6 +14,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Net.Http.Headers;
@@ -245,7 +246,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public async Task<string> ExportAsync()
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, "$export");
+            var queryParams = new Dictionary<string, string>()
+            {
+                { "_destinationType", "AzureBlockBlob" },
+                { "_destinationConnectionSettings", "connectionString" },
+            };
+
+            string path = QueryHelpers.AddQueryString("$export", queryParams);
+            var message = new HttpRequestMessage(HttpMethod.Get, path);
 
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
