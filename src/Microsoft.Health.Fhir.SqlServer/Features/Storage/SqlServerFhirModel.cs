@@ -18,10 +18,16 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
+    /// <summary>
+    /// Maintains IDs for resource types, search parameters, systems, and codes for quantity search parameters.
+    /// There are typically on the order of tens or hundreds of distinct values for each of these, but are reused
+    /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
+    /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying. 
+    /// </summary>
     public class SqlServerFhirModel
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
-        private readonly ILogger<SqlServerFhirDataStore> _logger;
+        private readonly ILogger<SqlServerFhirModel> _logger;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Dictionary<string, short> _resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
         private readonly Dictionary<short, string> _resourceTypeIdToTypeName = new Dictionary<short, string>();
@@ -29,10 +35,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ConcurrentDictionary<string, int> _systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, int> _quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        public SqlServerFhirModel(SqlServerDataStoreConfiguration configuration, ISearchParameterDefinitionManager searchParameterDefinitionManager, ILogger<SqlServerFhirDataStore> logger)
+        public SqlServerFhirModel(SqlServerDataStoreConfiguration configuration, ISearchParameterDefinitionManager searchParameterDefinitionManager, ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
+
             _configuration = configuration;
             _logger = logger;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
@@ -51,12 +59,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public int GetSystem(string system)
         {
-            return GetStringId(_systemToId, system, "System", "SystemId", "System");
+            return GetStringId(_systemToId, system, "dbo.System", "SystemId", "System");
         }
 
         public int GetQuantityCode(string code)
         {
-            return GetStringId(_quantityCodeToId, code, "QuantityCode", "QuantityCodeId", "QuantityCode");
+            return GetStringId(_quantityCodeToId, code, "dbo.QuantityCode", "QuantityCodeId", "QuantityCode");
         }
 
         private void Initialize()
@@ -71,24 +79,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
 
-                        INSERT INTO ResourceType (Name) 
+                        INSERT INTO dbo.ResourceType (Name) 
                         SELECT value FROM string_split(@resourceTypes, ',')
-                        EXCEPT SELECT Name FROM ResourceType WITH (TABLOCKX); 
+                        EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX); 
 
-                        SELECT ResourceTypeId, Name FROM ResourceType;
+                        -- result set 1
+                        SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 
                         INSERT INTO SearchParam (Uri)
                         SELECT * FROM  OPENJSON (@searchParams) 
                         WITH (Uri varchar(128) '$.Uri')
-                        EXCEPT SELECT Uri from SearchParam;
+                        EXCEPT SELECT Uri FROM dbo.SearchParam;
 
-                        SELECT Uri, SearchParamId FROM SearchParam;
+                        -- result set 2
+                        SELECT Uri, SearchParamId FROM dbo.SearchParam;
 
                         COMMIT TRANSACTION
+    
+                        -- result set 3
+                        SELECT System, SystemId from dbo.System;
 
-                        SELECT System, SystemId from System;
-
-                        SELECT QuantityCode, QuantityCodeId from QuantityCode";
+                        -- result set 4
+                        SELECT QuantityCode, QuantityCodeId FROM dbo.QuantityCode";
 
                     string commaSeparatedResourceTypes = string.Join(",", ModelInfo.SupportedResources);
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
@@ -98,6 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     using (SqlDataReader reader = sqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
                     {
+                        // result set 1
                         while (reader.Read())
                         {
                             short id = reader.GetInt16(0);
@@ -106,6 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _resourceTypeIdToTypeName.Add(id, resourceTypeName);
                         }
 
+                        // result set 2
                         reader.NextResult();
 
                         while (reader.Read())
@@ -113,6 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _searchParamUriToId.Add(reader.GetString(0), reader.GetInt16(1));
                         }
 
+                        // result set 3
                         reader.NextResult();
 
                         while (reader.Read())
@@ -120,6 +135,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _systemToId.TryAdd(reader.GetString(0), reader.GetInt32(1));
                         }
 
+                        // result set 4
                         reader.NextResult();
 
                         while (reader.Read())
@@ -138,6 +154,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return id;
             }
 
+            _logger.LogInformation("Cache miss for string ID on {table}", tableName);
+
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
                 connection.Open();
@@ -150,10 +168,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         DECLARE @id int = (SELECT {idColumnName} FROM {tableName} WITH (UPDLOCK) WHERE {stringColumnName} = @stringValue)
 
-                        IF @id IS NULL
-                        BEGIN
-                            INSERT INTO {tableName} ({stringColumnName})
-                            VALUES (@stringValue)
+                        IF (@id IS NULL) BEGIN
+                            INSERT INTO {tableName} 
+                                ({stringColumnName})
+                            VALUES 
+                                (@stringValue)
                             SET @id = SCOPE_IDENTITY()
                         END
 

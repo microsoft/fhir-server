@@ -24,16 +24,18 @@ namespace Microsoft.Extensions.DependencyInjection
             serviceCollection.Add(provider =>
                 {
                     var config = new SqlServerDataStoreConfiguration();
-                    provider.GetService<IConfiguration>().GetSection("SqlServer").Bind(config);
+                    provider.GetService<IConfiguration>()?.GetSection("SqlServer")?.Bind(config);
                     configureAction?.Invoke(config);
 
                     if (string.IsNullOrWhiteSpace(config.ConnectionString))
                     {
-                        config.ConnectionString = "server=(local);Initial Catalog=FHIR;Integrated Security=true";
+                        config.ConnectionString = LocalDatabase.DefaultConnectionString;
                     }
 
                     return config;
-                });
+                })
+                .Singleton()
+                .AsSelf();
 
             serviceCollection.Add<SchemaUpgradeRunner>()
                 .Singleton()
