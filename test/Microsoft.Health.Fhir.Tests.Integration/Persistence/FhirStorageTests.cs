@@ -340,9 +340,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), false);
+            var resourceKey = new ResourceKey("Observation", saveResult.Resource.Id);
 
-            var deletedResourceKey2 = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), false);
+            await Mediator.DeleteResourceAsync(resourceKey, false);
+
+            var deletedResourceKey2 = await Mediator.DeleteResourceAsync(resourceKey, false);
 
             Assert.Null(deletedResourceKey2.ResourceKey.VersionId);
 
