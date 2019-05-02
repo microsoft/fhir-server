@@ -15,6 +15,9 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Health
 {
+    /// <summary>
+    /// An <see cref="IHealthCheck"/> implementation that verifies connectivity to the SQL database
+    /// </summary>
     public class SqlServerHealthCheck : IHealthCheck
     {
         private SqlServerDataStoreConfiguration _configuration;
