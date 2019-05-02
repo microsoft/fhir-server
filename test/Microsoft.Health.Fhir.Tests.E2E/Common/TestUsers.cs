@@ -15,6 +15,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public static TestUser HardDeleteUser { get; } = new TestUser("doug");
 
+        public static TestUser ExportUser { get; } = new TestUser("steve");
+
         public static TestUser AdminUser { get; } = new TestUser("itguy");
     }
 }

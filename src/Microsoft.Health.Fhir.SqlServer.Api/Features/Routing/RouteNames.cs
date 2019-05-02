@@ -3,18 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Security
+namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Routing
 {
-    public static class PolicyNames
+    public static class RouteNames
     {
-        public const string FhirPolicy = "FHIR Policy";
-
-        public const string ReadPolicy = "Read";
-
-        public const string WritePolicy = "Write";
-
-        public const string HardDeletePolicy = "HardDelete";
-
-        public const string ExportPolicy = "Export";
+        public const string Script = "Script";
     }
 }
