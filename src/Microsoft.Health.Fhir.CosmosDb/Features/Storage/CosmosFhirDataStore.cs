@@ -125,6 +125,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 else if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.NotFound), StringComparison.Ordinal) == true)
                 {
+                    if (cosmosWrapper.IsDeleted)
+                    {
+                        return null;
+                    }
+
                     if (weakETag != null)
                     {
                         throw new ResourceConflictException(weakETag);

@@ -219,44 +219,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public async Task GivenAFhirMediator_WhenDeletingAResourceThatIsAlreadyDeleted_ThenDoNothing()
         {
-            var observation = Samples.GetDefaultObservation();
-            observation.Id = "id1";
-            observation.Meta = new Meta
-            {
-                VersionId = "version1",
-            };
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), null, true, true, Arg.Any<CancellationToken>()).Returns(default(UpsertOutcome));
 
-            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "id1"), Arg.Any<CancellationToken>())
-                .Returns(CreateResourceWrapper(observation, true));
+            var resourceKey = new ResourceKey<Observation>("id1");
+            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, false)).ResourceKey;
 
-            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(new ResourceKey<Observation>("id1"), false)).ResourceKey;
-
-            await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>());
-
-            Assert.Equal(observation.Id, resultKey.Id);
-            Assert.Equal(observation.Meta.VersionId, resultKey.VersionId);
+            Assert.Equal(resourceKey.Id, resultKey.Id);
             Assert.Equal("Observation", resultKey.ResourceType);
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenDeletingAResourceThatDoesNotExist_ThenDoNothing()
-        {
-            var observation = Samples.GetDefaultObservation();
-            observation.Id = "id1";
-            observation.Meta = new Meta
-            {
-                VersionId = "version1",
-            };
-
-            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "id1"), Arg.Any<CancellationToken>()).Returns((ResourceWrapper)null);
-
-            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(new ResourceKey<Observation>("id1"), false)).ResourceKey;
-
-            await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>());
-
-            Assert.Equal(observation.Id, resultKey.Id);
             Assert.Null(resultKey.VersionId);
-            Assert.Equal("Observation", resultKey.ResourceType);
         }
 
         [Fact]
