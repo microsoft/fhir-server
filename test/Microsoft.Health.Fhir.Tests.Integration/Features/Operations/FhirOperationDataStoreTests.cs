@@ -87,11 +87,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenThereIsNoRunningJob_WhenAvailableJobsAreRequested_ThenAvailableJobsShouldBeReturned()
+        public async Task GivenThereIsNoRunningJob_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned()
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await GetAvailableExportJobRecordsAsync();
+            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync();
+
+            // The job should be marked as running now since it's acquired.
+            jobRecord.Status = OperationStatus.Running;
 
             Assert.NotNull(jobs);
             Assert.Collection(
@@ -104,11 +107,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
         [InlineData(OperationStatus.Running)]
-        public async Task GivenJobIsNotInQueuedState_WhenAvailableJobsAreRequested_ThenNoJobShouldBeReturned(OperationStatus operationStatus)
+        public async Task GivenJobIsNotInQueuedState_WhenAcquiringJobs_ThenNoJobShouldBeReturned(OperationStatus operationStatus)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await GetAvailableExportJobRecordsAsync();
+            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync();
 
             Assert.NotNull(jobs);
             Assert.Empty(jobs);
@@ -118,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(1, 0)]
         [InlineData(2, 1)]
         [InlineData(3, 2)]
-        public async Task GivenNumberOfRunningJobs_WhenAvailableJobsAreRequested_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
+        public async Task GivenNumberOfRunningJobs_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
             ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync();
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
@@ -129,13 +132,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
             ExportJobRecord[] expectedJobRecords = new[] { jobRecord1, jobRecord2 };
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await GetAvailableExportJobRecordsAsync(maximumNumberOfConcurrentJobAllowed: limit);
+            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
 
             Assert.NotNull(jobs);
 
             Action<ExportJobOutcome>[] validators = expectedJobRecords
                 .Take(expectedNumberOfJobsReturned)
-                .Select(expectedJobRecord => new Action<ExportJobOutcome>(job => ValidateExportJobOutcome(expectedJobRecord, job.JobRecord))).ToArray();
+                .Select(expectedJobRecord => new Action<ExportJobOutcome>(job =>
+                {
+                    // The job should be marked as running now since it's acquired.
+                    expectedJobRecord.Status = OperationStatus.Running;
+
+                    ValidateExportJobOutcome(expectedJobRecord, job.JobRecord);
+                })).ToArray();
 
             Assert.Collection(
                 jobs,
@@ -143,18 +152,46 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenThereIsRunningJobThatExpired_WhenAvailableJobsAreRequested_ThenTheExpiredJobShouldBeReturned()
+        public async Task GivenThereIsRunningJobThatExpired_WhenAcquiringJobs_ThenTheExpiredJobShouldBeReturned()
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
 
             await Task.Delay(1200);
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await GetAvailableExportJobRecordsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
+            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
 
             Assert.NotNull(jobs);
             Assert.Collection(
                 jobs,
                 job => ValidateExportJobOutcome(jobRecord, job.JobRecord));
+        }
+
+        [Fact]
+        public async Task GivenThereAreQueuedJobs_WhenSimultaneouslyAcquiringJobs_ThenCorrectJobsShouldBeReturned()
+        {
+            ExportJobRecord[] jobRecords = new[]
+            {
+                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
+                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
+                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
+                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
+            };
+
+            Task<IReadOnlyCollection<ExportJobOutcome>>[] tasks = new[]
+            {
+                AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2),
+                AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2),
+            };
+
+            Parallel.ForEach(tasks, task => Task.Run(async () => { await task; }));
+
+            await Task.WhenAll(tasks);
+
+            // Only 2 jobs should have been acquired in total.
+            Assert.Equal(2, tasks.Sum(task => task.Result.Count));
+
+            // Only 1 of the tasks should be fulfilled.
+            Assert.Equal(2, tasks[0].Result.Count ^ tasks[1].Result.Count);
         }
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
@@ -168,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             return jobRecord;
         }
 
-        private async Task<IReadOnlyCollection<ExportJobOutcome>> GetAvailableExportJobRecordsAsync(
+        private async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(
             ushort maximumNumberOfConcurrentJobAllowed = 1,
             TimeSpan? jobHeartbeatTimeoutThreshold = null)
         {
@@ -177,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 jobHeartbeatTimeoutThreshold = TimeSpan.FromMinutes(1);
             }
 
-            return await _dataStore.GetAvailableExportJobsAsync(
+            return await _dataStore.AcquireExportJobsAsync(
                 maximumNumberOfConcurrentJobAllowed,
                 jobHeartbeatTimeoutThreshold.Value,
                 CancellationToken.None);

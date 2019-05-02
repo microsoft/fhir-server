@@ -43,24 +43,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             try
             {
-                // Try to acquire the job.
-                try
-                {
-                    _logger.LogTrace("Acquiring the job.");
-
-                    await UpdateJobStatus(OperationStatus.Running, cancellationToken);
-                }
-                catch (JobConflictException)
-                {
-                    // The job is taken by another process.
-                    _logger.LogWarning("Failed to acquire the job. The job was acquired by another process.");
-                    return;
-                }
+                // TODO: Implement the actual export logic here.
 
                 // We have acquired the job, process the export.
                 _logger.LogTrace("Successfully completed the job.");
 
                 await UpdateJobStatus(OperationStatus.Completed, cancellationToken);
+            }
+            catch (JobConflictException)
+            {
+                // The job was updated by another process.
+                _logger.LogWarning("The job was updated by another process.");
+
+                // TODO: We will want to get the latest and merge the results without updating the status.
+                return;
             }
             catch (Exception ex)
             {

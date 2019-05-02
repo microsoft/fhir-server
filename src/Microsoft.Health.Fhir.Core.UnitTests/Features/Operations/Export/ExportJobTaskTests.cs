@@ -42,36 +42,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenANewJob_WhenExecuted_ThenStatusShouldBeUpdatedToRunning()
-        {
-            bool capturedStatusUpdate = false;
-
-            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Running), _weakETag, _cancellationToken).Returns(_ =>
-            {
-                capturedStatusUpdate = true;
-
-                return new ExportJobOutcome(_exportJobRecord, _weakETag);
-            });
-
-            await _exportJobTask.ExecuteAsync(_cancellationToken);
-
-            Assert.True(capturedStatusUpdate);
-        }
-
-        [Fact]
         public async Task GivenAJobCompletedSuccessfully_WhenExecuted_ThenStatusShouldBeUpdatedToCompleted()
         {
-            var newETag = WeakETag.FromVersionId("1");
-
-            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Running), _weakETag, _cancellationToken).Returns(_ =>
-            {
-                return new ExportJobOutcome(_exportJobRecord, newETag);
-            });
-
             bool capturedStatusUpdate = false;
 
-            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Completed), newETag, _cancellationToken).Returns(_ =>
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Completed), _weakETag, _cancellationToken).Returns(_ =>
             {
+                // NSubstitute call capture was not working reliably so manually capture the update for now.
                 capturedStatusUpdate = true;
 
                 return new ExportJobOutcome(_exportJobRecord, _weakETag);
@@ -81,6 +58,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.True(capturedStatusUpdate);
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAJobFailed_WhenExecuted_ThenStatusShouldBeUpdatedToFailed()
+        {
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Completed), _weakETag, _cancellationToken).Returns(_ =>
+            {
+                return Task.FromException(new Exception());
+            });
+
+            bool capturedStatusUpdate = false;
+
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Is<ExportJobRecord>(jr => jr.Status == OperationStatus.Failed), _weakETag, _cancellationToken).Returns(_ =>
+            {
+                capturedStatusUpdate = true;
+
+                return new ExportJobOutcome(_exportJobRecord, _weakETag);
+            });
+
+            await _exportJobTask.ExecuteAsync(_cancellationToken);
+
+            Assert.True(capturedStatusUpdate);
+            Assert.Equal(OperationStatus.Failed, _exportJobRecord.Status);
         }
 
         [Fact]

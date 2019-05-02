@@ -31,9 +31,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
 
-        private IFhirDataStore _fhirDataStore;
-        private IFhirOperationDataStore _fhirOperationDataStore;
-        private IFhirStorageTestHelper _fhirStorageTestHelper;
+        private readonly IFhirDataStore _fhirDataStore;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
 
         private int _disposed = 0;
 
@@ -79,7 +79,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var documentClientInitializer = new FhirDocumentClientInitializer(testProvider, fhirRequestContextAccessor, NullLogger<FhirDocumentClientInitializer>.Instance);
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
             var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
-            documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }).GetAwaiter().GetResult();
+
+            lock (typeof(CosmosDbFhirStorageTestsFixture))
+            {
+                documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }).GetAwaiter().GetResult();
+            }
 
             var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
 

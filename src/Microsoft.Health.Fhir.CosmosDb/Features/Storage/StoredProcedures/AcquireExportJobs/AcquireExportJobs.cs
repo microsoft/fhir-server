@@ -13,23 +13,23 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.GetAvailableExportJobs
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs
 {
-    internal class GetAvailableExportJobs : StoredProcedureBase, IFhirStoredProcedure
+    internal class AcquireExportJobs : StoredProcedureBase, IFhirStoredProcedure
     {
         public async Task<StoredProcedureResponse<IReadOnlyCollection<CosmosExportJobRecordWrapper>>> ExecuteAsync(
             IDocumentClient client,
-            Uri collection,
+            Uri collectionUri,
             ushort maximumNumberOfConcurrentJobsAllowed,
             ushort jobHeartbeatTimeoutThresholdInSeconds,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));
-            EnsureArg.IsNotNull(collection, nameof(collection));
+            EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
 
             return await ExecuteStoredProc<IReadOnlyCollection<CosmosExportJobRecordWrapper>>(
                 client,
-                collection,
+                collectionUri,
                 CosmosDbExportConstants.ExportJobPartitionKey,
                 cancellationToken,
                 maximumNumberOfConcurrentJobsAllowed,

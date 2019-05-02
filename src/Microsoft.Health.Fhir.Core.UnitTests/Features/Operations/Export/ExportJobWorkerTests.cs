@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 jobPollingFrequency = DefaultJobPollingFrequency;
             }
 
-            _fhirOperationDataStore.GetAvailableExportJobsAsync(
+            _fhirOperationDataStore.AcquireExportJobsAsync(
                 maximumNumberOfConcurrentJobsAllowed,
                 jobHeartbeatTimeoutThreshold.Value,
                 _cancellationToken)

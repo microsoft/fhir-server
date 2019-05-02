@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -22,19 +23,17 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.GetAvailableExportJobs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
     public sealed class CosmosFhirOperationDataStore : IFhirOperationDataStore
     {
-        private static readonly string RequestEntityTooLargeStatusCodeInString = ((int)HttpStatusCode.RequestEntityTooLarge).ToString();
-
         private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger _logger;
 
-        private readonly GetAvailableExportJobs _getAvailableExportJobs = new GetAvailableExportJobs();
+        private readonly AcquireExportJobs _acquireExportJobs = new AcquireExportJobs();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirOperationDataStore"/> class.
@@ -189,7 +188,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        public async Task<IReadOnlyCollection<ExportJobOutcome>> GetAvailableExportJobsAsync(
+        public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(
             ushort maximumNumberOfConcurrentJobsAllowed,
             TimeSpan jobHeartbeatTimeoutThreshold,
             CancellationToken cancellationToken)
@@ -197,7 +196,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             try
             {
                 StoredProcedureResponse<IReadOnlyCollection<CosmosExportJobRecordWrapper>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async ct => await _getAvailableExportJobs.ExecuteAsync(
+                    async ct => await _acquireExportJobs.ExecuteAsync(
                         DocumentClient,
                         CollectionUri,
                         maximumNumberOfConcurrentJobsAllowed,
@@ -209,9 +208,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (DocumentClientException dce)
             {
-                if (dce.Error?.Message?.Contains(RequestEntityTooLargeStatusCodeInString, StringComparison.Ordinal) == true)
+                string subStatusInString = dce.ResponseHeaders.Get(CosmosDbHeaders.SubStatus);
+
+                if (!string.IsNullOrEmpty(subStatusInString) &&
+                    int.TryParse(subStatusInString, NumberStyles.Integer, CultureInfo.InvariantCulture, out int subStatus))
                 {
-                    throw new RequestRateExceededException(null);
+                    if (subStatus == (int)HttpStatusCode.TooManyRequests)
+                    {
+                        throw new RequestRateExceededException(null);
+                    }
                 }
 
                 _logger.LogError(dce, "Unhandled Document Client Exception");
