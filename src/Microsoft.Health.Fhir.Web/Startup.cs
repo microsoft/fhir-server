@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,7 +25,16 @@ namespace Microsoft.Health.Fhir.Web
         {
             services.AddDevelopmentIdentityProvider(Configuration);
 
-            services.AddFhirServer(Configuration).AddCosmosDb(Configuration);
+            Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration);
+
+            if (Configuration["DataStore"].Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
+            {
+                fhirServerBuilder.AddCosmosDb(Configuration);
+            }
+            else if (Configuration["DataStore"].Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
+            {
+                services.AddExperimentalSqlServer();
+            }
 
             AddApplicationInsightsTelemetry(services);
         }

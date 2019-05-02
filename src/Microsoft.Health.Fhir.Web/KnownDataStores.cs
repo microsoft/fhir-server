@@ -3,15 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Xunit;
-
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
+namespace Microsoft.Health.Fhir.Web
 {
-    public sealed class RunLocalOnlyTheoryAttribute : TheoryAttribute
+    public static class KnownDataStores
     {
-        public RunLocalOnlyTheoryAttribute()
-        {
-            Skip = RunLocalOnlyCommon.SkipValue();
-        }
+        public const string CosmosDb = "CosmosDb";
+
+        public const string SqlServer = "Sql";
     }
 }

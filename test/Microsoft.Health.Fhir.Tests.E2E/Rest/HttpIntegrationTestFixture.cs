@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -50,13 +51,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             SetUpEnvironmentVariables();
 
-            string environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
+            string environmentUrl = string.Empty;
+
+            switch (dataStore)
+            {
+                case DataStore.CosmosDb:
+                    environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
+                    break;
+                case DataStore.Sql:
+                    environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl_Sql");
+                    break;
+            }
 
             if (string.IsNullOrWhiteSpace(environmentUrl))
             {
                 environmentUrl = "http://localhost/";
 
-                StartInMemoryServer(targetProjectParentDirectory);
+                StartInMemoryServer(targetProjectParentDirectory, dataStore);
 
                 _messageHandler = Server.CreateHandler();
                 IsUsingInProcTestServer = true;
@@ -107,11 +118,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public HttpClient CreateHttpClient()
             => new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
-        private void StartInMemoryServer(string targetProjectParentDirectory)
+        private void StartInMemoryServer(string targetProjectParentDirectory, DataStore dataStore)
         {
             var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
             var exportPath = Path.GetFullPath("exporttestconfiguration.json");
+            var dataStoreConfiguration = new Dictionary<string, string> { { "DataStore", dataStore.ToString() }, };
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
@@ -120,12 +132,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json");
                     configurationBuilder.AddJsonFile(corsPath);
                     configurationBuilder.AddJsonFile(exportPath);
+                    configurationBuilder.AddInMemoryCollection(dataStoreConfiguration);
                 })
                 .UseStartup(typeof(TStartup))
                 .ConfigureServices(serviceCollection =>
                 {
-                    serviceCollection.AddExperimentalSqlServer();
-
                     // ensure that HttpClients
                     // use a message handler for the test server
                     serviceCollection
