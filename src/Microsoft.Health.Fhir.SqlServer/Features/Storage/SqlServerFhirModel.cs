@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// Maintains IDs for resource types, search parameters, systems, and codes for quantity search parameters.
     /// There are typically on the order of tens or hundreds of distinct values for each of these, but are reused
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
-    /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying. 
+    /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
     public class SqlServerFhirModel
     {
