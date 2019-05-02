@@ -59,7 +59,7 @@ GO
 --      Selects the current completed schema version
 --
 --  RETURNS
---      The current version as a result set 
+--      The current version as a result set
 --
 CREATE PROCEDURE dbo.SelectCurrentSchemaVersion
 AS
@@ -139,7 +139,7 @@ CREATE TABLE dbo.System
     System nvarchar(256) NOT NULL,
 )
 
-CREATE UNIQUE CLUSTERED INDEX IXC_System ON dbo.System 
+CREATE UNIQUE CLUSTERED INDEX IXC_System ON dbo.System
 (
     System
 )
@@ -177,13 +177,13 @@ CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource (
 )
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON dbo.Resource (
-    ResourceTypeId, 
+    ResourceTypeId,
     ResourceId,
     Version
 )
 
 CREATE UNIQUE INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Resource (
-    ResourceTypeId, 
+    ResourceTypeId,
     ResourceId
 )
 INCLUDE (Version)
@@ -192,11 +192,11 @@ WHERE IsHistory = 0
 GO
 
 CREATE SEQUENCE dbo.ResourceSurrograteIdSequence
-		AS BIGINT   
-		START WITH 0
-		INCREMENT BY 1
-		NO CYCLE  
-		CACHE 50
+        AS BIGINT
+        START WITH 0
+        INCREMENT BY 1
+        NO CYCLE
+        CACHE 50
 GO
 
 /*************************************************************
@@ -226,34 +226,34 @@ GO
 --     @requestMethod
 --         * The HTTP method/verb used for the request
 --     @rawResource
---         * A compressed UTF16-encoded JSON document  
+--         * A compressed UTF16-encoded JSON document
 --
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insetion was done.
 --
 CREATE PROCEDURE dbo.UpsertResource
     @resourceTypeId smallint,
-	@resourceId varchar(64),
+    @resourceId varchar(64),
     @eTag int = NULL,
     @allowCreate bit,
     @isDeleted bit,
     @updatedDateTime datetimeoffset(7),
     @keepHistory bit,
     @requestMethod varchar(10),
-	@rawResource varbinary(max)
+    @rawResource varbinary(max)
 AS
-	SET XACT_ABORT ON
-	BEGIN TRANSACTION
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
 
-    DECLARE @previousVersion TABLE(  
-        ResourceSurrogateId bigint NOT NULL,  
-        Version int NOT NULL);  
+    DECLARE @previousVersion TABLE(
+        ResourceSurrogateId bigint NOT NULL,
+        Version int NOT NULL);
 
     if (@keepHistory = 1) BEGIN
         -- Preserve the existing version, marking it as history
         UPDATE dbo.Resource WITH (UPDLOCK, HOLDLOCK)
         SET IsHistory = 1
-        OUTPUT inserted.ResourceSurrogateId,  
+        OUTPUT inserted.ResourceSurrogateId,
                 inserted.Version
         INTO @previousVersion
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0 AND (@isDeleted = 0 OR IsDeleted = 0)
@@ -261,7 +261,7 @@ AS
     ELSE BEGIN
         -- Delete the previous version
         DELETE FROM dbo.Resource WITH (UPDLOCK, HOLDLOCK)
-        OUTPUT deleted.ResourceSurrogateId,  
+        OUTPUT deleted.ResourceSurrogateId,
                 deleted.Version
         INTO @previousVersion
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0 AND (@isDeleted = 0 OR IsDeleted = 0)
@@ -294,14 +294,14 @@ AS
 
     DECLARE @resourceSurrogateId bigint = NEXT VALUE FOR dbo.ResourceSurrograteIdSequence
 
-    INSERT INTO dbo.Resource 
+    INSERT INTO dbo.Resource
         (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, LastUpdated, IsDeleted, RequestMethod, RawResource)
-    VALUES 
+    VALUES
         (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
 
     select @version
 
-	COMMIT TRANSACTION
+    COMMIT TRANSACTION
 GO
 
 --
@@ -309,7 +309,7 @@ GO
 --     HardDeleteResource
 --
 -- DESCRIPTION
---     Permanently deletes all data related to a resource. 
+--     Permanently deletes all data related to a resource.
 --     Data remains recoverable from the transaction log, however.
 --
 -- PARAMETERS
@@ -320,13 +320,13 @@ GO
 --
 CREATE PROCEDURE HardDeleteResource
     @resourceTypeId smallint,
-	@resourceId varchar(64)
+    @resourceId varchar(64)
 AS
-	SET XACT_ABORT ON
-	BEGIN TRANSACTION
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
 
     DELETE FROM Resource
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId 
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId
 
-	COMMIT TRANSACTION
+    COMMIT TRANSACTION
 GO
