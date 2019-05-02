@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Security.Claims;
-using Microsoft.Health.ControlPlane.Core.Features.Rbac;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {

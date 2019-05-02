@@ -43,5 +43,10 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string SmartOnFhirCallback = "smart-on-fhir-callback";
 
         public const string SmartOnFhirToken = "smart-on-fhir-token";
+
+        // The spec has an "operation" audit-event-sub-type, but that only refers to an operation
+        // that is defined by an OperationDefinition. And export does not fall under that list as
+        // of 2019/03/19. So we have to use our own sub-type.
+        public const string Export = "export";
     }
 }

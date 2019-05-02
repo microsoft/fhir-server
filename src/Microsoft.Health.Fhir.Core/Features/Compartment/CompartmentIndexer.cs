@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Compartment
 
                 if (_compartmentDefinitionManager.TryGetSearchParams(resourceType, compartmentType, out HashSet<string> searchParams) && searchIndicesByCompartmentType.TryGetValue(compartmentType, out List<SearchIndexEntry> searchIndicesForCompartment))
                 {
-                    var searchEntries = searchIndicesForCompartment.Where(si => searchParams.Contains(si.ParamName));
+                    var searchEntries = searchIndicesForCompartment.Where(si => searchParams.Contains(si.SearchParameter.Name));
 
                     var resourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     ResourceType compartmentResourceType = CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType);

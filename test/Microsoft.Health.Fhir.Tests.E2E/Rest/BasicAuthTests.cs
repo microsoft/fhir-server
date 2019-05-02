@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
@@ -18,9 +19,10 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
-    /// NOTE: These tests will fail if security is disabled.
+    /// NOTE: These tests will fail if security is disabled..
     /// </summary>
     [Trait(Traits.Category, Categories.Authorization)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
@@ -174,6 +176,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(createdResource.Id, readResource.Id);
             Assert.Equal(createdResource.Meta.VersionId, readResource.Meta.VersionId);
             Assert.Equal(createdResource.Meta.LastUpdated, readResource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenExportResources_GivenAUserWithNoExportPermissions_TheServerShouldReturnForbidden()
+        {
+            await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ExportAsync());
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenExportResources_GivenAUserWithExportPermissions_TheServerShouldReturnSuccess()
+        {
+            await Client.RunAsUser(TestUsers.ExportUser, TestApplications.NativeClient);
+
+            await Client.ExportAsync();
         }
     }
 }

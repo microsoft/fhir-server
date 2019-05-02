@@ -19,10 +19,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
     public class DeleteResourceHandler : BaseResourceHandler, IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>
     {
         public DeleteResourceHandler(
-            IDataStore dataStore,
+            IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory)
-            : base(dataStore, conformanceProvider, resourceWrapperFactory)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
         {
         }
 
@@ -41,32 +41,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
             if (message.HardDelete)
             {
-                await DataStore.HardDeleteAsync(key, cancellationToken);
+                await FhirDataStore.HardDeleteAsync(key, cancellationToken);
             }
             else
             {
-                ResourceWrapper existing = await DataStore.GetAsync(key, cancellationToken);
+                var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(message.ResourceKey.ResourceType));
+                emptyInstance.Id = message.ResourceKey.Id;
 
-                version = existing?.Version;
+                ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true);
 
-                if (existing?.IsDeleted == false)
-                {
-                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(existing.ResourceTypeName));
-                    emptyInstance.Id = existing.ResourceId;
+                bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true);
+                UpsertOutcome result = await FhirDataStore.UpsertAsync(
+                    deletedWrapper,
+                    weakETag: null,
+                    allowCreate: true,
+                    keepHistory: keepHistory,
+                    cancellationToken: cancellationToken);
 
-                    bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
-
-                    UpsertOutcome result = await DataStore.UpsertAsync(
-                        deletedWrapper,
-                        WeakETag.FromVersionId(existing.Version),
-                        allowCreate: true,
-                        keepHistory: keepHistory,
-                        cancellationToken: cancellationToken);
-
-                    version = result.Wrapper.Version;
-                }
+                version = result?.Wrapper.Version;
             }
 
             if (string.IsNullOrWhiteSpace(version))

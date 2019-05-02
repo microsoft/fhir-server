@@ -15,8 +15,10 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
@@ -90,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             var routeName = RouteNames.ReadResource;
 
-            RouteValueDictionary routeValues = new RouteValueDictionary
+            var routeValues = new RouteValueDictionary
             {
                 { KnownActionParameterNames.ResourceType, resource.ResourceType.ToString() },
                 { KnownActionParameterNames.Id, resource.Id },
@@ -169,6 +171,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             var uriString = UrlHelper.RouteUrl(
                 routeName,
                 routeValueDictionary,
+                Request.Scheme,
+                Request.Host.Value);
+
+            return new Uri(uriString);
+        }
+
+        public Uri ResolveOperationResultUrl(string operationName, string id)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
+
+            if (!string.Equals(operationName, OperationsConstants.Export, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
+            }
+
+            var routeValues = new RouteValueDictionary()
+            {
+                { KnownActionParameterNames.Id, id },
+            };
+
+            string uriString = UrlHelper.RouteUrl(
+                RouteNames.GetExportStatusById,
+                routeValues,
                 Request.Scheme,
                 Request.Host.Value);
 

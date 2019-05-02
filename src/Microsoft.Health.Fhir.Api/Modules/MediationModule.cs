@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            var coreAssembly = typeof(IDataStore).Assembly;
+            var coreAssembly = typeof(IFhirDataStore).Assembly;
 
             services.AddMediatR(GetType().Assembly, coreAssembly);
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(RequestPreProcessorBehavior<,>));
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             Predicate<Type> isPipelineBehavior = y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
 
-            services.TypesInSameAssemblyAs<IDataStore>()
+            services.TypesInSameAssemblyAs<IFhirDataStore>()
                 .Transient()
                 .AsImplementedInterfaces(isPipelineBehavior);
 
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 typeof(INotificationHandler<>),
             };
 
-            services.TypesInSameAssemblyAs<IDataStore>()
+            services.TypesInSameAssemblyAs<IFhirDataStore>()
                 .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
                 .Transient()
                 .AsImplementedInterfaces(x => x == typeof(IProvideCapability));

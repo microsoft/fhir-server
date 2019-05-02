@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                     context.Response.ContentType = ContentType.JSON_CONTENT_HEADER;
                 }
 
-                var result = FhirResult.Create(operationOutcome, HttpStatusCode.InternalServerError);
+                var result = new OperationOutcomeResult(operationOutcome, HttpStatusCode.InternalServerError);
 
                 await ExecuteResultAsync(context, result);
             }
