@@ -64,6 +64,8 @@ GO
 CREATE PROCEDURE dbo.SelectCurrentSchemaVersion
 AS
 BEGIN
+    SET NOCOUNT ON
+
     SELECT MAX(Version)
     FROM SchemaVersion
     WHERE Status = 'complete'
@@ -87,6 +89,8 @@ CREATE PROCEDURE dbo.UpsertSchemaVersion
     @version int,
     @status varchar(10)
 AS
+    SET NOCOUNT ON
+
     IF EXISTS(SELECT *
         FROM dbo.SchemaVersion
         WHERE Version = @version)
@@ -182,7 +186,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version O
     Version
 )
 
-CREATE UNIQUE INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Resource (
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Resource (
     ResourceTypeId,
     ResourceId
 )
@@ -191,7 +195,7 @@ WHERE IsHistory = 0
 
 GO
 
-CREATE SEQUENCE dbo.ResourceSurrograteIdSequence
+CREATE SEQUENCE dbo.ResourceSurrogateIdSequence
         AS BIGINT
         START WITH 0
         INCREMENT BY 1
@@ -220,7 +224,7 @@ GO
 --     @isDeleted
 --         * Whether this resource marks the resource as deleted
 --     @updatedDateTime
---         * The last modifed time in the the resource
+--         * The last modified time in the resource
 --     @keepHistory
 --         * Whether the existing version of the resource should be preserved
 --     @requestMethod
@@ -229,7 +233,7 @@ GO
 --         * A compressed UTF16-encoded JSON document
 --
 -- RETURN VALUE
---         The version of the resource as a result set. Will be empty if no insetion was done.
+--         The version of the resource as a result set. Will be empty if no insertion was done.
 --
 CREATE PROCEDURE dbo.UpsertResource
     @resourceTypeId smallint,
@@ -242,6 +246,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @requestMethod varchar(10),
     @rawResource varbinary(max)
 AS
+    SET NOCOUNT ON
+
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
@@ -292,7 +298,7 @@ AS
         THROW 50412, 'Precondition failed', 1;
     END
 
-    DECLARE @resourceSurrogateId bigint = NEXT VALUE FOR dbo.ResourceSurrograteIdSequence
+    DECLARE @resourceSurrogateId bigint = NEXT VALUE FOR dbo.ResourceSurrogateIdSequence
 
     INSERT INTO dbo.Resource
         (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, LastUpdated, IsDeleted, RequestMethod, RawResource)
@@ -315,17 +321,19 @@ GO
 -- PARAMETERS
 --     @resourceTypeId
 --         * The ID of the resource type (See ResourceType table)
---     @resourceid
---         * The resource ID (must be the same as the in the resource itself)
+--     @resourceId
+--         * The resource ID (must be the same as in the resource itself)
 --
-CREATE PROCEDURE HardDeleteResource
+CREATE PROCEDURE dbo.HardDeleteResource
     @resourceTypeId smallint,
     @resourceId varchar(64)
 AS
+    SET NOCOUNT ON
+
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
-    DELETE FROM Resource
+    DELETE FROM dbo.Resource
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId
 
     COMMIT TRANSACTION
