@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
@@ -78,13 +79,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public int GetSystem(string system)
         {
             ThrowIfNotInitialized();
-            return GetStringId(_systemToId, system, "dbo.System", "SystemId", "System");
+
+            V1.SystemTable systemTable = V1.System;
+            return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
         }
 
         public int GetQuantityCode(string code)
         {
             ThrowIfNotInitialized();
-            return GetStringId(_quantityCodeToId, code, "dbo.QuantityCode", "QuantityCodeId", "QuantityCode");
+
+            V1.QuantityCodeTable quantityCodeTable = V1.QuantityCode;
+            return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
         }
 
         public ValueTask EnsureInitialized() => _initializationOperation.EnsureInitialized();
@@ -114,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 1
                         SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 
-                        INSERT INTO SearchParam (Uri)
+                        INSERT INTO dbo.SearchParam (Uri)
                         SELECT * FROM  OPENJSON (@searchParams) 
                         WITH (Uri varchar(128) '$.Uri')
                         EXCEPT SELECT Uri FROM dbo.SearchParam;
@@ -125,10 +130,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         COMMIT TRANSACTION
     
                         -- result set 3
-                        SELECT System, SystemId from dbo.System;
+                        SELECT Value, SystemId from dbo.System;
 
                         -- result set 4
-                        SELECT QuantityCode, QuantityCodeId FROM dbo.QuantityCode";
+                        SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
                     string commaSeparatedResourceTypes = string.Join(",", ModelInfo.SupportedResources);
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
@@ -147,8 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // result set 1
                         while (reader.Read())
                         {
-                            short id = reader.GetInt16("ResourceTypeId", 0);
-                            string resourceTypeName = reader.GetString("Name", 1);
+                            (short id, string resourceTypeName) = reader.ReadRow(V1.ResourceType.ResourceTypeId, V1.ResourceType.Name);
 
                             resourceTypeToId.Add(resourceTypeName, id);
                             resourceTypeIdToTypeName.Add(id, resourceTypeName);
@@ -159,9 +163,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            searchParamUriToId.Add(
-                                reader.GetString("Uri", 0),
-                                reader.GetInt16("SearchParamId", 1));
+                            (string uri, short searchParamId) = reader.ReadRow(V1.SearchParam.Uri, V1.SearchParam.SearchParamId);
+                            searchParamUriToId.Add(uri, searchParamId);
                         }
 
                         // result set 3
@@ -169,9 +172,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            systemToId.TryAdd(
-                                reader.GetString("System", 0),
-                                reader.GetInt32("SystemId", 1));
+                            var (value, systemId) = reader.ReadRow(V1.System.Value, V1.System.SystemId);
+                            systemToId.TryAdd(value, systemId);
                         }
 
                         // result set 4
@@ -179,9 +181,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            quantityCodeToId.TryAdd(
-                                reader.GetString("QuantityCode", 0),
-                                reader.GetInt32("QuantityCodeId", 1));
+                            (string value, int quantityCodeId) = reader.ReadRow(V1.QuantityCode.Value, V1.QuantityCode.QuantityCodeId);
+                            quantityCodeToId.TryAdd(value, quantityCodeId);
                         }
 
                         _resourceTypeToId = resourceTypeToId;
@@ -194,14 +195,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private int GetStringId(ConcurrentDictionary<string, int> cache, string stringValue, string tableName, string idColumnName, string stringColumnName)
+        private int GetStringId(ConcurrentDictionary<string, int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
         {
             if (cache.TryGetValue(stringValue, out int id))
             {
                 return id;
             }
 
-            _logger.LogInformation("Cache miss for string ID on {table}", tableName);
+            _logger.LogInformation("Cache miss for string ID on {table}", table);
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
@@ -211,13 +212,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     sqlCommand.CommandText = $@"
                         SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-                        BEGIN TRAN
+                        BEGIN TRANSACTION
 
-                        DECLARE @id int = (SELECT {idColumnName} FROM {tableName} WITH (UPDLOCK) WHERE {stringColumnName} = @stringValue)
+                        DECLARE @id int = (SELECT {idColumn} FROM {table} WITH (UPDLOCK) WHERE {stringColumn} = @stringValue)
 
                         IF (@id IS NULL) BEGIN
-                            INSERT INTO {tableName} 
-                                ({stringColumnName})
+                            INSERT INTO {table} 
+                                ({stringColumn})
                             VALUES 
                                 (@stringValue)
                             SET @id = SCOPE_IDENTITY()

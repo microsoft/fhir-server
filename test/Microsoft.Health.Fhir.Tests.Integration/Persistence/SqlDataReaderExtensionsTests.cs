@@ -45,16 +45,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     DECLARE @guid uniqueidentifier = '91f994e5-f34c-4b8a-a09d-36de9fa82924'
 
                     SELECT  @int32 as int32,
-		                    @int64 as int64,
-		                    @string as string,
-		                    @datetime as datetime,
-		                    @datetimeoffset as datetimeoffset,
-		                    @bool as bool,
-		                    @byte as byte,
-		                    @int16 as int16,
-		                    @decimal as decimal,
-		                    @double as [double],
-		                    @single as single,
+                            @int64 as int64,
+                            @string as string,
+                            @datetime as datetime,
+                            @datetimeoffset as datetimeoffset,
+                            @bool as bool,
+                            @byte as byte,
+                            @int16 as int16,
+                            @decimal as decimal,
+                            @double as [double],
+                            @single as single,
                             @bytes as bytes,
                             @guid as guid";
 

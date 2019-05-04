@@ -140,23 +140,23 @@ CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType on dbo.ResourceType
 CREATE TABLE dbo.System
 (
     SystemId int IDENTITY(1,1) NOT NULL,
-    System nvarchar(256) NOT NULL,
+    Value nvarchar(256) NOT NULL,
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_System ON dbo.System
 (
-    System
+    Value
 )
 
 CREATE TABLE dbo.QuantityCode
 (
     QuantityCodeId int IDENTITY(1,1) NOT NULL,
-    QuantityCode nvarchar(256) NOT NULL
+    Value nvarchar(256) NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
 (
-    QuantityCode
+    Value
 )
 
 /*************************************************************

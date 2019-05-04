@@ -1,4 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\tools\Microsoft.Health.Extensions.BuildTimeCodeGenerator\BuildTimeCodeGenerator.targets" />
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
@@ -46,15 +47,4 @@
       <Namespace>Microsoft.Health.Fhir.CosmosDb.Features.Storage</Namespace>
     </Generated>
   </ItemGroup>
-
-  <Target Name="GenerateFiles" BeforeTargets="CoreCompile" Inputs="$(GeneratorProjectPath)" Outputs="@(Generated)">
-    <MSBuild Projects="$(GeneratorProjectPath)" Targets="Build">
-      <Output TaskParameter="TargetOutputs" ItemName="GeneratorPath" />
-    </MSBuild>
-    <ItemGroup>
-      <Compile Include="@(Generated)" Condition="!Exists('@(Generated)')" />
-    </ItemGroup>
-    <Exec Command="dotnet @(GeneratorPath) %(Generated.Generator) %(Generated.FullPath) %(Generated.Namespace)" />
-  </Target>
-
 </Project>

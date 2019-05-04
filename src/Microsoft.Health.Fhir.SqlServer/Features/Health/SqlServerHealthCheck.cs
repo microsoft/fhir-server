@@ -20,8 +20,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Health
     /// </summary>
     public class SqlServerHealthCheck : IHealthCheck
     {
-        private SqlServerDataStoreConfiguration _configuration;
-        private ILogger<SqlServerFhirDataStore> _logger;
+        private readonly SqlServerDataStoreConfiguration _configuration;
+        private readonly ILogger<SqlServerFhirDataStore> _logger;
 
         public SqlServerHealthCheck(SqlServerDataStoreConfiguration configuration, ILogger<SqlServerFhirDataStore> logger)
         {

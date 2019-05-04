@@ -18,25 +18,18 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
     {
         private static HashSet<Assembly> cache = new HashSet<Assembly>();
 
-        public static void Main(string[] args)
+        public static void Main(string generatorName, FileInfo outputFile, string @namespace, string[] args = null)
         {
-            if (args.Length != 3)
-            {
-                Console.WriteLine($"Usage: dotnet {typeof(Program).Assembly.GetName().Name}.dll <GeneratorName> <OutputFilePath> <NamespaceName>");
-                Environment.Exit(1);
-            }
+            string className = Path.GetFileName(outputFile.Name).Split('.')[0];
 
-            string generatorName = args[0];
-            string outputFile = args[1];
-            string namespaceName = args[2];
-            string className = Path.GetFileName(outputFile).Split('.')[0];
+            Type codeGeneratorType = Assembly.GetExecutingAssembly().GetTypes().SingleOrDefault(t => t.Name == generatorName) ?? throw new ArgumentException($"Generator '{generatorName} not found");
+            var generator = (ICodeGenerator)Activator.CreateInstance(codeGeneratorType, new object[] { args });
 
-            var generator = (ICodeGenerator)Activator.CreateInstance(Assembly.GetExecutingAssembly().GetTypes().SingleOrDefault(t => t.Name == generatorName) ?? throw new ArgumentException($"Generator '{generatorName} not found"));
-
-            MemberDeclarationSyntax declaration = generator.Generate(className);
+            (MemberDeclarationSyntax declaration, UsingDirectiveSyntax[] usingDirectives) = generator.Generate(className);
 
             NamespaceDeclarationSyntax namespaceDeclaration =
-                NamespaceDeclaration(IdentifierName(namespaceName))
+                NamespaceDeclaration(IdentifierName(@namespace))
+                    .AddUsings(usingDirectives)
                     .WithMembers(SingletonList(declaration))
                     .WithLeadingTrivia(
                         Comment("//------------------------------------------------------------------------------"),
@@ -48,7 +41,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                         Comment("// </auto-generated>"),
                         Comment("//------------------------------------------------------------------------------"));
 
-            File.WriteAllText(outputFile, namespaceDeclaration.NormalizeWhitespace().SyntaxTree.ToString());
+            File.WriteAllText(outputFile.FullName, namespaceDeclaration.NormalizeWhitespace().SyntaxTree.ToString());
         }
 
         private static IEnumerable<MetadataReference> GetClosure(IEnumerable<Assembly> assemblies)

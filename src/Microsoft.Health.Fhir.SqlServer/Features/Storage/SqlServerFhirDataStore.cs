@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.IO;
 using Task = System.Threading.Tasks.Task;
 
@@ -55,69 +56,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await _model.EnsureInitialized();
 
+            int etag = 0;
+            if (weakETag != null && !int.TryParse(weakETag.VersionId, out etag))
+            {
+                throw new ResourceConflictException(weakETag);
+            }
+
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken);
 
                 using (var command = connection.CreateCommand())
+                using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
+                using (var gzipStream = new GZipStream(ms, CompressionMode.Compress))
+                using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
                 {
-                    command.CommandType = CommandType.StoredProcedure;
-                    command.CommandText = "dbo.UpsertResource";
+                    writer.Write(resource.RawResource.Data);
+                    writer.Flush();
 
-                    command.Parameters.AddWithValue("@resourceTypeId", _model.GetResourceTypeId(resource.ResourceTypeName));
-                    command.Parameters.Add(new SqlParameter("@resourceId", SqlDbType.VarChar, 64) { Value = resource.ResourceId });
+                    ms.Seek(0, 0);
 
-                    int etag = 0;
-                    if (weakETag != null && !int.TryParse(weakETag.VersionId, out etag))
+                    V1.UpsertResource.PopulateCommand(
+                        command,
+                        resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                        resourceId: resource.ResourceId,
+                        eTag: weakETag == null ? null : (int?)etag,
+                        allowCreate: allowCreate,
+                        isDeleted: resource.IsDeleted,
+                        updatedDateTime: resource.LastModified,
+                        keepHistory: keepHistory,
+                        requestMethod: resource.Request.Method,
+                        rawResource: ms);
+
+                    try
                     {
-                        throw new ResourceConflictException(weakETag);
-                    }
-
-                    command.Parameters.Add("@eTag", SqlDbType.Int).Value = weakETag == null ? null : (int?)etag;
-                    command.Parameters.AddWithValue("@allowCreate", allowCreate);
-                    command.Parameters.AddWithValue("@isDeleted", resource.IsDeleted);
-                    command.Parameters.AddWithValue("@updatedDateTime", resource.LastModified);
-                    command.Parameters.AddWithValue("@keepHistory", keepHistory);
-                    command.Parameters.AddWithValue("@requestMethod", resource.Request.Method);
-
-                    using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
-                    using (var gzipStream = new GZipStream(ms, CompressionMode.Compress))
-                    {
-                        using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
+                        var newVersion = (int?)await command.ExecuteScalarAsync(cancellationToken);
+                        if (newVersion == null)
                         {
-                            writer.Write(resource.RawResource.Data);
-                            writer.Flush();
+                            // indicates a redundant delete
+                            return null;
+                        }
 
-                            ms.Seek(0, 0);
+                        resource.Version = newVersion.ToString();
 
-                            command.Parameters.Add("@rawResource", SqlDbType.VarBinary, (int)ms.Length).Value = ms;
-
-                            try
-                            {
-                                var newVersion = (int?)await command.ExecuteScalarAsync(cancellationToken);
-                                if (newVersion == null)
-                                {
-                                    // indicates a redundant delete
-                                    return null;
-                                }
-
-                                resource.Version = newVersion.ToString();
-
-                                return new UpsertOutcome(resource, newVersion == 1 ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
-                            }
-                            catch (SqlException e)
-                            {
-                                switch (e.Number)
-                                {
-                                    case SqlErrorCodes.NotFound:
-                                        throw new MethodNotAllowedException(Resources.ResourceCreationNotAllowed);
-                                    case SqlErrorCodes.PreconditionFailed:
-                                        throw new ResourceConflictException(weakETag);
-                                    default:
-                                        _logger.LogError(e, "Error from SQL database on upsert");
-                                        throw;
-                                }
-                            }
+                        return new UpsertOutcome(resource, newVersion == 1 ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
+                    }
+                    catch (SqlException e)
+                    {
+                        switch (e.Number)
+                        {
+                            case SqlErrorCodes.NotFound:
+                                throw new MethodNotAllowedException(Resources.ResourceCreationNotAllowed);
+                            case SqlErrorCodes.PreconditionFailed:
+                                throw new ResourceConflictException(weakETag);
+                            default:
+                                _logger.LogError(e, "Error from SQL database on upsert");
+                                throw;
                         }
                     }
                 }
@@ -134,8 +128,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 using (SqlCommand command = connection.CreateCommand())
                 {
-                    command.Parameters.AddWithValue("@resourceTypeId", _model.GetResourceTypeId(key.ResourceType));
-                    command.Parameters.AddWithValue("@resourceId", key.Id);
+                    var resourceTable = V1.Resource;
+                    command.Parameters.AddFromColumnWithDefaultName(resourceTable.ResourceTypeId, _model.GetResourceTypeId(key.ResourceType));
+                    command.Parameters.AddFromColumnWithDefaultName(resourceTable.ResourceId, key.Id);
 
                     bool versionedRead = !string.IsNullOrEmpty(key.VersionId);
 
@@ -151,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        command.Parameters.AddWithValue("@version", version);
+                        command.Parameters.AddFromColumnWithDefaultName(resourceTable.Version, version);
                     }
                     else
                     {
@@ -168,15 +163,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        int version = sqlDataReader.GetInt32("Version", 0);
-                        DateTime lastModified = sqlDataReader.GetDateTime("LastUpdated", 1);
-                        var isDeleted = sqlDataReader.GetBoolean("IsDeleted", 2);
-                        var isHistory = sqlDataReader.GetBoolean("IsHistory", 3);
+                        (int version, DateTime lastModified, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                            resourceTable.Version,
+                            resourceTable.LastUpdated,
+                            resourceTable.IsDeleted,
+                            resourceTable.IsHistory,
+                            resourceTable.RawResource);
 
                         string rawResource;
 
-                        using (var dataStream = sqlDataReader.GetStream("RawResource", 4))
-                        using (var gzipStream = new GZipStream(dataStream, CompressionMode.Decompress))
+                        using (rawResourceStream)
+                        using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
                         using (var reader = new StreamReader(gzipStream, ResourceEncoding))
                         {
                             rawResource = await reader.ReadToEndAsync();
@@ -211,11 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandType = CommandType.StoredProcedure;
-                    command.CommandText = "dbo.HardDeleteResource";
-
-                    command.Parameters.AddWithValue("@resourceTypeId", _model.GetResourceTypeId(key.ResourceType));
-                    command.Parameters.Add(new SqlParameter("@resourceId", SqlDbType.VarChar, 64) { Value = key.Id });
+                    V1.HardDeleteResource.PopulateCommand(command, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
                     await command.ExecuteNonQueryAsync(cancellationToken);
                 }
