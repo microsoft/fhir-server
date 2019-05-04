@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
+        internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal class SchemaVersionTable : Table
         {
@@ -147,6 +148,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 command.Parameters.AddFromColumn(_keepHistory, keepHistory, "@keepHistory");
                 command.Parameters.AddFromColumn(_requestMethod, requestMethod, "@requestMethod");
                 command.Parameters.AddFromColumn(_rawResource, rawResource, "@rawResource");
+            }
+        }
+
+        internal class ReadResourceProcedure : StoredProcedure
+        {
+            internal ReadResourceProcedure(): base("dbo.ReadResource")
+            {
+            }
+
+            private readonly SmallIntColumn _resourceTypeId = new SmallIntColumn("@resourceTypeId");
+            private readonly VarCharColumn _resourceId = new VarCharColumn("@resourceId", 64);
+            private readonly NullableIntColumn _version = new NullableIntColumn("@version");
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> version)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.ReadResource";
+                command.Parameters.AddFromColumn(_resourceTypeId, resourceTypeId, "@resourceTypeId");
+                command.Parameters.AddFromColumn(_resourceId, resourceId, "@resourceId");
+                command.Parameters.AddFromColumn(_version, version, "@version");
             }
         }
 

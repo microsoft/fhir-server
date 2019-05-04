@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                     precision: Metadata.Precision,
                     scale: Metadata.Scale,
                     sourceColumn: null,
-                    sourceVersion: 0,
+                    sourceVersion: DataRowVersion.Current,
                     value: value));
         }
 

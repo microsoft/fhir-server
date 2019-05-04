@@ -126,35 +126,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 await connection.OpenAsync(cancellationToken);
 
+                int? requestedVersion = null;
+                if (!string.IsNullOrEmpty(key.VersionId))
+                {
+                    if (!int.TryParse(key.VersionId, out var parsedVersion))
+                    {
+                        return null;
+                    }
+
+                    requestedVersion = parsedVersion;
+                }
+
                 using (SqlCommand command = connection.CreateCommand())
                 {
-                    var resourceTable = V1.Resource;
-                    command.Parameters.AddFromColumnWithDefaultName(resourceTable.ResourceTypeId, _model.GetResourceTypeId(key.ResourceType));
-                    command.Parameters.AddFromColumnWithDefaultName(resourceTable.ResourceId, key.Id);
-
-                    bool versionedRead = !string.IsNullOrEmpty(key.VersionId);
-
-                    if (versionedRead)
-                    {
-                        command.CommandText = @"
-                            SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource 
-                            FROM dbo.Resource
-                            WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND Version = @version";
-
-                        if (!int.TryParse(key.VersionId, out var version))
-                        {
-                            return null;
-                        }
-
-                        command.Parameters.AddFromColumnWithDefaultName(resourceTable.Version, version);
-                    }
-                    else
-                    {
-                        command.CommandText = @"
-                            SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource 
-                            FROM dbo.Resource
-                            WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0";
-                    }
+                    V1.ReadResource.PopulateCommand(
+                        command,
+                        resourceTypeId: _model.GetResourceTypeId(key.ResourceType),
+                        resourceId: key.Id,
+                        version: requestedVersion);
 
                     using (SqlDataReader sqlDataReader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
@@ -162,6 +151,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             return null;
                         }
+
+                        var resourceTable = V1.Resource;
 
                         (int version, DateTime lastModified, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
                             resourceTable.Version,

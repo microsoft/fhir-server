@@ -5,6 +5,7 @@
 
 using System;
 using System.Data.SqlClient;
+using System.Numerics;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public SqlServerFhirStorageTestsFixture()
         {
             _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
-            _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
 
             using (var connection = new SqlConnection(_initialConnectionString))
             {
