@@ -3,12 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-
-namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public interface ICodeGenerator
+    /// <summary>
+    /// Defaults for using a local database.
+    /// </summary>
+    public static class LocalDatabase
     {
-        (MemberDeclarationSyntax, UsingDirectiveSyntax[]) Generate(string typeName);
+        public const string DefaultConnectionString = "server=(local);Initial Catalog=FHIR;Integrated Security=true";
     }
 }

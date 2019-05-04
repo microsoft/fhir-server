@@ -34,15 +34,16 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             _interfacesToImplement = interfacesToImplement;
         }
 
-        public MemberDeclarationSyntax Generate(string typeName)
+        public (MemberDeclarationSyntax, UsingDirectiveSyntax[]) Generate(string typeName)
         {
-            return ClassDeclaration(typeName)
+            var classDeclarration = ClassDeclaration(typeName)
                 .WithModifiers(_typeModifiers)
                 .WithBaseList(BaseList(SeparatedList(_interfacesToImplement.Select(t => (BaseTypeSyntax)SimpleBaseType(t.ToTypeSyntax())))))
                 .AddMembers(
                     FieldDeclaration(VariableDeclaration(_interfacesToImplement[0].ToTypeSyntax()).AddVariables(VariableDeclarator(FieldName.Identifier))).AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.ReadOnlyKeyword)),
                     GetConstructor(typeName))
                 .AddMembers(GetPropertiesAndMethods().ToArray());
+            return (classDeclarration, new UsingDirectiveSyntax[0]);
         }
 
         private ConstructorDeclarationSyntax GetConstructor(string className)
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     }
 
                     var methodName = methodInfo.IsGenericMethod
-                        ? GenericName(methodInfo.Name).AddTypeArgumentListArguments(methodInfo.GetGenericArguments().Select(TypeExtensions.ToTypeSyntax).ToArray())
+                        ? GenericName(methodInfo.Name).AddTypeArgumentListArguments(methodInfo.GetGenericArguments().Select(t => t.ToTypeSyntax()).ToArray())
                         : (SimpleNameSyntax)IdentifierName(methodInfo.Name);
 
                     var invocation = InvocationExpression(

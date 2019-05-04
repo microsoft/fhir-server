@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -12,10 +11,9 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using IDocumentClient = Microsoft.Azure.Documents.IDocumentClient;
 
-namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
+namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.CosmosDb
 {
     /// <summary>
     /// Generates a partial class for wrapping IDocumentClient, where for each call, where applicable,
@@ -24,6 +22,10 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
     /// </summary>
     internal class FhirDocumentClientGenerator : DocumentClientGenerator
     {
+        public FhirDocumentClientGenerator(string[] args)
+        {
+        }
+
         internal override CSharpSyntaxRewriter CreateSyntaxRewriter(Compilation compilation, SemanticModel semanticModel)
         {
             return new ConsistencyLevelRewriter(compilation, semanticModel);
@@ -62,7 +64,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 
                 if (_optionTypeSymbols.Contains(type))
                 {
-                    return node.WithExpression(InvocationExpression(IdentifierName("UpdateOptions")).AddArgumentListArguments(node));
+                    return node.WithExpression(SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("UpdateOptions")).AddArgumentListArguments(node));
                 }
 
                 return base.VisitArgument(node);
@@ -80,7 +82,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     // two methods anyway. They can be written out by hand in the
                     // partial class.
 
-                    return IncompleteMember();
+                    return SyntaxFactory.IncompleteMember();
                 }
 
                 var returnTypeSymbol = _semanticModel.GetTypeInfo(node.ReturnType).Type as INamedTypeSymbol;
@@ -90,29 +92,29 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 
                 if (isAsync)
                 {
-                    visitedNode = visitedNode.AddModifiers(Token(SyntaxKind.AsyncKeyword));
+                    visitedNode = visitedNode.AddModifiers(SyntaxFactory.Token(SyntaxKind.AsyncKeyword));
                     var invocation = visitedNode.DescendantNodes().OfType<InvocationExpressionSyntax>().First();
-                    visitedNode = visitedNode.ReplaceNode(invocation, AwaitExpression(invocation));
+                    visitedNode = visitedNode.ReplaceNode(invocation, SyntaxFactory.AwaitExpression(invocation));
                 }
 
                 // wrap with try/catch
 
-                visitedNode = visitedNode.WithBody(Block(TryStatement(
+                visitedNode = visitedNode.WithBody(SyntaxFactory.Block(SyntaxFactory.TryStatement(
                     block: visitedNode.Body,
-                    catches: SingletonList(
-                        CatchClause()
+                    catches: SyntaxFactory.SingletonList(
+                        SyntaxFactory.CatchClause()
                             .WithDeclaration(
-                                CatchDeclaration(
-                                        IdentifierName("System.Exception"))
+                                SyntaxFactory.CatchDeclaration(
+                                        SyntaxFactory.IdentifierName("System.Exception"))
                                     .WithIdentifier(
-                                        Identifier("ex")))
+                                        SyntaxFactory.Identifier("ex")))
                             .WithBlock(
-                                Block(
-                                    SeparatedList(
+                                SyntaxFactory.Block(
+                                    SyntaxFactory.SeparatedList(
                                         new StatementSyntax[]
                                         {
-                                            ExpressionStatement(InvocationExpression(IdentifierName("ProcessException")).AddArgumentListArguments(Argument(IdentifierName("ex")))),
-                                            ThrowStatement(),
+                                            SyntaxFactory.ExpressionStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("ProcessException")).AddArgumentListArguments(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("ex")))),
+                                            SyntaxFactory.ThrowStatement(),
                                         })))),
                     @finally: null)));
 
@@ -122,7 +124,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     _responseTypeSymbols.Contains(argumentType.ConstructedFrom))
                 {
                     var awaitSyntax = visitedNode.DescendantNodes().OfType<AwaitExpressionSyntax>().First();
-                    visitedNode = visitedNode.ReplaceNode(awaitSyntax, InvocationExpression(IdentifierName("ProcessResponse")).AddArgumentListArguments(Argument(awaitSyntax)));
+                    visitedNode = visitedNode.ReplaceNode(awaitSyntax, SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("ProcessResponse")).AddArgumentListArguments(SyntaxFactory.Argument(awaitSyntax)));
                 }
 
                 return visitedNode;

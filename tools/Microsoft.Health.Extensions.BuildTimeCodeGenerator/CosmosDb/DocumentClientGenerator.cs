@@ -11,10 +11,9 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Scripting;
-using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using IDocumentClient = Microsoft.Azure.Documents.IDocumentClient;
 
-namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
+namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.CosmosDb
 {
     internal abstract class DocumentClientGenerator : ICodeGenerator
     {
@@ -26,16 +25,16 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 
         internal abstract CSharpSyntaxRewriter CreateSyntaxRewriter(Compilation compilation, SemanticModel semanticModel);
 
-        MemberDeclarationSyntax ICodeGenerator.Generate(string typeName)
+        (MemberDeclarationSyntax, UsingDirectiveSyntax[]) ICodeGenerator.Generate(string typeName)
         {
             // First generate a basic class that implements the interfaces and delegates to an inner field.
             var generator = new DelegatingInterfaceImplementationGenerator(
-                typeModifiers: TokenList(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.PartialKeyword)),
-                constructorModifiers: TokenList(Token(ConstructorModifier)),
+                typeModifiers: SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.InternalKeyword), SyntaxFactory.Token(SyntaxKind.PartialKeyword)),
+                constructorModifiers: SyntaxFactory.TokenList(SyntaxFactory.Token(ConstructorModifier)),
                 typeof(IDocumentClient),
                 typeof(IDisposable));
 
-            MemberDeclarationSyntax declaration = generator.Generate(typeName);
+            (MemberDeclarationSyntax declaration, UsingDirectiveSyntax[] usings) = generator.Generate(typeName);
 
             // Assembling a CSharpCompilation for .NET core is non-trivial. The scripting API takes care of
             // this for us, so we just use it instead of constructing one ourselves.
@@ -57,7 +56,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 
             var rewriter = CreateSyntaxRewriter(compilation, compilation.GetSemanticModel(syntaxTree));
             var rewrittenCompilationUnit = (CompilationUnitSyntax)rewriter.Visit(syntaxTree.GetRoot());
-            return rewrittenCompilationUnit.Members.Single();
+            return (rewrittenCompilationUnit.Members.Single(), usings);
         }
     }
 }
