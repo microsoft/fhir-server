@@ -116,32 +116,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (DocumentClientException dce)
             {
-                // All errors from a sp (e.g. "pre-condition") come back as a "BadRequest"
-
-                // The ETag does not match the ETag in the document DB database.
-                if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.PreconditionFailed), StringComparison.Ordinal) == true)
+                switch (dce.GetSubStatusCode())
                 {
-                    throw new ResourceConflictException(weakETag);
-                }
-                else if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.NotFound), StringComparison.Ordinal) == true)
-                {
-                    if (cosmosWrapper.IsDeleted)
-                    {
-                        return null;
-                    }
-
-                    if (weakETag != null)
-                    {
+                    case HttpStatusCode.PreconditionFailed:
                         throw new ResourceConflictException(weakETag);
-                    }
-                    else if (!allowCreate)
-                    {
-                        throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
-                    }
-                }
-                else if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.ServiceUnavailable), StringComparison.Ordinal) == true)
-                {
-                    throw new ServiceUnavailableException();
+                    case HttpStatusCode.NotFound:
+                        if (cosmosWrapper.IsDeleted)
+                        {
+                            return null;
+                        }
+
+                        if (weakETag != null)
+                        {
+                            throw new ResourceConflictException(weakETag);
+                        }
+                        else if (!allowCreate)
+                        {
+                            throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                        }
+
+                        break;
+
+                    case HttpStatusCode.ServiceUnavailable:
+                        throw new ServiceUnavailableException();
                 }
 
                 _logger.LogError(dce, "Unhandled Document Client Exception");
@@ -208,7 +205,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (DocumentClientException dce)
             {
-                if (dce.Error?.Message?.Contains(GetValue(HttpStatusCode.RequestEntityTooLarge), StringComparison.Ordinal) == true)
+                if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
                 {
                     // TODO: Eventually, we might want to have our own RequestTooLargeException?
                     throw new RequestRateExceededException(dce.RetryAfter);

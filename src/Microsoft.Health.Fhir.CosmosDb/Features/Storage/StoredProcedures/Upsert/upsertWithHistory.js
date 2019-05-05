@@ -15,25 +15,17 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
     const collectionLink = collection.getSelfLink();
     const response = getContext().getResponse();
 
-    const errorCodes = { ServiceUnavailable: 503 };
-
-    const errorMessages = {
-        DocumentNull: `${ErrorCodes.BadRequest}: The document is undefined or null.`,
-        InputWasArray: `${ErrorCodes.BadRequest}: Input should not be an array.`,
-        RequestNotQueued: `${errorCodes.ServiceUnavailable}: Request could not be queued.`,
-        DocumentNotFound: `${ErrorCodes.NotFound}: Document not found.`,
-        PreconditionFailed: `${ErrorCodes.PreconditionFailed}: One of the specified pre-condition is not met.`
-    };
+    
 
     const initialVersion = "1";
 
     // Validate input
     if (!doc) {
-        throw new Error(errorMessages.DocumentNull);
+        throw new Error(ErrorCodes.BadRequest, "The document is undefined or null.");
     }
 
     if (doc instanceof Array) {
-        throw new Error(errorMessages.InputWasArray);
+        throw new Error(ErrorCodes.BadRequest, "Input should not be an array.");
     }
 
     if (!stringIsNullOrEmpty(matchVersionId) || !allowCreate || doc.isDeleted) {
@@ -49,7 +41,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
         let isAccepted = collection.createDocument(collectionLink, doc, { disableAutomaticIdGeneration: true }, callback);
 
         if (!isAccepted) {
-            throw new Error(errorMessages.RequestNotQueued);
+            throw createRequestNotQueuedError();
         }
     }
 
@@ -86,15 +78,11 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                     throw err;
                 }
 
-                if (documents.length === 0) {
-                    throw new Error(errorMessages.DocumentNotFound);
-                }
+                let document = documents.length === 0 ? null : documents[0];
 
-                let document = documents[0];
-
-                if (doc.isDeleted && document.isDeleted) {
-                    // don't create another version if already deleted
-                    throw new Error(errorMessages.DocumentNotFound);
+                if (document === null ||
+                    doc.isDeleted && document.isDeleted) { // // don't create another version if already deleted
+                    throw new Error(ErrorCodes.NotFound, "Document not found.");
                 }
 
                 let documentVersion = document.version;
@@ -102,7 +90,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                 // If a match version was passed in, check it matches the primary record
                 if (!stringIsNullOrEmpty(matchVersionId) && !stringIsNullOrEmpty(documentVersion)) {
                     if (documentVersion !== matchVersionId) {
-                        throw new Error(errorMessages.PreconditionFailed);
+                        throw createPreconditionFailedError();
                     }
                 }
                 
@@ -143,25 +131,25 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                             let isAccepted = collection.replaceDocument(selfLink, doc, { disableAutomaticIdGeneration: true, etag: document._etag }, callback);
 
                             if (!isAccepted) {
-                                throw new Error(errorMessages.RequestNotQueued);
+                                throw createRequestNotQueuedError();
                             }
                         });
 
                     if (!isHistoryAccepted) {
-                        throw new Error(errorMessages.RequestNotQueued);
+                        throw createRequestNotQueuedError();
                     }
                 } else {
                     // Since this is a no-version document save we just replace the old document with the new values
                     let isAccepted = collection.replaceDocument(selfLink, doc, { disableAutomaticIdGeneration: true, etag: document._etag }, callback);
 
                     if (!isAccepted) {
-                        throw new Error(errorMessages.RequestNotQueued);
+                        throw createRequestNotQueuedError();
                     }
                 }
             });
 
         if (!isQueryAccepted) {
-            throw new Error(errorMessages.RequestNotQueued);
+            throw createRequestNotQueuedError();
         }
     }
 
@@ -200,12 +188,20 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
         if (err) {
             if (err.number === ErrorCodes.Conflict ||
                 err.number === ErrorCodes.PreconditionFailed) {
-                throw new Error(errorMessages.PreconditionFailed);
+                throw createPreconditionFailedError();
             } else {
                 throw err;
             }
         }
 
         setOutput(false, createdDoc);
+    }
+
+    function createRequestNotQueuedError() {
+        throw new Error(503, "Request could not be queued.");
+    }
+
+    function createPreconditionFailedError() {
+        throw new Error(ErrorCodes.PreconditionFailed, "One of the specified pre-conditions is not met.");
     }
 }
