@@ -56,7 +56,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 
             SimpleNameSyntax name = t.IsGenericType
                 ? SyntaxFactory.GenericName(t.Name.Substring(0, t.Name.IndexOf('`', StringComparison.Ordinal)))
-                    .WithTypeArgumentList(SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(t.GetGenericArguments().Select(typeArg => typeArg.ToTypeSyntax(useGlobalAlias)))))
+                    .WithTypeArgumentList(SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(t.GenericTypeArguments.Select(typeArg => typeArg.ToTypeSyntax(useGlobalAlias)))))
                 : (SimpleNameSyntax)SyntaxFactory.IdentifierName(t.Name);
 
             return SyntaxFactory.QualifiedName((NameSyntax)qualification, name);

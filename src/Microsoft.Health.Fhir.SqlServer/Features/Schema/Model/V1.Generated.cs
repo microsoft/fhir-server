@@ -8,59 +8,139 @@
 //------------------------------------------------------------------------------
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 {
-    using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-
     internal class V1
     {
-        internal readonly static SchemaVersionTable SchemaVersion = new SchemaVersionTable();
-        internal readonly static SearchParamTable SearchParam = new SearchParamTable();
-        internal readonly static ResourceTypeTable ResourceType = new ResourceTypeTable();
-        internal readonly static SystemTable System = new SystemTable();
+        internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
+        internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
+        internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
+        internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
+        internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
+        internal readonly static ClaimTypeTable ClaimType = new ClaimTypeTable();
+        internal readonly static LastModifiedClaimsTable LastModifiedClaims = new LastModifiedClaimsTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static ResourceTable Resource = new ResourceTable();
-        internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
-        internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
-        internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
-        internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
-        internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
-        internal class SchemaVersionTable : Table
+        internal readonly static ResourceTypeTable ResourceType = new ResourceTypeTable();
+        internal readonly static SchemaVersionTable SchemaVersion = new SchemaVersionTable();
+        internal readonly static SearchParamTable SearchParam = new SearchParamTable();
+        internal readonly static SystemTable System = new SystemTable();
+        internal class HardDeleteResourceProcedure : StoredProcedure
         {
-            internal SchemaVersionTable(): base("dbo.SchemaVersion")
+            internal HardDeleteResourceProcedure(): base("dbo.HardDeleteResource")
             {
             }
 
-            internal readonly IntColumn Version = new IntColumn("Version");
-            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
+            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>(global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 64);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.HardDeleteResource";
+                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId, "@resourceTypeId");
+                _resourceId.AddParameter(command.Parameters, resourceId, "@resourceId");
+            }
         }
 
-        internal class SearchParamTable : Table
+        internal class ReadResourceProcedure : StoredProcedure
         {
-            internal SearchParamTable(): base("dbo.SearchParam")
+            internal ReadResourceProcedure(): base("dbo.ReadResource")
             {
             }
 
-            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128);
+            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>(global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Nullable<System.Int32>> _version = new ParameterDefinition<System.Nullable<System.Int32>>(global::System.Data.SqlDbType.Int, true);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> version)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.ReadResource";
+                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId, "@resourceTypeId");
+                _resourceId.AddParameter(command.Parameters, resourceId, "@resourceId");
+                _version.AddParameter(command.Parameters, version, "@version");
+            }
         }
 
-        internal class ResourceTypeTable : Table
+        internal class SelectCurrentSchemaVersionProcedure : StoredProcedure
         {
-            internal ResourceTypeTable(): base("dbo.ResourceType")
+            internal SelectCurrentSchemaVersionProcedure(): base("dbo.SelectCurrentSchemaVersion")
             {
             }
 
-            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
-            internal readonly NVarCharColumn Name = new NVarCharColumn("Name", 50);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.SelectCurrentSchemaVersion";
+            }
         }
 
-        internal class SystemTable : Table
+        internal class UpsertResourceProcedure : StoredProcedure
         {
-            internal SystemTable(): base("dbo.System")
+            internal UpsertResourceProcedure(): base("dbo.UpsertResource")
             {
             }
 
-            internal readonly IntColumn SystemId = new IntColumn("SystemId");
-            internal readonly NVarCharColumn Value = new NVarCharColumn("Value", 256);
+            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>(global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Nullable<System.Int32>> _eTag = new ParameterDefinition<System.Nullable<System.Int32>>(global::System.Data.SqlDbType.Int, true);
+            private readonly ParameterDefinition<System.Boolean> _allowCreate = new ParameterDefinition<System.Boolean>(global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.Boolean> _isDeleted = new ParameterDefinition<System.Boolean>(global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.DateTimeOffset> _updatedDateTime = new ParameterDefinition<System.DateTimeOffset>(global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            private readonly ParameterDefinition<System.Boolean> _keepHistory = new ParameterDefinition<System.Boolean>(global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.String> _requestMethod = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 10);
+            private readonly ParameterDefinition<global::System.IO.Stream> _rawResource = new ParameterDefinition<global::System.IO.Stream>(global::System.Data.SqlDbType.VarBinary, false, -1);
+            private readonly LastModifiedClaimTableTypeTableValuedParameterDefinition _lastModifiedClaims = new LastModifiedClaimTableTypeTableValuedParameterDefinition();
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<LastModifiedClaimTableTypeRow> lastModifiedClaims)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpsertResource";
+                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId, "@resourceTypeId");
+                _resourceId.AddParameter(command.Parameters, resourceId, "@resourceId");
+                _eTag.AddParameter(command.Parameters, eTag, "@eTag");
+                _allowCreate.AddParameter(command.Parameters, allowCreate, "@allowCreate");
+                _isDeleted.AddParameter(command.Parameters, isDeleted, "@isDeleted");
+                _updatedDateTime.AddParameter(command.Parameters, updatedDateTime, "@updatedDateTime");
+                _keepHistory.AddParameter(command.Parameters, keepHistory, "@keepHistory");
+                _requestMethod.AddParameter(command.Parameters, requestMethod, "@requestMethod");
+                _rawResource.AddParameter(command.Parameters, rawResource, "@rawResource");
+                _lastModifiedClaims.AddParameter(command.Parameters, lastModifiedClaims, "@lastModifiedClaims");
+            }
+        }
+
+        internal class UpsertSchemaVersionProcedure : StoredProcedure
+        {
+            internal UpsertSchemaVersionProcedure(): base("dbo.UpsertSchemaVersion")
+            {
+            }
+
+            private readonly ParameterDefinition<System.Int32> _version = new ParameterDefinition<System.Int32>(global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 10);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int32 version, System.String status)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpsertSchemaVersion";
+                _version.AddParameter(command.Parameters, version, "@version");
+                _status.AddParameter(command.Parameters, status, "@status");
+            }
+        }
+
+        internal class ClaimTypeTable : Table
+        {
+            internal ClaimTypeTable(): base("dbo.ClaimType")
+            {
+            }
+
+            internal readonly TinyIntColumn ClaimTypeId = new TinyIntColumn("ClaimTypeId");
+            internal readonly VarCharColumn Name = new VarCharColumn("Name", 128);
+        }
+
+        internal class LastModifiedClaimsTable : Table
+        {
+            internal LastModifiedClaimsTable(): base("dbo.LastModifiedClaims")
+            {
+            }
+
+            internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
+            internal readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
+            internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
         }
 
         internal class QuantityCodeTable : Table
@@ -90,100 +170,78 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly VarBinaryColumn RawResource = new VarBinaryColumn("RawResource", -1);
         }
 
-        internal class SelectCurrentSchemaVersionProcedure : StoredProcedure
+        internal class ResourceTypeTable : Table
         {
-            internal SelectCurrentSchemaVersionProcedure(): base("dbo.SelectCurrentSchemaVersion")
+            internal ResourceTypeTable(): base("dbo.ResourceType")
             {
             }
 
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command)
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
+            internal readonly NVarCharColumn Name = new NVarCharColumn("Name", 50);
+        }
+
+        internal class SchemaVersionTable : Table
+        {
+            internal SchemaVersionTable(): base("dbo.SchemaVersion")
             {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.SelectCurrentSchemaVersion";
+            }
+
+            internal readonly IntColumn Version = new IntColumn("Version");
+            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
+        }
+
+        internal class SearchParamTable : Table
+        {
+            internal SearchParamTable(): base("dbo.SearchParam")
+            {
+            }
+
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128);
+        }
+
+        internal class SystemTable : Table
+        {
+            internal SystemTable(): base("dbo.System")
+            {
+            }
+
+            internal readonly IntColumn SystemId = new IntColumn("SystemId");
+            internal readonly NVarCharColumn Value = new NVarCharColumn("Value", 256);
+        }
+
+        internal class LastModifiedClaimTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<LastModifiedClaimTableTypeRow>
+        {
+            internal LastModifiedClaimTableTypeTableValuedParameterDefinition(): base("dbo.LastModifiedClaimTableType")
+            {
+            }
+
+            private readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
+            private readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
+            protected override Column[] Columns => new Column[]{ClaimId, ClaimValue};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, LastModifiedClaimTableTypeRow rowData)
+            {
+                ClaimId.Set(record, 0, rowData.ClaimId);
+                ClaimValue.Set(record, 1, rowData.ClaimValue);
             }
         }
 
-        internal class UpsertSchemaVersionProcedure : StoredProcedure
+        internal struct LastModifiedClaimTableTypeRow
         {
-            internal UpsertSchemaVersionProcedure(): base("dbo.UpsertSchemaVersion")
+            internal LastModifiedClaimTableTypeRow(System.Byte ClaimId, System.String ClaimValue)
             {
+                this.ClaimId = ClaimId;
+                this.ClaimValue = ClaimValue;
             }
 
-            private readonly IntColumn _version = new IntColumn("@version");
-            private readonly VarCharColumn _status = new VarCharColumn("@status", 10);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int32 version, System.String status)
+            internal System.Byte ClaimId
             {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpsertSchemaVersion";
-                command.Parameters.AddFromColumn(_version, version, "@version");
-                command.Parameters.AddFromColumn(_status, status, "@status");
-            }
-        }
-
-        internal class UpsertResourceProcedure : StoredProcedure
-        {
-            internal UpsertResourceProcedure(): base("dbo.UpsertResource")
-            {
+                get;
             }
 
-            private readonly SmallIntColumn _resourceTypeId = new SmallIntColumn("@resourceTypeId");
-            private readonly VarCharColumn _resourceId = new VarCharColumn("@resourceId", 64);
-            private readonly NullableIntColumn _eTag = new NullableIntColumn("@eTag");
-            private readonly BitColumn _allowCreate = new BitColumn("@allowCreate");
-            private readonly BitColumn _isDeleted = new BitColumn("@isDeleted");
-            private readonly DateTimeOffsetColumn _updatedDateTime = new DateTimeOffsetColumn("@updatedDateTime", 7);
-            private readonly BitColumn _keepHistory = new BitColumn("@keepHistory");
-            private readonly VarCharColumn _requestMethod = new VarCharColumn("@requestMethod", 10);
-            private readonly VarBinaryColumn _rawResource = new VarBinaryColumn("@rawResource", -1);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, System.IO.Stream rawResource)
+            internal System.String ClaimValue
             {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpsertResource";
-                command.Parameters.AddFromColumn(_resourceTypeId, resourceTypeId, "@resourceTypeId");
-                command.Parameters.AddFromColumn(_resourceId, resourceId, "@resourceId");
-                command.Parameters.AddFromColumn(_eTag, eTag, "@eTag");
-                command.Parameters.AddFromColumn(_allowCreate, allowCreate, "@allowCreate");
-                command.Parameters.AddFromColumn(_isDeleted, isDeleted, "@isDeleted");
-                command.Parameters.AddFromColumn(_updatedDateTime, updatedDateTime, "@updatedDateTime");
-                command.Parameters.AddFromColumn(_keepHistory, keepHistory, "@keepHistory");
-                command.Parameters.AddFromColumn(_requestMethod, requestMethod, "@requestMethod");
-                command.Parameters.AddFromColumn(_rawResource, rawResource, "@rawResource");
-            }
-        }
-
-        internal class ReadResourceProcedure : StoredProcedure
-        {
-            internal ReadResourceProcedure(): base("dbo.ReadResource")
-            {
-            }
-
-            private readonly SmallIntColumn _resourceTypeId = new SmallIntColumn("@resourceTypeId");
-            private readonly VarCharColumn _resourceId = new VarCharColumn("@resourceId", 64);
-            private readonly NullableIntColumn _version = new NullableIntColumn("@version");
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> version)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.ReadResource";
-                command.Parameters.AddFromColumn(_resourceTypeId, resourceTypeId, "@resourceTypeId");
-                command.Parameters.AddFromColumn(_resourceId, resourceId, "@resourceId");
-                command.Parameters.AddFromColumn(_version, version, "@version");
-            }
-        }
-
-        internal class HardDeleteResourceProcedure : StoredProcedure
-        {
-            internal HardDeleteResourceProcedure(): base("dbo.HardDeleteResource")
-            {
-            }
-
-            private readonly SmallIntColumn _resourceTypeId = new SmallIntColumn("@resourceTypeId");
-            private readonly VarCharColumn _resourceId = new VarCharColumn("@resourceId", 64);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.HardDeleteResource";
-                command.Parameters.AddFromColumn(_resourceTypeId, resourceTypeId, "@resourceTypeId");
-                command.Parameters.AddFromColumn(_resourceId, resourceId, "@resourceId");
+                get;
             }
         }
     }

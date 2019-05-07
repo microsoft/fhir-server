@@ -4,10 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-using System.IO;
 using System.Linq;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -19,10 +17,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
     /// <summary>
     /// Visits a SQL AST, creating a class for each CREATE PROCEDURE statement. Classes have a PopulateCommand method, with a signature derived from the procedure's signature.
     /// </summary>
-    internal class CreateProcedureVisitor : TSqlFragmentVisitor
+    internal class CreateProcedureVisitor : SqlVisitor
     {
-        public List<(string name, ClassDeclarationSyntax classDeclaration)> Procedures { get; } = new List<(string name, ClassDeclarationSyntax classDeclaration)>();
-
         public override void Visit(CreateProcedureStatement node)
         {
             string procedureName = node.ProcedureReference.Name.BaseIdentifier.Value;
@@ -64,7 +60,17 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     // add the PopulateCommand method
                     .AddMembers(AddPopulateCommandMethod(node, schemaQualifiedProcedureName));
 
-            Procedures.Add((procedureName, classDeclarationSyntax));
+            FieldDeclarationSyntax fieldDeclarationSyntax = FieldDeclaration(
+                    VariableDeclaration(IdentifierName(className))
+                        .AddVariables(VariableDeclarator(procedureName)
+                            .WithInitializer(
+                                EqualsValueClause(
+                                    ObjectCreationExpression(
+                                        IdentifierName(className)).AddArgumentListArguments()))))
+                .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword), Token(SyntaxKind.StaticKeyword));
+
+            MembersToAdd.Add(classDeclarationSyntax);
+            MembersToAdd.Add(fieldDeclarationSyntax);
 
             base.Visit(node);
         }
@@ -76,8 +82,38 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         /// <returns>The field declaration</returns>
         private MemberDeclarationSyntax CreateFieldForParameter(ProcedureParameter parameter)
         {
-            string normalizedSqlDbType = Enum.Parse<SqlDbType>(parameter.DataType.Name.BaseIdentifier.Value, true).ToString();
-            IdentifierNameSyntax typeName = IdentifierName($"{(parameter.Value != null ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
+            TypeSyntax typeName;
+            ArgumentSyntax[] arguments;
+            if (Enum.TryParse<SqlDbType>(parameter.DataType.Name.BaseIdentifier.Value, ignoreCase: true, out var sqlDbType))
+            {
+                typeName = GenericName("ParameterDefinition")
+                    .AddTypeArgumentListArguments(SqlDbTypeToClrType(sqlDbType, nullable: parameter.Value != null).ToTypeSyntax(true));
+
+                arguments = new[]
+                {
+                    Argument(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            typeof(SqlDbType).ToTypeSyntax(true),
+                            IdentifierName(sqlDbType.ToString()))),
+                    Argument(LiteralExpression(parameter.Value == null ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)),
+                };
+
+                if (parameter.DataType is ParameterizedDataTypeReference parameterizedDataType)
+                {
+                    // next come data-type specific arguments, like length, precision, and scale
+
+                    arguments = arguments.Concat(parameterizedDataType.Parameters.Select(p => Argument(
+                        LiteralExpression(
+                            SyntaxKind.NumericLiteralExpression,
+                            Literal(p.LiteralType == LiteralType.Max ? -1 : int.Parse(p.Value)))))).ToArray();
+                }
+            }
+            else
+            {
+                typeName = IdentifierName($"{parameter.DataType.Name.BaseIdentifier.Value}TableValuedParameterDefinition");
+                arguments = new ArgumentSyntax[0];
+            }
 
             return FieldDeclaration(
                     VariableDeclaration(typeName)
@@ -87,21 +123,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             .WithInitializer(
                                 EqualsValueClause(
                                     ObjectCreationExpression(typeName)
-
-                                        // the  first argument is the procedure name
-                                        .AddArgumentListArguments(
-                                            Argument(
-                                                LiteralExpression(
-                                                    SyntaxKind.StringLiteralExpression,
-                                                    Literal(parameter.VariableName.Value))))
-
-                                        // next come data-type specific arguments, like length, precision, and scale
-                                        .AddArgumentListArguments(parameter.DataType is ParameterizedDataTypeReference parameterizedDataType
-                                            ? parameterizedDataType.Parameters.Select(p => Argument(
-                                                LiteralExpression(
-                                                    SyntaxKind.NumericLiteralExpression,
-                                                    Literal(p.LiteralType == LiteralType.Max ? -1 : int.Parse(p.Value))))).ToArray()
-                                            : Array.Empty<ArgumentSyntax>())))))
+                                        .AddArgumentListArguments(arguments)))))
                 .AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.ReadOnlyKeyword));
         }
 
@@ -124,7 +146,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                 // Add a parameter for each stored procedure parameter
                 .AddParameterListParameters(node.Parameters.Select(selector: p =>
                     Parameter(Identifier(p.VariableName.Value.Substring(1)))
-                        .WithType(DataTypeReferenceToClrType(p.DataType, p.Value != null).ToTypeSyntax())).ToArray())
+                        .WithType(DataTypeReferenceToClrType(p.DataType, p.Value != null))).ToArray())
 
                 // start the body with:
                 // command.CommandType = CommandType.StoredProcedure
@@ -151,96 +173,20 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(schemaQualifiedProcedureName)))))
 
                 // now for each parameter generate:
-                // command.Parameter.AddFromColumn(_fieldForParameter, valueParameter, "@myParam");
+                // _fieldForParameter.AddParameter(command, parameterValue, @"myParam")
                 .AddBodyStatements(node.Parameters.Select(p => (StatementSyntax)ExpressionStatement(
                     InvocationExpression(
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName("command"),
-                                    IdentifierName("Parameters")),
-                                IdentifierName("AddFromColumn")))
+                                IdentifierName($"_{p.VariableName.Value.Substring(1)}"),
+                                IdentifierName("AddParameter")))
                         .AddArgumentListArguments(
-                            Argument(IdentifierName($"_{p.VariableName.Value.Substring(1)}")),
+                            Argument(MemberAccessExpression(
+                                SyntaxKind.SimpleMemberAccessExpression,
+                                IdentifierName($"command"),
+                                IdentifierName("Parameters"))),
                             Argument(IdentifierName(p.VariableName.Value.Substring(1))),
                             Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(p.VariableName.Value)))))).ToArray());
-        }
-
-        private static Type DataTypeReferenceToClrType(DataTypeReference reference, bool nullable)
-        {
-            Type type = DataTypeReferenceToClrType(reference);
-
-            if (nullable && !type.IsClass)
-            {
-                return typeof(Nullable<>).MakeGenericType(type);
-            }
-
-            return type;
-        }
-
-        private static Type DataTypeReferenceToClrType(DataTypeReference reference)
-        {
-            var sqlDbType = Enum.Parse<SqlDbType>(reference.Name.BaseIdentifier.Value, true);
-            switch (sqlDbType)
-            {
-                case SqlDbType.BigInt:
-                    return typeof(long);
-                case SqlDbType.Binary:
-                    break;
-                case SqlDbType.Bit:
-                    return typeof(bool);
-                case SqlDbType.Char:
-                    break;
-                case SqlDbType.Date:
-                case SqlDbType.DateTime:
-                case SqlDbType.DateTime2:
-                case SqlDbType.SmallDateTime:
-                case SqlDbType.Time:
-                    return typeof(DateTime);
-                case SqlDbType.DateTimeOffset:
-                    return typeof(DateTimeOffset);
-                case SqlDbType.Decimal:
-                    return typeof(decimal);
-                case SqlDbType.Float:
-                    break;
-                case SqlDbType.Image:
-                    break;
-                case SqlDbType.Int:
-                    return typeof(int);
-                case SqlDbType.Money:
-                    break;
-                case SqlDbType.NChar:
-                case SqlDbType.NText:
-                case SqlDbType.VarChar:
-                case SqlDbType.NVarChar:
-                case SqlDbType.Text:
-                    return typeof(string);
-                case SqlDbType.Real:
-                    return typeof(double);
-                case SqlDbType.SmallInt:
-                    return typeof(short);
-                case SqlDbType.SmallMoney:
-                    break;
-                case SqlDbType.Structured:
-                    return typeof(object);
-                case SqlDbType.Timestamp:
-                    return typeof(byte[]);
-                case SqlDbType.TinyInt:
-                    return typeof(byte);
-                case SqlDbType.Udt:
-                    break;
-                case SqlDbType.UniqueIdentifier:
-                    return typeof(Guid);
-                case SqlDbType.VarBinary:
-                    return typeof(Stream);
-                case SqlDbType.Variant:
-                    break;
-                case SqlDbType.Xml:
-                    break;
-            }
-
-            throw new NotSupportedException(sqlDbType.ToString());
         }
     }
 }

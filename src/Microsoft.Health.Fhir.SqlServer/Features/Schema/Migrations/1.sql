@@ -159,6 +159,17 @@ CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
     Value
 )
 
+CREATE TABLE dbo.ClaimType
+(
+    ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
+    Name varchar(128) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
+(
+    Name
+)
+
 /*************************************************************
     Resource table
 **************************************************************/
@@ -192,6 +203,30 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Re
 )
 INCLUDE (Version)
 WHERE IsHistory = 0
+
+/*************************************************************
+    Last modified claims
+**************************************************************/
+
+CREATE TYPE dbo.LastModifiedClaimTableType AS TABLE  
+(
+    ClaimId tinyint NOT NULL,
+    ClaimValue nvarchar(128) NOT NULL
+)
+
+CREATE TABLE dbo.LastModifiedClaims
+(
+    ResourceSurrogateId bigint NOT NULL,
+    ClaimId tinyint NOT NULL,
+    ClaimValue nvarchar(128) NOT NULL,
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.LastModifiedClaims
+(
+    ResourceSurrogateId,
+    ClaimId
+)
+
 
 GO
 
@@ -244,7 +279,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @updatedDateTime datetimeoffset(7),
     @keepHistory bit,
     @requestMethod varchar(10),
-    @rawResource varbinary(max)
+    @rawResource varbinary(max),
+    @lastModifiedClaims dbo.LastModifiedClaimTableType READONLY
 AS
     SET NOCOUNT ON
 
@@ -304,6 +340,11 @@ AS
         (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, LastUpdated, IsDeleted, RequestMethod, RawResource)
     VALUES
         (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
+
+    INSERT INTO dbo.LastModifiedClaims 
+        (ResourceSurrogateId, ClaimId, ClaimValue)
+    SELECT @resourceSurrogateId, ClaimId, ClaimValue from @lastModifiedClaims
+
 
     select @version
 

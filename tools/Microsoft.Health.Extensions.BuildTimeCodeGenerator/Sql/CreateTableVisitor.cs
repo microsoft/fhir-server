@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using Microsoft.CodeAnalysis.CSharp;
@@ -17,10 +16,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
     /// <summary>
     /// Visits a SQL AST, created a class for each CREATE TABLE statement.
     /// </summary>
-    internal class CreateTableVisitor : TSqlFragmentVisitor
+    internal class CreateTableVisitor : SqlVisitor
     {
-        public List<(string name, ClassDeclarationSyntax classDeclaration)> Tables { get; } = new List<(string name, ClassDeclarationSyntax classDeclaration)>();
-
         public override void Visit(CreateTableStatement node)
         {
             string tableName = node.SchemaObjectName.BaseIdentifier.Value;
@@ -53,7 +50,17 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             .WithBody(Block()))
                     .AddMembers(node.Definition.ColumnDefinitions.Select(CreatePropertyForColumn).ToArray());
 
-            Tables.Add((tableName, classDeclarationSyntax));
+            FieldDeclarationSyntax field = FieldDeclaration(
+                    VariableDeclaration(IdentifierName(className))
+                        .AddVariables(VariableDeclarator(tableName)
+                            .WithInitializer(
+                                EqualsValueClause(
+                                    ObjectCreationExpression(
+                                        IdentifierName(className)).AddArgumentListArguments()))))
+                .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword), Token(SyntaxKind.StaticKeyword));
+
+            MembersToAdd.Add(classDeclarationSyntax);
+            MembersToAdd.Add(field);
 
             base.Visit(node);
         }
@@ -61,12 +68,10 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         private MemberDeclarationSyntax CreatePropertyForColumn(ColumnDefinition column)
         {
             string normalizedSqlDbType = Enum.Parse<SqlDbType>(column.DataType.Name.BaseIdentifier.Value, true).ToString();
-            bool nullable = column.Constraints.Any(c => c is NullableConstraintDefinition nc && nc.Nullable);
 
-            IdentifierNameSyntax typeName = IdentifierName($"{(nullable ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
+            IdentifierNameSyntax typeName = IdentifierName($"{(IsColumnNullable(column) ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
 
-            return
-                FieldDeclaration(
+            return FieldDeclaration(
                         VariableDeclaration(typeName)
                             .AddVariables(VariableDeclarator($"{column.ColumnIdentifier.Value}")
                                 .WithInitializer(

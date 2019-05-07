@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.IO;
 using System.Linq;
 using EnsureThat;
@@ -32,50 +33,57 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         {
             TSqlFragment sqlFragment = ParseSqlFile();
 
-            var createTableVisitor = new CreateTableVisitor();
-            sqlFragment.Accept(createTableVisitor);
+            var visitors = new SqlVisitor[] { new CreateTableVisitor(), new CreateProcedureVisitor(), new CreateTableTypeVisitor() };
 
-            var createProcedureVisitor = new CreateProcedureVisitor();
-            sqlFragment.Accept(createProcedureVisitor);
+            foreach (var sqlVisitor in visitors)
+            {
+                sqlFragment.Accept(sqlVisitor);
+            }
 
             var classDeclaration = ClassDeclaration(typeName)
                 .WithModifiers(TokenList(Token(SyntaxKind.InternalKeyword)))
+                .AddMembers(visitors
+                    .SelectMany(v => v.MembersToAdd)
+                    .OrderBy(m => m is FieldDeclarationSyntax ? 0 : m is ClassDeclarationSyntax ? 1 : 2)
+                    .ThenBy(m =>
+                    {
+                        switch (m)
+                        {
+                            case FieldDeclarationSyntax f:
+                                string fieldTypeName = f.Declaration.Type.ToString();
+                                string variableName = f.Declaration.Variables.First().Identifier.Text;
 
-                // add fields for each table
-                .AddMembers(
-                    createTableVisitor.Tables.Select(t =>
-                        FieldDeclaration(
-                                VariableDeclaration(IdentifierName(t.classDeclaration.Identifier.Text))
-                                    .AddVariables(VariableDeclarator(t.name)
-                                        .WithInitializer(
-                                            EqualsValueClause(
-                                                ObjectCreationExpression(
-                                                    IdentifierName(t.classDeclaration.Identifier.Text)).AddArgumentListArguments()))))
-                            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword), Token(SyntaxKind.StaticKeyword))).Cast<MemberDeclarationSyntax>().ToArray())
+                                return fieldTypeName.Substring(variableName.Length);
+                            case ClassDeclarationSyntax c:
+                                BaseTypeSyntax baseType = c.BaseList?.Types.FirstOrDefault();
+                                if (baseType == null)
+                                {
+                                    return string.Empty;
+                                }
 
-                // add fields for each stored procedure
-                .AddMembers(
-                    createProcedureVisitor.Procedures.Select(t =>
-                        FieldDeclaration(
-                                VariableDeclaration(IdentifierName(t.classDeclaration.Identifier.Text))
-                                    .AddVariables(VariableDeclarator(t.name)
-                                        .WithInitializer(
-                                            EqualsValueClause(
-                                                ObjectCreationExpression(
-                                                    IdentifierName(t.classDeclaration.Identifier.Text)).AddArgumentListArguments()))))
-                            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword), Token(SyntaxKind.StaticKeyword))).Cast<MemberDeclarationSyntax>().ToArray())
+                                return baseType.ToString();
+                            case StructDeclarationSyntax s:
+                                return s.Identifier.ToString();
+                            default:
+                                throw new NotSupportedException(m.GetType().Name);
+                        }
+                    })
+                    .ThenBy(m =>
+                    {
+                        switch (m)
+                        {
+                            case FieldDeclarationSyntax f:
+                                return f.Declaration.Type.ToString();
+                            case ClassDeclarationSyntax c:
+                                return c.Identifier.ToString();
+                            case StructDeclarationSyntax _:
+                                return string.Empty;
+                            default:
+                                throw new NotSupportedException(m.GetType().Name);
+                        }
+                    }).ToArray());
 
-                // add inner classes for tables and procedures
-                .AddMembers(
-                    createTableVisitor.Tables.Concat(createProcedureVisitor.Procedures).Select(t => (MemberDeclarationSyntax)t.classDeclaration).ToArray());
-
-            var usingDirectiveSyntax = UsingDirective(
-                    "Microsoft.Health.Fhir.SqlServer.Features.Storage"
-                        .Split('.')
-                        .Select(s => (NameSyntax)IdentifierName(s))
-                        .Aggregate((acc, id) => QualifiedName(acc, (SimpleNameSyntax)id)));
-
-            return (classDeclaration, new[] { usingDirectiveSyntax });
+            return (classDeclaration, new UsingDirectiveSyntax[0]);
         }
 
         private TSqlFragment ParseSqlFile()

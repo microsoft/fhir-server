@@ -10,7 +10,9 @@ using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Configs;
@@ -54,7 +56,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new SearchParameter[0]);
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, searchParameterDefinitionManager, NullLogger<SqlServerFhirModel>.Instance);
+            var securityConfiguration = new SecurityConfiguration { LastModifiedClaims = { "oid" } };
+
+            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             Value = new SqlServerFhirDataStore(config, sqlServerFhirModel, NullLogger<SqlServerFhirDataStore>.Instance);
         }
