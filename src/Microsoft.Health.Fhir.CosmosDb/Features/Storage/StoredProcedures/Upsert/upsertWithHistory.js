@@ -206,6 +206,6 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
     }
 
     function createArgumentValidationError(message) {
-        return new Error(ErrorCodes.PreconditionFailed, message);
+        return new Error(ErrorCodes.BadRequest, message);
     }
 }
