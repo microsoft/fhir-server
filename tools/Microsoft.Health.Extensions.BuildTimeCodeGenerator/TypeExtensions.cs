@@ -12,7 +12,13 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 {
     internal static class TypeExtensions
     {
-        public static TypeSyntax ToTypeSyntax(this Type t)
+        /// <summary>
+        /// Converts a <see cref="Type"/> to a <see cref="TypeSyntax"/>.
+        /// </summary>
+        /// <param name="t">The type</param>
+        /// <param name="useGlobalAlias">Whether the to qualify type names with "global::"</param>
+        /// <returns>A <see cref="TypeSyntax"/> representing the type.</returns>
+        public static TypeSyntax ToTypeSyntax(this Type t, bool useGlobalAlias = false)
         {
             if (t == typeof(void))
             {
@@ -27,7 +33,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             if (t.IsArray)
             {
                 return SyntaxFactory.ArrayType(
-                    t.GetElementType().ToTypeSyntax(),
+                    t.GetElementType().ToTypeSyntax(useGlobalAlias),
                     SyntaxFactory.SingletonList(
                         SyntaxFactory.ArrayRankSpecifier(
                             SyntaxFactory.SingletonSeparatedList<ExpressionSyntax>(
@@ -35,12 +41,22 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             }
 
             TypeSyntax qualification = t.IsNested
-                ? t.DeclaringType.ToTypeSyntax()
-                : t.Namespace.Split('.').Select(s => (NameSyntax)SyntaxFactory.IdentifierName(s)).Aggregate((acc, next) => SyntaxFactory.QualifiedName(acc, (SimpleNameSyntax)next));
+                ? t.DeclaringType.ToTypeSyntax(useGlobalAlias)
+                : t.Namespace.Split('.')
+                    .Select(s => (NameSyntax)SyntaxFactory.IdentifierName(s))
+                    .Aggregate((acc, next) =>
+                    {
+                        // see if we should qualify with global::
+                        NameSyntax left = useGlobalAlias && acc is IdentifierNameSyntax identifier
+                            ? SyntaxFactory.AliasQualifiedName(SyntaxFactory.IdentifierName(SyntaxFactory.Token(SyntaxKind.GlobalKeyword)), identifier)
+                            : acc;
+
+                        return SyntaxFactory.QualifiedName(left, (SimpleNameSyntax)next);
+                    });
 
             SimpleNameSyntax name = t.IsGenericType
                 ? SyntaxFactory.GenericName(t.Name.Substring(0, t.Name.IndexOf('`', StringComparison.Ordinal)))
-                    .WithTypeArgumentList(SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(t.GetGenericArguments().Select(ToTypeSyntax))))
+                    .WithTypeArgumentList(SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(t.GetGenericArguments().Select(typeArg => typeArg.ToTypeSyntax(useGlobalAlias)))))
                 : (SimpleNameSyntax)SyntaxFactory.IdentifierName(t.Name);
 
             return SyntaxFactory.QualifiedName((NameSyntax)qualification, name);

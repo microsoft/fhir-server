@@ -32,6 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _fhirJsonParser = fhirJsonParser;
         }
 
+        public IEnumerable<SearchParameter> AllSearchParameters => _urlLookup.Values;
+
         public void Start()
         {
             Type type = GetType();
@@ -45,6 +47,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             _typeLookup = builder.ResourceTypeDictionary;
             _urlLookup = builder.UriDictionary;
+
+            List<string> list = _urlLookup.Values.Where(p => p.Type == SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => _urlLookup[new Uri(c.Definition.Reference)].Type))).Distinct().ToList();
         }
 
         public IEnumerable<SearchParameter> GetSearchParameters(ResourceType resourceType)

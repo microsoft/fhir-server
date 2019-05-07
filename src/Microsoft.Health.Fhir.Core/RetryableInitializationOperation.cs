@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 
-namespace Microsoft.Health.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.Core
 {
     /// <summary>
     /// Encapsulates a thread-safe, retryable asynchronous initialization operation that is lazily invoked.
@@ -28,6 +28,11 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         }
 
         /// <summary>
+        /// Peeks to see if the value has been initialized
+        /// </summary>
+        public bool IsInitialized => _task?.IsCompletedSuccessfully == true;
+
+        /// <summary>
         /// When invoked for the first time, starts the async operation
         /// and awaits its completion. If the task succeeds, subsequent invocations
         /// of this method will always return a completed task. If the task fails,
@@ -35,8 +40,13 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// synchronization so only one running task will exist at a time.
         /// </summary>
         /// <returns>A task representing the completion of the initialization operation.</returns>
-        public async Task EnsureInitialized()
+        public async ValueTask EnsureInitialized()
         {
+            if (IsInitialized)
+            {
+                return;
+            }
+
             if (_task == null)
             {
                 await _semaphore.WaitAsync();

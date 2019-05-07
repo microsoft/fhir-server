@@ -29,5 +29,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         /// </summary>
         [EnumMember(Value = "hardDelete")]
         HardDelete,
+
+        /// <summary>
+        /// Export
+        /// </summary>
+        [EnumMember(Value = "export")]
+        Export,
     }
 }

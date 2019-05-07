@@ -12,19 +12,13 @@ function hardDelete(resourceTypeName, resourceId) {
     const collectionLink = collection.getSelfLink();
     const response = getContext().getResponse();
 
-    const errorMessages = {
-        ResourceTypeNameNull: `${ErrorCodes.BadRequest}: The resourceTypeName is undefined or null.`,
-        ResourceIdNull: `${ErrorCodes.BadRequest}: The resourceId is undefined or null.`,
-        RequestEntityTooLarge: `${ErrorCodes.RequestEntityTooLarge}: The request could not be completed.`
-    };
-
     // Validate input
     if (!resourceTypeName) {
-        throw new Error(errorMessages.ResourceTypeNameNull);
+        throw new Error(ErrorCodes.BadRequest, "The resourceTypeName is undefined or null");
     }
 
     if (!resourceId) {
-        throw new Error(errorMessages.ResourceIdNull);
+        throw new Error(ErrorCodes.BadRequest, "The resourceId is undefined or null");
     }
 
     let deletedResourceIdList = new Array();
@@ -58,7 +52,7 @@ function hardDelete(resourceTypeName, resourceId) {
 
         if (!isQueryAccepted) {
             // We ran out of time.
-            throw new Error(errorMessage.requestEntityTooLarge);
+            throw new Error(ErrorCodes.RequestEntityTooLarge, "The request could not be completed");
         }
     }
 
@@ -82,7 +76,7 @@ function hardDelete(resourceTypeName, resourceId) {
 
             if (!isAccepted) {
                 // We ran out of time.
-                throw new Error(errorMessages.RequestEntityTooLarge);
+                throw new Error(ErrorCodes.RequestEntityTooLarge, "The request could not be completed");
             }
         } else {
             // If the documents are empty, query for more documents.

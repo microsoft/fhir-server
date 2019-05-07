@@ -317,6 +317,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task WhenDeletingAResourceThatNeverExisted_ThenReadingTheResourceReturnsNotFound()
+        {
+            string id = "missingid";
+
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), false);
+
+            Assert.Null(deletedResourceKey.ResourceKey.VersionId);
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(id)));
+        }
+
+        [Fact]
+        public async Task WhenDeletingAResourceForASecondTime_ThenWeDoNotGetANewVersion()
+        {
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
+            var resourceKey = new ResourceKey("Observation", saveResult.Resource.Id);
+
+            await Mediator.DeleteResourceAsync(resourceKey, false);
+
+            var deletedResourceKey2 = await Mediator.DeleteResourceAsync(resourceKey, false);
+
+            Assert.Null(deletedResourceKey2.ResourceKey.VersionId);
+
+            await Assert.ThrowsAsync<ResourceGoneException>(
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
+        }
+
+        [Fact]
         public async Task WhenHardDeletingAResource_ThenWeGetResourceNotFound()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));

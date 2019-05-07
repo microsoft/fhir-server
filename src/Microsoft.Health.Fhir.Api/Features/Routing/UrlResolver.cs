@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             var routeName = RouteNames.ReadResource;
 
-            RouteValueDictionary routeValues = new RouteValueDictionary
+            var routeValues = new RouteValueDictionary
             {
                 { KnownActionParameterNames.ResourceType, resource.ResourceType.ToString() },
                 { KnownActionParameterNames.Id, resource.Id },

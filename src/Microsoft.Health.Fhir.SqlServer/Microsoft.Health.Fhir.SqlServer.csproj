@@ -1,20 +1,32 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\tools\Microsoft.Health.Extensions.BuildTimeCodeGenerator\BuildTimeCodeGenerator.targets" />
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
   </PropertyGroup>
 
+
+  <ItemGroup>
+    <None Remove="Features\Schema\Migrations\1.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\1.sql" />
+    <GenerateFilesInputs Include="Features\Schema\Migrations\1.sql" />
+    <Generated Include="Features\Schema\Model\V1.Generated.cs">
+      <Generator>SqlModelGenerator</Generator>
+      <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
+      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\1.sql'))</Args>
+    </Generated>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="8.1.1" />
+    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.2.2" />
+    <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="150.18118.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="2.2.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.6.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Migrations\" />
   </ItemGroup>
 
 </Project>

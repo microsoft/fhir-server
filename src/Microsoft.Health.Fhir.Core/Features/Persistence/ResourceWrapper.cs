@@ -88,10 +88,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public string ResourceTypeName { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.Version)]
-        public virtual string Version { get; protected set; }
+        public virtual string Version { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.IsHistory)]
-        public virtual bool IsHistory { get; protected set; }
+        public virtual bool IsHistory { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices)]
         public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }

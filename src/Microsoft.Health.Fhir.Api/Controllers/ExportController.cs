@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [Authorize(PolicyNames.FhirPolicy)]
+    [Authorize(PolicyNames.ExportPolicy)]
     public class ExportController : Controller
     {
         /*
