@@ -18,11 +18,11 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// with the error code specified in the Error object (404 in this example).
         /// This methods returns the substatus code if it is present.
         /// </summary>
-        /// <param name="e">The exception object</param>
-        /// <returns>The status code of null if not present (or not an integer)</returns>
-        public static HttpStatusCode? GetSubStatusCode(this DocumentClientException e)
+        /// <param name="exception">The exception object</param>
+        /// <returns>The status code or null if not present (or not an integer)</returns>
+        public static HttpStatusCode? GetSubStatusCode(this DocumentClientException exception)
         {
-            return int.TryParse(e.ResponseHeaders.Get(CosmosDbHeaders.SubStatus), NumberStyles.Integer, CultureInfo.InvariantCulture, out int subStatusCode)
+            return int.TryParse(exception.ResponseHeaders.Get(CosmosDbHeaders.SubStatus), NumberStyles.Integer, CultureInfo.InvariantCulture, out int subStatusCode)
                 ? (HttpStatusCode?)subStatusCode
                 : null;
         }

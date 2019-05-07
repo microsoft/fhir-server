@@ -15,17 +15,17 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
     const collectionLink = collection.getSelfLink();
     const response = getContext().getResponse();
 
-    
+
 
     const initialVersion = "1";
 
     // Validate input
     if (!doc) {
-        throw new Error(ErrorCodes.BadRequest, "The document is undefined or null.");
+        throw createArgumentValidationError("The document is undefined or null.");
     }
 
     if (doc instanceof Array) {
-        throw new Error(ErrorCodes.BadRequest, "Input should not be an array.");
+        throw createArgumentValidationError("Input should not be an array.");
     }
 
     if (!stringIsNullOrEmpty(matchVersionId) || !allowCreate || doc.isDeleted) {
@@ -81,7 +81,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                 let document = documents.length === 0 ? null : documents[0];
 
                 if (document === null ||
-                    doc.isDeleted && document.isDeleted) { // // don't create another version if already deleted
+                    doc.isDeleted && document.isDeleted) { // don't create another version if already deleted
                     throw new Error(ErrorCodes.NotFound, "Document not found.");
                 }
 
@@ -93,7 +93,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                         throw createPreconditionFailedError();
                     }
                 }
-                
+
                 // Increment the current version
                 let nextVersion = Number(documentVersion) + 1;
                 if (!isNaN(nextVersion)) {
@@ -162,7 +162,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
 
         theDoc.isHistory = true;
         theDoc.id = `${theDoc.resourceId}_${theDoc.version}`;
-        
+
         return theDoc;
     }
 
@@ -198,10 +198,14 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
     }
 
     function createRequestNotQueuedError() {
-        throw new Error(503, "Request could not be queued.");
+        return new Error(503, "Request could not be queued.");
     }
 
     function createPreconditionFailedError() {
-        throw new Error(ErrorCodes.PreconditionFailed, "One of the specified pre-conditions is not met.");
+        return new Error(ErrorCodes.PreconditionFailed, "One of the specified pre-conditions is not met.");
+    }
+
+    function createArgumentValidationError(message) {
+        return new Error(ErrorCodes.PreconditionFailed, message);
     }
 }
