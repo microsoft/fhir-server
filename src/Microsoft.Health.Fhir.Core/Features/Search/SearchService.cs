@@ -27,6 +27,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IBundleFactory _bundleFactory;
         private readonly IFhirDataStore _fhirDataStore;
 
+        // Value which is subtracted from Now when querying _history without _before specified
+        private readonly int historyCurrentTimeBuffer = -3;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
         /// </summary>
@@ -79,15 +82,51 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             var queryParameters = new List<Tuple<string, string>>();
 
-            if (at != null && since != null)
+            if (at != null)
             {
-                // _at and _since cannot be both specified.
-                throw new InvalidSearchOperationException(
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Core.Resources.AtAndSinceCannotBeBothSpecified,
-                        KnownQueryParameterNames.At,
-                        KnownQueryParameterNames.Since));
+                if (since != null)
+                {
+                    // _at and _since cannot be both specified.
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.AtAndSinceCannotBeBothSpecified,
+                            KnownQueryParameterNames.At,
+                            KnownQueryParameterNames.Since));
+                }
+
+                if (before != null)
+                {
+                    // _at and _since cannot be both specified.
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.AtAndSinceCannotBeBothSpecified,
+                            KnownQueryParameterNames.At,
+                            KnownQueryParameterNames.Before));
+                }
+            }
+
+            if (before != null)
+            {
+                var beforeOffset = before.ToDateTimeOffset(
+                    defaultMonth: 1,
+                    defaultDaySelector: (year, month) => 1,
+                    defaultHour: 0,
+                    defaultMinute: 0,
+                    defaultSecond: 0,
+                    defaultFraction: 0.0000000m,
+                    defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
+
+                if (beforeOffset > DateTimeOffset.Now)
+                {
+                    // you cannot specify a value for _before in the future
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.HistoryParameterBeforeCannotBeFuture,
+                            KnownQueryParameterNames.Before));
+                }
             }
 
             bool searchByResourceId = !string.IsNullOrEmpty(resourceId);
@@ -111,6 +150,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (since != null)
                 {
                     queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
+
+                    // when since is specified without _before, we will assume a value for before that is
+                    // DateTime.Now - <buffer>  the buffer value allows us to have confidence that ongoing
+                    // edits are captured should the _before value be used in a future _history query
+
+                    if (before == null)
+                    {
+                        before = new PartialDateTime(DateTimeOffset.Now.AddSeconds(historyCurrentTimeBuffer));
+                    }
                 }
 
                 if (before != null)

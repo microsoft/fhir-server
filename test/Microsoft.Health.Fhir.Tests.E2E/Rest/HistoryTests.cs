@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
+using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -53,6 +55,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history");
 
                 Assert.NotEmpty(readResponse.Resource.Entry);
+        }
+
+        [Fact]
+        public async Task WhenGettingSystemHistory_GivenAValueForSince_TheServerShouldReturnOnlyRecordsModifiedAfterSinceValue()
+        {
+            Thread.Sleep(2000);
+            var since = DateTime.UtcNow;
+            Thread.Sleep(1000);
+            _createdResource.Resource.Comment = "Changed by E2E test";
+
+            var updatedResource = Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
+
+            Thread.Sleep(3000); // ensure that the server has fully processed the PUT
+
+            var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
+
+            FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString);
+
+            var obsHistory = readResponse.Resource.Entry[0].Resource as Observation;
+
+            Assert.NotNull(obsHistory);
+            Assert.Contains("Changed by E2E test", obsHistory.Comment);
         }
 
         public void Dispose()
