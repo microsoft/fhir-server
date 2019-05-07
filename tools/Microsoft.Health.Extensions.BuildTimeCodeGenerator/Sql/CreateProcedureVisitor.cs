@@ -60,14 +60,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     // add the PopulateCommand method
                     .AddMembers(AddPopulateCommandMethod(node, schemaQualifiedProcedureName));
 
-            FieldDeclarationSyntax fieldDeclarationSyntax = FieldDeclaration(
-                    VariableDeclaration(IdentifierName(className))
-                        .AddVariables(VariableDeclarator(procedureName)
-                            .WithInitializer(
-                                EqualsValueClause(
-                                    ObjectCreationExpression(
-                                        IdentifierName(className)).AddArgumentListArguments()))))
-                .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword), Token(SyntaxKind.StaticKeyword));
+            FieldDeclarationSyntax fieldDeclarationSyntax = CreateStaticFieldForClass(className, procedureName);
 
             MembersToAdd.Add(classDeclarationSyntax);
             MembersToAdd.Add(fieldDeclarationSyntax);
@@ -97,21 +90,11 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             typeof(SqlDbType).ToTypeSyntax(true),
                             IdentifierName(sqlDbType.ToString()))),
                     Argument(LiteralExpression(parameter.Value == null ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)),
-                };
-
-                if (parameter.DataType is ParameterizedDataTypeReference parameterizedDataType)
-                {
-                    // next come data-type specific arguments, like length, precision, and scale
-
-                    arguments = arguments.Concat(parameterizedDataType.Parameters.Select(p => Argument(
-                        LiteralExpression(
-                            SyntaxKind.NumericLiteralExpression,
-                            Literal(p.LiteralType == LiteralType.Max ? -1 : int.Parse(p.Value)))))).ToArray();
-                }
+                }.Concat(GetDataTypeSpecificConstructorArguments(parameter.DataType)).ToArray();
             }
             else
             {
-                typeName = IdentifierName($"{parameter.DataType.Name.BaseIdentifier.Value}TableValuedParameterDefinition");
+                typeName = IdentifierName(GetTableValueParameterDefinitionDerivedClassName(parameter.DataType.Name));
                 arguments = new ArgumentSyntax[0];
             }
 
@@ -183,7 +166,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                         .AddArgumentListArguments(
                             Argument(MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName($"command"),
+                                IdentifierName("command"),
                                 IdentifierName("Parameters"))),
                             Argument(IdentifierName(p.VariableName.Value.Substring(1))),
                             Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(p.VariableName.Value)))))).ToArray());

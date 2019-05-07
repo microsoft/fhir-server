@@ -208,20 +208,20 @@ WHERE IsHistory = 0
     Last modified claims
 **************************************************************/
 
-CREATE TYPE dbo.LastModifiedClaimTableType AS TABLE  
+CREATE TYPE dbo.ResourceWriteClaimTableType AS TABLE  
 (
     ClaimId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL
 )
 
-CREATE TABLE dbo.LastModifiedClaims
+CREATE TABLE dbo.ResourceWriteClaim
 (
     ResourceSurrogateId bigint NOT NULL,
     ClaimId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
-CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.LastModifiedClaims
+CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
 (
     ResourceSurrogateId,
     ClaimId
@@ -266,6 +266,8 @@ GO
 --         * The HTTP method/verb used for the request
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
+--     @resourceWriteClaims
+--         * claims on the principal that performed the write
 --
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
@@ -280,7 +282,7 @@ CREATE PROCEDURE dbo.UpsertResource
     @keepHistory bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
-    @lastModifiedClaims dbo.LastModifiedClaimTableType READONLY
+    @resourceWriteClaims dbo.ResourceWriteClaimTableType READONLY
 AS
     SET NOCOUNT ON
 
@@ -341,9 +343,9 @@ AS
     VALUES
         (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
 
-    INSERT INTO dbo.LastModifiedClaims 
+    INSERT INTO dbo.ResourceWriteClaim 
         (ResourceSurrogateId, ClaimId, ClaimValue)
-    SELECT @resourceSurrogateId, ClaimId, ClaimValue from @lastModifiedClaims
+    SELECT @resourceSurrogateId, ClaimId, ClaimValue from @resourceWriteClaims
 
 
     select @version

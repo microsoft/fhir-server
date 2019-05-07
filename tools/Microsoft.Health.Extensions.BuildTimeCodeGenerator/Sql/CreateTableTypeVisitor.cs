@@ -20,7 +20,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         {
             string tableTypeName = node.Name.BaseIdentifier.Value;
             string schemaQualifiedTableTypeName = $"{node.Name.SchemaIdentifier.Value}.{tableTypeName}";
-            string className = $"{tableTypeName}TableValuedParameterDefinition";
+            string className = GetTableValueParameterDefinitionDerivedClassName(node.Name);
             string rowStructName = $"{tableTypeName}Row";
 
             ArrayTypeSyntax columnsArrayType = ArrayType(IdentifierName("Column")).AddRankSpecifiers(ArrayRankSpecifier());
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             .AddParameterListParameters(
                                 Parameter(Identifier("record")).WithType(typeof(SqlDataRecord).ToTypeSyntax(useGlobalAlias: true)),
                                 Parameter(
-                                    Identifier("rowData")).WithType(IdentifierName("LastModifiedClaimTableTypeRow")))
+                                    Identifier("rowData")).WithType(IdentifierName(rowStructName)))
                             .WithBody(
                                 Block(node.Definition.ColumnDefinitions.Select((c, i) =>
                                     ExpressionStatement(

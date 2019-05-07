@@ -113,5 +113,35 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         {
             return column.Constraints.Any(c => c is NullableConstraintDefinition nc && nc.Nullable);
         }
+
+        protected static FieldDeclarationSyntax CreateStaticFieldForClass(string className, string fieldName)
+        {
+            return SyntaxFactory.FieldDeclaration(
+                    SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName(className))
+                        .AddVariables(SyntaxFactory.VariableDeclarator(fieldName)
+                            .WithInitializer(
+                                SyntaxFactory.EqualsValueClause(
+                                    SyntaxFactory.ObjectCreationExpression(
+                                        SyntaxFactory.IdentifierName(className)).AddArgumentListArguments()))))
+                .AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword), SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword));
+        }
+
+        protected static IEnumerable<ArgumentSyntax> GetDataTypeSpecificConstructorArguments(DataTypeReference dataType)
+        {
+            if (dataType is ParameterizedDataTypeReference parameterizedDataType)
+            {
+                return parameterizedDataType.Parameters.Select(p => SyntaxFactory.Argument(
+                    SyntaxFactory.LiteralExpression(
+                        SyntaxKind.NumericLiteralExpression,
+                        SyntaxFactory.Literal(p.LiteralType == LiteralType.Max ? -1 : int.Parse(p.Value)))));
+            }
+
+            return Array.Empty<ArgumentSyntax>();
+        }
+
+        protected static string GetTableValueParameterDefinitionDerivedClassName(SchemaObjectName objectName)
+        {
+            return $"{objectName.BaseIdentifier.Value}TableValuedParameterDefinition";
+        }
     }
 }

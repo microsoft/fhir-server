@@ -16,10 +16,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
         internal readonly static ClaimTypeTable ClaimType = new ClaimTypeTable();
-        internal readonly static LastModifiedClaimsTable LastModifiedClaims = new LastModifiedClaimsTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static ResourceTable Resource = new ResourceTable();
         internal readonly static ResourceTypeTable ResourceType = new ResourceTypeTable();
+        internal readonly static ResourceWriteClaimTable ResourceWriteClaim = new ResourceWriteClaimTable();
         internal readonly static SchemaVersionTable SchemaVersion = new SchemaVersionTable();
         internal readonly static SearchParamTable SearchParam = new SearchParamTable();
         internal readonly static SystemTable System = new SystemTable();
@@ -87,8 +87,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly ParameterDefinition<System.Boolean> _keepHistory = new ParameterDefinition<System.Boolean>(global::System.Data.SqlDbType.Bit, false);
             private readonly ParameterDefinition<System.String> _requestMethod = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 10);
             private readonly ParameterDefinition<global::System.IO.Stream> _rawResource = new ParameterDefinition<global::System.IO.Stream>(global::System.Data.SqlDbType.VarBinary, false, -1);
-            private readonly LastModifiedClaimTableTypeTableValuedParameterDefinition _lastModifiedClaims = new LastModifiedClaimTableTypeTableValuedParameterDefinition();
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<LastModifiedClaimTableTypeRow> lastModifiedClaims)
+            private readonly ResourceWriteClaimTableTypeTableValuedParameterDefinition _resourceWriteClaims = new ResourceWriteClaimTableTypeTableValuedParameterDefinition();
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpsertResource";
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _keepHistory.AddParameter(command.Parameters, keepHistory, "@keepHistory");
                 _requestMethod.AddParameter(command.Parameters, requestMethod, "@requestMethod");
                 _rawResource.AddParameter(command.Parameters, rawResource, "@rawResource");
-                _lastModifiedClaims.AddParameter(command.Parameters, lastModifiedClaims, "@lastModifiedClaims");
+                _resourceWriteClaims.AddParameter(command.Parameters, resourceWriteClaims, "@resourceWriteClaims");
             }
         }
 
@@ -130,17 +130,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly TinyIntColumn ClaimTypeId = new TinyIntColumn("ClaimTypeId");
             internal readonly VarCharColumn Name = new VarCharColumn("Name", 128);
-        }
-
-        internal class LastModifiedClaimsTable : Table
-        {
-            internal LastModifiedClaimsTable(): base("dbo.LastModifiedClaims")
-            {
-            }
-
-            internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
-            internal readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
-            internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
         }
 
         internal class QuantityCodeTable : Table
@@ -180,6 +169,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NVarCharColumn Name = new NVarCharColumn("Name", 50);
         }
 
+        internal class ResourceWriteClaimTable : Table
+        {
+            internal ResourceWriteClaimTable(): base("dbo.ResourceWriteClaim")
+            {
+            }
+
+            internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
+            internal readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
+            internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
+        }
+
         internal class SchemaVersionTable : Table
         {
             internal SchemaVersionTable(): base("dbo.SchemaVersion")
@@ -210,25 +210,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NVarCharColumn Value = new NVarCharColumn("Value", 256);
         }
 
-        internal class LastModifiedClaimTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<LastModifiedClaimTableTypeRow>
+        internal class ResourceWriteClaimTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<ResourceWriteClaimTableTypeRow>
         {
-            internal LastModifiedClaimTableTypeTableValuedParameterDefinition(): base("dbo.LastModifiedClaimTableType")
+            internal ResourceWriteClaimTableTypeTableValuedParameterDefinition(): base("dbo.ResourceWriteClaimTableType")
             {
             }
 
             private readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
             private readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
             protected override Column[] Columns => new Column[]{ClaimId, ClaimValue};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, LastModifiedClaimTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ResourceWriteClaimTableTypeRow rowData)
             {
                 ClaimId.Set(record, 0, rowData.ClaimId);
                 ClaimValue.Set(record, 1, rowData.ClaimValue);
             }
         }
 
-        internal struct LastModifiedClaimTableTypeRow
+        internal struct ResourceWriteClaimTableTypeRow
         {
-            internal LastModifiedClaimTableTypeRow(System.Byte ClaimId, System.String ClaimValue)
+            internal ResourceWriteClaimTableTypeRow(System.Byte ClaimId, System.String ClaimValue)
             {
                 this.ClaimId = ClaimId;
                 this.ClaimValue = ClaimValue;
