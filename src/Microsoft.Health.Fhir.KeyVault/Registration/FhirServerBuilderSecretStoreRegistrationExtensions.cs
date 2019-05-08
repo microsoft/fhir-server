@@ -28,7 +28,7 @@ namespace Microsoft.Extensions.DependencyInjection
             var keyVaultConfig = new KeyVaultConfiguration();
             configuration.GetSection(KeyVaultConfigurationName).Bind(keyVaultConfig);
 
-            if (string.IsNullOrWhiteSpace(keyVaultConfig.EndPoint))
+            if (string.IsNullOrWhiteSpace(keyVaultConfig.Endpoint))
             {
                 fhirServerBuilder.Services.Add<InMemorySecretStore>()
                     .Singleton()
@@ -37,12 +37,12 @@ namespace Microsoft.Extensions.DependencyInjection
             else
             {
                 fhirServerBuilder.Services.Add<KeyVaultSecretStore>((sp) =>
-                {
-                    var tokenProvider = new AzureServiceTokenProvider();
-                    var kvClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(tokenProvider.KeyVaultTokenCallback));
+                    {
+                        var tokenProvider = new AzureServiceTokenProvider();
+                        var kvClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(tokenProvider.KeyVaultTokenCallback));
 
-                    return new KeyVaultSecretStore(kvClient, new Uri(keyVaultConfig.EndPoint));
-                })
+                        return new KeyVaultSecretStore(kvClient, new Uri(keyVaultConfig.Endpoint));
+                    })
                     .Singleton()
                     .AsService<ISecretStore>();
             }

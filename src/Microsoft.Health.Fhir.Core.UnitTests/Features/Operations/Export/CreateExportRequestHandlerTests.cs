@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
+using Microsoft.Health.Fhir.Core.Messages.Export;
 using NSubstitute;
 using Xunit;
 
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     public class CreateExportRequestHandlerTests
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-        private readonly ISecretStore _secretStore = Substitute.For<ISecretStore>();;
+        private readonly ISecretStore _secretStore = Substitute.For<ISecretStore>();
         private readonly IMediator _mediator;
         private const string RequestUrl = "https://localhost/$export/";
         private const string DestinationType = "destinationType";
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public CreateExportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(x => new CreateExportRequestHandler(_fhirOperationDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new CreateExportRequestHandler(_fhirOperationDataStore, _secretStore)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -40,12 +41,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async void GivenAFhirMediator_WhenSavingAnExportJobSucceeds_ThenResponseShouldBeSuccess()
         {
-            var exportOutcome = new ExportJobOutcome(new ExportJobRecord(new Uri(RequestUrl)), WeakETag.FromVersionId("eTag"));
-            _fhirOperationDataStore.CreateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(exportOutcome);
+            var eTag = WeakETag.FromVersionId("eTag");
+            _fhirOperationDataStore.CreateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(x => new ExportJobOutcome((ExportJobRecord)x[0], eTag));
 
-            var outcome = await _mediator.ExportAsync(new Uri(RequestUrl), DestinationType, ConnectionString);
+            CreateExportResponse createResponse = await _mediator.ExportAsync(new Uri(RequestUrl), DestinationType, ConnectionString);
 
-            Assert.NotEmpty(outcome.JobId);
+            Assert.NotEmpty(createResponse.JobId);
+            await _secretStore.ReceivedWithAnyArgs(1).SetSecretAsync(null, null);
         }
     }
 }

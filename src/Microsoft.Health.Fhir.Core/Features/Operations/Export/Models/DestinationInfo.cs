@@ -24,8 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         {
         }
 
+        [JsonProperty("destinationType")]
         public string DestinationType { get; private set; }
 
+        [JsonProperty("destinationConnectionString")]
         public string DestinationConnectionString { get; private set; }
 
         public string ToJson()

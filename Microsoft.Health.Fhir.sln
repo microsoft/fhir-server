@@ -64,7 +64,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SqlSe
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions.Xunit", "src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj", "{4DDF9576-E22C-460A-937F-0EE0FEA6DB87}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.KeyVault", "src\Microsoft.Health.Fhir.SecretStore\Microsoft.Health.Fhir.KeyVault.csproj", "{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.KeyVault", "src\Microsoft.Health.Fhir.KeyVault\Microsoft.Health.Fhir.KeyVault.csproj", "{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

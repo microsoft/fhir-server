@@ -184,18 +184,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             return context;
         }
 
-        private static ValidateExportRequestFilterAttribute GetFilter(ExportConfiguration exportConfig = null)
+        private static ValidateExportRequestFilterAttribute GetFilter(ExportJobConfiguration exportJobConfig = null)
         {
-            if (exportConfig == null)
+            if (exportJobConfig == null)
             {
-                exportConfig = new ExportConfiguration();
-                exportConfig.Enabled = true;
-                exportConfig.SupportedDestinations.Add(SupportedDestinationType);
+                exportJobConfig = new ExportJobConfiguration();
+                exportJobConfig.Enabled = true;
+                exportJobConfig.SupportedDestinations.Add(SupportedDestinationType);
             }
 
             var opConfig = new OperationsConfiguration()
             {
-                Export = exportConfig,
+                Export = exportJobConfig,
             };
 
             IOptions<OperationsConfiguration> options = Substitute.For<IOptions<OperationsConfiguration>>();

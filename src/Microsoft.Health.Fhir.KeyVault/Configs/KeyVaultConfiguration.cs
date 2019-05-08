@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.KeyVault.Configs
 {
     public class KeyVaultConfiguration
     {
-        public string EndPoint { get; set; }
+        public string Endpoint { get; set; }
     }
 }

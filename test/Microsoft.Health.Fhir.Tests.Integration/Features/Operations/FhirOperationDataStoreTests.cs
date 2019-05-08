@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -27,16 +28,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
     {
         private IFhirOperationDataStore _dataStore;
         private IFhirStorageTestHelper _testHelper;
+        private ISecretStore _secretStore;
         private Mediator _mediator;
 
         public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {
             _dataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
+            _secretStore = new InMemorySecretStore();
 
             var collection = new ServiceCollection();
 
-            collection.AddSingleton(typeof(IRequestHandler<CreateExportRequest, CreateExportResponse>), new CreateExportRequestHandler(_dataStore));
+            collection.AddSingleton(typeof(IRequestHandler<CreateExportRequest, CreateExportResponse>), new CreateExportRequestHandler(_dataStore, _secretStore));
             collection.AddSingleton(typeof(IRequestHandler<GetExportRequest, GetExportResponse>), new GetExportRequestHandler(_dataStore));
 
             ServiceProvider services = collection.BuildServiceProvider();
@@ -59,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             var requestUri = new Uri("https://localhost/$export");
 
-            CreateExportResponse result = await _mediator.ExportAsync(requestUri);
+            CreateExportResponse result = await _mediator.ExportAsync(requestUri, "destinationType", "connectionString");
 
             Assert.NotNull(result);
             Assert.NotEmpty(result.JobId);
@@ -69,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         public async Task GivenExportJobThatExists_WhenGettingExportStatus_ThenGetsHttpStatuscodeAccepted()
         {
             var requestUri = new Uri("https://localhost/$export");
-            var result = await _mediator.ExportAsync(requestUri);
+            var result = await _mediator.ExportAsync(requestUri, "destinationType", "connectionString");
 
             requestUri = new Uri("https://localhost/_operation/export/" + result.JobId);
             var exportStatus = await _mediator.GetExportStatusAsync(requestUri, result.JobId);

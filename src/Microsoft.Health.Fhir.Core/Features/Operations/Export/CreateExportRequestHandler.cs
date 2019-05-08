@@ -36,10 +36,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // and handle it accordingly. For now we just assume all export jobs are unique and create a new one.
 
             var jobRecord = new ExportJobRecord(request.RequestUri);
+
             // Store the destination secret
             var result = await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInformation.ToJson());
 
-            ExportJobOutcome result = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
+            ExportJobOutcome outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
             // If job creation had failed we would have thrown an exception.
             return new CreateExportResponse(jobRecord.Id);

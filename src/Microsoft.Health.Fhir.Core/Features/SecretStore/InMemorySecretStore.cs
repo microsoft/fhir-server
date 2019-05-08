@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -14,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.SecretStore
     /// </summary>
     public class InMemorySecretStore : ISecretStore
     {
-        private Dictionary<string, string> _secrets = new Dictionary<string, string>();
+        private Dictionary<string, string> _secrets = new Dictionary<string, string>(StringComparer.Ordinal);
 
         public Task<SecretWrapper> GetSecretAsync(string secretName)
         {

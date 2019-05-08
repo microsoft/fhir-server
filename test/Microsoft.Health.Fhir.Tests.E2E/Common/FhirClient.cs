@@ -244,14 +244,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<string> ExportAsync()
+        public async Task<string> ExportAsync(Dictionary<string, string> queryParams)
         {
-            var queryParams = new Dictionary<string, string>()
-            {
-                { "_destinationType", "AzureBlockBlob" },
-                { "_destinationConnectionSettings", "connectionString" },
-            };
-
             string path = QueryHelpers.AddQueryString("$export", queryParams);
             var message = new HttpRequestMessage(HttpMethod.Get, path);
 
