@@ -10,8 +10,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using NSubstitute;
 using Xunit;
@@ -31,13 +31,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         public ExportControllerTests()
         {
-            _exportEnabledController = GetController(new ExportConfiguration() { Enabled = true });
+            _exportEnabledController = GetController(new ExportJobConfiguration() { Enabled = true });
         }
 
         [Fact]
         public async Task GivenAnExportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            var exportController = GetController(new ExportConfiguration() { Enabled = false });
+            var exportController = GetController(new ExportJobConfiguration() { Enabled = false });
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(DestinationType, DestinationConnection));
         }
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Group.ToString(), "id"));
         }
 
-        private ExportController GetController(ExportConfiguration exportConfig)
+        private ExportController GetController(ExportJobConfiguration exportConfig)
         {
             var operationConfig = new OperationsConfiguration()
             {

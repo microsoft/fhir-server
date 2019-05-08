@@ -13,8 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     {
         public const string JobRecord = "jobRecord";
 
-        public const string PartitonKey = "partitionKey";
-
         public const string Id = "id";
 
         public const string SecretName = "secretName";

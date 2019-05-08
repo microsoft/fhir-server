@@ -1,4 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\tools\Microsoft.Health.Extensions.BuildTimeCodeGenerator\BuildTimeCodeGenerator.targets" />
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
@@ -6,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Features\Storage\StoredProcedures\AcquireExportJobs\acquireExportJobs.js" />
     <EmbeddedResource Include="Features\Storage\StoredProcedures\HardDelete\hardDelete.js" />
     <EmbeddedResource Include="Features\Storage\StoredProcedures\Upsert\upsertWithHistory.js" />
   </ItemGroup>
@@ -13,7 +15,7 @@
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="6.0.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="2.2.0" />
-    <PackageReference Include="Hl7.Fhir.STU3" Version="1.2.0" />
+    <PackageReference Include="Hl7.Fhir.STU3" Version="1.2.1" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.2.3" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.2.0" />
   </ItemGroup>
@@ -46,15 +48,4 @@
       <Namespace>Microsoft.Health.Fhir.CosmosDb.Features.Storage</Namespace>
     </Generated>
   </ItemGroup>
-
-  <Target Name="GenerateFiles" BeforeTargets="CoreCompile" Inputs="$(GeneratorProjectPath)" Outputs="@(Generated)">
-    <MSBuild Projects="$(GeneratorProjectPath)" Targets="Build">
-      <Output TaskParameter="TargetOutputs" ItemName="GeneratorPath" />
-    </MSBuild>
-    <ItemGroup>
-      <Compile Include="@(Generated)" Condition="!Exists('@(Generated)')" />
-    </ItemGroup>
-    <Exec Command="dotnet @(GeneratorPath) %(Generated.Generator) %(Generated.FullPath) %(Generated.Namespace)" />
-  </Target>
-
 </Project>

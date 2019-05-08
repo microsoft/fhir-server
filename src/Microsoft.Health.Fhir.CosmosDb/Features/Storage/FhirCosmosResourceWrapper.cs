@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public override string Version
         {
             get => GetETagOrVersion();
-            protected set => base.Version = value;
+            set => base.Version = value;
         }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices, ItemConverterType = typeof(SearchIndexEntryConverter))]

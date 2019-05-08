@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class OperationsConfiguration
     {
-        public ExportConfiguration Export { get; set; } = new ExportConfiguration();
+        public ExportJobConfiguration Export { get; set; } = new ExportJobConfiguration();
     }
 }

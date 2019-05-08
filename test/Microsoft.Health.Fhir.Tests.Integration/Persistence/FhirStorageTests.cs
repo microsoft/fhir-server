@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -15,10 +14,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
@@ -27,7 +24,6 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -84,8 +80,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, Deserializers.ResourceDeserializer));
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory));
-            collection.AddSingleton(typeof(IRequestHandler<CreateExportRequest, CreateExportResponse>), new CreateExportRequestHandler(dataStore, secretStore));
-            collection.AddSingleton(typeof(IRequestHandler<GetExportRequest, GetExportResponse>), new GetExportRequestHandler(dataStore));
 
             ServiceProvider services = collection.BuildServiceProvider();
 
@@ -325,6 +319,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task WhenDeletingAResourceThatNeverExisted_ThenReadingTheResourceReturnsNotFound()
+        {
+            string id = "missingid";
+
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), false);
+
+            Assert.Null(deletedResourceKey.ResourceKey.VersionId);
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(id)));
+        }
+
+        [Fact]
+        public async Task WhenDeletingAResourceForASecondTime_ThenWeDoNotGetANewVersion()
+        {
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
+            var resourceKey = new ResourceKey("Observation", saveResult.Resource.Id);
+
+            await Mediator.DeleteResourceAsync(resourceKey, false);
+
+            var deletedResourceKey2 = await Mediator.DeleteResourceAsync(resourceKey, false);
+
+            Assert.Null(deletedResourceKey2.ResourceKey.VersionId);
+
+            await Assert.ThrowsAsync<ResourceGoneException>(
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
+        }
+
+        [Fact]
         public async Task WhenHardDeletingAResource_ThenWeGetResourceNotFound()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -390,38 +414,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await Assert.ThrowsAsync<MethodNotAllowedException>(
                 async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), false); });
-        }
-
-        [Fact]
-        public async Task GivenANewExportRequest_WhenCreatingExportJob_ThenGetsJobCreated()
-        {
-            var requestUri = new Uri("https://localhost/$export");
-            CreateExportResponse result = await Mediator.ExportAsync(requestUri, "destinationType", "connectionString");
-
-            Assert.NotEmpty(result.JobId);
-        }
-
-        [Fact]
-        public async Task GivenExportJobThatExists_WhenGettingExportStatus_ThenGetsHttpStatuscodeAccepted()
-        {
-            Uri requestUri = new Uri("https://localhost/$export");
-            var result = await Mediator.ExportAsync(requestUri, "destinationType", "connectionString");
-
-            Assert.NotEmpty(result.JobId);
-
-            requestUri = new Uri("https://localhost/_operation/export/" + result.JobId);
-            var exportStatus = await Mediator.GetExportStatusAsync(requestUri, result.JobId);
-
-            Assert.Equal(HttpStatusCode.Accepted, exportStatus.StatusCode);
-        }
-
-        [Fact]
-        public async Task GivenExportJobThatDoesNotExist_WhenGettingExportStatus_ThenJobNotFoundExceptionIsThrown()
-        {
-            string id = "exportJobId-1234567";
-            Uri requestUri = new Uri("https://localhost/_operation/export/" + id);
-
-            await Assert.ThrowsAsync<JobNotFoundException>(async () => await Mediator.GetExportStatusAsync(requestUri, id));
         }
 
         private async Task ExecuteAndVerifyException<TException>(Func<Task> action)
