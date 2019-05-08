@@ -206,12 +206,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        Task<ExportJobOutcome> IFhirDataStore.CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken) => throw new System.NotImplementedException();
-
-        Task<ExportJobOutcome> IFhirDataStore.GetExportJobAsync(string jobId, CancellationToken cancellationToken) => throw new System.NotImplementedException();
-
-        Task<ExportJobOutcome> IFhirDataStore.ReplaceExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken) => throw new System.NotImplementedException();
-
         public void Build(ListedCapabilityStatement statement)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));

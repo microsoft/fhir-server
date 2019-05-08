@@ -11,31 +11,25 @@ function acquireExportJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHear
     const collectionLink = collection.getSelfLink();
     const response = getContext().getResponse();
 
-    const errors = {
-        invalidMaximumNumberOfConcurrentJobsAllowedInString: new Error(ErrorCodes.BadRequest, `The specified maximumNumberOfConcurrentJobsAllowedInString with value '${maximumNumberOfConcurrentJobsAllowedInString}' is invalid.`),
-        invalidJobHeartbeatTimeoutThresholdInSecondsInString: new Error(ErrorCodes.BadRequest, `The specified jobHeartbeatTimeoutThresholdInSecondsInString with value '${jobHeartbeatTimeoutThresholdInSecondsInString}' is invalid.`),
-        tooManyRequests: new Error(429, `The request could not be completed.`)
-    };
-
     // Validate input
     if (!maximumNumberOfConcurrentJobsAllowedInString) {
-        throw errors.invalidMaximumNumberOfConcurrentJobsAllowedInString;
+        throwArgumentValidationError(`The required parameter 'maximumNumberOfConcurrentJobsAllowedInString' is not specified.`);
     }
 
     let maximumNumberOfConcurrentJobsAllowed = parseInt(maximumNumberOfConcurrentJobsAllowedInString);
 
     if (maximumNumberOfConcurrentJobsAllowed <= 0) {
-        throw errors.invalidMaximumNumberOfConcurrentJobsAllowedInString;
+        throwArgumentValidationError(`The specified maximumNumberOfConcurrentJobsAllowedInString with value '${maximumNumberOfConcurrentJobsAllowedInString}' is invalid.`);
     }
 
     if (!jobHeartbeatTimeoutThresholdInSecondsInString) {
-        throw errors.invalidJobHeartbeatTimeoutThresholdInSecondsInString;
+        throwArgumentValidationError(`The required parameter 'jobHeartbeatTimeoutThresholdInSecondsInString' is not specified.`);
     }
 
     let jobHeartbeatTimeoutThresholdInSeconds = parseInt(jobHeartbeatTimeoutThresholdInSecondsInString);
 
     if (jobHeartbeatTimeoutThresholdInSeconds <= 0) {
-        throw errors.invalidJobHeartbeatTimeoutThresholdInSecondsInString;
+        throwArgumentValidationError(`The specified jobHeartbeatTimeoutThresholdInSecondsInString with value '${jobHeartbeatTimeoutThresholdInSecondsInString}' is invalid.`);
     }
 
     // Calculate the expiration time in seconds where the job is considered to be stale.
@@ -66,7 +60,7 @@ function acquireExportJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHear
 
         if (!isQueryAccepted) {
             // We ran out of time.
-            throw errors.tooManyRequests;
+            throwTooManyRequestsError();
         }
     }
 
@@ -108,7 +102,7 @@ function acquireExportJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHear
 
         if (!isQueryAccepted) {
             // We ran out of time.
-            throw errors.tooManyRequests;
+            throwTooManyRequestsError();
         }
     }
 
@@ -141,8 +135,16 @@ function acquireExportJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHear
 
             if (!isQueryAccepted) {
                 // We ran out of time.
-                throw errors.tooManyRequests;
+                throwTooManyRequestsError();
             }
        }
+    }
+
+    function throwArgumentValidationError(message) {
+        throw new Error(ErrorCodes.BadRequest, message);
+    }
+
+    function throwTooManyRequestsError() {
+        throw new Error(ErrorCodes.RequestEntityTooLarge, `The request could not be completed.`);
     }
 }

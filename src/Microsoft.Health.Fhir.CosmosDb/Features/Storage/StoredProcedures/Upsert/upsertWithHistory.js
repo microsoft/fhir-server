@@ -21,11 +21,11 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
 
     // Validate input
     if (!doc) {
-        throw createArgumentValidationError("The document is undefined or null.");
+        throwArgumentValidationError("The document is undefined or null.");
     }
 
     if (doc instanceof Array) {
-        throw createArgumentValidationError("Input should not be an array.");
+        throwArgumentValidationError("Input should not be an array.");
     }
 
     if (!stringIsNullOrEmpty(matchVersionId) || !allowCreate || doc.isDeleted) {
@@ -41,7 +41,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
         let isAccepted = collection.createDocument(collectionLink, doc, { disableAutomaticIdGeneration: true }, callback);
 
         if (!isAccepted) {
-            throw createRequestNotQueuedError();
+            throwRequestNotQueuedError();
         }
     }
 
@@ -90,7 +90,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                 // If a match version was passed in, check it matches the primary record
                 if (!stringIsNullOrEmpty(matchVersionId) && !stringIsNullOrEmpty(documentVersion)) {
                     if (documentVersion !== matchVersionId) {
-                        throw createPreconditionFailedError();
+                        throwPreconditionFailedError();
                     }
                 }
 
@@ -131,25 +131,25 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                             let isAccepted = collection.replaceDocument(selfLink, doc, { disableAutomaticIdGeneration: true, etag: document._etag }, callback);
 
                             if (!isAccepted) {
-                                throw createRequestNotQueuedError();
+                                throwRequestNotQueuedError();
                             }
                         });
 
                     if (!isHistoryAccepted) {
-                        throw createRequestNotQueuedError();
+                        throwRequestNotQueuedError();
                     }
                 } else {
                     // Since this is a no-version document save we just replace the old document with the new values
                     let isAccepted = collection.replaceDocument(selfLink, doc, { disableAutomaticIdGeneration: true, etag: document._etag }, callback);
 
                     if (!isAccepted) {
-                        throw createRequestNotQueuedError();
+                        throwRequestNotQueuedError();
                     }
                 }
             });
 
         if (!isQueryAccepted) {
-            throw createRequestNotQueuedError();
+            throwRequestNotQueuedError();
         }
     }
 
@@ -197,15 +197,15 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
         setOutput(false, createdDoc);
     }
 
-    function createRequestNotQueuedError() {
-        return new Error(503, "Request could not be queued.");
+    function throwRequestNotQueuedError() {
+        throw new Error(503, "Request could not be queued.");
     }
 
-    function createPreconditionFailedError() {
-        return new Error(ErrorCodes.PreconditionFailed, "One of the specified pre-conditions is not met.");
+    function throwPreconditionFailedError() {
+        throw new Error(ErrorCodes.PreconditionFailed, "One of the specified pre-conditions is not met.");
     }
 
-    function createArgumentValidationError(message) {
-        return new Error(ErrorCodes.BadRequest, message);
+    function throwArgumentValidationError(message) {
+        throw new Error(ErrorCodes.BadRequest, message);
     }
 }

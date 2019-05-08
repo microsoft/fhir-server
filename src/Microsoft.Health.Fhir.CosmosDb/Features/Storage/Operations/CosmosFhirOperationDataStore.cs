@@ -208,15 +208,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (DocumentClientException dce)
             {
-                string subStatusInString = dce.ResponseHeaders.Get(CosmosDbHeaders.SubStatus);
-
-                if (!string.IsNullOrEmpty(subStatusInString) &&
-                    int.TryParse(subStatusInString, NumberStyles.Integer, CultureInfo.InvariantCulture, out int subStatus))
+                if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
                 {
-                    if (subStatus == (int)HttpStatusCode.TooManyRequests)
-                    {
-                        throw new RequestRateExceededException(null);
-                    }
+                    throw new RequestRateExceededException(null);
                 }
 
                 _logger.LogError(dce, "Unhandled Document Client Exception");

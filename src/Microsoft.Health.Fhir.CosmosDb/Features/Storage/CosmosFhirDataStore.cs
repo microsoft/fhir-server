@@ -208,7 +208,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
                 {
-                    // TODO: Eventually, we might want to have our own RequestTooLargeException?
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
 

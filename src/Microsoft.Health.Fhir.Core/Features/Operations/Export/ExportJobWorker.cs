@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
                             cancellationToken);
 
-                        runningTasks.AddRange(jobs.Select(job => Task.Run(() => _exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken))));
+                        runningTasks.AddRange(jobs.Select(job => _exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken)));
                     }
 
                     await Task.Delay(_exportJobConfiguration.JobPollingFrequency, cancellationToken);
