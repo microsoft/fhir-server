@@ -81,6 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken)
         {
             var queryParameters = new List<Tuple<string, string>>();
+            DateTimeOffset? addedBefore = null;
 
             if (at != null)
             {
@@ -118,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     defaultFraction: 0.0000000m,
                     defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
 
-                if (beforeOffset > DateTimeOffset.Now)
+                if (beforeOffset.CompareTo(Clock.UtcNow) > 0)
                 {
                     // you cannot specify a value for _before in the future
                     throw new InvalidSearchOperationException(
@@ -152,12 +153,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
 
                     // when since is specified without _before, we will assume a value for before that is
-                    // DateTime.Now - <buffer>  the buffer value allows us to have confidence that ongoing
+                    // Now - <buffer>  the buffer value allows us to have confidence that ongoing
                     // edits are captured should the _before value be used in a future _history query
 
                     if (before == null)
                     {
-                        before = new PartialDateTime(DateTimeOffset.Now.AddSeconds(historyCurrentTimeBuffer));
+                        addedBefore = Clock.UtcNow.AddSeconds(historyCurrentTimeBuffer);
+                        before = new PartialDateTime(addedBefore.Value);
                     }
                 }
 
@@ -194,7 +196,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             return _bundleFactory.CreateHistoryBundle(
                 unsupportedSearchParams: null,
-                result: searchResult);
+                result: searchResult,
+                addedBefore);
         }
 
         /// <summary>

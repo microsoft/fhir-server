@@ -13,6 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         Bundle CreateSearchBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result);
 
-        Bundle CreateHistoryBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result);
+        Bundle CreateHistoryBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParams, SearchResult result, DateTimeOffset? addedBefore);
     }
 }
