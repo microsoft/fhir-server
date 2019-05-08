@@ -12,22 +12,27 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
-namespace Microsoft.Health.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public class DocumentClientInitializer : IDocumentClientInitializer
+    public class FhirDocumentClientInitializer : IDocumentClientInitializer
     {
         private readonly IDocumentClientTestProvider _testProvider;
-        private readonly ILogger<DocumentClientInitializer> _logger;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly ILogger<FhirDocumentClientInitializer> _logger;
 
-        public DocumentClientInitializer(IDocumentClientTestProvider testProvider, ILogger<DocumentClientInitializer> logger)
+        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ILogger<FhirDocumentClientInitializer> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
 
             _testProvider = testProvider;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _logger = logger;
         }
 
@@ -78,7 +83,10 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             // if the values don't always have complete 7 digits, the comparison might not work properly.
             serializerSettings.Converters.Add(new IsoDateTimeConverter { DateTimeFormat = "o" });
 
-            return new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel);
+            return new FhirDocumentClient(
+                new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
+                _fhirRequestContextAccessor,
+                configuration.ContinuationTokenSizeLimitInKb);
         }
 
         /// <inheritdoc />

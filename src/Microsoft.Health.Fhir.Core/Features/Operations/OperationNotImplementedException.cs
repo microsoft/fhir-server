@@ -5,12 +5,13 @@
 
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Exceptions;
 
-namespace Microsoft.Health.Fhir.Core.Exceptions.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public class JobNotFoundException : FhirException
+    public class OperationNotImplementedException : FhirException
     {
-        public JobNotFoundException(string message)
+        public OperationNotImplementedException(string message)
             : base(message)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions.Operations
             Issues.Add(new OperationOutcome.IssueComponent
             {
                 Severity = OperationOutcome.IssueSeverity.Error,
-                Code = OperationOutcome.IssueType.NotFound,
+                Code = OperationOutcome.IssueType.NotSupported,
                 Diagnostics = message,
             });
         }

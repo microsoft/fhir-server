@@ -25,8 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             SchemaVersion = 1;
             Status = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
-            QueuedTime = DateTimeOffset.Now;
-            LastModifiedTime = DateTimeOffset.Now;
+            QueuedTime = DateTimeOffset.UtcNow;
         }
 
         [JsonConstructor]
@@ -57,9 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Status)]
         public OperationStatus Status { get; set; }
-
-        [JsonProperty(JobRecordProperties.LastModified)]
-        public DateTimeOffset LastModifiedTime { get; set; }
 
         [JsonProperty(JobRecordProperties.StartTime)]
         public DateTimeOffset? StartTime { get; set; }

@@ -14,11 +14,11 @@ function hardDelete(resourceTypeName, resourceId) {
 
     // Validate input
     if (!resourceTypeName) {
-        throw new Error(ErrorCodes.BadRequest, "The resourceTypeName is undefined or null");
+        throwArgumentValidationError("The resourceTypeName is undefined or null");
     }
 
     if (!resourceId) {
-        throw new Error(ErrorCodes.BadRequest, "The resourceId is undefined or null");
+        throwArgumentValidationError("The resourceId is undefined or null");
     }
 
     let deletedResourceIdList = new Array();
@@ -33,7 +33,7 @@ function hardDelete(resourceTypeName, resourceId) {
         };
 
         let isQueryAccepted = collection.queryDocuments(
-            collection.getSelfLink(),
+            collectionLink,
             query,
             {},
             function (err, documents, responseOptions) {
@@ -52,7 +52,7 @@ function hardDelete(resourceTypeName, resourceId) {
 
         if (!isQueryAccepted) {
             // We ran out of time.
-            throw new Error(ErrorCodes.RequestEntityTooLarge, "The request could not be completed");
+            throwTooManyRequestsError();
         }
     }
 
@@ -76,11 +76,19 @@ function hardDelete(resourceTypeName, resourceId) {
 
             if (!isAccepted) {
                 // We ran out of time.
-                throw new Error(ErrorCodes.RequestEntityTooLarge, "The request could not be completed");
+                throwTooManyRequestsError();
             }
         } else {
             // If the documents are empty, query for more documents.
             tryQueryAndHardDelete();
         }
+    }
+
+    function throwArgumentValidationError(message) {
+        throw new Error(ErrorCodes.BadRequest, message);
+    }
+
+    function throwTooManyRequestsError() {
+        throw new Error(ErrorCodes.RequestEntityTooLarge, `The request could not be completed.`);
     }
 }

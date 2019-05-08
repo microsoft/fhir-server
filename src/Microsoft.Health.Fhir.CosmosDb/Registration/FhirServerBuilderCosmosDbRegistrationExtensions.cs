@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
@@ -99,6 +100,15 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<FhirCosmosDocumentQueryFactory>()
                 .Singleton()
                 .AsSelf();
+
+            services.Add<CosmosFhirOperationDataStore>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<FhirDocumentClientInitializer>()
+                .Singleton()
+                .AsService<IDocumentClientInitializer>();
 
             return fhirServerBuilder;
         }

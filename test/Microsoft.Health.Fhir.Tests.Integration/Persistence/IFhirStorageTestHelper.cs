@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Export
+using System.Threading.Tasks;
+
+namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public static class CosmosDbExportConstants
+    public interface IFhirStorageTestHelper
     {
-        public const string ExportJobPartitionKey = "ExportJob";
+        Task DeleteAllExportJobRecordsAsync();
     }
 }
