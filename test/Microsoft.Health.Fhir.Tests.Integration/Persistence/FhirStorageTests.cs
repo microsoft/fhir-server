@@ -34,7 +34,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    [FhirStorageTestsFixtureArgumentSets(DataStore.Sql)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
     public class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
