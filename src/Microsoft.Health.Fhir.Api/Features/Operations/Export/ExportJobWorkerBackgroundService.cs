@@ -7,6 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations.Export
@@ -17,17 +19,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Export
     public class ExportJobWorkerBackgroundService : BackgroundService
     {
         private readonly ExportJobWorker _exportJobWorker;
+        private readonly ExportJobConfiguration _exportJobConfiguration;
 
-        public ExportJobWorkerBackgroundService(ExportJobWorker exportJobWorker)
+        public ExportJobWorkerBackgroundService(ExportJobWorker exportJobWorker, IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(exportJobWorker, nameof(exportJobWorker));
+            EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
 
             _exportJobWorker = exportJobWorker;
+            _exportJobConfiguration = exportJobConfiguration.Value;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await _exportJobWorker.ExecuteAsync(stoppingToken);
+            if (_exportJobConfiguration.Enabled)
+            {
+                await _exportJobWorker.ExecuteAsync(stoppingToken);
+            }
         }
     }
 }
