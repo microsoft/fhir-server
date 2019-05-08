@@ -7,14 +7,10 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    /// <summary>
-    /// Provides methods for verifying hard deletion.
-    /// Call <see cref="GetSnapshotToken"/> at the start of a test,
-    /// add and update resources, hard delete them, and then verify that the
-    /// all the new resources were fully deleted at the end by calling <see cref="ValidateSnapshotTokenIsCurrent"/>.
-    /// </summary>
-    public interface IFhirDataStoreStateVerifier
+    public interface IFhirStorageTestHelper
     {
+        Task DeleteAllExportJobRecordsAsync();
+
         /// <summary>
         /// Gets a token representing the state of the database.
         /// </summary>

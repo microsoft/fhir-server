@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
@@ -65,7 +66,7 @@ namespace Microsoft.Extensions.DependencyInjection
             // container, which will automatically dispose it if exposed as a scoped
             // service or as transient but consumed from another scoped service.
 
-            services.Add(sp => sp.GetService<DocumentClientProvider>().CreateDocumentClientScope())
+            services.Add<IScoped<IDocumentClient>>(sp => sp.GetService<DocumentClientProvider>().CreateDocumentClientScope())
                 .Transient()
                 .AsSelf()
                 .AsFactory();
@@ -73,10 +74,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosDocumentQueryFactory>()
                 .Singleton()
                 .AsService<ICosmosDocumentQueryFactory>();
-
-            services.Add<DocumentClientInitializer>()
-                .Singleton()
-                .AsService<IDocumentClientInitializer>();
 
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()

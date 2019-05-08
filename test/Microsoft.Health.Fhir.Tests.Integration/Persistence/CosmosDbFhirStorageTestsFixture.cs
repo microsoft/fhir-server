@@ -6,18 +6,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
-using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
@@ -25,11 +27,17 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class CosmosDbFhirStorageTestsFixture : IScoped<IFhirDataStore>, IFhirDataStoreStateVerifier
+    public class CosmosDbFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
-        private readonly IDocumentClient _documentClient;
+        private static readonly SemaphoreSlim CollectionInitializationSemaphore = new SemaphoreSlim(1, 1);
+
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
+
+        private IDocumentClient _documentClient;
+        private IFhirDataStore _fhirDataStore;
+        private IFhirOperationDataStore _fhirOperationDataStore;
+        private IFhirStorageTestHelper _fhirStorageTestHelper;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -46,7 +54,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 CollectionId = Guid.NewGuid().ToString(),
             };
+        }
 
+        public async Task InitializeAsync()
+        {
             var fhirStoredProcs = typeof(IFhirStoredProcedure).Assembly
                 .GetTypes()
                 .Where(x => !x.IsAbstract && typeof(IFhirStoredProcedure).IsAssignableFrom(x))
@@ -68,54 +79,80 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upgradeManager = new FhirCollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<FhirCollectionUpgradeManager>.Instance);
             IDocumentClientTestProvider testProvider = new DocumentClientReadWriteTestProvider();
 
-            var documentClientInitializer = new DocumentClientInitializer(testProvider, NullLogger<DocumentClientInitializer>.Instance);
-            _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
-            var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
-            documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }).GetAwaiter().GetResult();
-
-            var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
             var fhirRequestContextAccessor = new FhirRequestContextAccessor();
 
-            Value = new CosmosFhirDataStore(
-                new NonDisposingScope(_documentClient),
+            var documentClientInitializer = new FhirDocumentClientInitializer(testProvider, fhirRequestContextAccessor, NullLogger<FhirDocumentClientInitializer>.Instance);
+            _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
+            var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
+
+            // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
+            // Use the semaphore to only allow one initialization at a time.
+            await CollectionInitializationSemaphore.WaitAsync();
+
+            try
+            {
+                await documentClientInitializer.InitializeDataStore(_documentClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer });
+            }
+            finally
+            {
+                CollectionInitializationSemaphore.Release();
+            }
+
+            var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
+
+            var documentClient = new NonDisposingScope(_documentClient);
+
+            _fhirDataStore = new CosmosFhirDataStore(
+                documentClient,
                 _cosmosDataStoreConfiguration,
+                optionsMonitor,
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
-                fhirRequestContextAccessor,
-                optionsMonitor,
                 NullLogger<CosmosFhirDataStore>.Instance);
+
+            _fhirOperationDataStore = new CosmosFhirOperationDataStore(
+                () => documentClient,
+                _cosmosDataStoreConfiguration,
+                optionsMonitor,
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
+                NullLogger<CosmosFhirOperationDataStore>.Instance);
+
+            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(
+                _documentClient,
+                UriFactory.CreateDocumentCollectionUri(_cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId));
         }
 
-        public IFhirDataStore Value { get; }
-
-        public void Dispose()
+        public async Task DisposeAsync()
         {
-            _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId)).GetAwaiter().GetResult();
-            _documentClient?.Dispose();
-        }
-
-        public async Task<object> GetSnapshotToken()
-        {
-            var collectionUri = _cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId);
-            var documentQuery = _documentClient.CreateDocumentQuery(
-                collectionUri,
-                "SELECT top 1 c._ts as Item1 FROM c ORDER BY c._ts DESC",
-                new FeedOptions { EnableCrossPartitionQuery = true }).AsDocumentQuery();
-
-            while (documentQuery.HasMoreResults)
+            using (_documentClient as IDisposable)
             {
-                foreach (Tuple<int> ts in await documentQuery.ExecuteNextAsync<Tuple<int>>())
-                {
-                    return ts.Item1;
-                }
+                await _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId));
+            }
+        }
+
+        object IServiceProvider.GetService(Type serviceType)
+        {
+            if (serviceType == typeof(IFhirDataStore))
+            {
+                return _fhirDataStore;
+            }
+
+            if (serviceType == typeof(IFhirOperationDataStore))
+            {
+                return _fhirOperationDataStore;
+            }
+
+            if (serviceType == typeof(IFhirStorageTestHelper))
+            {
+                return _fhirStorageTestHelper;
+            }
+
+            if (serviceType.IsInstanceOfType(this))
+            {
+                return this;
             }
 
             return null;
-        }
-
-        public async Task ValidateSnapshotTokenIsCurrent(object snapshotToken)
-        {
-            Assert.True((int)await GetSnapshotToken() <= (int)snapshotToken);
         }
     }
 }

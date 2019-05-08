@@ -4,38 +4,44 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Extensions.DependencyInjection;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class FhirStorageTestsFixture : IDisposable
+    public class FhirStorageTestsFixture : IAsyncLifetime, IDisposable
     {
-        private readonly IScoped<IFhirDataStore> _scopedStore;
+        private readonly IServiceProvider _fixture;
 
         public FhirStorageTestsFixture(DataStore dataStore)
         {
             switch (dataStore)
             {
                 case Common.FixtureParameters.DataStore.CosmosDb:
-                    _scopedStore = new CosmosDbFhirStorageTestsFixture();
+                    _fixture = new CosmosDbFhirStorageTestsFixture();
                     break;
                 case Common.FixtureParameters.DataStore.Sql:
-                    _scopedStore = new SqlServerFhirStorageTestsFixture();
+                    _fixture = new SqlServerFhirStorageTestsFixture();
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null);
             }
         }
 
-        public IFhirDataStore DataStore => _scopedStore.Value;
+        public IFhirDataStore DataStore => _fixture.GetRequiredService<IFhirDataStore>();
 
-        public IFhirDataStoreStateVerifier StateVerifier => _scopedStore as IFhirDataStoreStateVerifier;
+        public IFhirOperationDataStore OperationDataStore => _fixture.GetRequiredService<IFhirOperationDataStore>();
 
-        public void Dispose()
-        {
-            _scopedStore?.Dispose();
-        }
+        public IFhirStorageTestHelper TestHelper => _fixture.GetRequiredService<IFhirStorageTestHelper>();
+
+        void IDisposable.Dispose() => (_fixture as IDisposable)?.Dispose();
+
+        Task IAsyncLifetime.InitializeAsync() => (_fixture as IAsyncLifetime)?.InitializeAsync();
+
+        Task IAsyncLifetime.DisposeAsync() => (_fixture as IAsyncLifetime)?.DisposeAsync();
     }
 }

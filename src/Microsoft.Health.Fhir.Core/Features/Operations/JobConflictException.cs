@@ -3,12 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Legacy
-{
-    public static class LegacySearchValueConstants
-    {
-        public const string CompositeSystemName = "cs";
+using Microsoft.Health.Fhir.Core.Exceptions;
 
-        public const string CompositeCodeName = "cc";
+namespace Microsoft.Health.Fhir.Core.Features.Operations
+{
+    public class JobConflictException : FhirException
+    {
+        public JobConflictException()
+            : base()
+        {
+        }
     }
 }
