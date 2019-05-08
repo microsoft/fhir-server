@@ -17,7 +17,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         public Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            IReadOnlyCollection<ExportJobOutcome> returnValue = new List<ExportJobOutcome>();
+            return Task.FromResult(returnValue);
         }
 
         public Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)

@@ -58,6 +58,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            serviceCollection.Add<SqlServerFhirOperationDataStore>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             serviceCollection.Add<SqlServerSearchService>()
                 .Singleton()
                 .AsSelf()

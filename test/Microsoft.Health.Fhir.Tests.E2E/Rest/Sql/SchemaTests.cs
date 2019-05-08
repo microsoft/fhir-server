@@ -15,7 +15,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.Sql, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class SchemaTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly HttpClient _client;

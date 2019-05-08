@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 case DataStore.CosmosDb:
                     environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
                     break;
-                case DataStore.Sql:
+                case DataStore.SqlServer:
                     environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl_Sql");
                     break;
             }
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var exportPath = Path.GetFullPath("exporttestconfiguration.json");
             var dataStoreConfiguration = new Dictionary<string, string> { { "DataStore", dataStore.ToString() } };
 
-            if (dataStore == DataStore.Sql)
+            if (dataStore == DataStore.SqlServer)
             {
                 dataStoreConfiguration.Add("SqlServer:Initialize", "true");
             }

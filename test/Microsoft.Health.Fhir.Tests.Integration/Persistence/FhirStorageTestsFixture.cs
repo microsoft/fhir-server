@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                     _fixture = fixture;
                     break;
-                case Common.FixtureParameters.DataStore.Sql:
+                case Common.FixtureParameters.DataStore.SqlServer:
                     _scopedStore = new SqlServerFhirStorageTestsFixture();
                     break;
                 default:
