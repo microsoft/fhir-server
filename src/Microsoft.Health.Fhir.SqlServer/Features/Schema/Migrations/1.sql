@@ -159,17 +159,6 @@ CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
     Value
 )
 
-CREATE TABLE dbo.ClaimType
-(
-    ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
-    Name varchar(128) NOT NULL
-)
-
-CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
-(
-    Name
-)
-
 /*************************************************************
     Resource table
 **************************************************************/
@@ -205,8 +194,19 @@ INCLUDE (Version)
 WHERE IsHistory = 0
 
 /*************************************************************
-    Last modified claims
+    Capture claims on write
 **************************************************************/
+
+CREATE TABLE dbo.ClaimType
+(
+    ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
+    Name varchar(128) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
+(
+    Name
+)
 
 CREATE TYPE dbo.ResourceWriteClaimTableType AS TABLE  
 (
@@ -229,6 +229,10 @@ CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
 
 
 GO
+
+/*************************************************************
+    Sequence for generating surrogate IDs for resources
+**************************************************************/
 
 CREATE SEQUENCE dbo.ResourceSurrogateIdSequence
         AS BIGINT

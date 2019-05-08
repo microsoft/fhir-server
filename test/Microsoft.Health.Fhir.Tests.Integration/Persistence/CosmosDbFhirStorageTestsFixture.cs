@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task ValidateSnapshotTokenIsCurrent(object snapshotToken)
         {
-            Assert.Equal(snapshotToken, await GetSnapshotToken());
+            Assert.True((int)await GetSnapshotToken() <= (int)snapshotToken);
         }
     }
 }
