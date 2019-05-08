@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private IEnumerable<V1.ResourceWriteClaimTableTypeRow> GetResourceWriteClaims(ResourceWrapper resource)
         {
-            return resource.LastModifiedClaims.Select(c => new V1.ResourceWriteClaimTableTypeRow(_model.GetClaimTypeId(c.Key), c.Value));
+            return resource.LastModifiedClaims?.Select(c => new V1.ResourceWriteClaimTableTypeRow(_model.GetClaimTypeId(c.Key), c.Value));
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)

@@ -57,27 +57,5 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 
             base.Visit(node);
         }
-
-        private MemberDeclarationSyntax CreatePropertyForColumn(ColumnDefinition column)
-        {
-            string normalizedSqlDbType = Enum.Parse<SqlDbType>(column.DataType.Name.BaseIdentifier.Value, true).ToString();
-
-            IdentifierNameSyntax typeName = IdentifierName($"{(IsColumnNullable(column) ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
-
-            return FieldDeclaration(
-                    VariableDeclaration(typeName)
-                        .AddVariables(VariableDeclarator($"{column.ColumnIdentifier.Value}")
-                            .WithInitializer(
-                                EqualsValueClause(
-                                    ObjectCreationExpression(
-                                            typeName)
-                                        .AddArgumentListArguments(
-                                            Argument(
-                                                LiteralExpression(
-                                                    SyntaxKind.StringLiteralExpression,
-                                                    Literal(column.ColumnIdentifier.Value))))
-                                        .AddArgumentListArguments(GetDataTypeSpecificConstructorArguments(column.DataType).ToArray())))))
-                .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword));
-        }
     }
 }

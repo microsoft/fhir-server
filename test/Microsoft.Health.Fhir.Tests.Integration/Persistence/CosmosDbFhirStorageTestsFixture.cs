@@ -6,7 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
+using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
@@ -18,10 +21,11 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
+using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class CosmosDbFhirStorageTestsFixture : IScoped<IFhirDataStore>
+    public class CosmosDbFhirStorageTestsFixture : IScoped<IFhirDataStore>, IFhirDataStoreStateVerifier
     {
         private readonly IDocumentClient _documentClient;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
@@ -88,6 +92,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId)).GetAwaiter().GetResult();
             _documentClient?.Dispose();
+        }
+
+        public async Task<object> GetSnapshotToken()
+        {
+            var collectionUri = _cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId);
+            var documentQuery = _documentClient.CreateDocumentQuery(
+                collectionUri,
+                "SELECT top 1 c._ts as Item1 FROM c ORDER BY c._ts DESC",
+                new FeedOptions { EnableCrossPartitionQuery = true }).AsDocumentQuery();
+
+            while (documentQuery.HasMoreResults)
+            {
+                foreach (Tuple<int> ts in await documentQuery.ExecuteNextAsync<Tuple<int>>())
+                {
+                    return ts.Item1;
+                }
+            }
+
+            return null;
+        }
+
+        public async Task ValidateSnapshotTokenIsCurrent(object snapshotToken)
+        {
+            Assert.Equal(snapshotToken, await GetSnapshotToken());
         }
     }
 }

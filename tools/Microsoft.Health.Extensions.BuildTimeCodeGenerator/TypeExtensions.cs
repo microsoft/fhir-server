@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -60,6 +62,20 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                 : (SimpleNameSyntax)SyntaxFactory.IdentifierName(t.Name);
 
             return SyntaxFactory.QualifiedName((NameSyntax)qualification, name);
+        }
+
+        /// <summary>
+        /// Creates a closed generic type from the a generic type definition (like <see cref="IEnumerable{T}"/>) and type arguments (like <see cref="string"/>).
+        /// </summary>
+        /// <param name="genericTypeDefinition">The generic type definition</param>
+        /// <param name="typeArguments">Type arguments</param>
+        /// <returns>The generic type.</returns>
+        public static TypeSyntax CreateGenericTypeFromGenericTypeDefinition(TypeSyntax genericTypeDefinition, params TypeSyntax[] typeArguments)
+        {
+            GenericNameSyntax openType = genericTypeDefinition.DescendantNodes().OfType<GenericNameSyntax>().Single();
+            GenericNameSyntax closedType = openType.AddTypeArgumentListArguments(typeArguments);
+
+            return genericTypeDefinition.ReplaceNode(openType, closedType);
         }
     }
 }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
@@ -76,37 +77,43 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         private MemberDeclarationSyntax CreateFieldForParameter(ProcedureParameter parameter)
         {
             TypeSyntax typeName;
-            ArgumentSyntax[] arguments;
+            List<ArgumentSyntax> arguments = new List<ArgumentSyntax>
+            {
+                Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(parameter.VariableName.Value))),
+            };
             if (Enum.TryParse<SqlDbType>(parameter.DataType.Name.BaseIdentifier.Value, ignoreCase: true, out var sqlDbType))
             {
+                // new ParameterDefinition<int>("@paramName", SqlDbType.Int, nullable, maxlength,...)
                 typeName = GenericName("ParameterDefinition")
                     .AddTypeArgumentListArguments(SqlDbTypeToClrType(sqlDbType, nullable: parameter.Value != null).ToTypeSyntax(true));
 
-                arguments = new[]
-                {
+                arguments.Add(
                     Argument(
                         MemberAccessExpression(
                             SyntaxKind.SimpleMemberAccessExpression,
                             typeof(SqlDbType).ToTypeSyntax(true),
-                            IdentifierName(sqlDbType.ToString()))),
-                    Argument(LiteralExpression(parameter.Value == null ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)),
-                }.Concat(GetDataTypeSpecificConstructorArguments(parameter.DataType)).ToArray();
+                            IdentifierName(sqlDbType.ToString()))));
+                arguments.Add(
+                    Argument(
+                        LiteralExpression(parameter.Value == null ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)));
+
+                arguments.AddRange(GetDataTypeSpecificConstructorArguments(parameter.DataType));
             }
             else
             {
-                typeName = IdentifierName(GetTableValueParameterDefinitionDerivedClassName(parameter.DataType.Name));
-                arguments = new ArgumentSyntax[0];
+                // new MyTableValuedParameterDefinition("@paramName");
+                typeName = IdentifierName(GetClassNameForTableValuedParameterDefinition(parameter.DataType.Name));
             }
 
             return FieldDeclaration(
                     VariableDeclaration(typeName)
 
                         // call it "_myParam" when the parameter is named "@myParam"
-                        .AddVariables(VariableDeclarator($"_{parameter.VariableName.Value.Substring(1)}")
+                        .AddVariables(VariableDeclarator(FieldNameForParameter(parameter))
                             .WithInitializer(
                                 EqualsValueClause(
                                     ObjectCreationExpression(typeName)
-                                        .AddArgumentListArguments(arguments)))))
+                                        .AddArgumentListArguments(arguments.ToArray())))))
                 .AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.ReadOnlyKeyword));
         }
 
@@ -128,7 +135,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 
                 // Add a parameter for each stored procedure parameter
                 .AddParameterListParameters(node.Parameters.Select(selector: p =>
-                    Parameter(Identifier(p.VariableName.Value.Substring(1)))
+                    Parameter(Identifier(ParameterNameForParameter(p)))
                         .WithType(DataTypeReferenceToClrType(p.DataType, p.Value != null))).ToArray())
 
                 // start the body with:
@@ -156,20 +163,29 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(schemaQualifiedProcedureName)))))
 
                 // now for each parameter generate:
-                // _fieldForParameter.AddParameter(command, parameterValue, @"myParam")
+                // _fieldForParameter.AddParameter(command, parameterValue)
                 .AddBodyStatements(node.Parameters.Select(p => (StatementSyntax)ExpressionStatement(
                     InvocationExpression(
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName($"_{p.VariableName.Value.Substring(1)}"),
+                                IdentifierName(FieldNameForParameter(p)),
                                 IdentifierName("AddParameter")))
                         .AddArgumentListArguments(
                             Argument(MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
                                 IdentifierName("command"),
                                 IdentifierName("Parameters"))),
-                            Argument(IdentifierName(p.VariableName.Value.Substring(1))),
-                            Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(p.VariableName.Value)))))).ToArray());
+                            Argument(IdentifierName(ParameterNameForParameter(p)))))).ToArray());
+        }
+
+        private static string ParameterNameForParameter(ProcedureParameter parameter)
+        {
+            return parameter.VariableName.Value.Substring(1);
+        }
+
+        private static string FieldNameForParameter(ProcedureParameter parameter)
+        {
+            return $"_{parameter.VariableName.Value.Substring(1)}";
         }
     }
 }

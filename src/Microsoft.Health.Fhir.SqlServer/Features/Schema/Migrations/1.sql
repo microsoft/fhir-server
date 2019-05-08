@@ -412,8 +412,15 @@ AS
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
+    DECLARE @resourceSurrogateIds TABLE(ResourceSurrogateId bigint NOT NULL)
+
     DELETE FROM dbo.Resource
+    OUTPUT deleted.ResourceSurrogateId
+    INTO @resourceSurrogateIds
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId
+
+    DELETE FROM dbo.ResourceWriteClaim
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
 
     COMMIT TRANSACTION
 GO

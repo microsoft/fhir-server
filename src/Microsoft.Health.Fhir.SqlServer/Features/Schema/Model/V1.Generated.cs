@@ -29,14 +29,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>(global::System.Data.SqlDbType.SmallInt, false);
-            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>("@resourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>("@resourceId", global::System.Data.SqlDbType.VarChar, false, 64);
             public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.HardDeleteResource";
-                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId, "@resourceTypeId");
-                _resourceId.AddParameter(command.Parameters, resourceId, "@resourceId");
+                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId);
+                _resourceId.AddParameter(command.Parameters, resourceId);
             }
         }
 
@@ -46,16 +46,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>(global::System.Data.SqlDbType.SmallInt, false);
-            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 64);
-            private readonly ParameterDefinition<System.Nullable<System.Int32>> _version = new ParameterDefinition<System.Nullable<System.Int32>>(global::System.Data.SqlDbType.Int, true);
+            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>("@resourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>("@resourceId", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Nullable<System.Int32>> _version = new ParameterDefinition<System.Nullable<System.Int32>>("@version", global::System.Data.SqlDbType.Int, true);
             public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> version)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.ReadResource";
-                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId, "@resourceTypeId");
-                _resourceId.AddParameter(command.Parameters, resourceId, "@resourceId");
-                _version.AddParameter(command.Parameters, version, "@version");
+                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId);
+                _resourceId.AddParameter(command.Parameters, resourceId);
+                _version.AddParameter(command.Parameters, version);
             }
         }
 
@@ -78,30 +78,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>(global::System.Data.SqlDbType.SmallInt, false);
-            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 64);
-            private readonly ParameterDefinition<System.Nullable<System.Int32>> _eTag = new ParameterDefinition<System.Nullable<System.Int32>>(global::System.Data.SqlDbType.Int, true);
-            private readonly ParameterDefinition<System.Boolean> _allowCreate = new ParameterDefinition<System.Boolean>(global::System.Data.SqlDbType.Bit, false);
-            private readonly ParameterDefinition<System.Boolean> _isDeleted = new ParameterDefinition<System.Boolean>(global::System.Data.SqlDbType.Bit, false);
-            private readonly ParameterDefinition<System.DateTimeOffset> _updatedDateTime = new ParameterDefinition<System.DateTimeOffset>(global::System.Data.SqlDbType.DateTimeOffset, false, 7);
-            private readonly ParameterDefinition<System.Boolean> _keepHistory = new ParameterDefinition<System.Boolean>(global::System.Data.SqlDbType.Bit, false);
-            private readonly ParameterDefinition<System.String> _requestMethod = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 10);
-            private readonly ParameterDefinition<global::System.IO.Stream> _rawResource = new ParameterDefinition<global::System.IO.Stream>(global::System.Data.SqlDbType.VarBinary, false, -1);
-            private readonly ResourceWriteClaimTableTypeTableValuedParameterDefinition _resourceWriteClaims = new ResourceWriteClaimTableTypeTableValuedParameterDefinition();
+            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>("@resourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>("@resourceId", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Nullable<System.Int32>> _eTag = new ParameterDefinition<System.Nullable<System.Int32>>("@eTag", global::System.Data.SqlDbType.Int, true);
+            private readonly ParameterDefinition<System.Boolean> _allowCreate = new ParameterDefinition<System.Boolean>("@allowCreate", global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.Boolean> _isDeleted = new ParameterDefinition<System.Boolean>("@isDeleted", global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.DateTimeOffset> _updatedDateTime = new ParameterDefinition<System.DateTimeOffset>("@updatedDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            private readonly ParameterDefinition<System.Boolean> _keepHistory = new ParameterDefinition<System.Boolean>("@keepHistory", global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.String> _requestMethod = new ParameterDefinition<System.String>("@requestMethod", global::System.Data.SqlDbType.VarChar, false, 10);
+            private readonly ParameterDefinition<global::System.IO.Stream> _rawResource = new ParameterDefinition<global::System.IO.Stream>("@rawResource", global::System.Data.SqlDbType.VarBinary, false, -1);
+            private readonly ResourceWriteClaimTableTypeTableValuedParameterDefinition _resourceWriteClaims = new ResourceWriteClaimTableTypeTableValuedParameterDefinition("@resourceWriteClaims");
             public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpsertResource";
-                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId, "@resourceTypeId");
-                _resourceId.AddParameter(command.Parameters, resourceId, "@resourceId");
-                _eTag.AddParameter(command.Parameters, eTag, "@eTag");
-                _allowCreate.AddParameter(command.Parameters, allowCreate, "@allowCreate");
-                _isDeleted.AddParameter(command.Parameters, isDeleted, "@isDeleted");
-                _updatedDateTime.AddParameter(command.Parameters, updatedDateTime, "@updatedDateTime");
-                _keepHistory.AddParameter(command.Parameters, keepHistory, "@keepHistory");
-                _requestMethod.AddParameter(command.Parameters, requestMethod, "@requestMethod");
-                _rawResource.AddParameter(command.Parameters, rawResource, "@rawResource");
-                _resourceWriteClaims.AddParameter(command.Parameters, resourceWriteClaims, "@resourceWriteClaims");
+                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId);
+                _resourceId.AddParameter(command.Parameters, resourceId);
+                _eTag.AddParameter(command.Parameters, eTag);
+                _allowCreate.AddParameter(command.Parameters, allowCreate);
+                _isDeleted.AddParameter(command.Parameters, isDeleted);
+                _updatedDateTime.AddParameter(command.Parameters, updatedDateTime);
+                _keepHistory.AddParameter(command.Parameters, keepHistory);
+                _requestMethod.AddParameter(command.Parameters, requestMethod);
+                _rawResource.AddParameter(command.Parameters, rawResource);
+                _resourceWriteClaims.AddParameter(command.Parameters, resourceWriteClaims);
             }
         }
 
@@ -111,14 +111,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            private readonly ParameterDefinition<System.Int32> _version = new ParameterDefinition<System.Int32>(global::System.Data.SqlDbType.Int, false);
-            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>(global::System.Data.SqlDbType.VarChar, false, 10);
+            private readonly ParameterDefinition<System.Int32> _version = new ParameterDefinition<System.Int32>("@version", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
             public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int32 version, System.String status)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpsertSchemaVersion";
-                _version.AddParameter(command.Parameters, version, "@version");
-                _status.AddParameter(command.Parameters, status, "@status");
+                _version.AddParameter(command.Parameters, version);
+                _status.AddParameter(command.Parameters, status);
             }
         }
 
@@ -210,15 +210,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NVarCharColumn Value = new NVarCharColumn("Value", 256);
         }
 
-        internal class ResourceWriteClaimTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<ResourceWriteClaimTableTypeRow>
+        private class ResourceWriteClaimTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<ResourceWriteClaimTableTypeRow>
         {
-            internal ResourceWriteClaimTableTypeTableValuedParameterDefinition(): base("dbo.ResourceWriteClaimTableType")
+            internal ResourceWriteClaimTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.ResourceWriteClaimTableType")
             {
             }
 
-            private readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
-            private readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
-            protected override Column[] Columns => new Column[]{ClaimId, ClaimValue};
+            internal readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
+            internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{ClaimId, ClaimValue};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ResourceWriteClaimTableTypeRow rowData)
             {
                 ClaimId.Set(record, 0, rowData.ClaimId);

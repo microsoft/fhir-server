@@ -5,15 +5,24 @@
 
 using System.Collections;
 using System.Collections.Generic;
-using EnsureThat;
 
 namespace Microsoft.Health.Fhir.SqlServer
 {
     internal static class EnumerableExtensions
     {
+        /// <summary>
+        /// If the given sequence is null or empty, returns null. Otherwise returns
+        /// an equivalent sequence.
+        /// </summary>
+        /// <typeparam name="T">The element type</typeparam>
+        /// <param name="enumerable">The input sequence</param>
+        /// <returns>An equivalent sequence, or null if given one is empty or null.</returns>
         internal static IEnumerable<T> NullIfEmpty<T>(this IEnumerable<T> enumerable)
         {
-            EnsureArg.IsNotNull(enumerable, nameof(enumerable));
+            if (enumerable == null)
+            {
+                return null;
+            }
 
             IEnumerator<T> enumerator = enumerable.GetEnumerator();
             if (!enumerator.MoveNext())

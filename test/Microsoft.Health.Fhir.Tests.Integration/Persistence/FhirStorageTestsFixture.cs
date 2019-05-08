@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IFhirDataStore DataStore => _scopedStore.Value;
 
+        public IFhirDataStoreStateVerifier StateVerifier => _scopedStore as IFhirDataStoreStateVerifier;
+
         public void Dispose()
         {
             _scopedStore?.Dispose();

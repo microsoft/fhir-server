@@ -15,26 +15,42 @@ using Microsoft.SqlServer.TransactSql.ScriptDom;
 
 namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 {
+    /// <summary>
+    /// The base class for SQL visitors
+    /// </summary>
     public abstract class SqlVisitor : TSqlFragmentVisitor
     {
+        /// <summary>
+        /// These members will be added to the generated class.
+        /// </summary>
         public List<MemberDeclarationSyntax> MembersToAdd { get; } = new List<MemberDeclarationSyntax>();
 
-        protected static TypeSyntax DataTypeReferenceToClrType(DataTypeReference reference, bool nullable)
+        /// <summary>
+        /// Converts a <see cref="DataTypeReference"/> to a <see cref="TypeSyntax"/>
+        /// </summary>
+        /// <param name="dataType">The type</param>
+        /// <param name="nullable">Whether the type is nullable</param>
+        /// <returns>The <see cref="TypeSyntax"/></returns>
+        protected static TypeSyntax DataTypeReferenceToClrType(DataTypeReference dataType, bool nullable)
         {
-            if (Enum.TryParse<SqlDbType>(reference.Name.BaseIdentifier.Value, ignoreCase: true, out var sqlDbType))
+            if (Enum.TryParse<SqlDbType>(dataType.Name.BaseIdentifier.Value, ignoreCase: true, out var sqlDbType))
             {
                 return SqlDbTypeToClrType(sqlDbType, nullable).ToTypeSyntax(useGlobalAlias: true);
             }
 
             // assumed to be a table type
 
-            TypeSyntax enumerableType = typeof(IEnumerable<>).ToTypeSyntax(true);
-            GenericNameSyntax openGeneric = enumerableType.DescendantNodes().OfType<GenericNameSyntax>().Single();
-            GenericNameSyntax closedGeneric = openGeneric.AddTypeArgumentListArguments(SyntaxFactory.IdentifierName($"{reference.Name.BaseIdentifier.Value}Row"));
-
-            return enumerableType.ReplaceNode(openGeneric, closedGeneric);
+            return TypeExtensions.CreateGenericTypeFromGenericTypeDefinition(
+                typeof(IEnumerable<>).ToTypeSyntax(true),
+                SyntaxFactory.IdentifierName(GetRowStructNameForTableType(dataType.Name)));
         }
 
+        /// <summary>
+        /// Converts a <see cref="SqlDbType"/> to a <see cref="Type"/>.
+        /// </summary>
+        /// <param name="sqlDbType">The type</param>
+        /// <param name="nullable">Whether the type is nullable</param>
+        /// <returns>The <see cref="Type"/></returns>
         protected static Type SqlDbTypeToClrType(SqlDbType sqlDbType, bool nullable)
         {
             Type type = SqlDbTypeToClrType(sqlDbType);
@@ -46,6 +62,11 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
             return type;
         }
 
+        /// <summary>
+        /// Converts a <see cref="SqlDbType"/> to a <see cref="Type"/>.
+        /// </summary>
+        /// <param name="sqlDbType">The type</param>
+        /// <returns>The <see cref="Type"/></returns>
         protected static Type SqlDbTypeToClrType(SqlDbType sqlDbType)
         {
             switch (sqlDbType)
@@ -109,11 +130,22 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
             throw new NotSupportedException(sqlDbType.ToString());
         }
 
+        /// <summary>
+        /// Determines whether the given <see cref="ColumnDefinition"/> is nullable
+        /// </summary>
+        /// <param name="column">The column</param>
+        /// <returns>Whether the column is nullable</returns>
         protected static bool IsColumnNullable(ColumnDefinition column)
         {
             return column.Constraints.Any(c => c is NullableConstraintDefinition nc && nc.Nullable);
         }
 
+        /// <summary>
+        /// Creates an internal static readonly field for an instance of a class that has a parameterless constructor
+        /// </summary>
+        /// <param name="className">The class name</param>
+        /// <param name="fieldName">The field name</param>
+        /// <returns>The field.</returns>
         protected static FieldDeclarationSyntax CreateStaticFieldForClass(string className, string fieldName)
         {
             return SyntaxFactory.FieldDeclaration(
@@ -126,6 +158,11 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                 .AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword), SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword));
         }
 
+        /// <summary>
+        /// Gets the arguments for SQL database types, like the length, precision, and scale.
+        /// </summary>
+        /// <param name="dataType">The column data type</param>
+        /// <returns>The type arguments</returns>
         protected static IEnumerable<ArgumentSyntax> GetDataTypeSpecificConstructorArguments(DataTypeReference dataType)
         {
             if (dataType is ParameterizedDataTypeReference parameterizedDataType)
@@ -139,9 +176,46 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
             return Array.Empty<ArgumentSyntax>();
         }
 
-        protected static string GetTableValueParameterDefinitionDerivedClassName(SchemaObjectName objectName)
+        /// <summary>
+        /// Gets the name of the class that derives from TableValuedParameterDefiniition for a table type.
+        /// </summary>
+        /// <param name="objectName">The name of the table type</param>
+        /// <returns>The class name</returns>
+        protected static string GetClassNameForTableValuedParameterDefinition(SchemaObjectName objectName)
         {
             return $"{objectName.BaseIdentifier.Value}TableValuedParameterDefinition";
+        }
+
+        /// <summary>
+        /// Gets the name of the row struct for a table type.
+        /// </summary>
+        /// <param name="objectName">The name of the table type</param>
+        /// <returns>The struct name</returns>
+        protected static string GetRowStructNameForTableType(SchemaObjectName objectName)
+        {
+            return $"{objectName.BaseIdentifier.Value}Row";
+        }
+
+        protected MemberDeclarationSyntax CreatePropertyForColumn(ColumnDefinition column)
+        {
+            string normalizedSqlDbType = Enum.Parse<SqlDbType>(column.DataType.Name.BaseIdentifier.Value, true).ToString();
+
+            IdentifierNameSyntax typeName = SyntaxFactory.IdentifierName($"{(IsColumnNullable(column) ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
+
+            return SyntaxFactory.FieldDeclaration(
+                    SyntaxFactory.VariableDeclaration(typeName)
+                        .AddVariables(SyntaxFactory.VariableDeclarator($"{column.ColumnIdentifier.Value}")
+                            .WithInitializer(
+                                SyntaxFactory.EqualsValueClause(
+                                    SyntaxFactory.ObjectCreationExpression(
+                                            typeName)
+                                        .AddArgumentListArguments(
+                                            SyntaxFactory.Argument(
+                                                SyntaxFactory.LiteralExpression(
+                                                    SyntaxKind.StringLiteralExpression,
+                                                    SyntaxFactory.Literal(column.ColumnIdentifier.Value))))
+                                        .AddArgumentListArguments(GetDataTypeSpecificConstructorArguments(column.DataType).ToArray())))))
+                .AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword), SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
         }
     }
 }

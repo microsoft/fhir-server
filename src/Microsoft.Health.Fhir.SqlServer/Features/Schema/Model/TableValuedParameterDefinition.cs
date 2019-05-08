@@ -12,33 +12,43 @@ using Microsoft.SqlServer.Server;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 {
+    /// <summary>
+    /// Represents a table-valued parameter.
+    /// </summary>
+    /// <typeparam name="TRow">The struct type that hold CLR data for a row.</typeparam>
     public abstract class TableValuedParameterDefinition<TRow> : ParameterDefinition<IEnumerable<TRow>>
+        where TRow : struct
     {
         private readonly string _tableTypeName;
         private SqlMetaData[] _columnMetadata;
 
-        protected TableValuedParameterDefinition(string tableTypeName)
-            : base(SqlDbType.Structured, false)
+        protected TableValuedParameterDefinition(string parameterName, string tableTypeName)
+            : base(parameterName, SqlDbType.Structured, false)
         {
             EnsureArg.IsNotNullOrWhiteSpace(tableTypeName, nameof(tableTypeName));
             _tableTypeName = tableTypeName;
         }
 
-#pragma warning disable CA1819 // Properties should not return arrays
-        protected abstract Column[] Columns { get; }
-#pragma warning restore CA1819 // Properties should not return arrays
-
         private SqlMetaData[] ColumnMetadata => _columnMetadata ?? (_columnMetadata = Columns.Select(c => c.Metadata).ToArray());
+
+        /// <summary>
+        /// Gets the columns that make up the table type. In order.
+        /// </summary>
+        protected abstract IEnumerable<Column> Columns { get; }
 
         protected abstract void FillSqlDataRecord(SqlDataRecord record, TRow rowData);
 
-        public override SqlParameter AddParameter(SqlParameterCollection parameters, IEnumerable<TRow> value, string parameterName)
+        public override SqlParameter AddParameter(SqlParameterCollection parameters, IEnumerable<TRow> value)
         {
+            // An empty TVP is required to be null.
+
+            value = value.NullIfEmpty();
+
             return parameters.Add(
-                new SqlParameter(parameterName, SqlDbType.Structured)
+                new SqlParameter(Name, SqlDbType.Structured)
                 {
                     TypeName = _tableTypeName,
-                    Value = ToDataRecordEnumerable(value).NullIfEmpty(),
+                    Value = value == null ? null : ToDataRecordEnumerable(value),
                 });
         }
 

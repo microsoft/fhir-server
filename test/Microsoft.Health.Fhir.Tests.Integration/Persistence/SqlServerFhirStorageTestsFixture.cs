@@ -6,9 +6,9 @@
 using System;
 using System.Data.SqlClient;
 using System.Numerics;
+using System.Text;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -19,10 +19,12 @@ using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using NSubstitute;
+using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class SqlServerFhirStorageTestsFixture : IScoped<IFhirDataStore>
+    public class SqlServerFhirStorageTestsFixture : IScoped<IFhirDataStore>, IFhirDataStoreStateVerifier
     {
         private readonly string _initialConnectionString;
         private readonly string _databaseName;
@@ -67,6 +69,62 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public string TestConnectionString { get; }
 
+        public async Task<object> GetSnapshotToken()
+        {
+            using (var connection = new SqlConnection(TestConnectionString))
+            {
+                await connection.OpenAsync();
+
+                SqlCommand command = connection.CreateCommand();
+                command.CommandText = "SELECT MAX(ResourceSurrogateId) FROM Resource";
+                return await command.ExecuteScalarAsync();
+            }
+        }
+
+        public async Task ValidateSnapshotTokenIsCurrent(object snapshotToken)
+        {
+            using (var connection = new SqlConnection(TestConnectionString))
+            {
+                await connection.OpenAsync();
+
+                var sb = new StringBuilder();
+                using (SqlCommand outerCommand = connection.CreateCommand())
+                {
+                    outerCommand.CommandText = @"
+                    SELECT t.name 
+                    FROM sys.tables t
+                    INNER JOIN sys.columns c ON c.object_id = t.object_id
+                    WHERE c.name = 'ResourceSurrogateId'";
+
+                    using (SqlDataReader reader = await outerCommand.ExecuteReaderAsync())
+                    {
+                        while (reader.Read())
+                        {
+                            if (sb.Length > 0)
+                            {
+                                sb.AppendLine("UNION ALL");
+                            }
+
+                            string tableName = reader.GetString(0);
+                            sb.AppendLine($"SELECT '{tableName}' as TableName, MAX(ResourceSurrogateId) as MaxResourceSurrogateId FROM dbo.{tableName}");
+                        }
+                    }
+                }
+
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = sb.ToString();
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (reader.Read())
+                        {
+                            Assert.True(reader.IsDBNull(1) || reader.GetInt64(1) <= (long)snapshotToken);
+                        }
+                    }
+                }
+            }
+        }
+
         public void Dispose()
         {
             using (var connection = new SqlConnection(_initialConnectionString))
@@ -79,17 +137,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     command.CommandText = $"DROP DATABASE IF EXISTS {_databaseName}";
                     command.ExecuteNonQuery();
                 }
-            }
-        }
-
-        private class MyStartup
-        {
-            public void ConfigureServices(IServiceCollection services)
-            {
-            }
-
-            public void Configure(IApplicationBuilder app)
-            {
             }
         }
     }
