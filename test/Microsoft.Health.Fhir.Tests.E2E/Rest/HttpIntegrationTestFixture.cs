@@ -123,7 +123,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
             var exportPath = Path.GetFullPath("exporttestconfiguration.json");
-            var dataStoreConfiguration = new Dictionary<string, string> { { "DataStore", dataStore.ToString() }, { "SqlServer:Initialize", "true" } };
+            var dataStoreConfiguration = new Dictionary<string, string> { { "DataStore", dataStore.ToString() } };
+
+            if (dataStore == DataStore.Sql)
+            {
+                dataStoreConfiguration.Add("SqlServer:Initialize", "true");
+            }
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)

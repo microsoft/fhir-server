@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.Web
     {
         public const string CosmosDb = "CosmosDb";
 
-        public const string SqlServer = "Sql";
+        public const string SqlServer = "SqlServer";
     }
 }

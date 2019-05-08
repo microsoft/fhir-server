@@ -144,9 +144,13 @@
             "FhirServer:Security:EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
-            "CosmosDb:ContinuationTokenSizeLimitInKb": "1"
+            "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
+            "SqlServer:Initialize": "true",
+            "DataStore": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'CosmosDb', 'SqlServer')]"
         },
-        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]"
+        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
+        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
+        "sqlAdminPassword" : "[concat(uniqueString(resourceGroup().id, deployment().name, '224F5A8B-51DB-46A3-A7C8-59B0DD584A41'), 'x', '!')]"
     },
     "resources": [
         {
@@ -245,8 +249,9 @@
             }
         },
         {
+            "condition": "[equals(parameters('solutionType'), 'FhirServerCosmosDB')]",
             "apiVersion": "2015-04-08",
-            "type": "Microsoft.DocumentDb/databaseAccounts",
+            "type": "Microsoft.DocumentDB/databaseAccounts",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
@@ -263,6 +268,56 @@
                     }
                 ]
             }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'), 'FhirServerSqlServer')]",
+            "name": "[variables('serviceName')]",
+            "type": "Microsoft.Sql/servers",
+            "apiVersion": "2015-05-01-preview",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "FhirServerSolution": "[parameters('solutionType')]"
+            },
+            "properties": {
+                "administratorLogin": "[uniqueString(resourceGroup().id)]",
+                "administratorLoginPassword": "[variables('sqlAdminPassword')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "apiVersion": "2017-10-01-preview",
+                    "dependsOn": [
+                        "[variables('serviceName')]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "tags": {
+                        "FhirServerSolution": "[parameters('solutionType')]"
+                    },
+                    "name": "FHIR",
+                    "properties": {
+                        "collation": "SQL_Latin1_General_CP1_CI_AS"
+                    },
+                    "sku": {
+                        "name": "Standard",
+                        "tier": "Standard",
+                        "capacity": 10
+                      },
+                    "type": "databases"
+                },
+                {
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[variables('serviceName')]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    },
+                    "type": "firewallrules"
+                }
+            ]
         },
         {
             "type": "Microsoft.KeyVault/vaults",
@@ -297,12 +352,13 @@
             ]
         },
         {
+            "condition": "[equals(parameters('solutionType'), 'FhirServerCosmosDB')]",
             "type": "Microsoft.KeyVault/vaults/secrets",
             "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[reference(concat('Microsoft.DocumentDb/databaseAccounts/', variables('serviceName'))).documentEndpoint]"
+                "value": "[if(equals(parameters('solutionType'), 'FhirServerCosmosDB'), reference(concat('Microsoft.DocumentDb/databaseAccounts/', variables('serviceName')), '2015-04-08').documentEndpoint, '')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
@@ -310,16 +366,31 @@
             ]
         },
         {
+            "condition": "[equals(parameters('solutionType'), 'FhirServerCosmosDB')]",
             "type": "Microsoft.KeyVault/vaults/secrets",
             "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), '2015-04-08').primaryMasterKey]"
+                "value": "[if(equals(parameters('solutionType'), 'FhirServerCosmosDB'), listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), '2015-04-08').primaryMasterKey, '')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
                 "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
+            ]
+        },
+        {
+            "condition": "[equals(parameters('solutionType'), 'FhirServerSqlServer')]",
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('serviceName'), '/SqlServer--ConnectionString')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "contentType": "text/plain",
+                "value":  "[concat('Server=tcp:',reference(variables('computedSqlServerReference')).fullyQualifiedDomainName,',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=',reference(variables('computedSqlServerReference')).administratorLogin,';Password=',variables('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[resourceId('Microsoft.Sql/servers', variables('serviceName'))]"
             ]
         }
     ]
