@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Web
             services.AddDevelopmentIdentityProvider(Configuration);
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration);
+                .AddExportWorker()
 
             if (Configuration["DataStore"].Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
             {

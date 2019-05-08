@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
 
@@ -55,6 +56,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
+
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
@@ -62,6 +65,21 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddHttpClient();
 
             return new FhirServerBuilder(services);
+        }
+
+        /// <summary>
+        /// Adds the export worker background service.
+        /// </summary>
+        /// <param name="fhirServerBuilder">The FHIR server builder.</param>
+        /// <returns>The builder.</returns>
+        public static IFhirServerBuilder AddExportWorker(
+            this IFhirServerBuilder fhirServerBuilder)
+        {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
+            fhirServerBuilder.Services.AddHostedService<ExportJobWorkerBackgroundService>();
+
+            return fhirServerBuilder;
         }
 
         private class FhirServerBuilder : IFhirServerBuilder

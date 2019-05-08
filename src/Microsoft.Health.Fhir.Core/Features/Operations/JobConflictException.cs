@@ -3,10 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
+using Microsoft.Health.Fhir.Core.Exceptions;
+
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public class OperationsConfiguration
+    public class JobConflictException : FhirException
     {
-        public ExportJobConfiguration Export { get; set; } = new ExportJobConfiguration();
+        public JobConflictException()
+            : base()
+        {
+        }
     }
 }
