@@ -16,37 +16,30 @@ using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using NSubstitute;
-using Xunit;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class SqlServerFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
+    public class SqlServerFhirStorageTestsFixture : IServiceProvider, IDisposable
     {
         private readonly string _initialConnectionString;
         private readonly string _databaseName;
-        private IFhirDataStore _fhirDataStore;
-        private SqlServerFhirStorageTestHelper _testHelper;
+        private readonly IFhirDataStore _fhirDataStore;
+        private readonly SqlServerFhirStorageTestHelper _testHelper;
 
         public SqlServerFhirStorageTestsFixture()
         {
             _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
             _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName }.ToString();
-        }
 
-        public string TestConnectionString { get; }
-
-        async Task IAsyncLifetime.InitializeAsync()
-        {
             using (var connection = new SqlConnection(_initialConnectionString))
             {
-                await connection.OpenAsync();
+                connection.Open();
 
                 using (SqlCommand command = connection.CreateCommand())
                 {
                     command.CommandText = $"CREATE DATABASE {_databaseName}";
-                    await command.ExecuteNonQueryAsync();
+                    command.ExecuteNonQuery();
                 }
             }
 
@@ -70,17 +63,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
         }
 
-        async Task IAsyncLifetime.DisposeAsync()
+        public string TestConnectionString { get; }
+
+        public void Dispose()
         {
             using (var connection = new SqlConnection(_initialConnectionString))
             {
-                await connection.OpenAsync();
+                connection.Open();
                 SqlConnection.ClearAllPools();
 
                 using (SqlCommand command = connection.CreateCommand())
                 {
                     command.CommandText = $"DROP DATABASE IF EXISTS {_databaseName}";
-                    await command.ExecuteNonQueryAsync();
+                    command.ExecuteNonQuery();
                 }
             }
         }
