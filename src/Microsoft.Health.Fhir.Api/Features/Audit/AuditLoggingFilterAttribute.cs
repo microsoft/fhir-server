@@ -50,24 +50,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             Debug.Assert(actionDescriptor != null, "The ActionDescriptor must be ControllerActionDescriptor.");
 
             // The result can either be a FhirResult or an OperationOutcomeResult which both extend BaseActionResult.
-
-            string typeName = null;
-
-            switch (context.Result)
-            {
-                case FhirResult fhirResult:
-                    typeName = fhirResult?.Result?.TypeName;
-                    break;
-                case OperationOutcomeResult operationOutcomeResult:
-                    typeName = operationOutcomeResult?.Result?.TypeName;
-                    break;
-            }
+            var result = context.Result as IBaseActionResult;
 
             _auditHelper.LogExecuted(
                 actionDescriptor.ControllerName,
                 actionDescriptor.ActionName,
                 (HttpStatusCode)context.HttpContext.Response.StatusCode,
-                typeName);
+                result?.GetResultTypeName());
 
             base.OnResultExecuted(context);
         }
