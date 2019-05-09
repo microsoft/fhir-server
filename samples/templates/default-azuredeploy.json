@@ -280,7 +280,7 @@
             },
             "properties": {
                 "administratorLogin": "[uniqueString(resourceGroup().id)]",
-                "administratorLoginPassword": "[variables('sqlAdminPassword')]",
+                "administratorLoginPassword": "[variables('sqlAdminPass')]",
                 "version": "12.0"
             },
             "resources": [
