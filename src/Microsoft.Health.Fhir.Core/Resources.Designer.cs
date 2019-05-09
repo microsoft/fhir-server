@@ -63,9 +63,9 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to {0} and {1} cannot both be specified..
         /// </summary>
-        internal static string AtAndSinceCannotBeBothSpecified {
+        internal static string AtCannotBeSpecifiedWithBeforeOrSince {
             get {
-                return ResourceManager.GetString("AtAndSinceCannotBeBothSpecified", resourceCulture);
+                return ResourceManager.GetString("AtCannotBeSpecifiedWithBeforeOrSince", resourceCulture);
             }
         }
         

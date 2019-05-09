@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IFhirDataStore _fhirDataStore;
 
         // Value which is subtracted from Now when querying _history without _before specified
-        private readonly int historyCurrentTimeBuffer = -3;
+        private readonly int historyCurrentTimeBufferInSeconds = -3;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
-                            Core.Resources.AtAndSinceCannotBeBothSpecified,
+                            Core.Resources.AtCannotBeSpecifiedWithBeforeOrSince,
                             KnownQueryParameterNames.At,
                             KnownQueryParameterNames.Since));
                 }
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
-                            Core.Resources.AtAndSinceCannotBeBothSpecified,
+                            Core.Resources.AtCannotBeSpecifiedWithBeforeOrSince,
                             KnownQueryParameterNames.At,
                             KnownQueryParameterNames.Before));
                 }
@@ -158,8 +158,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     if (before == null)
                     {
-                        addedBefore = Clock.UtcNow.AddSeconds(historyCurrentTimeBuffer);
-                        before = new PartialDateTime(addedBefore.Value);
+                        addedBefore = Clock.UtcNow.AddSeconds(historyCurrentTimeBufferInSeconds);
+                        queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"lt{addedBefore.Value.ToString("o")}"));
                     }
                 }
 

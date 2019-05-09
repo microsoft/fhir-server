@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Web;
 using Hl7.Fhir.Model;
@@ -59,20 +60,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSince_TheServerShouldReturnOnlyRecordsModifiedAfterSinceValue()
+        public void WhenGettingSystemHistory_GivenAValueForSince_TheServerShouldReturnOnlyRecordsModifiedAfterSinceValue()
         {
-            Thread.Sleep(2000);
-            var since = DateTime.UtcNow;
+            var since = GetStartTimeForHistoryTest();
+            var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             Thread.Sleep(1000);
             _createdResource.Resource.Comment = "Changed by E2E test";
 
             var updatedResource = Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
 
-            Thread.Sleep(3000); // ensure that the server has fully processed the PUT
-
-            var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
-
-            FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString);
+            Thread.Sleep(5000); // ensure that the server has fully processed the PUT
+            FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
 
             var obsHistory = readResponse.Resource.Entry[0].Resource as Observation;
 
@@ -81,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Validate selflink with added _before parameter
             Assert.Contains("_before", readResponse.Resource.SelfLink.Query);
-            FhirResponse<Bundle> selfLinkResponse = await Client.SearchAsync(readResponse.Resource.SelfLink.ToString());
+            FhirResponse<Bundle> selfLinkResponse = Client.SearchAsync(readResponse.Resource.SelfLink.ToString()).Result;
 
             obsHistory = selfLinkResponse.Resource.Entry[0].Resource as Observation;
 
@@ -90,14 +88,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithModifications_TheServerShouldOnlyCorrectResources()
+        public void WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithModifications_TheServerShouldOnlyCorrectResources()
         {
-            Thread.Sleep(2000);
-            var since = DateTime.UtcNow;
+            var since = GetStartTimeForHistoryTest();
 
             _createdResource.Resource.Comment = "Changed by E2E test";
-            var updatedResource = Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
-            var newPatient = Client.CreateAsync(Samples.GetDefaultPatient()).GetAwaiter().GetResult();
+            Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
+            FhirResponse<Patient> newPatient = Client.CreateAsync(Samples.GetDefaultPatient()).GetAwaiter().GetResult();
 
             Thread.Sleep(5000); // ensure that the server has fully processed the edits
             var before = DateTime.UtcNow;
@@ -105,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
+            FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
 
             Assert.Equal(2, readResponse.Resource.Entry.Count);
 
@@ -134,10 +131,57 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeCloseToLastModifiedTime_TheServerShouldNotMissRecords()
+        {
+            var since = GetStartTimeForHistoryTest();
+
+            var newResources = new List<Resource>();
+
+            // First make a few edits
+            _createdResource.Resource.Comment = "Changed by E2E test";
+            await Client.UpdateAsync<Observation>(_createdResource);
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient()));
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization()));
+            Thread.Sleep(1000);
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodGlucose") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodPressure") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Patient-f001") as Patient));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001") as Condition));
+
+            Thread.Sleep(5000); // ensure that the server has fully processed the edits
+            var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
+
+            // Query all the recent changes
+            FhirResponse<Bundle> allChanges = await Client.SearchAsync("_history?_since=" + sinceUriString);
+
+            Assert.Equal(7, allChanges.Resource.Entry.Count);
+
+            // now choose a value of before that is as close as possible to one of the last updated times
+            var lastUpdatedTimes = allChanges.Resource.Entry.Select(e => e.Resource.Meta.LastUpdated).OrderBy(d => d.Value);
+
+            var before = lastUpdatedTimes.ToList()[4];
+            var beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
+            var firstSet = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
+
+            Assert.Equal(4, firstSet.Resource.Entry.Count);
+
+            sinceUriString = beforeUriString;
+            before = DateTime.UtcNow;
+            beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
+            var secondSet = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
+
+            Assert.Equal(3, secondSet.Resource.Entry.Count);
+
+            foreach (var r in newResources)
+            {
+                Client.DeleteAsync(r).GetAwaiter().GetResult();
+            }
+        }
+
+        [Fact]
         public async Task WhenGettingSystemHistory_GivenAQueryThatReturnsMoreThan10Results_TheServerShouldBatchTheResponse()
         {
-            Thread.Sleep(2000);
-            var since = DateTime.UtcNow;
+            var since = GetStartTimeForHistoryTest();
 
             var newResources = new List<Resource>();
 
@@ -161,11 +205,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            FhirResponse<Bundle> firstBatch = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
+            FhirResponse<Bundle> firstBatch = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
 
             Assert.Equal(10, firstBatch.Resource.Entry.Count);
 
-            var secondBatch = await Client.SearchAsync(firstBatch.Resource.NextLink.ToString());
+            var secondBatch = Client.SearchAsync(firstBatch.Resource.NextLink.ToString()).Result;
 
             Assert.Single(secondBatch.Resource.Entry);
 
@@ -176,30 +220,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSinceAfterAllModificatons_TheServerShouldReturnAnEmptyResult()
+        public void WhenGettingSystemHistory_GivenAValueForSinceAfterAllModificatons_TheServerShouldReturnAnEmptyResult()
         {
             _createdResource.Resource.Comment = "Changed by E2E test";
 
             var updatedResource = Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
 
-            Thread.Sleep(4000); // ensure that the server has fully processed the PUT
-            var since = DateTime.UtcNow;
+            // ensure that the server has fully processed the PUT
+            var since = GetStartTimeForHistoryTest();
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
-            FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString);
+            FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
 
             Assert.Empty(readResponse.Resource.Entry);
         }
 
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithNoModifications_TheServerShouldReturnAnEmptyResult()
+        public void WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithNoModifications_TheServerShouldReturnAnEmptyResult()
         {
             Thread.Sleep(2000);
             _createdResource.Resource.Comment = "Changed by E2E test";
 
-            Thread.Sleep(4000); // ensure that the server has fully processed the PUT
-            var since = DateTime.UtcNow;
+            // ensure that the server has fully processed the PUT
+            var since = GetStartTimeForHistoryTest();
             Thread.Sleep(5000);
             var before = DateTime.UtcNow;
 
@@ -212,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
+            FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
 
             Assert.Empty(readResponse.Resource.Entry);
 
@@ -230,6 +274,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync("_history?_before=" + beforeUriString));
 
             Assert.Contains("Parameter _before cannot a be a value in the future", ex.Message);
+        }
+
+        /// <summary>
+        /// Find a time to use _since where there have been no results in history
+        /// so we can start from clean start point
+        /// </summary>
+        /// <returns>DateIimeOffset set to a good value for _since</returns>
+        private DateTimeOffset GetStartTimeForHistoryTest()
+        {
+            var since = DateTime.UtcNow;
+
+            for (int i = 0; i < 10; i++)
+            {
+                var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
+                FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
+
+                if (readResponse.Resource.Entry.Count == 0)
+                {
+                    break;
+                }
+
+                Thread.Sleep(2000);
+                since = DateTime.UtcNow;
+            }
+
+            return since;
         }
 
         public void Dispose()

@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string type,
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime before,
+            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
@@ -276,7 +276,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string id,
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime before,
+            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
