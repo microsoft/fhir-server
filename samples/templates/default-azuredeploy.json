@@ -312,9 +312,6 @@
                         "[variables('serviceName')]"
                     ],
                     "location": "[resourceGroup().location]",
-                    "tags": {
-                        "FhirServerSolution": "[parameters('solutionType')]"
-                    },
                     "name": "AllowAllWindowsAzureIps",
                     "properties": {
                         "endIpAddress": "0.0.0.0",
