@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.KeyVault;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Xunit;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             _dataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
-            _secretStore = new InMemorySecretStore();
+            _secretStore = new InMemoryKeyVaultSecretStore();
 
             var collection = new ServiceCollection();
 

@@ -7,13 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.SecretStore;
 
-namespace Microsoft.Health.Fhir.Core.Features.SecretStore
+namespace Microsoft.Health.Fhir.KeyVault
 {
     /// <summary>
     /// Implementation of <see cref="ISecretStore"/> to be used for local tests and deployments.
     /// </summary>
-    public class InMemorySecretStore : ISecretStore
+    public class InMemoryKeyVaultSecretStore : ISecretStore
     {
         private Dictionary<string, string> _secrets = new Dictionary<string, string>(StringComparer.Ordinal);
 

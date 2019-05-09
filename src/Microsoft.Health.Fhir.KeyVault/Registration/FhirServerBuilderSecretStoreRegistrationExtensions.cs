@@ -25,12 +25,16 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
+            // Get the KeyVault endpoint mentioned in the config. It is not necessary the KeyVault config
+            // section is present (depending on how we choose to implement ISecretStore). But even if it is
+            // not present, GetSection will return an empty IConfigurationSection. And we will end up creating
+            // an InMemoryKeyVaultSecretStore in that scenario also.
             var keyVaultConfig = new KeyVaultConfiguration();
             configuration.GetSection(KeyVaultConfigurationName).Bind(keyVaultConfig);
 
             if (string.IsNullOrWhiteSpace(keyVaultConfig.Endpoint))
             {
-                fhirServerBuilder.Services.Add<InMemorySecretStore>()
+                fhirServerBuilder.Services.Add<InMemoryKeyVaultSecretStore>()
                     .Singleton()
                     .AsService<ISecretStore>();
             }
