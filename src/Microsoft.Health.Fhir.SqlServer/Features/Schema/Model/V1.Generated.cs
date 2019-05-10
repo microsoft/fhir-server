@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
-            internal readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
+            internal readonly TinyIntColumn ClaimTypeId = new TinyIntColumn("ClaimTypeId");
             internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
         }
 
@@ -216,25 +216,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            internal readonly TinyIntColumn ClaimId = new TinyIntColumn("ClaimId");
+            internal readonly TinyIntColumn ClaimTypeId = new TinyIntColumn("ClaimTypeId");
             internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{ClaimId, ClaimValue};
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{ClaimTypeId, ClaimValue};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ResourceWriteClaimTableTypeRow rowData)
             {
-                ClaimId.Set(record, 0, rowData.ClaimId);
+                ClaimTypeId.Set(record, 0, rowData.ClaimTypeId);
                 ClaimValue.Set(record, 1, rowData.ClaimValue);
             }
         }
 
         internal struct ResourceWriteClaimTableTypeRow
         {
-            internal ResourceWriteClaimTableTypeRow(System.Byte ClaimId, System.String ClaimValue)
+            internal ResourceWriteClaimTableTypeRow(System.Byte ClaimTypeId, System.String ClaimValue)
             {
-                this.ClaimId = ClaimId;
+                this.ClaimTypeId = ClaimTypeId;
                 this.ClaimValue = ClaimValue;
             }
 
-            internal System.Byte ClaimId
+            internal System.Byte ClaimTypeId
             {
                 get;
             }
