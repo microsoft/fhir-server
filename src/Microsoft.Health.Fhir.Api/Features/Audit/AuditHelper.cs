@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     {
         private readonly IActionDescriptorCollectionProvider _actionDescriptorCollectionProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly IClaimsIndexer _claimsIndexer;
+        private readonly IClaimsExtractor _claimsExtractor;
         private readonly IAuditLogger _auditLogger;
         private readonly ILogger<AuditHelper> _logger;
 
@@ -35,19 +35,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         public AuditHelper(
             IActionDescriptorCollectionProvider actionDescriptorCollectionProvider,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IClaimsIndexer claimsIndexer,
+            IClaimsExtractor claimsExtractor,
             IAuditLogger auditLogger,
             ILogger<AuditHelper> logger)
         {
             EnsureArg.IsNotNull(actionDescriptorCollectionProvider, nameof(actionDescriptorCollectionProvider));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(claimsIndexer, nameof(claimsIndexer));
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _actionDescriptorCollectionProvider = actionDescriptorCollectionProvider;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _claimsIndexer = claimsIndexer;
+            _claimsExtractor = claimsExtractor;
             _auditLogger = auditLogger;
             _logger = logger;
         }
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     requestUri: fhirRequestContext.Uri,
                     statusCode: statusCode,
                     correlationId: fhirRequestContext.CorrelationId,
-                    claims: _claimsIndexer.Extract());
+                    claims: _claimsExtractor.Extract());
             }
         }
     }

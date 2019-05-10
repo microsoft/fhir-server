@@ -7,6 +7,7 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IRawResourceFactory, RawResourceFactory>();
             services.AddSingleton<IResourceWrapperFactory, ResourceWrapperFactory>();
-            services.AddSingleton<IClaimsIndexer, ClaimsIndexer>();
+            services.AddSingleton<IClaimsExtractor, ClaimsPrincipalExtractor>();
         }
     }
 }
