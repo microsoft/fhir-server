@@ -38,10 +38,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IFhirStorageTestHelper TestHelper => _fixture.GetRequiredService<IFhirStorageTestHelper>();
 
-        void IDisposable.Dispose() => (_fixture as IDisposable)?.Dispose();
+        void IDisposable.Dispose()
+        {
+            (_fixture as IDisposable)?.Dispose();
+        }
 
-        Task IAsyncLifetime.InitializeAsync() => (_fixture as IAsyncLifetime)?.InitializeAsync();
+        async Task IAsyncLifetime.InitializeAsync()
+        {
+            if (_fixture is IAsyncLifetime asyncLifetime)
+            {
+                await asyncLifetime.InitializeAsync();
+            }
+        }
 
-        Task IAsyncLifetime.DisposeAsync() => (_fixture as IAsyncLifetime)?.DisposeAsync();
+        async Task IAsyncLifetime.DisposeAsync()
+        {
+            if (_fixture is IAsyncLifetime asyncLifetime)
+            {
+                await asyncLifetime.DisposeAsync();
+            }
+        }
     }
 }
