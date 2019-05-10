@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     /// <summary>
     /// Generates a sequence of row structs for a table-valued parameter.
     /// </summary>
-    /// <typeparam name="TInput">THe input type</typeparam>
+    /// <typeparam name="TInput">The input type</typeparam>
     /// <typeparam name="TRow">The row struct type</typeparam>
     internal interface ITableValuedParameterRowGenerator<in TInput,  out TRow>
         where TRow : struct
