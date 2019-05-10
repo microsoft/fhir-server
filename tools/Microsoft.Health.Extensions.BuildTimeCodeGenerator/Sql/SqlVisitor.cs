@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
@@ -24,6 +23,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         /// These members will be added to the generated class.
         /// </summary>
         public List<MemberDeclarationSyntax> MembersToAdd { get; } = new List<MemberDeclarationSyntax>();
+
+        public abstract int ArtifactSortOder { get; }
 
         /// <summary>
         /// Converts a <see cref="DataTypeReference"/> to a <see cref="TypeSyntax"/>

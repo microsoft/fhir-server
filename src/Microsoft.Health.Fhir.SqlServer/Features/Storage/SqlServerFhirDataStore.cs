@@ -81,8 +81,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
-                    V1.UpsertResourceTableValuedParameters tvpParameters = _upsertResourceTvpGenerator.Generate(resource);
-
                     V1.UpsertResource.PopulateCommand(
                         command,
                         resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
@@ -94,8 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         keepHistory: keepHistory,
                         requestMethod: resource.Request.Method,
                         rawResource: stream,
-                        resourceWriteClaims: tvpParameters.ResourceWriteClaims,
-                        compartmentAssignments: tvpParameters.CompartmentAssignments);
+                        tableValuedParameters: _upsertResourceTvpGenerator.Generate(resource));
 
                     try
                     {

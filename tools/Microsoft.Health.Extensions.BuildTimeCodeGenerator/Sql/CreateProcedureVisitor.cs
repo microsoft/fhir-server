@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
@@ -21,6 +22,10 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
     internal class CreateProcedureVisitor : SqlVisitor
     {
         private const string TvpGeneratorGenericTypeName = "TInput";
+        private const string PopulateCommandMethodName = "PopulateCommand";
+        private const string CommandParameterName = "command";
+
+        public override int ArtifactSortOder => 1;
 
         public override void Visit(CreateProcedureStatement node)
         {
@@ -61,20 +66,16 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     .AddMembers(node.Parameters.Select(CreateFieldForParameter).ToArray())
 
                     // add the PopulateCommand method
-                    .AddMembers(AddPopulateCommandMethod(node, schemaQualifiedProcedureName));
+                    .AddMembers(AddPopulateCommandMethod(node, schemaQualifiedProcedureName), AddPopulateCommandMethodForTableValuedParameters(node, procedureName));
 
             FieldDeclarationSyntax fieldDeclarationSyntax = CreateStaticFieldForClass(className, procedureName);
 
-            var tvpGeneratorTypes = CreateTvpGeneratorTypes(node, procedureName);
+            var (tvpGeneratorClass, tvpHolderStruct) = CreateTvpGeneratorTypes(node, procedureName);
 
-            MembersToAdd.Add(classDeclarationSyntax);
-            MembersToAdd.Add(fieldDeclarationSyntax);
-
-            if (tvpGeneratorTypes != default)
-            {
-                MembersToAdd.Add(tvpGeneratorTypes.tvpGeneratorClass);
-                MembersToAdd.Add(tvpGeneratorTypes.tvpHolderStruct);
-            }
+            MembersToAdd.Add(classDeclarationSyntax.AddSortingKey(this, procedureName));
+            MembersToAdd.Add(fieldDeclarationSyntax.AddSortingKey(this, procedureName));
+            MembersToAdd.Add(tvpGeneratorClass.AddSortingKey(this, procedureName));
+            MembersToAdd.Add(tvpHolderStruct.AddSortingKey(this, procedureName));
 
             base.Visit(node);
         }
@@ -137,11 +138,11 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         {
             return MethodDeclaration(
                     typeof(void).ToTypeSyntax(),
-                    Identifier("PopulateCommand"))
+                    Identifier(PopulateCommandMethodName))
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
 
                 // first parameter is the SqlCommand
-                .AddParameterListParameters(Parameter(Identifier("command")).WithType(typeof(SqlCommand).ToTypeSyntax(useGlobalAlias: true)))
+                .AddParameterListParameters(Parameter(Identifier(CommandParameterName)).WithType(typeof(SqlCommand).ToTypeSyntax(useGlobalAlias: true)))
 
                 // Add a parameter for each stored procedure parameter
                 .AddParameterListParameters(node.Parameters.Select(selector: p =>
@@ -157,7 +158,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             SyntaxKind.SimpleAssignmentExpression,
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName("command"),
+                                IdentifierName(CommandParameterName),
                                 IdentifierName("CommandType")),
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
@@ -168,7 +169,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             SyntaxKind.SimpleAssignmentExpression,
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName("command"),
+                                IdentifierName(CommandParameterName),
                                 IdentifierName("CommandText")),
                             LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(schemaQualifiedProcedureName)))))
 
@@ -183,12 +184,72 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                         .AddArgumentListArguments(
                             Argument(MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName("command"),
+                                IdentifierName(CommandParameterName),
                                 IdentifierName("Parameters"))),
                             Argument(IdentifierName(ParameterNameForParameter(p)))))).ToArray());
         }
 
-        private (ClassDeclarationSyntax tvpGeneratorClass, StructDeclarationSyntax tvpHolderStruct) CreateTvpGeneratorTypes(CreateProcedureStatement node, string procedureName)
+        private MemberDeclarationSyntax AddPopulateCommandMethodForTableValuedParameters(CreateProcedureStatement node, string procedureName)
+        {
+            var nonTableParameters = new List<ProcedureParameter>();
+            var tableParameters = new List<ProcedureParameter>();
+
+            foreach (var procedureParameter in node.Parameters)
+            {
+                if (TryGetSqlDbTypeForParameter(procedureParameter, out _))
+                {
+                    nonTableParameters.Add(procedureParameter);
+                }
+                else
+                {
+                    tableParameters.Add(procedureParameter);
+                }
+            }
+
+            if (tableParameters.Count == 0)
+            {
+                return IncompleteMember();
+            }
+
+            string tableValuedParametersParameterName = "tableValuedParameters";
+
+            return MethodDeclaration(
+                    typeof(void).ToTypeSyntax(),
+                    Identifier(PopulateCommandMethodName))
+                .AddModifiers(Token(SyntaxKind.PublicKeyword))
+
+                // first parameter is the SqlCommand
+                .AddParameterListParameters(Parameter(Identifier(CommandParameterName)).WithType(typeof(SqlCommand).ToTypeSyntax(useGlobalAlias: true)))
+
+                // Add a parameter for each non-TVP
+                .AddParameterListParameters(nonTableParameters.Select(selector: p =>
+                    Parameter(Identifier(ParameterNameForParameter(p)))
+                        .WithType(DataTypeReferenceToClrType(p.DataType, p.Value != null))).ToArray())
+
+                // Add a parameter for the TVP set
+                .AddParameterListParameters(
+                    Parameter(Identifier(tableValuedParametersParameterName)).WithType(IdentifierName(TableValuedParametersStructName(procedureName))))
+
+                // Call the overload
+                .AddBodyStatements(
+                    ExpressionStatement(
+                        InvocationExpression(
+                                IdentifierName(PopulateCommandMethodName))
+                            .AddArgumentListArguments(Argument(IdentifierName(CommandParameterName)))
+                            .AddArgumentListArguments(
+                                nonTableParameters.Select(p =>
+                                    Argument(IdentifierName(ParameterNameForParameter(p)))
+                                        .WithNameColon(NameColon(ParameterNameForParameter(p)))).ToArray())
+                            .AddArgumentListArguments(
+                                tableParameters.Select(p =>
+                                    Argument(MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            IdentifierName(tableValuedParametersParameterName),
+                                            IdentifierName(PropertyNameForParameter(p))))
+                                        .WithNameColon(NameColon(ParameterNameForParameter(p)))).ToArray())));
+        }
+
+        private (MemberDeclarationSyntax tvpGeneratorClass, MemberDeclarationSyntax tvpHolderStruct) CreateTvpGeneratorTypes(CreateProcedureStatement node, string procedureName)
         {
             List<(string parameterName, string rowStructName)> rowTypes = node.Parameters
                 .Where(p => !TryGetSqlDbTypeForParameter(p, out _))
@@ -198,10 +259,10 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
             if (rowTypes.Count == 0)
             {
                 // no table-valued parameters on this procedure
-                return default;
+                return (IncompleteMember(), IncompleteMember());
             }
 
-            var holderStructName = $"{procedureName}TableValuedParameters";
+            var holderStructName = TableValuedParametersStructName(procedureName);
 
             // create a struct with properties for each table-valued parameter
 
@@ -260,9 +321,9 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     ConstructorDeclaration(Identifier(className))
                         .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
                         .AddParameterListParameters(distinctTvpTypeNames
-                                .Select(t =>
-                                    Parameter(Identifier(GeneratorFieldName(t)))
-                                        .WithType(GeneratorType(t))).ToArray())
+                            .Select(t =>
+                                Parameter(Identifier(GeneratorFieldName(t)))
+                                    .WithType(GeneratorType(t))).ToArray())
                         .WithBody(
                             Block(distinctTvpTypeNames
                                 .Select(t =>
@@ -297,6 +358,11 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                                                 .AddArgumentListArguments(Argument(IdentifierName("input"))))).ToArray()))));
 
             return (classDeclaration, structDeclaration);
+        }
+
+        private static string TableValuedParametersStructName(string procedureName)
+        {
+            return $"{procedureName}TableValuedParameters";
         }
 
         private static string GeneratorFieldName(string tableTypeName)
