@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await connection.OpenAsync();
 
                 SqlCommand command = connection.CreateCommand();
-                command.CommandText = "SELECT MAX(ResourceSurrogateId) FROM Resource";
+                command.CommandText = "SELECT MAX(ResourceSurrogateId) FROM dbo.Resource";
                 return await command.ExecuteScalarAsync();
             }
         }

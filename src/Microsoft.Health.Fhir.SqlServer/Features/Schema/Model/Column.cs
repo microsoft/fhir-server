@@ -458,7 +458,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     public class VarCharColumn : StringColumn
     {
         public VarCharColumn(string name, int length)
-            : base(name, SqlDbType.NVarChar, false, length)
+            : base(name, SqlDbType.VarChar, false, length)
         {
         }
     }
@@ -519,7 +519,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     public class NullableVarCharColumn : StringColumn
     {
         public NullableVarCharColumn(string name, int length)
-            : base(name, SqlDbType.NVarChar, true, length)
+            : base(name, SqlDbType.VarChar, true, length)
         {
         }
     }
