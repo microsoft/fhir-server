@@ -278,7 +278,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
         private class CompartmentAssignmentTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<CompartmentAssignmentTableTypeRow>
         {
-            internal CompartmentAssignmentTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.CompartmentAssignmentTableType")
+            internal CompartmentAssignmentTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.CompartmentAssignmentTableType_1")
             {
             }
 
@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
         private class ResourceWriteClaimTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<ResourceWriteClaimTableTypeRow>
         {
-            internal ResourceWriteClaimTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.ResourceWriteClaimTableType")
+            internal ResourceWriteClaimTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.ResourceWriteClaimTableType_1")
             {
             }
 

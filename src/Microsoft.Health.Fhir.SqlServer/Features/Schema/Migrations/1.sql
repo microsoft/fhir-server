@@ -208,7 +208,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
     Name
 )
 
-CREATE TYPE dbo.ResourceWriteClaimTableType AS TABLE  
+CREATE TYPE dbo.ResourceWriteClaimTableType_1 AS TABLE  
 (
     ClaimTypeId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL
@@ -242,7 +242,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
     Name
 )
 
-CREATE TYPE dbo.CompartmentAssignmentTableType AS TABLE  
+CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE  
 (
     CompartmentTypeId tinyint NOT NULL,
     ReferenceResourceId varchar(64) NOT NULL
@@ -332,8 +332,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @keepHistory bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
-    @resourceWriteClaims dbo.ResourceWriteClaimTableType READONLY,
-    @compartmentAssignments dbo.CompartmentAssignmentTableType READONLY
+    @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
+    @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
