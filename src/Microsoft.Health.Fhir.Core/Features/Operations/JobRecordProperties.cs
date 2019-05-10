@@ -35,6 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Request = "request";
 
+        public const string RequestorClaims = "requestorClaims";
+
         public const string Progress = "progress";
 
         public const string Output = "output";

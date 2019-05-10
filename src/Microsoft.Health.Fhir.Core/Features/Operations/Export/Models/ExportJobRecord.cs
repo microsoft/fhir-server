@@ -5,7 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
@@ -15,16 +17,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord
     {
-        public ExportJobRecord(Uri exportRequestUri)
+        public ExportJobRecord(Uri exportRequestUri, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
         {
             EnsureArg.IsNotNull(exportRequestUri, nameof(exportRequestUri));
 
             RequestUri = exportRequestUri;
+            RequestorClaims = requestorClaims?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 
             // Default values
             SchemaVersion = 1;
-            Status = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
+            Status = OperationStatus.Queued;
+
+            // Compute the hash of the job.
+            var hashObject = new
+            {
+                RequestUri,
+                RequestorClaims,
+            };
+
+            Hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
+
             QueuedTime = DateTimeOffset.UtcNow;
         }
 
@@ -35,6 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Request)]
         public Uri RequestUri { get; private set; }
+
+        [JsonProperty(JobRecordProperties.RequestorClaims)]
+        public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
 
         [JsonProperty(JobRecordProperties.Id)]
         public string Id { get; private set; }

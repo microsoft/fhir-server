@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             jobRecord.Status = OperationStatus.Completed;
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
 
-            _fhirOperationDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
+            _fhirOperationDataStore.GetExportJobByIdAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             jobRecord.Status = OperationStatus.Running;
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
 
-            _fhirOperationDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
+            _fhirOperationDataStore.GetExportJobByIdAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
 
             var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
 

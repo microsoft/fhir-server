@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(job.JobRecord, job.ETag, CancellationToken.None);
 
-            ExportJobOutcome actual = await _dataStore.GetExportJobAsync(jobRecord.Id, CancellationToken.None);
+            ExportJobOutcome actual = await _dataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.NotNull(actual);
             Assert.Equal(OperationStatus.Completed, actual.JobRecord.Status);
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             // Create a new task with the old ETag.
             await _exportJobTask.ExecuteAsync(initialJob.JobRecord, initialJob.ETag, CancellationToken.None);
 
-            ExportJobOutcome actual = await _dataStore.GetExportJobAsync(jobRecord.Id, CancellationToken.None);
+            ExportJobOutcome actual = await _dataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.NotNull(actual);
 

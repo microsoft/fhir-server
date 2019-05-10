@@ -8,18 +8,22 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
+        private IClaimsExtractor _claimsExtractor;
         private IFhirOperationDataStore _fhirOperationDataStore;
 
-        public CreateExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore)
+        public CreateExportRequestHandler(IClaimsExtractor claimsExtractor, IFhirOperationDataStore fhirOperationDataStore)
         {
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
 
+            _claimsExtractor = claimsExtractor;
             _fhirOperationDataStore = fhirOperationDataStore;
         }
 
@@ -27,14 +31,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // TODO: Later we will add some logic here that will check whether a duplicate job already exists
-            // and handle it accordingly. For now we just assume all export jobs are unique and create a new one.
+            var jobRecord = new ExportJobRecord(request.RequestUri, _claimsExtractor.Extract());
 
-            var jobRecord = new ExportJobRecord(request.RequestUri);
-            ExportJobOutcome result = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
+            // Check to see if a matching job exists or not. If a matching job exists, we will return that instead.
+            // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
+            ExportJobOutcome result = await _fhirOperationDataStore.GetExportJobByHashAsync(jobRecord.Hash, cancellationToken);
 
-            // If job creation had failed we would have thrown an exception.
-            return new CreateExportResponse(jobRecord.Id);
+            if (result == null)
+            {
+                result = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
+            }
+
+            return new CreateExportResponse(result.JobRecord.Id);
         }
     }
 }
