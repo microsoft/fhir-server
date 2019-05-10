@@ -210,21 +210,21 @@ CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
 
 CREATE TYPE dbo.ResourceWriteClaimTableType AS TABLE  
 (
-    ClaimId tinyint NOT NULL,
+    ClaimTypeId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL
 )
 
 CREATE TABLE dbo.ResourceWriteClaim
 (
     ResourceSurrogateId bigint NOT NULL,
-    ClaimId tinyint NOT NULL,
+    ClaimTypeId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
 CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
 (
     ResourceSurrogateId,
-    ClaimId
+    ClaimTypeId
 )
 
 /*************************************************************
@@ -418,8 +418,8 @@ AS
         (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
 
     INSERT INTO dbo.ResourceWriteClaim 
-        (ResourceSurrogateId, ClaimId, ClaimValue)
-    SELECT @resourceSurrogateId, ClaimId, ClaimValue from @resourceWriteClaims
+        (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+    SELECT @resourceSurrogateId, ClaimTypeId, ClaimValue from @resourceWriteClaims
 
     INSERT INTO dbo.CompartmentAssignment
         (ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
