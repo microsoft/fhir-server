@@ -193,7 +193,46 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Re
 INCLUDE (Version)
 WHERE IsHistory = 0
 
+/*************************************************************
+    Capture claims on write
+**************************************************************/
+
+CREATE TABLE dbo.ClaimType
+(
+    ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
+    Name varchar(128) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
+(
+    Name
+)
+
+CREATE TYPE dbo.ResourceWriteClaimTableType AS TABLE  
+(
+    ClaimTypeId tinyint NOT NULL,
+    ClaimValue nvarchar(128) NOT NULL
+)
+
+CREATE TABLE dbo.ResourceWriteClaim
+(
+    ResourceSurrogateId bigint NOT NULL,
+    ClaimTypeId tinyint NOT NULL,
+    ClaimValue nvarchar(128) NOT NULL,
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
+(
+    ResourceSurrogateId,
+    ClaimTypeId
+)
+
+
 GO
+
+/*************************************************************
+    Sequence for generating surrogate IDs for resources
+**************************************************************/
 
 CREATE SEQUENCE dbo.ResourceSurrogateIdSequence
         AS BIGINT
@@ -231,6 +270,8 @@ GO
 --         * The HTTP method/verb used for the request
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
+--     @resourceWriteClaims
+--         * claims on the principal that performed the write
 --
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
@@ -244,7 +285,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @updatedDateTime datetimeoffset(7),
     @keepHistory bit,
     @requestMethod varchar(10),
-    @rawResource varbinary(max)
+    @rawResource varbinary(max),
+    @resourceWriteClaims dbo.ResourceWriteClaimTableType READONLY
 AS
     SET NOCOUNT ON
 
@@ -304,6 +346,11 @@ AS
         (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, LastUpdated, IsDeleted, RequestMethod, RawResource)
     VALUES
         (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
+
+    INSERT INTO dbo.ResourceWriteClaim 
+        (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+    SELECT @resourceSurrogateId, ClaimTypeId, ClaimValue from @resourceWriteClaims
+
 
     select @version
 
@@ -369,8 +416,15 @@ AS
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
+    DECLARE @resourceSurrogateIds TABLE(ResourceSurrogateId bigint NOT NULL)
+
     DELETE FROM dbo.Resource
+    OUTPUT deleted.ResourceSurrogateId
+    INTO @resourceSurrogateIds
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId
+
+    DELETE FROM dbo.ResourceWriteClaim
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
 
     COMMIT TRANSACTION
 GO

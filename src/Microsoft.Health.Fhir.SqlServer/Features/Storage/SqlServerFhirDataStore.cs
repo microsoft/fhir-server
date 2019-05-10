@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -86,7 +88,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         updatedDateTime: resource.LastModified,
                         keepHistory: keepHistory,
                         requestMethod: resource.Request.Method,
-                        rawResource: ms);
+                        rawResource: ms,
+                        resourceWriteClaims: GetResourceWriteClaims(resource));
 
                     try
                     {
@@ -116,6 +119,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
+        }
+
+        private IEnumerable<V1.ResourceWriteClaimTableTypeRow> GetResourceWriteClaims(ResourceWrapper resource)
+        {
+            return resource.LastModifiedClaims?.Select(c => new V1.ResourceWriteClaimTableTypeRow(_model.GetClaimTypeId(c.Key), c.Value));
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
