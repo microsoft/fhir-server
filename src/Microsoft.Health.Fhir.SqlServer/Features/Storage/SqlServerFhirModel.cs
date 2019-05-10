@@ -39,14 +39,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirModel> _logger;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SecurityConfiguration _securityConfiguration;
+        private readonly RetryableInitializationOperation _initializationOperation;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
         private Dictionary<string, short> _searchParamUriToId;
         private ConcurrentDictionary<string, int> _systemToId;
         private ConcurrentDictionary<string, int> _quantityCodeToId;
         private Dictionary<string, byte> _claimNameToId;
-
-        private readonly RetryableInitializationOperation _initializationOperation;
+        private Dictionary<CompartmentType, byte> _compartmentTypeToId;
 
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
@@ -91,6 +91,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             ThrowIfNotInitialized();
             return _searchParamUriToId[searchParamUri];
+        }
+
+        public byte GetCompartmentId(CompartmentType compartmentType)
+        {
+            ThrowIfNotInitialized();
+            return _compartmentTypeToId[compartmentType];
         }
 
         public int GetSystem(string system)
@@ -150,22 +156,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         -- result set 3
                         SELECT ClaimTypeId, Name FROM dbo.ClaimType;
+
+                        INSERT INTO dbo.CompartmentType (Name) 
+                        SELECT value FROM string_split(@compartmentTypes, ',')
+                        EXCEPT SELECT Name FROM dbo.CompartmentType; 
+
+                        -- result set 4
+                        SELECT CompartmentTypeId, Name FROM dbo.CompartmentType;
                         
                         COMMIT TRANSACTION
     
-                        -- result set 4
+                        -- result set 5
                         SELECT Value, SystemId from dbo.System;
 
-                        -- result set 5
+                        -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
                     string commaSeparatedResourceTypes = string.Join(",", ModelInfo.SupportedResources);
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
                     string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.LastModifiedClaims);
+                    string commaSeparatedCompartmentTypes = string.Join(',', Enum.GetNames(typeof(CompartmentType)));
 
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
                     sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
+                    sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
                     using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
                     {
@@ -175,6 +190,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
+                        var compartmentTypeToId = new Dictionary<CompartmentType, byte>();
 
                         // result set 1
                         while (reader.Read())
@@ -208,11 +224,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
+                            (byte id, string compartmentName) = reader.ReadRow(V1.CompartmentType.CompartmentTypeId, V1.CompartmentType.Name);
+                            compartmentTypeToId.Add(Enum.Parse<CompartmentType>(compartmentName), id);
+                        }
+
+                        // result set 5
+                        reader.NextResult();
+
+                        while (reader.Read())
+                        {
                             var (value, systemId) = reader.ReadRow(V1.System.Value, V1.System.SystemId);
                             systemToId.TryAdd(value, systemId);
                         }
 
-                        // result set 5
+                        // result set 6
                         reader.NextResult();
 
                         while (reader.Read())
@@ -227,6 +252,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _systemToId = systemToId;
                         _quantityCodeToId = quantityCodeToId;
                         _claimNameToId = claimNameToId;
+                        _compartmentTypeToId = compartmentTypeToId;
                     }
                 }
             }

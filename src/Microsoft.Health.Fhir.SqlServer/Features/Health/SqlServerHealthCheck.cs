@@ -11,7 +11,6 @@ using EnsureThat;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Configs;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Health
 {
@@ -21,9 +20,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Health
     public class SqlServerHealthCheck : IHealthCheck
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
-        private readonly ILogger<SqlServerFhirDataStore> _logger;
+        private readonly ILogger<SqlServerHealthCheck> _logger;
 
-        public SqlServerHealthCheck(SqlServerDataStoreConfiguration configuration, ILogger<SqlServerFhirDataStore> logger)
+        public SqlServerHealthCheck(SqlServerDataStoreConfiguration configuration, ILogger<SqlServerHealthCheck> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(logger, nameof(logger));

@@ -4,13 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +19,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -33,23 +30,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// A SQL Server-backed <see cref="IFhirDataStore"/>.
     /// </summary>
-    public class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
+    internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
         private static readonly Encoding ResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
 
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
+        private readonly V1.UpsertResourceTvpGenerator<ResourceWrapper> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
 
-        public SqlServerFhirDataStore(SqlServerDataStoreConfiguration configuration, SqlServerFhirModel model, ILogger<SqlServerFhirDataStore> logger)
+        public SqlServerFhirDataStore(
+            SqlServerDataStoreConfiguration configuration,
+            SqlServerFhirModel model,
+            V1.UpsertResourceTvpGenerator<ResourceWrapper> upsertResourceTvpGenerator,
+            ILogger<SqlServerFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
+            EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
             EnsureArg.IsNotNull(logger, nameof(logger));
-
             _configuration = configuration;
             _model = model;
+            _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
             _logger = logger;
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -69,14 +72,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await connection.OpenAsync(cancellationToken);
 
                 using (var command = connection.CreateCommand())
-                using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
-                using (var gzipStream = new GZipStream(ms, CompressionMode.Compress))
+                using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
+                using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
                 using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
                 {
                     writer.Write(resource.RawResource.Data);
                     writer.Flush();
 
-                    ms.Seek(0, 0);
+                    stream.Seek(0, 0);
+
+                    V1.UpsertResourceTableValuedParameters tvpParameters = _upsertResourceTvpGenerator.Generate(resource);
 
                     V1.UpsertResource.PopulateCommand(
                         command,
@@ -88,8 +93,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         updatedDateTime: resource.LastModified,
                         keepHistory: keepHistory,
                         requestMethod: resource.Request.Method,
-                        rawResource: ms,
-                        resourceWriteClaims: GetResourceWriteClaims(resource));
+                        rawResource: stream,
+                        resourceWriteClaims: tvpParameters.ResourceWriteClaims,
+                        compartmentAssignments: tvpParameters.CompartmentAssignments);
 
                     try
                     {
@@ -119,11 +125,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
-        }
-
-        private IEnumerable<V1.ResourceWriteClaimTableTypeRow> GetResourceWriteClaims(ResourceWrapper resource)
-        {
-            return resource.LastModifiedClaims?.Select(c => new V1.ResourceWriteClaimTableTypeRow(_model.GetClaimTypeId(c.Key), c.Value));
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)

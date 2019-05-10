@@ -227,6 +227,52 @@ CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
     ClaimId
 )
 
+/*************************************************************
+    Compartments
+**************************************************************/
+
+CREATE TABLE dbo.CompartmentType
+(
+    CompartmentTypeId tinyint IDENTITY(1,1) NOT NULL,
+    Name varchar(128) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
+(
+    Name
+)
+
+CREATE TYPE dbo.CompartmentAssignmentTableType AS TABLE  
+(
+    CompartmentTypeId tinyint NOT NULL,
+    ReferenceResourceId varchar(64) NOT NULL
+)
+
+CREATE TABLE dbo.CompartmentAssignment
+(
+    ResourceSurrogateId bigint NOT NULL,
+    CompartmentTypeId tinyint NOT NULL,
+    ReferenceResourceId varchar(64) NOT NULL,
+    IsHistory bit NOT NULL,
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_CompartmentAssignment 
+ON dbo.CompartmentAssignment
+(
+    ResourceSurrogateId,
+    CompartmentTypeId,
+    ReferenceResourceId
+)
+
+CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId 
+ON dbo.CompartmentAssignment
+(
+    CompartmentTypeId,
+    ReferenceResourceId
+) 
+WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+
 
 GO
 
@@ -286,7 +332,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @keepHistory bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
-    @resourceWriteClaims dbo.ResourceWriteClaimTableType READONLY
+    @resourceWriteClaims dbo.ResourceWriteClaimTableType READONLY,
+    @compartmentAssignments dbo.CompartmentAssignmentTableType READONLY
 AS
     SET NOCOUNT ON
 
@@ -332,7 +379,30 @@ AS
     END
     ELSE BEGIN
         -- There is a previous version
-        SET @version = (select (Version + 1) from @previousVersion)
+        DECLARE @previousResourceSurrogateId bigint
+        
+        SELECT @version = (Version + 1), @previousResourceSurrogateId = ResourceSurrogateId 
+        FROM @previousVersion
+
+        IF (@keepHistory = 1) BEGIN
+
+            -- note there is no IsHistory column on ResourceWriteClaim since we do not query it
+
+            UPDATE dbo.CompartmentAssignment
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+        END
+        ELSE BEGIN
+
+            DELETE FROM dbo.ResourceWriteClaim
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            DELETE FROM dbo.CompartmentAssignment
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+
+        END
     END
 
 
@@ -351,6 +421,10 @@ AS
         (ResourceSurrogateId, ClaimId, ClaimValue)
     SELECT @resourceSurrogateId, ClaimId, ClaimValue from @resourceWriteClaims
 
+    INSERT INTO dbo.CompartmentAssignment
+        (ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
+    SELECT @resourceSurrogateId, CompartmentTypeId, ReferenceResourceId, 0
+    FROM @compartmentAssignments
 
     select @version
 

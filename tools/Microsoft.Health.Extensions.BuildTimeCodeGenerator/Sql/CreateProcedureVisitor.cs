@@ -20,6 +20,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
     /// </summary>
     internal class CreateProcedureVisitor : SqlVisitor
     {
+        private const string TvpGeneratorGenericTypeName = "TInput";
+
         public override void Visit(CreateProcedureStatement node)
         {
             string procedureName = node.ProcedureReference.Name.BaseIdentifier.Value;
@@ -63,8 +65,16 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 
             FieldDeclarationSyntax fieldDeclarationSyntax = CreateStaticFieldForClass(className, procedureName);
 
+            var tvpGeneratorTypes = CreateTvpGeneratorTypes(node, procedureName);
+
             MembersToAdd.Add(classDeclarationSyntax);
             MembersToAdd.Add(fieldDeclarationSyntax);
+
+            if (tvpGeneratorTypes != default)
+            {
+                MembersToAdd.Add(tvpGeneratorTypes.tvpGeneratorClass);
+                MembersToAdd.Add(tvpGeneratorTypes.tvpHolderStruct);
+            }
 
             base.Visit(node);
         }
@@ -81,7 +91,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
             {
                 Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(parameter.VariableName.Value))),
             };
-            if (Enum.TryParse<SqlDbType>(parameter.DataType.Name.BaseIdentifier.Value, ignoreCase: true, out var sqlDbType))
+            if (TryGetSqlDbTypeForParameter(parameter, out SqlDbType sqlDbType))
             {
                 // new ParameterDefinition<int>("@paramName", SqlDbType.Int, nullable, maxlength,...)
                 typeName = GenericName("ParameterDefinition")
@@ -178,6 +188,135 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             Argument(IdentifierName(ParameterNameForParameter(p)))))).ToArray());
         }
 
+        private (ClassDeclarationSyntax tvpGeneratorClass, StructDeclarationSyntax tvpHolderStruct) CreateTvpGeneratorTypes(CreateProcedureStatement node, string procedureName)
+        {
+            List<(string parameterName, string rowStructName)> rowTypes = node.Parameters
+                .Where(p => !TryGetSqlDbTypeForParameter(p, out _))
+                .Select(p => (parameterName: PropertyNameForParameter(p), rowStructName: GetRowStructNameForTableType(p.DataType.Name)))
+                .ToList();
+
+            if (rowTypes.Count == 0)
+            {
+                // no table-valued parameters on this procedure
+                return default;
+            }
+
+            var holderStructName = $"{procedureName}TableValuedParameters";
+
+            // create a struct with properties for each table-valued parameter
+
+            var structDeclaration = StructDeclaration(holderStructName)
+                .AddModifiers(Token(SyntaxKind.InternalKeyword))
+
+                // Add a constructor with parameters for each column, setting the associated property for each column.
+                .AddMembers(
+                    ConstructorDeclaration(
+                            Identifier(holderStructName))
+                        .WithModifiers(
+                            TokenList(
+                                Token(SyntaxKind.InternalKeyword)))
+                        .AddParameterListParameters(
+                            rowTypes.Select(p =>
+                                Parameter(Identifier(p.parameterName))
+                                    .WithType(TypeExtensions.CreateGenericTypeFromGenericTypeDefinition(
+                                        typeof(IEnumerable<>).ToTypeSyntax(true),
+                                        IdentifierName(p.rowStructName)))).ToArray())
+                        .WithBody(
+                            Block(rowTypes.Select(p =>
+                                ExpressionStatement(
+                                    AssignmentExpression(
+                                        SyntaxKind.SimpleAssignmentExpression,
+                                        left: MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            ThisExpression(),
+                                            IdentifierName(p.parameterName)),
+                                        right: IdentifierName(p.parameterName)))))))
+
+                // Add a property for each column
+                .AddMembers(rowTypes.Select(p =>
+                    (MemberDeclarationSyntax)PropertyDeclaration(
+                            TypeExtensions.CreateGenericTypeFromGenericTypeDefinition(
+                                typeof(IEnumerable<>).ToTypeSyntax(true),
+                                IdentifierName(p.rowStructName)),
+                            Identifier(p.parameterName))
+                        .AddModifiers(Token(SyntaxKind.InternalKeyword))
+                        .AddAccessorListAccessors(AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)))).ToArray());
+
+            string className = $"{procedureName}TvpGenerator";
+
+            List<string> distinctTvpTypeNames = rowTypes.Select(r => r.rowStructName).Distinct().ToList();
+
+            var classDeclaration = ClassDeclaration(className)
+                .AddTypeParameterListParameters(TypeParameter(TvpGeneratorGenericTypeName))
+                .AddBaseListTypes(
+                    SimpleBaseType(
+                        GenericName("IStoredProcedureTableValuedParametersGenerator")
+                            .AddTypeArgumentListArguments(
+                                IdentifierName(TvpGeneratorGenericTypeName),
+                                IdentifierName(holderStructName))))
+                .AddModifiers(Token(SyntaxKind.InternalKeyword))
+                .AddMembers(
+                    ConstructorDeclaration(Identifier(className))
+                        .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+                        .AddParameterListParameters(distinctTvpTypeNames
+                                .Select(t =>
+                                    Parameter(Identifier(GeneratorFieldName(t)))
+                                        .WithType(GeneratorType(t))).ToArray())
+                        .WithBody(
+                            Block(distinctTvpTypeNames
+                                .Select(t =>
+                                    ExpressionStatement(
+                                        AssignmentExpression(
+                                            SyntaxKind.SimpleAssignmentExpression,
+                                            left: MemberAccessExpression(
+                                                SyntaxKind.SimpleMemberAccessExpression,
+                                                ThisExpression(),
+                                                IdentifierName(GeneratorFieldName(t))),
+                                            right: IdentifierName(GeneratorFieldName(t))))))))
+                .AddMembers(
+                    distinctTvpTypeNames
+                        .Select(t => (MemberDeclarationSyntax)FieldDeclaration(
+                                VariableDeclaration(GeneratorType(t))
+                                    .AddVariables(VariableDeclarator(GeneratorFieldName(t))))
+                            .AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.ReadOnlyKeyword))).ToArray())
+                .AddMembers(
+                    MethodDeclaration(IdentifierName(holderStructName), Identifier("Generate"))
+                        .AddModifiers(Token(SyntaxKind.PublicKeyword))
+                        .AddParameterListParameters(Parameter(Identifier("input")).WithType(IdentifierName(TvpGeneratorGenericTypeName)))
+                        .AddBodyStatements(
+                            ReturnStatement(
+                                ObjectCreationExpression(IdentifierName(holderStructName))
+                                    .AddArgumentListArguments(
+                                        rowTypes.Select(p => Argument(
+                                            InvocationExpression(
+                                                    MemberAccessExpression(
+                                                        SyntaxKind.SimpleMemberAccessExpression,
+                                                        IdentifierName(GeneratorFieldName(p.rowStructName)),
+                                                        IdentifierName("GenerateRows")))
+                                                .AddArgumentListArguments(Argument(IdentifierName("input"))))).ToArray()))));
+
+            return (classDeclaration, structDeclaration);
+        }
+
+        private static string GeneratorFieldName(string tableTypeName)
+        {
+            return $"{tableTypeName}Generator";
+        }
+
+        private static TypeSyntax GeneratorType(string rowStructName)
+        {
+            return GenericName("ITableValuedParameterRowGenerator")
+                .AddTypeArgumentListArguments(
+                    IdentifierName(TvpGeneratorGenericTypeName),
+                    IdentifierName(rowStructName));
+        }
+
+        private static bool TryGetSqlDbTypeForParameter(ProcedureParameter parameter, out SqlDbType sqlDbType)
+        {
+            return Enum.TryParse<SqlDbType>(parameter.DataType.Name.BaseIdentifier.Value, ignoreCase: true, out sqlDbType);
+        }
+
         private static string ParameterNameForParameter(ProcedureParameter parameter)
         {
             return parameter.VariableName.Value.Substring(1);
@@ -186,6 +325,12 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         private static string FieldNameForParameter(ProcedureParameter parameter)
         {
             return $"_{parameter.VariableName.Value.Substring(1)}";
+        }
+
+        private static string PropertyNameForParameter(ProcedureParameter parameter)
+        {
+            string parameterName = parameter.VariableName.Value;
+            return $"{char.ToUpperInvariant(parameterName[1])}{(parameterName.Length > 2 ? parameterName.Substring(2) : string.Empty)}";
         }
     }
 }
