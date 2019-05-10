@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var queryParam = new Dictionary<string, string>()
             {
-                { DestinationTypeQueryParamName, "unsupportedDestionationType" },
+                { DestinationTypeQueryParamName, "unsupportedDestinationType" },
                 { DestinationConnectionQueryParamName, "destinationConnection" },
             };
             HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);

@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 
@@ -38,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var jobRecord = new ExportJobRecord(request.RequestUri);
 
             // Store the destination secret
-            var result = await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInformation.ToJson());
+            SecretWrapper result = await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInfo.ToJson());
 
             ExportJobOutcome outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 

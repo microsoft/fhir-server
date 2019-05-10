@@ -12,6 +12,9 @@ using Microsoft.Health.Fhir.Core.Features.SecretStore;
 
 namespace Microsoft.Health.Fhir.KeyVault
 {
+    /// <summary>
+    /// Implementation of <see cref="ISecretStore"/> that uses Azure Key Vault underneath.
+    /// </summary>
     public class KeyVaultSecretStore : ISecretStore
     {
         private IKeyVaultClient _keyVaultClient;

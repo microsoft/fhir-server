@@ -26,11 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString, nameof(destinationConnectionString));
 
             RequestUri = requestUri;
-            DestinationInformation = new DestinationInfo(destinationType, destinationConnectionString);
+            DestinationInfo = new DestinationInfo(destinationType, destinationConnectionString);
         }
 
         public Uri RequestUri { get; }
 
-        public DestinationInfo DestinationInformation { get; }
+        public DestinationInfo DestinationInfo { get; }
     }
 }
