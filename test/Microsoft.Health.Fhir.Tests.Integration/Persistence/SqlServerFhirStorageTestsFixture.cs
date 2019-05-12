@@ -7,6 +7,7 @@ using System;
 using System.Data.SqlClient;
 using System.Numerics;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -14,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using NSubstitute;
 
@@ -59,7 +61,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
-            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, NullLogger<SqlServerFhirDataStore>.Instance);
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.AddSqlServerTableRowParameterGenerators();
+            serviceCollection.AddSingleton(sqlServerFhirModel);
+
+            ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+
+            var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<V1.UpsertResourceTvpGenerator<ResourceWrapper>>();
+
+            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, upsertResourceTvpGenerator, NullLogger<SqlServerFhirDataStore>.Instance);
             _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
         }
 

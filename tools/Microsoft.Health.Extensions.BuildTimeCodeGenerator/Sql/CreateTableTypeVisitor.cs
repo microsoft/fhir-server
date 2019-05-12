@@ -5,7 +5,6 @@
 
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.SqlServer.Server;
@@ -21,6 +20,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
     /// </summary>
     public class CreateTableTypeVisitor : SqlVisitor
     {
+        public override int ArtifactSortOder => 2;
+
         public override void Visit(CreateTypeTableStatement node)
         {
             string tableTypeName = node.Name.BaseIdentifier.Value;
@@ -141,8 +142,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                         .AddAccessorListAccessors(AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
                             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)))).ToArray());
 
-            MembersToAdd.Add(classDeclarationSyntax);
-            MembersToAdd.Add(rowStruct);
+            MembersToAdd.Add(classDeclarationSyntax.AddSortingKey(this, tableTypeName));
+            MembersToAdd.Add(rowStruct.AddSortingKey(this, tableTypeName));
 
             base.Visit(node);
         }

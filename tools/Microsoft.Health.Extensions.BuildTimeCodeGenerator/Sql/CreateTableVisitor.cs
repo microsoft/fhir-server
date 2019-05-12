@@ -3,9 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Data;
 using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
@@ -18,6 +17,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
     /// </summary>
     internal class CreateTableVisitor : SqlVisitor
     {
+        public override int ArtifactSortOder => 0;
+
         public override void Visit(CreateTableStatement node)
         {
             string tableName = node.SchemaObjectName.BaseIdentifier.Value;
@@ -52,8 +53,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 
             FieldDeclarationSyntax field = CreateStaticFieldForClass(className, tableName);
 
-            MembersToAdd.Add(classDeclarationSyntax);
-            MembersToAdd.Add(field);
+            MembersToAdd.Add(field.AddSortingKey(this, tableName));
+            MembersToAdd.Add(classDeclarationSyntax.AddSortingKey(this, tableName));
 
             base.Visit(node);
         }

@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using Microsoft.CodeAnalysis;
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
@@ -24,6 +24,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         /// These members will be added to the generated class.
         /// </summary>
         public List<MemberDeclarationSyntax> MembersToAdd { get; } = new List<MemberDeclarationSyntax>();
+
+        public abstract int ArtifactSortOder { get; }
 
         /// <summary>
         /// Converts a <see cref="DataTypeReference"/> to a <see cref="TypeSyntax"/>
@@ -183,7 +185,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         /// <returns>The class name</returns>
         protected static string GetClassNameForTableValuedParameterDefinition(SchemaObjectName objectName)
         {
-            return $"{objectName.BaseIdentifier.Value}TableValuedParameterDefinition";
+            return $"{GetTableTypeNameWithoutVersionSuffix(objectName)}TableValuedParameterDefinition";
         }
 
         /// <summary>
@@ -193,7 +195,17 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         /// <returns>The struct name</returns>
         protected static string GetRowStructNameForTableType(SchemaObjectName objectName)
         {
-            return $"{objectName.BaseIdentifier.Value}Row";
+            return $"{GetTableTypeNameWithoutVersionSuffix(objectName)}Row";
+        }
+
+        /// <summary>
+        /// Strips away the version suffix from a table type name.
+        /// </summary>
+        /// <param name="objectName">The table type name</param>
+        /// <returns>The name</returns>
+        private static string GetTableTypeNameWithoutVersionSuffix(SchemaObjectName objectName)
+        {
+            return Regex.Replace(objectName.BaseIdentifier.Value, @"_\d+", string.Empty);
         }
 
         protected MemberDeclarationSyntax CreatePropertyForColumn(ColumnDefinition column)
