@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using EnsureThat;
@@ -14,7 +16,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 {
     /// <summary>
-    /// Generates a C# class based on the the CREATE TABLE and CREATE PROCEDURE statements in a .sql file
+    /// Generates a C# class based on the CREATE TABLE, CREATE TABLE TYPE, and CREATE PROCEDURE statements in a .sql file
     /// </summary>
     public class SqlModelGenerator : ICodeGenerator
     {
@@ -32,50 +34,21 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         {
             TSqlFragment sqlFragment = ParseSqlFile();
 
-            var createTableVisitor = new CreateTableVisitor();
-            sqlFragment.Accept(createTableVisitor);
+            var visitors = new SqlVisitor[] { new CreateTableVisitor(), new CreateProcedureVisitor(), new CreateTableTypeVisitor() };
 
-            var createProcedureVisitor = new CreateProcedureVisitor();
-            sqlFragment.Accept(createProcedureVisitor);
+            foreach (var sqlVisitor in visitors)
+            {
+                sqlFragment.Accept(sqlVisitor);
+            }
 
             var classDeclaration = ClassDeclaration(typeName)
                 .WithModifiers(TokenList(Token(SyntaxKind.InternalKeyword)))
+                .AddMembers(visitors
+                    .SelectMany(v => v.MembersToAdd)
+                    .OrderBy(m => m, MemberSorting.Comparer)
+                    .ToArray());
 
-                // add fields for each table
-                .AddMembers(
-                    createTableVisitor.Tables.Select(t =>
-                        FieldDeclaration(
-                                VariableDeclaration(IdentifierName(t.classDeclaration.Identifier.Text))
-                                    .AddVariables(VariableDeclarator(t.name)
-                                        .WithInitializer(
-                                            EqualsValueClause(
-                                                ObjectCreationExpression(
-                                                    IdentifierName(t.classDeclaration.Identifier.Text)).AddArgumentListArguments()))))
-                            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword), Token(SyntaxKind.StaticKeyword))).Cast<MemberDeclarationSyntax>().ToArray())
-
-                // add fields for each stored procedure
-                .AddMembers(
-                    createProcedureVisitor.Procedures.Select(t =>
-                        FieldDeclaration(
-                                VariableDeclaration(IdentifierName(t.classDeclaration.Identifier.Text))
-                                    .AddVariables(VariableDeclarator(t.name)
-                                        .WithInitializer(
-                                            EqualsValueClause(
-                                                ObjectCreationExpression(
-                                                    IdentifierName(t.classDeclaration.Identifier.Text)).AddArgumentListArguments()))))
-                            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword), Token(SyntaxKind.StaticKeyword))).Cast<MemberDeclarationSyntax>().ToArray())
-
-                // add inner classes for tables and procedures
-                .AddMembers(
-                    createTableVisitor.Tables.Concat(createProcedureVisitor.Procedures).Select(t => (MemberDeclarationSyntax)t.classDeclaration).ToArray());
-
-            var usingDirectiveSyntax = UsingDirective(
-                    "Microsoft.Health.Fhir.SqlServer.Features.Storage"
-                        .Split('.')
-                        .Select(s => (NameSyntax)IdentifierName(s))
-                        .Aggregate((acc, id) => QualifiedName(acc, (SimpleNameSyntax)id)));
-
-            return (classDeclaration, new[] { usingDirectiveSyntax });
+            return (classDeclaration, new UsingDirectiveSyntax[0]);
         }
 
         private TSqlFragment ParseSqlFile()

@@ -30,23 +30,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// A SQL Server-backed <see cref="IFhirDataStore"/>.
     /// </summary>
-    public class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
+    internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
         private static readonly Encoding ResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
 
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
+        private readonly V1.UpsertResourceTvpGenerator<ResourceWrapper> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
 
-        public SqlServerFhirDataStore(SqlServerDataStoreConfiguration configuration, SqlServerFhirModel model, ILogger<SqlServerFhirDataStore> logger)
+        public SqlServerFhirDataStore(
+            SqlServerDataStoreConfiguration configuration,
+            SqlServerFhirModel model,
+            V1.UpsertResourceTvpGenerator<ResourceWrapper> upsertResourceTvpGenerator,
+            ILogger<SqlServerFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
+            EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
             EnsureArg.IsNotNull(logger, nameof(logger));
-
             _configuration = configuration;
             _model = model;
+            _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
             _logger = logger;
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -66,14 +72,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await connection.OpenAsync(cancellationToken);
 
                 using (var command = connection.CreateCommand())
-                using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
-                using (var gzipStream = new GZipStream(ms, CompressionMode.Compress))
+                using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
+                using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
                 using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
                 {
                     writer.Write(resource.RawResource.Data);
                     writer.Flush();
 
-                    ms.Seek(0, 0);
+                    stream.Seek(0, 0);
 
                     V1.UpsertResource.PopulateCommand(
                         command,
@@ -85,7 +91,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         updatedDateTime: resource.LastModified,
                         keepHistory: keepHistory,
                         requestMethod: resource.Request.Method,
-                        rawResource: ms);
+                        rawResource: stream,
+                        tableValuedParameters: _upsertResourceTvpGenerator.Generate(resource));
 
                     try
                     {

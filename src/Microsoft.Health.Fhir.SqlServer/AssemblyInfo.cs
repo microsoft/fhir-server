@@ -6,6 +6,7 @@
 using System.Resources;
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.SqlServer.Api.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.SqlServer.Api")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.SqlServer.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Integration")]
 [assembly: NeutralResourcesLanguage("en-us")]
