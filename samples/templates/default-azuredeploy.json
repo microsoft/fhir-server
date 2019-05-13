@@ -284,13 +284,12 @@
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
             "properties": {
-                "administratorLogin": "[uniqueString(resourceGroup().id)]",
+                "administratorLogin": "fhirAdmin",
                 "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
                 "version": "12.0"
             },
             "resources": [
                 {
-                    "condition": "[equals(parameters('solutionType'), 'FhirServerSqlServer')]",
                     "apiVersion": "2017-10-01-preview",
                     "dependsOn": [
                         "[variables('serviceName')]"
@@ -311,7 +310,6 @@
                     "type": "databases"
                 },
                 {
-                    "condition": "[equals(parameters('solutionType'), 'FhirServerSqlServer')]",
                     "apiVersion": "2014-04-01",
                     "dependsOn": [
                         "[variables('serviceName')]"

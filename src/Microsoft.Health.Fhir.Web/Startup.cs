@@ -27,13 +27,14 @@ namespace Microsoft.Health.Fhir.Web
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration).AddExportWorker();
 
-            if (Configuration["DataStore"].Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
+            string dataStore = Configuration["DataStore"];
+            if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
             {
                 fhirServerBuilder.AddCosmosDb(Configuration);
             }
-            else if (Configuration["DataStore"].Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
+            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
             {
-                services.AddExperimentalSqlServer();
+                fhirServerBuilder.AddExperimentalSqlServer();
             }
 
             AddApplicationInsightsTelemetry(services);
