@@ -37,10 +37,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
     public class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
+        private readonly FhirStorageTestsFixture _fixture;
         private readonly CapabilityStatement _conformance;
 
         public FhirStorageTests(FhirStorageTestsFixture fixture)
         {
+            _fixture = fixture;
             IFhirDataStore dataStore = fixture.DataStore;
 
             _conformance = CapabilityStatementMock.GetMockedCapabilityStatement();
@@ -349,6 +351,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task WhenHardDeletingAResource_ThenWeGetResourceNotFound()
         {
+            object snapshotToken = await _fixture.TestHelper.GetSnapshotToken();
+
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), true);
@@ -362,11 +366,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Subsequent version get should result in NotFound.
             await Assert.ThrowsAsync<ResourceNotFoundException>(
                 () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id, saveResult.Resource.Meta.VersionId)));
+
+            await _fixture.TestHelper.ValidateSnapshotTokenIsCurrent(snapshotToken);
         }
 
         [Fact]
         public async Task WhenHardDeletingAResource_ThenHistoryShouldBeDeleted()
         {
+            object snapshotToken = await _fixture.TestHelper.GetSnapshotToken();
+
             var createResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             string resourceId = createResult.Resource.Id;
@@ -389,6 +397,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await Assert.ThrowsAsync<ResourceNotFoundException>(
                     () => Mediator.GetResourceAsync(new ResourceKey<Observation>(resourceId, versionId)));
             }
+
+            await _fixture.TestHelper.ValidateSnapshotTokenIsCurrent(snapshotToken);
         }
 
         [Fact]

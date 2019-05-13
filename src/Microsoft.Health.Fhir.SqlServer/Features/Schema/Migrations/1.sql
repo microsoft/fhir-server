@@ -193,7 +193,92 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Re
 INCLUDE (Version)
 WHERE IsHistory = 0
 
+/*************************************************************
+    Capture claims on write
+**************************************************************/
+
+CREATE TABLE dbo.ClaimType
+(
+    ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
+    Name varchar(128) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
+(
+    Name
+)
+
+CREATE TYPE dbo.ResourceWriteClaimTableType_1 AS TABLE  
+(
+    ClaimTypeId tinyint NOT NULL,
+    ClaimValue nvarchar(128) NOT NULL
+)
+
+CREATE TABLE dbo.ResourceWriteClaim
+(
+    ResourceSurrogateId bigint NOT NULL,
+    ClaimTypeId tinyint NOT NULL,
+    ClaimValue nvarchar(128) NOT NULL,
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
+(
+    ResourceSurrogateId,
+    ClaimTypeId
+)
+
+/*************************************************************
+    Compartments
+**************************************************************/
+
+CREATE TABLE dbo.CompartmentType
+(
+    CompartmentTypeId tinyint IDENTITY(1,1) NOT NULL,
+    Name varchar(128) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
+(
+    Name
+)
+
+CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE  
+(
+    CompartmentTypeId tinyint NOT NULL,
+    ReferenceResourceId varchar(64) NOT NULL
+)
+
+CREATE TABLE dbo.CompartmentAssignment
+(
+    ResourceSurrogateId bigint NOT NULL,
+    CompartmentTypeId tinyint NOT NULL,
+    ReferenceResourceId varchar(64) NOT NULL,
+    IsHistory bit NOT NULL,
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_CompartmentAssignment 
+ON dbo.CompartmentAssignment
+(
+    ResourceSurrogateId,
+    CompartmentTypeId,
+    ReferenceResourceId
+)
+
+CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId 
+ON dbo.CompartmentAssignment
+(
+    CompartmentTypeId,
+    ReferenceResourceId
+) 
+WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+
+
 GO
+
+/*************************************************************
+    Sequence for generating surrogate IDs for resources
+**************************************************************/
 
 CREATE SEQUENCE dbo.ResourceSurrogateIdSequence
         AS BIGINT
@@ -231,6 +316,8 @@ GO
 --         * The HTTP method/verb used for the request
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
+--     @resourceWriteClaims
+--         * claims on the principal that performed the write
 --
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
@@ -244,7 +331,9 @@ CREATE PROCEDURE dbo.UpsertResource
     @updatedDateTime datetimeoffset(7),
     @keepHistory bit,
     @requestMethod varchar(10),
-    @rawResource varbinary(max)
+    @rawResource varbinary(max),
+    @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
+    @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
@@ -290,7 +379,30 @@ AS
     END
     ELSE BEGIN
         -- There is a previous version
-        SET @version = (select (Version + 1) from @previousVersion)
+        DECLARE @previousResourceSurrogateId bigint
+        
+        SELECT @version = (Version + 1), @previousResourceSurrogateId = ResourceSurrogateId 
+        FROM @previousVersion
+
+        IF (@keepHistory = 1) BEGIN
+
+            -- note there is no IsHistory column on ResourceWriteClaim since we do not query it
+
+            UPDATE dbo.CompartmentAssignment
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+        END
+        ELSE BEGIN
+
+            DELETE FROM dbo.ResourceWriteClaim
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            DELETE FROM dbo.CompartmentAssignment
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+
+        END
     END
 
 
@@ -304,6 +416,15 @@ AS
         (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, LastUpdated, IsDeleted, RequestMethod, RawResource)
     VALUES
         (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
+
+    INSERT INTO dbo.ResourceWriteClaim 
+        (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+    SELECT @resourceSurrogateId, ClaimTypeId, ClaimValue from @resourceWriteClaims
+
+    INSERT INTO dbo.CompartmentAssignment
+        (ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
+    SELECT @resourceSurrogateId, CompartmentTypeId, ReferenceResourceId, 0
+    FROM @compartmentAssignments
 
     select @version
 
@@ -369,8 +490,15 @@ AS
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
+    DECLARE @resourceSurrogateIds TABLE(ResourceSurrogateId bigint NOT NULL)
+
     DELETE FROM dbo.Resource
+    OUTPUT deleted.ResourceSurrogateId
+    INTO @resourceSurrogateIds
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId
+
+    DELETE FROM dbo.ResourceWriteClaim
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
 
     COMMIT TRANSACTION
 GO

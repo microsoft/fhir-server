@@ -4,10 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Buffers;
 using System.Data;
 using System.Data.SqlClient;
 using System.IO;
-using EnsureThat;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.SqlServer.Server;
 
@@ -16,67 +16,66 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 #pragma warning disable SA1402 // File may only contain a single type. Adding all Column-derived types in this files.
 
     /// <summary>
-    /// Represents a typed table column, table-valued parameter column, or a stored procedure parameter.
+    /// Represents a table or table type column
     /// </summary>
-    /// <typeparam name="T">The CLR column type</typeparam>
-    public abstract class Column<T>
+    public abstract class Column
     {
-        private readonly string _defaultParameterName;
-
         protected Column(string name, SqlDbType type, bool nullable)
-            : this(name, nullable)
+            : this(nullable)
         {
             Metadata = new SqlMetaData(name, type);
         }
 
         protected Column(string name, SqlDbType type, bool nullable, long length)
-            : this(name, nullable)
+            : this(nullable)
         {
             Metadata = new SqlMetaData(name, type, length);
         }
 
         protected Column(string name, SqlDbType type, bool nullable, byte precision, byte scale)
-            : this(name, nullable)
+            : this(nullable)
         {
             Metadata = new SqlMetaData(name, type, precision, scale);
         }
 
-        private Column(string name, bool nullable)
+        private Column(bool nullable)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
             Nullable = nullable;
-            _defaultParameterName = $"@{char.ToLowerInvariant(name[0])}{name.Substring(1)}";
         }
 
         public bool Nullable { get; }
 
         public SqlMetaData Metadata { get; }
 
-        public static implicit operator string(Column<T> column) => column.ToString();
+        public static implicit operator string(Column column) => column.ToString();
 
         public override string ToString() => Metadata.Name;
+    }
+
+    /// <summary>
+    /// Represents a typed table or table type column
+    /// </summary>
+    /// <typeparam name="T">The CLR column type</typeparam>
+    public abstract class Column<T> : Column
+    {
+        protected Column(string name, SqlDbType type, bool nullable)
+            : base(name, type, nullable)
+        {
+        }
+
+        protected Column(string name, SqlDbType type, bool nullable, long length)
+            : base(name, type, nullable, length)
+        {
+        }
+
+        protected Column(string name, SqlDbType type, bool nullable, byte precision, byte scale)
+            : base(name, type, nullable, precision, scale)
+        {
+        }
 
         public abstract T Read(SqlDataReader reader, int ordinal);
 
-        public SqlParameter AddParameter(SqlParameterCollection parameters, T value, string parameterName)
-        {
-            EnsureArg.IsNotNull(parameters, nameof(parameters));
-
-            return parameters.Add(
-                new SqlParameter(
-                    parameterName: parameterName,
-                    dbType: Metadata.SqlDbType,
-                    size: (int)Metadata.MaxLength,
-                    direction: ParameterDirection.Input,
-                    isNullable: Nullable,
-                    precision: Metadata.Precision,
-                    scale: Metadata.Scale,
-                    sourceColumn: null,
-                    sourceVersion: DataRowVersion.Current,
-                    value: value));
-        }
-
-        public SqlParameter AddParameterWithDefaultName(SqlParameterCollection parameters, T value) => AddParameter(parameters, value, _defaultParameterName);
+        public abstract void Set(SqlDataRecord record, int ordinal, T value);
     }
 
     public class IntColumn : Column<int>
@@ -89,6 +88,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override int Read(SqlDataReader reader, int ordinal)
         {
             return reader.GetInt32(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, int value)
+        {
+            record.SetInt32(ordinal, value);
         }
     }
 
@@ -103,6 +107,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             return reader.GetInt64(Metadata.Name, ordinal);
         }
+
+        public override void Set(SqlDataRecord record, int ordinal, long value)
+        {
+            record.SetInt64(ordinal, value);
+        }
     }
 
     public class BitColumn : Column<bool>
@@ -115,6 +124,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override bool Read(SqlDataReader reader, int ordinal)
         {
             return reader.GetBoolean(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, bool value)
+        {
+            record.SetBoolean(ordinal, value);
         }
     }
 
@@ -129,6 +143,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             return reader.GetDateTime(Metadata.Name, ordinal);
         }
+
+        public override void Set(SqlDataRecord record, int ordinal, DateTime value)
+        {
+            record.SetDateTime(ordinal, value);
+        }
     }
 
     public class DateTimeOffsetColumn : Column<DateTimeOffset>
@@ -141,6 +160,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override DateTimeOffset Read(SqlDataReader reader, int ordinal)
         {
             return reader.GetDateTimeOffset(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, DateTimeOffset value)
+        {
+            record.SetDateTimeOffset(ordinal, value);
         }
     }
 
@@ -155,6 +179,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             return reader.GetDecimal(Metadata.Name, ordinal);
         }
+
+        public override void Set(SqlDataRecord record, int ordinal, decimal value)
+        {
+            record.SetDecimal(ordinal, value);
+        }
     }
 
     public class SmallIntColumn : Column<short>
@@ -167,6 +196,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override short Read(SqlDataReader reader, int ordinal)
         {
             return reader.GetInt16(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, short value)
+        {
+            record.SetInt16(ordinal, value);
         }
     }
 
@@ -181,6 +215,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             return reader.GetByte(Metadata.Name, ordinal);
         }
+
+        public override void Set(SqlDataRecord record, int ordinal, byte value)
+        {
+            record.SetByte(ordinal, value);
+        }
     }
 
     public class NullableIntColumn : Column<int?>
@@ -193,6 +232,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override int? Read(SqlDataReader reader, int ordinal)
         {
             return reader.IsDBNull(Metadata.Name, ordinal) ? default(int?) : reader.GetInt32(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, int? value)
+        {
+            if (value.HasValue)
+            {
+                record.SetInt32(ordinal, value.Value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
         }
     }
 
@@ -207,6 +258,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             return reader.IsDBNull(Metadata.Name, ordinal) ? default(long?) : reader.GetInt64(Metadata.Name, ordinal);
         }
+
+        public override void Set(SqlDataRecord record, int ordinal, long? value)
+        {
+            if (value.HasValue)
+            {
+                record.SetInt64(ordinal, value.Value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
+        }
     }
 
     public class NullableBitColumn : Column<bool?>
@@ -219,6 +282,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override bool? Read(SqlDataReader reader, int ordinal)
         {
             return reader.IsDBNull(Metadata.Name, ordinal) ? default(bool?) : reader.GetBoolean(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, bool? value)
+        {
+            if (value.HasValue)
+            {
+                record.SetBoolean(ordinal, value.Value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
         }
     }
 
@@ -233,6 +308,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             return reader.IsDBNull(Metadata.Name, ordinal) ? default(DateTime?) : reader.GetDateTime(Metadata.Name, ordinal);
         }
+
+        public override void Set(SqlDataRecord record, int ordinal, DateTime? value)
+        {
+            if (value.HasValue)
+            {
+                record.SetDateTime(ordinal, value.Value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
+        }
     }
 
     public class NullableDateTimeOffsetColumn : Column<DateTimeOffset?>
@@ -245,6 +332,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override DateTimeOffset? Read(SqlDataReader reader, int ordinal)
         {
             return reader.IsDBNull(Metadata.Name, ordinal) ? default(DateTimeOffset?) : reader.GetDateTimeOffset(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, DateTimeOffset? value)
+        {
+            if (value.HasValue)
+            {
+                record.SetDateTimeOffset(ordinal, value.Value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
         }
     }
 
@@ -259,6 +358,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             return reader.IsDBNull(Metadata.Name, ordinal) ? default(decimal?) : reader.GetDecimal(Metadata.Name, ordinal);
         }
+
+        public override void Set(SqlDataRecord record, int ordinal, decimal? value)
+        {
+            if (value.HasValue)
+            {
+                record.SetDecimal(ordinal, value.Value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
+        }
     }
 
     public class NullableSmallIntColumn : Column<short?>
@@ -271,6 +382,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override short? Read(SqlDataReader reader, int ordinal)
         {
             return reader.IsDBNull(Metadata.Name, ordinal) ? default(short?) : reader.GetInt16(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, short? value)
+        {
+            if (value.HasValue)
+            {
+                record.SetInt16(ordinal, value.Value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
         }
     }
 
@@ -285,6 +408,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             return reader.IsDBNull(Metadata.Name, ordinal) ? default(byte?) : reader.GetByte(Metadata.Name, ordinal);
         }
+
+        public override void Set(SqlDataRecord record, int ordinal, byte? value)
+        {
+            if (value.HasValue)
+            {
+                record.SetByte(ordinal, value.Value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
+        }
     }
 
     public abstract class StringColumn : Column<string>
@@ -297,6 +432,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override string Read(SqlDataReader reader, int ordinal)
         {
             return Nullable && reader.IsDBNull(ordinal) ? null : reader.GetString(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, string value)
+        {
+            if (value != null)
+            {
+                record.SetString(ordinal, value);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
         }
     }
 
@@ -311,7 +458,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     public class VarCharColumn : StringColumn
     {
         public VarCharColumn(string name, int length)
-            : base(name, SqlDbType.NVarChar, false, length)
+            : base(name, SqlDbType.VarChar, false, length)
         {
         }
     }
@@ -319,13 +466,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     public class VarBinaryColumn : Column<Stream>
     {
         public VarBinaryColumn(string name, int length)
-            : base(name, SqlDbType.VarBinary, false, length)
+            : this(name, false, length)
+        {
+        }
+
+        public VarBinaryColumn(string name, bool nullable, int length)
+            : base(name, SqlDbType.VarBinary, nullable, length)
         {
         }
 
         public override Stream Read(SqlDataReader reader, int ordinal)
         {
-            return reader.GetStream(Metadata.Name, ordinal);
+            return Nullable && reader.IsDBNull(Metadata.Name, ordinal) ? Stream.Null : reader.GetStream(Metadata.Name, ordinal);
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, Stream value)
+        {
+            if (value != null)
+            {
+                int length = (int)value.Length;
+                byte[] bytes = ArrayPool<byte>.Shared.Rent(length);
+
+                try
+                {
+                    using (var ms = new MemoryStream(bytes))
+                    {
+                        value.CopyTo(ms, length);
+                    }
+
+                    record.SetBytes(ordinal, 0, bytes, 0, length);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(bytes);
+                }
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
         }
     }
 
@@ -340,15 +519,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     public class NullableVarCharColumn : StringColumn
     {
         public NullableVarCharColumn(string name, int length)
-            : base(name, SqlDbType.NVarChar, true, length)
+            : base(name, SqlDbType.VarChar, true, length)
         {
         }
     }
 
-    public class NullableVarBinaryColumn : Column<Stream>
+    public class NullableVarBinaryColumn : VarBinaryColumn
     {
         public NullableVarBinaryColumn(string name, int length)
-            : base(name, SqlDbType.VarBinary, true, length)
+            : base(name, nullable: true, length)
         {
         }
 

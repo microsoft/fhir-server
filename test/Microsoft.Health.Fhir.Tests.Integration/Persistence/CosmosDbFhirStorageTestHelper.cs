@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
+using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -43,6 +44,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await _documentClient.DeleteDocumentAsync(doc.SelfLink, new RequestOptions() { PartitionKey = new PartitionKey(ExportJobPartitionKey) });
                 }
             }
+        }
+
+        async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
+        {
+            var documentQuery = _documentClient.CreateDocumentQuery(
+                _collectionUri,
+                "SELECT top 1 c._ts as Item1 FROM c ORDER BY c._ts DESC",
+                new FeedOptions { EnableCrossPartitionQuery = true }).AsDocumentQuery();
+
+            while (documentQuery.HasMoreResults)
+            {
+                foreach (Tuple<int> ts in await documentQuery.ExecuteNextAsync<Tuple<int>>())
+                {
+                    return ts.Item1;
+                }
+            }
+
+            return null;
+        }
+
+        async Task IFhirStorageTestHelper.ValidateSnapshotTokenIsCurrent(object snapshotToken)
+        {
+            Assert.True((int)await ((IFhirStorageTestHelper)this).GetSnapshotToken() <= (int)snapshotToken);
         }
     }
 }

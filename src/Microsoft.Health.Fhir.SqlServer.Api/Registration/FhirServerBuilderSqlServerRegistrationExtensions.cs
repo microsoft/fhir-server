@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -11,6 +12,7 @@ using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -76,7 +78,28 @@ namespace Microsoft.Extensions.DependencyInjection
             // During normal usage, the controller should be automatically discovered.
             serviceCollection.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
 
+            AddSqlServerTableRowParameterGenerators(serviceCollection);
+
             return serviceCollection;
+        }
+
+        internal static void AddSqlServerTableRowParameterGenerators(this IServiceCollection serviceCollection)
+        {
+            foreach (var type in typeof(SqlServerFhirDataStore).Assembly.GetTypes().Where(t => t.IsClass && !t.IsAbstract))
+            {
+                foreach (var interfaceType in type.GetInterfaces())
+                {
+                    if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IStoredProcedureTableValuedParametersGenerator<,>))
+                    {
+                        serviceCollection.AddSingleton(type);
+                    }
+
+                    if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(ITableValuedParameterRowGenerator<,>))
+                    {
+                        serviceCollection.AddSingleton(interfaceType, type);
+                    }
+                }
+            }
         }
     }
 }

@@ -13,7 +13,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.SqlServer.Configs;
@@ -36,25 +38,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SecurityConfiguration _securityConfiguration;
+        private readonly RetryableInitializationOperation _initializationOperation;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
         private Dictionary<string, short> _searchParamUriToId;
         private ConcurrentDictionary<string, int> _systemToId;
         private ConcurrentDictionary<string, int> _quantityCodeToId;
+        private Dictionary<string, byte> _claimNameToId;
+        private Dictionary<CompartmentType, byte> _compartmentTypeToId;
 
-        private readonly RetryableInitializationOperation _initializationOperation;
-
-        public SqlServerFhirModel(SqlServerDataStoreConfiguration configuration, SchemaInformation schemaInformation, ISearchParameterDefinitionManager searchParameterDefinitionManager, ILogger<SqlServerFhirModel> logger)
+        public SqlServerFhirModel(
+            SqlServerDataStoreConfiguration configuration,
+            SchemaInformation schemaInformation,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IOptions<SecurityConfiguration> securityConfiguration,
+            ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _configuration = configuration;
             _schemaInformation = schemaInformation;
             _logger = logger;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _securityConfiguration = securityConfiguration.Value;
 
             _initializationOperation = new RetryableInitializationOperation(Initialize);
             if (schemaInformation.Current != null)
@@ -70,10 +81,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _resourceTypeToId[resourceTypeName];
         }
 
+        public byte GetClaimTypeId(string claimTypeName)
+        {
+            ThrowIfNotInitialized();
+            return _claimNameToId[claimTypeName];
+        }
+
         public short GetSearchParamId(string searchParamUri)
         {
             ThrowIfNotInitialized();
             return _searchParamUriToId[searchParamUri];
+        }
+
+        public byte GetCompartmentId(CompartmentType compartmentType)
+        {
+            ThrowIfNotInitialized();
+            return _compartmentTypeToId[compartmentType];
         }
 
         public int GetSystem(string system)
@@ -127,19 +150,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
 
-                        COMMIT TRANSACTION
-    
+                        INSERT INTO dbo.ClaimType (Name) 
+                        SELECT value FROM string_split(@claimTypes, ',')
+                        EXCEPT SELECT Name FROM dbo.ClaimType; 
+
                         -- result set 3
-                        SELECT Value, SystemId from dbo.System;
+                        SELECT ClaimTypeId, Name FROM dbo.ClaimType;
+
+                        INSERT INTO dbo.CompartmentType (Name) 
+                        SELECT value FROM string_split(@compartmentTypes, ',')
+                        EXCEPT SELECT Name FROM dbo.CompartmentType; 
 
                         -- result set 4
+                        SELECT CompartmentTypeId, Name FROM dbo.CompartmentType;
+                        
+                        COMMIT TRANSACTION
+    
+                        -- result set 5
+                        SELECT Value, SystemId from dbo.System;
+
+                        -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
                     string commaSeparatedResourceTypes = string.Join(",", ModelInfo.SupportedResources);
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
+                    string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.LastModifiedClaims);
+                    string commaSeparatedCompartmentTypes = string.Join(',', Enum.GetNames(typeof(CompartmentType)));
 
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
+                    sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
+                    sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
                     using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
                     {
@@ -148,6 +189,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var searchParamUriToId = new Dictionary<string, short>(StringComparer.Ordinal);
                         var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                        var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
+                        var compartmentTypeToId = new Dictionary<CompartmentType, byte>();
 
                         // result set 1
                         while (reader.Read())
@@ -172,11 +215,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
+                            (byte id, string claimTypeName) = reader.ReadRow(V1.ClaimType.ClaimTypeId, V1.ClaimType.Name);
+                            claimNameToId.Add(claimTypeName, id);
+                        }
+
+                        // result set 4
+                        reader.NextResult();
+
+                        while (reader.Read())
+                        {
+                            (byte id, string compartmentName) = reader.ReadRow(V1.CompartmentType.CompartmentTypeId, V1.CompartmentType.Name);
+                            compartmentTypeToId.Add(Enum.Parse<CompartmentType>(compartmentName), id);
+                        }
+
+                        // result set 5
+                        reader.NextResult();
+
+                        while (reader.Read())
+                        {
                             var (value, systemId) = reader.ReadRow(V1.System.Value, V1.System.SystemId);
                             systemToId.TryAdd(value, systemId);
                         }
 
-                        // result set 4
+                        // result set 6
                         reader.NextResult();
 
                         while (reader.Read())
@@ -190,6 +251,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _searchParamUriToId = searchParamUriToId;
                         _systemToId = systemToId;
                         _quantityCodeToId = quantityCodeToId;
+                        _claimNameToId = claimNameToId;
+                        _compartmentTypeToId = compartmentTypeToId;
                     }
                 }
             }
