@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly IntColumn SystemId = new IntColumn("SystemId");
+            internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
             internal readonly VarCharColumn Code = new VarCharColumn("Code", 128);
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
@@ -376,33 +376,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly IntColumn SystemId = new IntColumn("SystemId");
+            internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
             internal readonly VarCharColumn Code = new VarCharColumn("Code", 128);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{ResourceSurrogateId, SearchParamId, SystemId, Code};
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId, Code};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenSearchParamTableTypeRow rowData)
             {
-                ResourceSurrogateId.Set(record, 0, rowData.ResourceSurrogateId);
-                SearchParamId.Set(record, 1, rowData.SearchParamId);
-                SystemId.Set(record, 2, rowData.SystemId);
-                Code.Set(record, 3, rowData.Code);
+                SearchParamId.Set(record, 0, rowData.SearchParamId);
+                SystemId.Set(record, 1, rowData.SystemId);
+                Code.Set(record, 2, rowData.Code);
             }
         }
 
         internal struct TokenSearchParamTableTypeRow
         {
-            internal TokenSearchParamTableTypeRow(System.Int64 ResourceSurrogateId, System.Int16 SearchParamId, System.Int32 SystemId, System.String Code)
+            internal TokenSearchParamTableTypeRow(System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId, System.String Code)
             {
-                this.ResourceSurrogateId = ResourceSurrogateId;
                 this.SearchParamId = SearchParamId;
                 this.SystemId = SystemId;
                 this.Code = Code;
-            }
-
-            internal System.Int64 ResourceSurrogateId
-            {
-                get;
             }
 
             internal System.Int16 SearchParamId
@@ -410,7 +402,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 get;
             }
 
-            internal System.Int32 SystemId
+            internal System.Nullable<System.Int32> SystemId
             {
                 get;
             }

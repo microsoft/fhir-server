@@ -282,9 +282,8 @@ GO
 
 CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE  
 (
-    ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SystemId int NOT NULL,
+    SystemId int NULL,
     Code varchar(128) NOT NULL
 )
 
@@ -292,7 +291,7 @@ CREATE TABLE dbo.TokenSearchParam
 (
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SystemId int NOT NULL,
+    SystemId int NULL,
     Code varchar(128) NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
