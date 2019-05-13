@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var resourceWrapper =
                 new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
             _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
-            _urlResolver.ResolveRouteUrl(Arg.Any<IEnumerable<Tuple<string, string>>>(), null, Arg.Any<IDictionary<string, object>>()).Returns(new Uri("http://narwhal"));
+            _urlResolver.ResolveRouteUrl(Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(new Uri("http://narwhal"));
 
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
 

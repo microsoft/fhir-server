@@ -34,9 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// </summary>
         /// <param name="unsupportedSearchParams">A list of unsupported search parameters.</param>
         /// <param name="continuationToken">The continuation token.</param>
-        /// <param name="routeValues">Any route values to use in the route.</param>
         /// <returns>The URL.</returns>
-        Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null, IDictionary<string, object> routeValues = null);
+        Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
 
         /// <summary>
         /// Resolves the URL for the specified routeName.

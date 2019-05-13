@@ -112,13 +112,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
-        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null, IDictionary<string, object> routeValues = null)
+        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
         {
             string routeName = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
 
             Debug.Assert(!string.IsNullOrWhiteSpace(routeName), "The routeName should not be null or empty.");
 
-            var routeValueDictionary = new RouteValueDictionary(routeValues);
+            var routeValues = new RouteValueDictionary();
 
             // We could have multiple query parameters with the same name. In this case, we should only remove
             // the query parameter that was not used or not supported.
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
                         if (usedValues.Any())
                         {
-                            routeValueDictionary.Add(searchParam.Key, usedValues);
+                            routeValues.Add(searchParam.Key, usedValues);
                         }
                     }
                 }
@@ -151,12 +151,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             if (continuationToken != null)
             {
-                routeValueDictionary[KnownQueryParameterNames.ContinuationToken] = continuationToken;
+                routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
             }
 
             string uriString = UrlHelper.RouteUrl(
                 routeName,
-                routeValueDictionary,
+                routeValues,
                 Request.Scheme,
                 Request.Host.Value);
 

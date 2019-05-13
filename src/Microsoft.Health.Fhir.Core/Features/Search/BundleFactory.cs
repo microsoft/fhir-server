@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return bundle;
         }
 
-        public Bundle CreateHistoryBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParameters, SearchResult result, DateTimeOffset? addedBefore)
+        public Bundle CreateHistoryBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParameters, SearchResult result)
         {
             // Create the bundle from the result.
             var bundle = new Bundle();
@@ -118,16 +118,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            IDictionary<string, object> routeValues = new Dictionary<string, object>();
-
-            // Add the _before value to the self link if we added it to the search parameters
-            if (addedBefore != null)
-            {
-                routeValues.Add(KnownQueryParameterNames.Before, addedBefore.Value.ToString("o"));
-            }
-
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(unsupportedSearchParameters, routeValues: routeValues);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(unsupportedSearchParameters);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.History;

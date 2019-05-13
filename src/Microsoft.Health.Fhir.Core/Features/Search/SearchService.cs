@@ -27,9 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IBundleFactory _bundleFactory;
         private readonly IFhirDataStore _fhirDataStore;
 
-        // Value which is subtracted from Now when querying _history without _before specified
-        private readonly int historyCurrentTimeBufferInSeconds = -3;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
         /// </summary>
@@ -81,7 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken)
         {
             var queryParameters = new List<Tuple<string, string>>();
-            DateTimeOffset? addedBefore = null;
 
             if (at != null)
             {
@@ -151,16 +147,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (since != null)
                 {
                     queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
-
-                    // when since is specified without _before, we will assume a value for before that is
-                    // Now - <buffer>  the buffer value allows us to have confidence that ongoing
-                    // edits are captured should the _before value be used in a future _history query
-
-                    if (before == null)
-                    {
-                        addedBefore = Clock.UtcNow.AddSeconds(historyCurrentTimeBufferInSeconds);
-                        queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"lt{addedBefore.Value.ToString("o")}"));
-                    }
                 }
 
                 if (before != null)
@@ -196,8 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             return _bundleFactory.CreateHistoryBundle(
                 unsupportedSearchParams: null,
-                result: searchResult,
-                addedBefore);
+                result: searchResult);
         }
 
         /// <summary>
