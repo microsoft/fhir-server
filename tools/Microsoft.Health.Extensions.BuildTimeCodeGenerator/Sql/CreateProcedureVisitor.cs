@@ -7,8 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-using System.IO;
 using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
@@ -19,9 +19,13 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
     /// <summary>
     /// Visits a SQL AST, creating a class for each CREATE PROCEDURE statement. Classes have a PopulateCommand method, with a signature derived from the procedure's signature.
     /// </summary>
-    internal class CreateProcedureVisitor : TSqlFragmentVisitor
+    internal class CreateProcedureVisitor : SqlVisitor
     {
-        public List<(string name, ClassDeclarationSyntax classDeclaration)> Procedures { get; } = new List<(string name, ClassDeclarationSyntax classDeclaration)>();
+        private const string TvpGeneratorGenericTypeName = "TInput";
+        private const string PopulateCommandMethodName = "PopulateCommand";
+        private const string CommandParameterName = "command";
+
+        public override int ArtifactSortOder => 1;
 
         public override void Visit(CreateProcedureStatement node)
         {
@@ -62,9 +66,16 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     .AddMembers(node.Parameters.Select(CreateFieldForParameter).ToArray())
 
                     // add the PopulateCommand method
-                    .AddMembers(AddPopulateCommandMethod(node, schemaQualifiedProcedureName));
+                    .AddMembers(AddPopulateCommandMethod(node, schemaQualifiedProcedureName), AddPopulateCommandMethodForTableValuedParameters(node, procedureName));
 
-            Procedures.Add((procedureName, classDeclarationSyntax));
+            FieldDeclarationSyntax fieldDeclarationSyntax = CreateStaticFieldForClass(className, procedureName);
+
+            var (tvpGeneratorClass, tvpHolderStruct) = CreateTvpGeneratorTypes(node, procedureName);
+
+            MembersToAdd.Add(classDeclarationSyntax.AddSortingKey(this, procedureName));
+            MembersToAdd.Add(fieldDeclarationSyntax.AddSortingKey(this, procedureName));
+            MembersToAdd.Add(tvpGeneratorClass.AddSortingKey(this, procedureName));
+            MembersToAdd.Add(tvpHolderStruct.AddSortingKey(this, procedureName));
 
             base.Visit(node);
         }
@@ -76,32 +87,44 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         /// <returns>The field declaration</returns>
         private MemberDeclarationSyntax CreateFieldForParameter(ProcedureParameter parameter)
         {
-            string normalizedSqlDbType = Enum.Parse<SqlDbType>(parameter.DataType.Name.BaseIdentifier.Value, true).ToString();
-            IdentifierNameSyntax typeName = IdentifierName($"{(parameter.Value != null ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
+            TypeSyntax typeName;
+            List<ArgumentSyntax> arguments = new List<ArgumentSyntax>
+            {
+                Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(parameter.VariableName.Value))),
+            };
+            if (TryGetSqlDbTypeForParameter(parameter, out SqlDbType sqlDbType))
+            {
+                // new ParameterDefinition<int>("@paramName", SqlDbType.Int, nullable, maxlength,...)
+                typeName = GenericName("ParameterDefinition")
+                    .AddTypeArgumentListArguments(SqlDbTypeToClrType(sqlDbType, nullable: parameter.Value != null).ToTypeSyntax(true));
+
+                arguments.Add(
+                    Argument(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            typeof(SqlDbType).ToTypeSyntax(true),
+                            IdentifierName(sqlDbType.ToString()))));
+                arguments.Add(
+                    Argument(
+                        LiteralExpression(parameter.Value == null ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)));
+
+                arguments.AddRange(GetDataTypeSpecificConstructorArguments(parameter.DataType));
+            }
+            else
+            {
+                // new MyTableValuedParameterDefinition("@paramName");
+                typeName = IdentifierName(GetClassNameForTableValuedParameterDefinition(parameter.DataType.Name));
+            }
 
             return FieldDeclaration(
                     VariableDeclaration(typeName)
 
                         // call it "_myParam" when the parameter is named "@myParam"
-                        .AddVariables(VariableDeclarator($"_{parameter.VariableName.Value.Substring(1)}")
+                        .AddVariables(VariableDeclarator(FieldNameForParameter(parameter))
                             .WithInitializer(
                                 EqualsValueClause(
                                     ObjectCreationExpression(typeName)
-
-                                        // the  first argument is the procedure name
-                                        .AddArgumentListArguments(
-                                            Argument(
-                                                LiteralExpression(
-                                                    SyntaxKind.StringLiteralExpression,
-                                                    Literal(parameter.VariableName.Value))))
-
-                                        // next come data-type specific arguments, like length, precision, and scale
-                                        .AddArgumentListArguments(parameter.DataType is ParameterizedDataTypeReference parameterizedDataType
-                                            ? parameterizedDataType.Parameters.Select(p => Argument(
-                                                LiteralExpression(
-                                                    SyntaxKind.NumericLiteralExpression,
-                                                    Literal(p.LiteralType == LiteralType.Max ? -1 : int.Parse(p.Value))))).ToArray()
-                                            : Array.Empty<ArgumentSyntax>())))))
+                                        .AddArgumentListArguments(arguments.ToArray())))))
                 .AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.ReadOnlyKeyword));
         }
 
@@ -115,16 +138,16 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         {
             return MethodDeclaration(
                     typeof(void).ToTypeSyntax(),
-                    Identifier("PopulateCommand"))
+                    Identifier(PopulateCommandMethodName))
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
 
                 // first parameter is the SqlCommand
-                .AddParameterListParameters(Parameter(Identifier("command")).WithType(typeof(SqlCommand).ToTypeSyntax(useGlobalAlias: true)))
+                .AddParameterListParameters(Parameter(Identifier(CommandParameterName)).WithType(typeof(SqlCommand).ToTypeSyntax(useGlobalAlias: true)))
 
                 // Add a parameter for each stored procedure parameter
                 .AddParameterListParameters(node.Parameters.Select(selector: p =>
-                    Parameter(Identifier(p.VariableName.Value.Substring(1)))
-                        .WithType(DataTypeReferenceToClrType(p.DataType, p.Value != null).ToTypeSyntax())).ToArray())
+                    Parameter(Identifier(ParameterNameForParameter(p)))
+                        .WithType(DataTypeReferenceToClrType(p.DataType, p.Value != null))).ToArray())
 
                 // start the body with:
                 // command.CommandType = CommandType.StoredProcedure
@@ -135,7 +158,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             SyntaxKind.SimpleAssignmentExpression,
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName("command"),
+                                IdentifierName(CommandParameterName),
                                 IdentifierName("CommandType")),
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
@@ -146,101 +169,234 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                             SyntaxKind.SimpleAssignmentExpression,
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName("command"),
+                                IdentifierName(CommandParameterName),
                                 IdentifierName("CommandText")),
                             LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(schemaQualifiedProcedureName)))))
 
                 // now for each parameter generate:
-                // command.Parameter.AddFromColumn(_fieldForParameter, valueParameter, "@myParam");
+                // _fieldForParameter.AddParameter(command, parameterValue)
                 .AddBodyStatements(node.Parameters.Select(p => (StatementSyntax)ExpressionStatement(
                     InvocationExpression(
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName("command"),
-                                    IdentifierName("Parameters")),
-                                IdentifierName("AddFromColumn")))
+                                IdentifierName(FieldNameForParameter(p)),
+                                IdentifierName("AddParameter")))
                         .AddArgumentListArguments(
-                            Argument(IdentifierName($"_{p.VariableName.Value.Substring(1)}")),
-                            Argument(IdentifierName(p.VariableName.Value.Substring(1))),
-                            Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(p.VariableName.Value)))))).ToArray());
+                            Argument(MemberAccessExpression(
+                                SyntaxKind.SimpleMemberAccessExpression,
+                                IdentifierName(CommandParameterName),
+                                IdentifierName("Parameters"))),
+                            Argument(IdentifierName(ParameterNameForParameter(p)))))).ToArray());
         }
 
-        private static Type DataTypeReferenceToClrType(DataTypeReference reference, bool nullable)
+        private MemberDeclarationSyntax AddPopulateCommandMethodForTableValuedParameters(CreateProcedureStatement node, string procedureName)
         {
-            Type type = DataTypeReferenceToClrType(reference);
+            var nonTableParameters = new List<ProcedureParameter>();
+            var tableParameters = new List<ProcedureParameter>();
 
-            if (nullable && !type.IsClass)
+            foreach (var procedureParameter in node.Parameters)
             {
-                return typeof(Nullable<>).MakeGenericType(type);
+                if (TryGetSqlDbTypeForParameter(procedureParameter, out _))
+                {
+                    nonTableParameters.Add(procedureParameter);
+                }
+                else
+                {
+                    tableParameters.Add(procedureParameter);
+                }
             }
 
-            return type;
+            if (tableParameters.Count == 0)
+            {
+                return IncompleteMember();
+            }
+
+            string tableValuedParametersParameterName = "tableValuedParameters";
+
+            return MethodDeclaration(
+                    typeof(void).ToTypeSyntax(),
+                    Identifier(PopulateCommandMethodName))
+                .AddModifiers(Token(SyntaxKind.PublicKeyword))
+
+                // first parameter is the SqlCommand
+                .AddParameterListParameters(Parameter(Identifier(CommandParameterName)).WithType(typeof(SqlCommand).ToTypeSyntax(useGlobalAlias: true)))
+
+                // Add a parameter for each non-TVP
+                .AddParameterListParameters(nonTableParameters.Select(selector: p =>
+                    Parameter(Identifier(ParameterNameForParameter(p)))
+                        .WithType(DataTypeReferenceToClrType(p.DataType, p.Value != null))).ToArray())
+
+                // Add a parameter for the TVP set
+                .AddParameterListParameters(
+                    Parameter(Identifier(tableValuedParametersParameterName)).WithType(IdentifierName(TableValuedParametersStructName(procedureName))))
+
+                // Call the overload
+                .AddBodyStatements(
+                    ExpressionStatement(
+                        InvocationExpression(
+                                IdentifierName(PopulateCommandMethodName))
+                            .AddArgumentListArguments(Argument(IdentifierName(CommandParameterName)))
+                            .AddArgumentListArguments(
+                                nonTableParameters.Select(p =>
+                                    Argument(IdentifierName(ParameterNameForParameter(p)))
+                                        .WithNameColon(NameColon(ParameterNameForParameter(p)))).ToArray())
+                            .AddArgumentListArguments(
+                                tableParameters.Select(p =>
+                                    Argument(MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            IdentifierName(tableValuedParametersParameterName),
+                                            IdentifierName(PropertyNameForParameter(p))))
+                                        .WithNameColon(NameColon(ParameterNameForParameter(p)))).ToArray())));
         }
 
-        private static Type DataTypeReferenceToClrType(DataTypeReference reference)
+        private (MemberDeclarationSyntax tvpGeneratorClass, MemberDeclarationSyntax tvpHolderStruct) CreateTvpGeneratorTypes(CreateProcedureStatement node, string procedureName)
         {
-            var sqlDbType = Enum.Parse<SqlDbType>(reference.Name.BaseIdentifier.Value, true);
-            switch (sqlDbType)
+            List<(string parameterName, string rowStructName)> rowTypes = node.Parameters
+                .Where(p => !TryGetSqlDbTypeForParameter(p, out _))
+                .Select(p => (parameterName: PropertyNameForParameter(p), rowStructName: GetRowStructNameForTableType(p.DataType.Name)))
+                .ToList();
+
+            if (rowTypes.Count == 0)
             {
-                case SqlDbType.BigInt:
-                    return typeof(long);
-                case SqlDbType.Binary:
-                    break;
-                case SqlDbType.Bit:
-                    return typeof(bool);
-                case SqlDbType.Char:
-                    break;
-                case SqlDbType.Date:
-                case SqlDbType.DateTime:
-                case SqlDbType.DateTime2:
-                case SqlDbType.SmallDateTime:
-                case SqlDbType.Time:
-                    return typeof(DateTime);
-                case SqlDbType.DateTimeOffset:
-                    return typeof(DateTimeOffset);
-                case SqlDbType.Decimal:
-                    return typeof(decimal);
-                case SqlDbType.Float:
-                    break;
-                case SqlDbType.Image:
-                    break;
-                case SqlDbType.Int:
-                    return typeof(int);
-                case SqlDbType.Money:
-                    break;
-                case SqlDbType.NChar:
-                case SqlDbType.NText:
-                case SqlDbType.VarChar:
-                case SqlDbType.NVarChar:
-                case SqlDbType.Text:
-                    return typeof(string);
-                case SqlDbType.Real:
-                    return typeof(double);
-                case SqlDbType.SmallInt:
-                    return typeof(short);
-                case SqlDbType.SmallMoney:
-                    break;
-                case SqlDbType.Structured:
-                    return typeof(object);
-                case SqlDbType.Timestamp:
-                    return typeof(byte[]);
-                case SqlDbType.TinyInt:
-                    return typeof(byte);
-                case SqlDbType.Udt:
-                    break;
-                case SqlDbType.UniqueIdentifier:
-                    return typeof(Guid);
-                case SqlDbType.VarBinary:
-                    return typeof(Stream);
-                case SqlDbType.Variant:
-                    break;
-                case SqlDbType.Xml:
-                    break;
+                // no table-valued parameters on this procedure
+                return (IncompleteMember(), IncompleteMember());
             }
 
-            throw new NotSupportedException(sqlDbType.ToString());
+            var holderStructName = TableValuedParametersStructName(procedureName);
+
+            // create a struct with properties for each table-valued parameter
+
+            var structDeclaration = StructDeclaration(holderStructName)
+                .AddModifiers(Token(SyntaxKind.InternalKeyword))
+
+                // Add a constructor with parameters for each column, setting the associated property for each column.
+                .AddMembers(
+                    ConstructorDeclaration(
+                            Identifier(holderStructName))
+                        .WithModifiers(
+                            TokenList(
+                                Token(SyntaxKind.InternalKeyword)))
+                        .AddParameterListParameters(
+                            rowTypes.Select(p =>
+                                Parameter(Identifier(p.parameterName))
+                                    .WithType(TypeExtensions.CreateGenericTypeFromGenericTypeDefinition(
+                                        typeof(IEnumerable<>).ToTypeSyntax(true),
+                                        IdentifierName(p.rowStructName)))).ToArray())
+                        .WithBody(
+                            Block(rowTypes.Select(p =>
+                                ExpressionStatement(
+                                    AssignmentExpression(
+                                        SyntaxKind.SimpleAssignmentExpression,
+                                        left: MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            ThisExpression(),
+                                            IdentifierName(p.parameterName)),
+                                        right: IdentifierName(p.parameterName)))))))
+
+                // Add a property for each column
+                .AddMembers(rowTypes.Select(p =>
+                    (MemberDeclarationSyntax)PropertyDeclaration(
+                            TypeExtensions.CreateGenericTypeFromGenericTypeDefinition(
+                                typeof(IEnumerable<>).ToTypeSyntax(true),
+                                IdentifierName(p.rowStructName)),
+                            Identifier(p.parameterName))
+                        .AddModifiers(Token(SyntaxKind.InternalKeyword))
+                        .AddAccessorListAccessors(AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)))).ToArray());
+
+            string className = $"{procedureName}TvpGenerator";
+
+            List<string> distinctTvpTypeNames = rowTypes.Select(r => r.rowStructName).Distinct().ToList();
+
+            var classDeclaration = ClassDeclaration(className)
+                .AddTypeParameterListParameters(TypeParameter(TvpGeneratorGenericTypeName))
+                .AddBaseListTypes(
+                    SimpleBaseType(
+                        GenericName("IStoredProcedureTableValuedParametersGenerator")
+                            .AddTypeArgumentListArguments(
+                                IdentifierName(TvpGeneratorGenericTypeName),
+                                IdentifierName(holderStructName))))
+                .AddModifiers(Token(SyntaxKind.InternalKeyword))
+                .AddMembers(
+                    ConstructorDeclaration(Identifier(className))
+                        .WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)))
+                        .AddParameterListParameters(distinctTvpTypeNames
+                            .Select(t =>
+                                Parameter(Identifier(GeneratorFieldName(t)))
+                                    .WithType(GeneratorType(t))).ToArray())
+                        .WithBody(
+                            Block(distinctTvpTypeNames
+                                .Select(t =>
+                                    ExpressionStatement(
+                                        AssignmentExpression(
+                                            SyntaxKind.SimpleAssignmentExpression,
+                                            left: MemberAccessExpression(
+                                                SyntaxKind.SimpleMemberAccessExpression,
+                                                ThisExpression(),
+                                                IdentifierName(GeneratorFieldName(t))),
+                                            right: IdentifierName(GeneratorFieldName(t))))))))
+                .AddMembers(
+                    distinctTvpTypeNames
+                        .Select(t => (MemberDeclarationSyntax)FieldDeclaration(
+                                VariableDeclaration(GeneratorType(t))
+                                    .AddVariables(VariableDeclarator(GeneratorFieldName(t))))
+                            .AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.ReadOnlyKeyword))).ToArray())
+                .AddMembers(
+                    MethodDeclaration(IdentifierName(holderStructName), Identifier("Generate"))
+                        .AddModifiers(Token(SyntaxKind.PublicKeyword))
+                        .AddParameterListParameters(Parameter(Identifier("input")).WithType(IdentifierName(TvpGeneratorGenericTypeName)))
+                        .AddBodyStatements(
+                            ReturnStatement(
+                                ObjectCreationExpression(IdentifierName(holderStructName))
+                                    .AddArgumentListArguments(
+                                        rowTypes.Select(p => Argument(
+                                            InvocationExpression(
+                                                    MemberAccessExpression(
+                                                        SyntaxKind.SimpleMemberAccessExpression,
+                                                        IdentifierName(GeneratorFieldName(p.rowStructName)),
+                                                        IdentifierName("GenerateRows")))
+                                                .AddArgumentListArguments(Argument(IdentifierName("input"))))).ToArray()))));
+
+            return (classDeclaration, structDeclaration);
+        }
+
+        private static string TableValuedParametersStructName(string procedureName)
+        {
+            return $"{procedureName}TableValuedParameters";
+        }
+
+        private static string GeneratorFieldName(string tableTypeName)
+        {
+            return $"{tableTypeName}Generator";
+        }
+
+        private static TypeSyntax GeneratorType(string rowStructName)
+        {
+            return GenericName("ITableValuedParameterRowGenerator")
+                .AddTypeArgumentListArguments(
+                    IdentifierName(TvpGeneratorGenericTypeName),
+                    IdentifierName(rowStructName));
+        }
+
+        private static bool TryGetSqlDbTypeForParameter(ProcedureParameter parameter, out SqlDbType sqlDbType)
+        {
+            return Enum.TryParse<SqlDbType>(parameter.DataType.Name.BaseIdentifier.Value, ignoreCase: true, out sqlDbType);
+        }
+
+        private static string ParameterNameForParameter(ProcedureParameter parameter)
+        {
+            return parameter.VariableName.Value.Substring(1);
+        }
+
+        private static string FieldNameForParameter(ProcedureParameter parameter)
+        {
+            return $"_{parameter.VariableName.Value.Substring(1)}";
+        }
+
+        private static string PropertyNameForParameter(ProcedureParameter parameter)
+        {
+            string parameterName = parameter.VariableName.Value;
+            return $"{char.ToUpperInvariant(parameterName[1])}{(parameterName.Length > 2 ? parameterName.Substring(2) : string.Empty)}";
         }
     }
 }

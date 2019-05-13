@@ -5,7 +5,7 @@
 
 using System;
 using System.Threading.Tasks;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -15,48 +15,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class FhirStorageTestsFixture : IAsyncLifetime, IDisposable
     {
-        private readonly IAsyncLifetime _fixture;
-
-        private readonly IScoped<IFhirDataStore> _scopedStore;
-        private readonly IScoped<IFhirOperationDataStore> _scopedFhirOperationDataStore;
-        private readonly IScoped<IFhirStorageTestHelper> _scopedTestHelper;
+        private readonly IServiceProvider _fixture;
 
         public FhirStorageTestsFixture(DataStore dataStore)
         {
             switch (dataStore)
             {
                 case Common.FixtureParameters.DataStore.CosmosDb:
-                    var fixture = new CosmosDbFhirStorageTestsFixture();
-
-                    _scopedStore = fixture;
-                    _scopedFhirOperationDataStore = fixture;
-                    _scopedTestHelper = fixture;
-
-                    _fixture = fixture;
+                    _fixture = new CosmosDbFhirStorageTestsFixture();
                     break;
                 case Common.FixtureParameters.DataStore.Sql:
-                    _scopedStore = new SqlServerFhirStorageTestsFixture();
+                    _fixture = new SqlServerFhirStorageTestsFixture();
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null);
             }
         }
 
-        public IFhirDataStore DataStore => _scopedStore.Value;
+        public IFhirDataStore DataStore => _fixture.GetRequiredService<IFhirDataStore>();
 
-        public IFhirOperationDataStore OperationDataStore => _scopedFhirOperationDataStore.Value;
+        public IFhirOperationDataStore OperationDataStore => _fixture.GetRequiredService<IFhirOperationDataStore>();
 
-        public IFhirStorageTestHelper TestHelper => _scopedTestHelper.Value;
+        public IFhirStorageTestHelper TestHelper => _fixture.GetRequiredService<IFhirStorageTestHelper>();
 
-        public void Dispose()
+        void IDisposable.Dispose()
         {
-            _scopedStore?.Dispose();
-            _scopedFhirOperationDataStore?.Dispose();
-            _scopedTestHelper?.Dispose();
+            (_fixture as IDisposable)?.Dispose();
         }
 
-        public Task InitializeAsync() => _fixture.InitializeAsync();
+        async Task IAsyncLifetime.InitializeAsync()
+        {
+            if (_fixture is IAsyncLifetime asyncLifetime)
+            {
+                await asyncLifetime.InitializeAsync();
+            }
+        }
 
-        public Task DisposeAsync() => _fixture.DisposeAsync();
+        async Task IAsyncLifetime.DisposeAsync()
+        {
+            if (_fixture is IAsyncLifetime asyncLifetime)
+            {
+                await asyncLifetime.DisposeAsync();
+            }
+        }
     }
 }

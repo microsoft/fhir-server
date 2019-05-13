@@ -64,6 +64,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SqlSe
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions.Xunit", "src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj", "{4DDF9576-E22C-460A-937F-0EE0FEA6DB87}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.SqlServer.UnitTests", "src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj", "{E02E5224-32CD-490F-B1E5-8509AD669334}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -162,6 +164,10 @@ Global
 		{4DDF9576-E22C-460A-937F-0EE0FEA6DB87}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4DDF9576-E22C-460A-937F-0EE0FEA6DB87}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4DDF9576-E22C-460A-937F-0EE0FEA6DB87}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E02E5224-32CD-490F-B1E5-8509AD669334}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E02E5224-32CD-490F-B1E5-8509AD669334}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E02E5224-32CD-490F-B1E5-8509AD669334}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E02E5224-32CD-490F-B1E5-8509AD669334}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -191,6 +197,7 @@ Global
 		{F6ED4870-7745-4A03-BD61-2850811A0DE2} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{87849B3F-5D12-41CA-A082-FAC065EF9FD8} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{4DDF9576-E22C-460A-937F-0EE0FEA6DB87} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
+		{E02E5224-32CD-490F-B1E5-8509AD669334} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True

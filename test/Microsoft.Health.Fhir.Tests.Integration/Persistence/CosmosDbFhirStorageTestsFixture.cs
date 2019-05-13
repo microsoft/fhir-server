@@ -27,35 +27,19 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class CosmosDbFhirStorageTestsFixture : IScoped<IFhirDataStore>, IScoped<IFhirOperationDataStore>, IScoped<IFhirStorageTestHelper>, IAsyncLifetime
+    public class CosmosDbFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
         private static readonly SemaphoreSlim CollectionInitializationSemaphore = new SemaphoreSlim(1, 1);
 
-        private IDocumentClient _documentClient;
-        private CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
-        private CosmosCollectionConfiguration _cosmosCollectionConfiguration;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
+        private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
 
+        private IDocumentClient _documentClient;
         private IFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
 
-        private int _disposed = 0;
-
-        IFhirDataStore IScoped<IFhirDataStore>.Value => _fhirDataStore;
-
-        IFhirOperationDataStore IScoped<IFhirOperationDataStore>.Value => _fhirOperationDataStore;
-
-        IFhirStorageTestHelper IScoped<IFhirStorageTestHelper>.Value => _fhirStorageTestHelper;
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            {
-                _documentClient?.Dispose();
-            }
-        }
-
-        public async Task InitializeAsync()
+        public CosmosDbFhirStorageTestsFixture()
         {
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
@@ -70,7 +54,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 CollectionId = Guid.NewGuid().ToString(),
             };
+        }
 
+        public async Task InitializeAsync()
+        {
             var fhirStoredProcs = typeof(IFhirStoredProcedure).Assembly
                 .GetTypes()
                 .Where(x => !x.IsAbstract && typeof(IFhirStoredProcedure).IsAssignableFrom(x))
@@ -137,7 +124,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DisposeAsync()
         {
-            await _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId));
+            using (_documentClient as IDisposable)
+            {
+                await _documentClient?.DeleteDocumentCollectionAsync(_cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId));
+            }
+        }
+
+        object IServiceProvider.GetService(Type serviceType)
+        {
+            if (serviceType == typeof(IFhirDataStore))
+            {
+                return _fhirDataStore;
+            }
+
+            if (serviceType == typeof(IFhirOperationDataStore))
+            {
+                return _fhirOperationDataStore;
+            }
+
+            if (serviceType == typeof(IFhirStorageTestHelper))
+            {
+                return _fhirStorageTestHelper;
+            }
+
+            if (serviceType.IsInstanceOfType(this))
+            {
+                return this;
+            }
+
+            return null;
         }
     }
 }
