@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     _fixture = new CosmosDbFhirStorageTestsFixture();
                     break;
                 case Common.FixtureParameters.DataStore.SqlServer:
-                    _scopedStore = new SqlServerFhirStorageTestsFixture();
+                    _fixture = new SqlServerFhirStorageTestsFixture();
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(dataStore), dataStore, null);
