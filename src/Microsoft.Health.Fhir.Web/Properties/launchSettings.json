@@ -1,38 +1,24 @@
 {
-  "iisSettings": {
-    "windowsAuthentication": false,
-    "anonymousAuthentication": true,
-    "iisExpress": {
-      "applicationUrl": "http://localhost:53727/",
-      "sslPort": 44348
-    }
-  },
-  "profiles": {
-    "IIS Express": {
-      "commandName": "IISExpress",
-      "launchBrowser": true,
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "development",
-        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
-      }
-    },
-    "Microsoft.Health.Fhir.Web": {
-      "commandName": "Project",
-      "launchBrowser": true,
-        "environmentVariables": {
-            "ASPNETCORE_ENVIRONMENT": "development",
-            "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
+    "profiles": {
+        "Microsoft.Health.Fhir.Web - CosmosDb": {
+            "commandName": "Project",
+            "launchBrowser": true,
+            "environmentVariables": {
+                "ASPNETCORE_ENVIRONMENT": "development",
+                "DataStore": "CosmosDb",
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
+            },
+            "applicationUrl": "https://localhost:44348/"
         },
-      "applicationUrl": "https://localhost:44348/"
-    },
-    "ExternallyDefinedAuth": {
-      "commandName": "Project",
-      "launchBrowser": true,
-        "environmentVariables": {
-            "ASPNETCORE_ENVIRONMENT": "development"
-        },
-      "applicationUrl": "https://localhost:44348/"
+        "Microsoft.Health.Fhir.Web - SqlServer": {
+            "commandName": "Project",
+            "launchBrowser": true,
+            "environmentVariables": {
+                "ASPNETCORE_ENVIRONMENT": "development",
+                "DataStore": "SqlServer",
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        }
     }
-
-  }
 }
