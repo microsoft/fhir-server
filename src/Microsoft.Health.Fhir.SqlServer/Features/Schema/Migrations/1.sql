@@ -277,6 +277,48 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
+    Token Search Param
+**************************************************************/
+
+CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE  
+(
+    ResourceSurrogateId bigint NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NOT NULL,
+    Code varchar(128) NOT NULL
+)
+
+CREATE TABLE dbo.TokenSearchParam
+(
+    ResourceSurrogateId bigint NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NOT NULL,
+    Code varchar(128) NOT NULL,
+    IsHistory bit NOT NULL,
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_TokenSearchParam
+ON dbo.TokenSearchParam
+(
+    ResourceSurrogateId,
+    SearchParamId,
+    Code,
+    SystemId
+)
+
+CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId 
+ON dbo.TokenSearchParam
+(
+    SearchParamId,
+    Code,
+    SystemId
+) 
+WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+
+GO
+
+/*************************************************************
     Sequence for generating surrogate IDs for resources
 **************************************************************/
 
@@ -333,7 +375,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @requestMethod varchar(10),
     @rawResource varbinary(max),
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
-    @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY
+    @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
+    @tokenSearchParams dbo.TokenSearchParamTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
@@ -392,6 +435,10 @@ AS
             SET IsHistory = 1
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
+            UPDATE dbo.TokenSearchParam
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
         END
         ELSE BEGIN
 
@@ -401,6 +448,8 @@ AS
             DELETE FROM dbo.CompartmentAssignment
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
+            DELETE FROM dbo.TokenSearchParam
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
         END
     END
@@ -426,7 +475,12 @@ AS
     SELECT @resourceSurrogateId, CompartmentTypeId, ReferenceResourceId, 0
     FROM @compartmentAssignments
 
-    select @version
+    INSERT INTO dbo.TokenSearchParam
+        (ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
+    SELECT @resourceSurrogateId, SearchParamId, SystemId, Code, 0
+    FROM @tokenSearchParams
+
+    SELECT @version
 
     COMMIT TRANSACTION
 GO
