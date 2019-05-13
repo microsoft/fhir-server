@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             _dataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
-            _secretStore = new InMemoryKeyVaultSecretStore();
+            _secretStore = new InMemorySecretStore();
 
             var collection = new ServiceCollection();
 

@@ -20,7 +20,7 @@ namespace Microsoft.Extensions.DependencyInjection
     {
         private const string KeyVaultConfigurationName = "KeyVault";
 
-        public static IFhirServerBuilder AddSecretStore(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
+        public static IFhirServerBuilder AddKeyVaultSecretStore(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
@@ -34,7 +34,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             if (string.IsNullOrWhiteSpace(keyVaultConfig.Endpoint))
             {
-                fhirServerBuilder.Services.Add<InMemoryKeyVaultSecretStore>()
+                fhirServerBuilder.Services.Add<InMemorySecretStore>()
                     .Singleton()
                     .AsService<ISecretStore>();
             }

@@ -24,6 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// List of destinations that are supported for export operation.
         /// </summary>
-        public HashSet<string> SupportedDestinations { get; } = new HashSet<string>();
+        public HashSet<string> SupportedDestinations { get; } = new HashSet<string>(StringComparer.Ordinal);
     }
 }

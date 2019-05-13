@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.KeyVault
     /// <summary>
     /// Implementation of <see cref="ISecretStore"/> to be used for local tests and deployments.
     /// </summary>
-    public class InMemoryKeyVaultSecretStore : ISecretStore
+    public class InMemorySecretStore : ISecretStore
     {
         private Dictionary<string, string> _secrets = new Dictionary<string, string>(StringComparer.Ordinal);
 

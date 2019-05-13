@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Web
             services.AddFhirServer(Configuration)
                 .AddExportWorker()
                 .AddCosmosDb(Configuration)
-                .AddSecretStore(Configuration);
+                .AddKeyVaultSecretStore(Configuration);
 
             AddApplicationInsightsTelemetry(services);
         }
