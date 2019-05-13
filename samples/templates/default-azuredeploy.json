@@ -290,6 +290,7 @@
             },
             "resources": [
                 {
+                    "condition": "[equals(parameters('solutionType'), 'FhirServerSqlServer')]",
                     "apiVersion": "2017-10-01-preview",
                     "dependsOn": [
                         "[variables('serviceName')]"
@@ -310,6 +311,7 @@
                     "type": "databases"
                 },
                 {
+                    "condition": "[equals(parameters('solutionType'), 'FhirServerSqlServer')]",
                     "apiVersion": "2014-04-01",
                     "dependsOn": [
                         "[variables('serviceName')]"
