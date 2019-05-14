@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public void AcceptVisitor(object visitor)
         {
-            AcceptVisitor((IExpressionVisitor)EnsureArg.IsOfType(visitor, typeof(IExpressionVisitor)));
+            AcceptVisitor((IExpressionVisitor)visitor);
         }
     }
 }

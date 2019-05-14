@@ -46,7 +46,6 @@ namespace Microsoft.Health.Fhir.Core.Models
         public T Scalar<T>(string fhirPath)
         {
             object scalar = Instance.Scalar(fhirPath, _context.Value);
-
             return (T)scalar;
         }
     }

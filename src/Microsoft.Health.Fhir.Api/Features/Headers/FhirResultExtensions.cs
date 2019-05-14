@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             ResourceElement resource = fhirResult.Result;
 
             var lastUpdated = resource?.LastUpdated;
-            if (lastUpdated.HasValue)
+            if (lastUpdated != null)
             {
                 fhirResult.Headers.Add(HeaderNames.LastModified, lastUpdated.Value.ToString("r", CultureInfo.InvariantCulture));
             }

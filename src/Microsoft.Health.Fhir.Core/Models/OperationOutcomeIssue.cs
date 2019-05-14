@@ -3,15 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+
 namespace Microsoft.Health.Fhir.Core.Models
 {
     public class OperationOutcomeIssue
     {
-        public OperationOutcomeIssue(string severity, string code, string diagnostics)
+        public OperationOutcomeIssue(string severity, string code, string diagnostics, string[] location = null)
         {
             Severity = severity;
             Code = code;
             Diagnostics = diagnostics;
+            Location = location;
         }
 
         public string Severity { get; }
@@ -19,5 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         public string Code { get; }
 
         public string Diagnostics { get; }
+
+        public ICollection<string> Location { get; }
     }
 }

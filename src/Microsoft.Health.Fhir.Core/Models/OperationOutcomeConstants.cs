@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             public const string Invalid = "Invalid";
             public const string Conflict = "Conflict";
             public const string Exception = "Exception";
+            public const string Structure = "Structure";
         }
     }
 }

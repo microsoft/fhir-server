@@ -9,6 +9,8 @@ using EnsureThat;
 using FluentValidation.Results;
 using FluentValidation.Validators;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
@@ -27,21 +29,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.PropertyValue is DomainResource resource)
+            if (context.PropertyValue is ResourceElement resourceElement)
             {
-                foreach (ValidationFailure validationFailure in ValidateResource(resource))
+                var poco = resourceElement.ToPoco();
+
+                if (poco is DomainResource resource)
                 {
-                    yield return validationFailure;
+                    foreach (ValidationFailure validationFailure in ValidateResource(resource))
+                    {
+                        yield return validationFailure;
+                    }
                 }
-            }
 
-            if (context.PropertyValue is Bundle bundle)
-            {
-                var domainResources = bundle.Entry.Select(x => x.Resource).OfType<DomainResource>();
-
-                foreach (ValidationFailure validationFailure in domainResources.SelectMany(ValidateResource))
+                if (poco is Bundle bundle)
                 {
-                    yield return validationFailure;
+                    var domainResources = bundle.Entry.Select(x => x.Resource).OfType<DomainResource>();
+
+                    foreach (ValidationFailure validationFailure in domainResources.SelectMany(ValidateResource))
+                    {
+                        yield return validationFailure;
+                    }
                 }
             }
         }
@@ -63,16 +70,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 yield return new FhirValidationFailure(
                     propertyName,
                     error,
-                    new OperationOutcome.IssueComponent
-                    {
-                        Code = OperationOutcome.IssueType.Structure,
-                        Severity = OperationOutcome.IssueSeverity.Error,
-                        Details = new CodeableConcept
-                        {
-                            Text = error,
-                        },
-                        Location = new[] { propertyName },
-                    });
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueType.Structure,
+                        OperationOutcomeConstants.IssueSeverity.Error,
+                        error,
+                        location: new[] { propertyName }));
             }
         }
     }

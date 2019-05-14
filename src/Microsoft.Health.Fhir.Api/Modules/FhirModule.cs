@@ -59,6 +59,13 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(xmlParser);
             services.AddSingleton(xmlSerializer);
 
+            ResourceElement SetMetadata(Resource resource, string versionId, DateTimeOffset lastModified)
+            {
+                resource.VersionId = versionId;
+                resource.Meta.LastUpdated = lastModified;
+                return resource.ToResourceElement();
+            }
+
             services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(x =>
             {
                 return new Dictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>
@@ -67,18 +74,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         FhirResourceFormat.Json, (str, version, lastModified) =>
                         {
                             var resource = jsonParser.Parse<Resource>(str);
-                            resource.VersionId = version;
-                            resource.Meta.LastUpdated = lastModified;
-                            return resource.ToTypedElement().ToResourceElement();
+                            return SetMetadata(resource, version, lastModified);
                         }
                     },
                     {
                         FhirResourceFormat.Xml, (str, version, lastModified) =>
                         {
                             var resource = xmlParser.Parse<Resource>(str);
-                            resource.VersionId = version;
-                            resource.Meta.LastUpdated = lastModified;
-                            return resource.ToTypedElement().ToResourceElement();
+                            return SetMetadata(resource, version, lastModified);
                         }
                     },
                 };

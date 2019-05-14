@@ -84,35 +84,14 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             };
         }
 
-        /// <inheritdoc />
-        public override Task ExecuteResultAsync(ActionContext context)
+        protected override object GetResultToSerialize()
         {
-            EnsureArg.IsNotNull(context, nameof(context));
+            return Result?.ToPoco();
+        }
 
-            HttpResponse response = context.HttpContext.Response;
-
-            if (StatusCode.HasValue)
-            {
-                response.StatusCode = (int)StatusCode.Value;
-            }
-
-            foreach (KeyValuePair<string, StringValues> header in Headers)
-            {
-                response.Headers.Add(header);
-            }
-
-            ActionResult result;
-
-            if (Result == null)
-            {
-                result = new EmptyResult();
-            }
-            else
-            {
-                result = new ObjectResult(Result.ToPoco());
-            }
-
-            return result.ExecuteResultAsync(context);
+        public override string GetResultTypeName()
+        {
+            return Result?.InstanceType;
         }
     }
 }

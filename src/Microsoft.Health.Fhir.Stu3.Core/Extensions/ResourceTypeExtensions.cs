@@ -3,15 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+namespace Microsoft.Health.Fhir.Core.Extensions
 {
-    public class ResourceKey<T> : ResourceKey
+    public static class ResourceTypeExtensions
     {
-        public ResourceKey(string id, string versionId = null)
-            : base(ModelFactory.GetFhirTypeNameForType(typeof(T)), id, versionId)
+        public static ResourceElement ToResourceElement(this Resource resource)
         {
+            return new ResourceElement(resource.ToTypedElement());
         }
     }
 }

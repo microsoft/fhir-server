@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 Severity = Enum.Parse<OperationOutcome.IssueSeverity>(issue.Severity),
                 Code = Enum.Parse<OperationOutcome.IssueType>(issue.Code),
                 Diagnostics = issue.Diagnostics,
+                Location = issue.Location,
             };
         }
 

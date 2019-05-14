@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
             await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
-            await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Observation>());
+            await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>());
 
             await ExecuteAndValidateBundle("Patient", patients);
         }

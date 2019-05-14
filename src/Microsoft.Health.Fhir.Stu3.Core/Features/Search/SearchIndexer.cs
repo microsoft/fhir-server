@@ -58,9 +58,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
+            var poco = resource.ToPoco();
+
             var entries = new List<SearchIndexEntry>();
 
-            var context = new FhirEvaluationContext(resource.Instance);
+            var context = new FhirEvaluationContext(poco);
 
             IEnumerable<SearchParameter> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
 
@@ -75,22 +77,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (searchParameter.Type == SearchParamType.Composite)
                 {
-                    entries.AddRange(ProcessCompositeSearchParameter(searchParameter, resource, context));
+                    entries.AddRange(ProcessCompositeSearchParameter(searchParameter, poco, context));
                 }
                 else
                 {
-                    entries.AddRange(ProcessNonCompositeSearchParameter(searchParameter, resource, context));
+                    entries.AddRange(ProcessNonCompositeSearchParameter(searchParameter, poco, context));
                 }
             }
 
             return entries;
         }
 
-        private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameter searchParameter, ResourceElement resource, FhirEvaluationContext context)
+        private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameter searchParameter, Base resource, FhirEvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");
 
-            var rootObjects = resource.Instance.Select(searchParameter.Expression, context).ToArray();
+            Base[] rootObjects = resource.Select(searchParameter.Expression, context).ToArray();
 
             foreach (var rootObject in rootObjects)
             {
@@ -111,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         componentSearchParameterDefinition.Url,
                         componentSearchParameterDefinition.Type.Value,
                         componentSearchParameterDefinition.Target,
-                        rootObject.ToResourceElement(),
+                        rootObject,
                         component.Expression,
                         context);
 
@@ -139,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
-        private IEnumerable<SearchIndexEntry> ProcessNonCompositeSearchParameter(SearchParameter searchParameter, ResourceElement resource, FhirEvaluationContext context)
+        private IEnumerable<SearchIndexEntry> ProcessNonCompositeSearchParameter(SearchParameter searchParameter, Base resource, FhirEvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type != SearchParamType.Composite, "The search parameter must be non-composite.");
 
@@ -159,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string searchParameterDefinitionUrl,
             SearchParamType searchParameterType,
             IEnumerable<ResourceType?> allowedReferenceResourceTypes,
-            ResourceElement element,
+            Base element,
             string fhirPathExpression,
             FhirEvaluationContext context)
         {
@@ -168,11 +170,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var results = new List<ISearchValue>();
 
             // For simple value type, we can parse the expression directly.
-            IEnumerable<ITypedElement> extractedValues = Enumerable.Empty<ITypedElement>();
+            IEnumerable<Base> extractedValues = Enumerable.Empty<Base>();
 
             try
             {
-                extractedValues = element.Instance.Select(fhirPathExpression, context);
+                extractedValues = element.Select(fhirPathExpression, context);
             }
             catch (Exception ex)
             {
@@ -216,14 +218,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     _logger.LogWarning(
                         "The FHIR element '{ElementType}' is not supported.",
-                        extractedValue.InstanceType);
+                        extractedValue.TypeName);
 
                     continue;
                 }
 
                 _logger.LogDebug(
                     "The FHIR element '{ElementType}' will be converted using '{ElementTypeConverter}'.",
-                    extractedValue.InstanceType,
+                    extractedValue.TypeName,
                     converter.GetType().FullName);
 
                 results.AddRange(converter.ConvertTo(extractedValue) ?? Enumerable.Empty<ISearchValue>());
