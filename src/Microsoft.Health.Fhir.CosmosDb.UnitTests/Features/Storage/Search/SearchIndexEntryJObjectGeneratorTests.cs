@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         public void GivenANumberSearchValueWithUnequalLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const decimal low = 1.25m;
-            const decimal high = 1.25m;
+            const decimal high = 2.25m;
 
             var value = new NumberSearchValue(low, high);
 
