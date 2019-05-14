@@ -89,7 +89,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.NotNull(value);
             Assert.Equal(expectedSystem, value.System);
             Assert.Equal(expectedCode, value.Code);
-            Assert.Equal(expectedQuantity, value.Quantity);
+            Assert.Equal(expectedQuantity, value.Low);
+            Assert.Equal(value.Low, value.High);
         }
 
         [Fact]
@@ -102,7 +103,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.NotNull(value);
             Assert.Equal("system", value.System);
             Assert.Equal("code", value.Code);
-            Assert.Equal(0.010m, value.Quantity);
+            Assert.Equal(0.010m, value.Low);
+            Assert.Equal(value.Low, value.High);
             Assert.Equal(expected, value.ToString());
         }
 
