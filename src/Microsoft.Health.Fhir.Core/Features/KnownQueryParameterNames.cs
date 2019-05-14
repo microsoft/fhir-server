@@ -27,5 +27,9 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Count = HttpUtil.HISTORY_PARAM_COUNT;
 
         public const string Since = HttpUtil.HISTORY_PARAM_SINCE;
+
+        public const string DestinationType = "_destinationType";
+
+        public const string DestinationConnectionSettings = "_destinationConnectionSettings";
     }
 }

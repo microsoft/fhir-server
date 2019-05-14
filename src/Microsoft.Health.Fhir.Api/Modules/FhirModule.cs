@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IContentTypeService, ContentTypeService>();
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
+            services.AddSingleton<ValidateExportRequestFilterAttribute>();
 
             // HTML
             // If UI is supported, then add the formatter so that the
