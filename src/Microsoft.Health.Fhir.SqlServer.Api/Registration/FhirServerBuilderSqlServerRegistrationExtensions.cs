@@ -8,6 +8,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
@@ -19,11 +20,12 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IServiceCollection AddExperimentalSqlServer(this IServiceCollection serviceCollection, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static IFhirServerBuilder AddExperimentalSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
         {
-            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+            IServiceCollection services = fhirServerBuilder.Services;
 
-            serviceCollection.Add(provider =>
+            services.Add(provider =>
                 {
                     var config = new SqlServerDataStoreConfiguration();
                     provider.GetService<IConfiguration>().GetSection("SqlServer").Bind(config);
@@ -39,43 +41,48 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            serviceCollection.Add<SchemaUpgradeRunner>()
+            services.Add<SchemaUpgradeRunner>()
                 .Singleton()
                 .AsSelf();
 
-            serviceCollection.Add<SchemaInformation>()
+            services.Add<SchemaInformation>()
                 .Singleton()
                 .AsSelf();
 
-            serviceCollection.Add<SchemaInitializer>()
+            services.Add<SchemaInitializer>()
                 .Singleton()
                 .AsService<IStartable>();
 
-            serviceCollection.Add<SqlServerFhirModel>()
+            services.Add<SqlServerFhirModel>()
                 .Singleton()
                 .AsSelf();
 
-            serviceCollection.Add<SqlServerFhirDataStore>()
+            services.Add<SqlServerFhirDataStore>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            serviceCollection.Add<SqlServerSearchService>()
+            services.Add<SqlServerFhirOperationDataStore>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            serviceCollection
+            services.Add<SqlServerSearchService>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services
                 .AddHealthChecks()
                 .AddCheck<SqlServerHealthCheck>(nameof(SqlServerHealthCheck));
 
             // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
             // During normal usage, the controller should be automatically discovered.
-            serviceCollection.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
+            services.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
 
-            AddSqlServerTableRowParameterGenerators(serviceCollection);
+            AddSqlServerTableRowParameterGenerators(services);
 
-            return serviceCollection;
+            return fhirServerBuilder;
         }
 
         internal static void AddSqlServerTableRowParameterGenerators(this IServiceCollection serviceCollection)

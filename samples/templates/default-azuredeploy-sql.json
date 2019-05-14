@@ -75,15 +75,6 @@
                 "description": "Source code branch to deploy."
             }
         },
-        "cosmosDbAccountConsistencyPolicy": {
-            "type": "object",
-            "defaultValue": {
-                "defaultConsistencyLevel": "Strong"
-            },
-            "metadata": {
-                "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
-            }
-        },
         "deployApplicationInsights": {
             "type": "bool",
             "defaultValue": true,
@@ -117,9 +108,15 @@
         },
         "solutionType": {
             "type": "string",
-            "defaultValue": "FhirServerCosmosDB",
+            "defaultValue": "FhirServerSqlServer",
             "metadata": {
                 "description": "The type of the solution"
+            }
+        },
+        "sqlAdminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password for the sql admin user if using SQL server."
             }
         }
     },
@@ -145,9 +142,11 @@
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
-            "DataStore": "CosmosDb"
+            "SqlServer:Initialize": "true",
+            "DataStore": "SqlServer"
         },
-        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]"
+        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
+        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]"
     },
     "resources": [
         {
@@ -246,24 +245,53 @@
             }
         },
         {
-            "apiVersion": "2015-04-08",
-            "type": "Microsoft.DocumentDB/databaseAccounts",
+            "name": "[variables('serviceName')]",
+            "type": "Microsoft.Sql/servers",
+            "apiVersion": "2015-05-01-preview",
+            "location": "[resourceGroup().location]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
-            "name": "[variables('serviceName')]",
-            "location": "[resourceGroup().location]",
             "properties": {
-                "name": "[variables('serviceName')]",
-                "databaseAccountOfferType": "Standard",
-                "consistencyPolicy": "[parameters('cosmosDbAccountConsistencyPolicy')]",
-                "locations": [
-                    {
-                        "locationName": "[resourceGroup().location]",
-                        "failoverPriority": 0
-                    }
-                ]
-            }
+                "administratorLogin": "fhirAdmin",
+                "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "apiVersion": "2017-10-01-preview",
+                    "dependsOn": [
+                        "[variables('serviceName')]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "tags": {
+                        "FhirServerSolution": "[parameters('solutionType')]"
+                    },
+                    "name": "FHIR",
+                    "properties": {
+                        "collation": "SQL_Latin1_General_CP1_CI_AS"
+                    },
+                    "sku": {
+                        "name": "Standard",
+                        "tier": "Standard",
+                        "capacity": 10
+                      },
+                    "type": "databases"
+                },
+                {
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[variables('serviceName')]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    },
+                    "type": "firewallrules"
+                }
+            ]
         },
         {
             "type": "Microsoft.KeyVault/vaults",
@@ -300,28 +328,15 @@
         },
         {
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
+            "name": "[concat(variables('serviceName'), '/SqlServer--ConnectionString')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[reference(concat('Microsoft.DocumentDb/databaseAccounts/', variables('serviceName'))).documentEndpoint]"
+                "value":  "[concat('Server=tcp:', reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName,',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=', reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin,';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
-            ]
-        },
-        {
-            "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
-            "apiVersion": "2015-06-01",
-            "properties": {
-                "contentType": "text/plain",
-                "value": "[listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), '2015-04-08').primaryMasterKey]"
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
+                "[resourceId('Microsoft.Sql/servers', variables('serviceName'))]"
             ]
         }
     ]
