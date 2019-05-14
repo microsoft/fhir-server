@@ -16,6 +16,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
+    [Collection(FhirOperationConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
     public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenANewExportRequest_WhenCreatingExportJob_ThenGetsJobCreated()
         {
-            var jobRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"));
+            var jobRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), "hash");
 
             ExportJobOutcome outcome = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
@@ -208,7 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ExportJobRecord(new Uri($"http://localhost"));
+            var jobRecord = new ExportJobRecord(new Uri($"http://localhost"), "hash");
 
             jobRecordCustomizer?.Invoke(jobRecord);
 

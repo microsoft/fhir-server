@@ -16,29 +16,28 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 {
+    [Collection(FhirOperationConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
     public class ExportJobTaskTests : IClassFixture<FhirStorageTestsFixture>
     {
-        private readonly IFhirOperationDataStore _dataStore;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly ExportJobTask _exportJobTask;
 
         public ExportJobTaskTests(FhirStorageTestsFixture fixture)
         {
-            _dataStore = fixture.OperationDataStore;
+            _fhirOperationDataStore = fixture.OperationDataStore;
 
-            _exportJobTask = new ExportJobTask(_dataStore, NullLogger<ExportJobTask>.Instance);
+            _exportJobTask = new ExportJobTask(_fhirOperationDataStore, NullLogger<ExportJobTask>.Instance);
         }
 
         [Fact]
         public async Task GivenAnExportJobRecord_WhenExecuted_ThenTheExportJobRecordShouldBeUpdated()
         {
-            var jobRecord = new ExportJobRecord(new Uri("https://localhost/ExportJob"));
-
-            ExportJobOutcome job = await _dataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
+            ExportJobOutcome job = await CreateAndExecuteCreateExportJobAsync();
 
             await _exportJobTask.ExecuteAsync(job.JobRecord, job.ETag, CancellationToken.None);
 
-            ExportJobOutcome actual = await _dataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
+            ExportJobOutcome actual = await _fhirOperationDataStore.GetExportJobByIdAsync(job.JobRecord.Id, CancellationToken.None);
 
             Assert.NotNull(actual);
             Assert.Equal(OperationStatus.Completed, actual.JobRecord.Status);
@@ -47,24 +46,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJobRecordThatWasUpdated_WhenExecuted_ThenTheExportJobRecordShouldBeUpdated()
         {
-            var jobRecord = new ExportJobRecord(new Uri("https://localhost/ExportJob"));
-
-            ExportJobOutcome initialJob = await _dataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
+            ExportJobOutcome initialJob = await CreateAndExecuteCreateExportJobAsync();
 
             // Update the job to be canceled.
+            ExportJobRecord jobRecord = initialJob.JobRecord;
+
             jobRecord.Status = OperationStatus.Cancelled;
 
-            ExportJobOutcome updatedJob = await _dataStore.UpdateExportJobAsync(jobRecord, initialJob.ETag, CancellationToken.None);
+            ExportJobOutcome updatedJob = await _fhirOperationDataStore.UpdateExportJobAsync(jobRecord, initialJob.ETag, CancellationToken.None);
 
             // Create a new task with the old ETag.
             await _exportJobTask.ExecuteAsync(initialJob.JobRecord, initialJob.ETag, CancellationToken.None);
 
-            ExportJobOutcome actual = await _dataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
+            ExportJobOutcome actual = await _fhirOperationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.NotNull(actual);
 
             // The job should remain canceled since it shouldn't have been able to acquire the job.
             Assert.Equal(OperationStatus.Cancelled, actual.JobRecord.Status);
+        }
+
+        private async Task<ExportJobOutcome> CreateAndExecuteCreateExportJobAsync()
+        {
+            var jobRecord = new ExportJobRecord(new Uri("https://localhost/ExportJob"), "hash");
+
+            return await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
         }
     }
 }

@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
@@ -19,26 +18,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     {
         private const string SecretPrefix = "Export-Destination-";
 
-        public ExportJobRecord(Uri exportRequestUri, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
+        public ExportJobRecord(Uri exportRequestUri, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
         {
             EnsureArg.IsNotNull(exportRequestUri, nameof(exportRequestUri));
+            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
 
             RequestUri = exportRequestUri;
+            Hash = hash;
             RequestorClaims = requestorClaims?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 
             // Default values
             SchemaVersion = 1;
             Id = Guid.NewGuid().ToString();
             Status = OperationStatus.Queued;
-
-            // Compute the hash of the job.
-            var hashObject = new
-            {
-                RequestUri,
-                RequestorClaims,
-            };
-
-            Hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
 
             QueuedTime = DateTimeOffset.UtcNow;
             SecretName = SecretPrefix + Id;

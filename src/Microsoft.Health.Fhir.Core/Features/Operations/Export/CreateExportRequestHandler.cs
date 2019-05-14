@@ -3,14 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -35,14 +38,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var jobRecord = new ExportJobRecord(request.RequestUri, _claimsExtractor.Extract());
+            IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = _claimsExtractor.Extract();
+
+            // Compute the hash of the job.
+            var hashObject = new
+            {
+                request.RequestUri,
+                RequestorClaims = requestorClaims,
+                request.DestinationInfo,
+            };
+
+            string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
 
             // Check to see if a matching job exists or not. If a matching job exists, we will return that instead.
             // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
-            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByHashAsync(jobRecord.Hash, cancellationToken);
+            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByHashAsync(hash, cancellationToken);
 
             if (outcome == null)
             {
+                var jobRecord = new ExportJobRecord(request.RequestUri, hash, requestorClaims);
+
                 // Store the destination secret.
                 await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInfo.ToJson());
 

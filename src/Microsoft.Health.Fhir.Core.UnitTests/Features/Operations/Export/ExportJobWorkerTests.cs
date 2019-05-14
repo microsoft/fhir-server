@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private ExportJobOutcome CreateExportJobOutcome()
         {
-            return new ExportJobOutcome(new ExportJobRecord(new Uri($"http://localhost/ExportJob/")), WeakETag.FromVersionId("0"));
+            return new ExportJobOutcome(new ExportJobRecord(new Uri($"http://localhost/ExportJob/"), "hash"), WeakETag.FromVersionId("0"));
         }
     }
 }
