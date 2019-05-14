@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             foreach (var extractedValue in extractedValues)
             {
-                if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.GetType(), out IFhirElementToSearchValueTypeConverter converter))
+                if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.GetType(), GetSearchValueTypeForSearchParamType(searchParameterType), out IFhirElementToSearchValueTypeConverter converter))
                 {
                     _logger.LogWarning(
                         "The FHIR element '{ElementType}' is not supported.",
@@ -232,6 +232,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return results;
+        }
+
+        private static Type GetSearchValueTypeForSearchParamType(SearchParamType searchParamType)
+        {
+            switch (searchParamType)
+            {
+                case SearchParamType.Number:
+                    return typeof(NumberSearchValue);
+                case SearchParamType.Date:
+                    return typeof(DateTimeSearchValue);
+                case SearchParamType.String:
+                    return typeof(StringSearchValue);
+                case SearchParamType.Token:
+                    return typeof(TokenSearchValue);
+                case SearchParamType.Reference:
+                    return typeof(ReferenceSearchValue);
+                case SearchParamType.Composite:
+                    return typeof(CompositeSearchValue);
+                case SearchParamType.Quantity:
+                    return typeof(QuantitySearchValue);
+                case SearchParamType.Uri:
+                    return typeof(UriSearchValue);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(searchParamType), searchParamType, null);
+            }
         }
     }
 }

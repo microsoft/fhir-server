@@ -125,7 +125,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 ThrowModifierNotSupported();
             }
 
-            _outputExpression = GenerateNumberExpression(FieldName.Number, number.Number);
+            Debug.Assert(number.Low.HasValue && number.Low == number.High, "number low and high should be the same and not null");
+            _outputExpression = GenerateNumberExpression(FieldName.Number, number.Low.Value);
         }
 
         void ISearchValueVisitor.Visit(QuantitySearchValue quantity)
@@ -153,7 +154,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     Expression.StringEquals(FieldName.QuantityCode, _componentIndex, quantity.Code, false));
             }
 
-            expressions.Add(GenerateNumberExpression(FieldName.Quantity, quantity.Quantity));
+            Debug.Assert(quantity.Low.HasValue && quantity.Low == quantity.High, "quantity low and high should be the same and not null");
+            expressions.Add(GenerateNumberExpression(FieldName.Quantity, quantity.Low.Value));
 
             if (expressions.Count == 1)
             {
@@ -253,8 +255,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 {
                     // If the system is empty, then the token is matched if there is no system property.
                     _outputExpression = Expression.And(
-                       Expression.Missing(FieldName.TokenSystem, _componentIndex),
-                       Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
+                        Expression.Missing(FieldName.TokenSystem, _componentIndex),
+                        Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
                 }
                 else if (string.IsNullOrWhiteSpace(token.Code))
                 {
@@ -269,9 +271,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 }
             }
             else if (_modifier == SearchModifierCode.Above ||
-                _modifier == SearchModifierCode.Below ||
-                _modifier == SearchModifierCode.In ||
-                _modifier == SearchModifierCode.NotIn)
+                     _modifier == SearchModifierCode.Below ||
+                     _modifier == SearchModifierCode.In ||
+                     _modifier == SearchModifierCode.NotIn)
             {
                 // These modifiers are not supported yet but will be supported eventually.
                 ThrowModifierNotSupported();

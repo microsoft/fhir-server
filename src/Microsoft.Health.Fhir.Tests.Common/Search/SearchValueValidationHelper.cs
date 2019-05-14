@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Search
         {
             NumberSearchValue nsv = Assert.IsType<NumberSearchValue>(sv);
 
-            Assert.Equal(expected, nsv.Number);
+            Assert.Equal(expected, nsv.Low);
         }
 
         public static void ValidateQuantity(Quantity expected, ISearchValue sv)
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Search
 
             Assert.Equal(expected.System, qsv.System);
             Assert.Equal(expected.Code, qsv.Code);
-            Assert.Equal(expected.Value, qsv.Quantity);
+            Assert.Equal(expected.Value, qsv.Low);
         }
 
         public static void ValidateString(string expected, ISearchValue sv)
