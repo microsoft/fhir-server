@@ -51,8 +51,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
                 },
                 new ISearchValue[]
                 {
-                    new NumberSearchValue(123, 123),
-                    new NumberSearchValue(789, 789),
+                    new NumberSearchValue(123),
+                    new NumberSearchValue(789),
                 },
             };
 

@@ -16,21 +16,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// Provides mechanisms to convert from <typeparamref name="TFhirElement"/> to a list of <see cref="ISearchValue"/>.
     /// </summary>
     /// <typeparam name="TFhirElement">The FHIR element type.</typeparam>
-    public abstract class FhirElementToSearchValueTypeConverter<TFhirElement> : IFhirElementToSearchValueTypeConverter
+    /// <typeparam name="TSearchValue">The search value type that this converter creates</typeparam>
+    public abstract class FhirElementToSearchValueTypeConverter<TFhirElement, TSearchValue> : IFhirElementToSearchValueTypeConverter
         where TFhirElement : Element
+        where TSearchValue : ISearchValue
     {
         /// <summary>
         /// Gets the FHIR element type that this converter supports.
         /// </summary>
         public Type FhirElementType { get; } = typeof(TFhirElement);
 
+        public Type SearchValueType => typeof(TSearchValue);
+
         /// <summary>
         /// Converts the FHIR element to a list of <see cref="ISearchValue"/>.
         /// </summary>
         /// <param name="value">The value to convert.</param>
-        /// <param name="searchParameterType">The target type</param>
         /// <returns>A list of <see cref="ISearchValue"/>.</returns>
-        public IEnumerable<ISearchValue> ConvertTo(object value, SearchParamType searchParameterType)
+        public IEnumerable<ISearchValue> ConvertTo(object value)
         {
             if (value == null)
             {
@@ -39,15 +42,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             EnsureArg.IsOfType(value, typeof(TFhirElement), nameof(value));
 
-            return ConvertTo((TFhirElement)value, searchParameterType);
+            return (IEnumerable<ISearchValue>)ConvertTo((TFhirElement)value);
         }
 
         /// <summary>
         /// Converts the FHIR element to a list of <see cref="ISearchValue"/>.
         /// </summary>
         /// <param name="value">The value to convert.</param>
-        /// <param name="searchParameterType">The target type</param>
         /// <returns>A list of <see cref="ISearchValue"/>.</returns>
-        protected abstract IEnumerable<ISearchValue> ConvertTo(TFhirElement value, SearchParamType searchParameterType);
+        protected abstract IEnumerable<TSearchValue> ConvertTo(TFhirElement value);
     }
 }

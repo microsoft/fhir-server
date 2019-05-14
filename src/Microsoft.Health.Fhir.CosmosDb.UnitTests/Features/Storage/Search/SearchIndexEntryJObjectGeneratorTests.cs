@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 {
                     new ISearchValue[] { new TokenSearchValue(system1, code1, text1) },
                     new ISearchValue[] { new TokenSearchValue(system2, code2, text2) },
-                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity, quantity) },
+                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity) },
                 });
 
             var expectedValues = new[]
@@ -56,6 +56,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 CreateTuple("s_2", system3),
                 CreateTuple("c_2", code3),
                 CreateTuple("q_2", quantity),
+                CreateTuple("lq_2", quantity),
+                CreateTuple("hq_2", quantity),
             };
 
             TestAndValidateOutput(
@@ -89,7 +91,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                         new TokenSearchValue(system1, code1, text1),
                         new TokenSearchValue(system2, code2, text2),
                     },
-                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity, quantity) },
+                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity) },
                     new ISearchValue[]
                     {
                         new StringSearchValue(s1),
@@ -106,6 +108,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                     CreateTuple("s_1", system3),
                     CreateTuple("c_1", code3),
                     CreateTuple("q_1", quantity),
+                    CreateTuple("lq_1", quantity),
+                    CreateTuple("hq_1", quantity),
                     CreateTuple("n_s_2", normalizedS1),
                 },
                 new[]
@@ -115,6 +119,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                     CreateTuple("s_1", system3),
                     CreateTuple("c_1", code3),
                     CreateTuple("q_1", quantity),
+                    CreateTuple("lq_1", quantity),
+                    CreateTuple("hq_1", quantity),
                     CreateTuple("n_s_2", normalizedS2),
                 },
                 new[]
@@ -124,6 +130,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                     CreateTuple("s_1", system3),
                     CreateTuple("c_1", code3),
                     CreateTuple("q_1", quantity),
+                    CreateTuple("lq_1", quantity),
+                    CreateTuple("hq_1", quantity),
                     CreateTuple("n_s_2", normalizedS1),
                 },
                 new[]
@@ -133,6 +141,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                     CreateTuple("s_1", system3),
                     CreateTuple("c_1", code3),
                     CreateTuple("q_1", quantity),
+                    CreateTuple("lq_1", quantity),
+                    CreateTuple("hq_1", quantity),
                     CreateTuple("n_s_2", normalizedS2),
                 },
             };
@@ -167,12 +177,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         {
             const decimal number = 1.25m;
 
-            var value = new NumberSearchValue(number, number);
+            var value = new NumberSearchValue(number);
 
             TestAndValidateOutput(
                 "number",
                 value,
-                new[] { CreateTuple("n", number) });
+                new[] { CreateTuple("n", number), CreateTuple("ln", number), CreateTuple("hn", number) });
         }
 
         [Fact]
@@ -199,7 +209,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             var value = new QuantitySearchValue(
                 system,
                 code,
-                quantity,
                 quantity);
 
             var expectedValues = new[]
@@ -207,6 +216,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 CreateTuple(SystemName, system),
                 CreateTuple(CodeName, code),
                 CreateTuple("q", quantity),
+                CreateTuple("lq", quantity),
+                CreateTuple("hq", quantity),
             };
 
             TestAndValidateOutput(

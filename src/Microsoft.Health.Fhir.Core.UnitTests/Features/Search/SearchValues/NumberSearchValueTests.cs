@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [Fact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
-            var value = new NumberSearchValue(123, 123);
+            var value = new NumberSearchValue(123);
 
             Assert.True(value.IsValidAsCompositeComponent);
         }
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [Fact]
         public void GivenASearchValueWithEqualLowAndHighValues_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
-            NumberSearchValue value = new NumberSearchValue(23.56m, 23.56m);
+            NumberSearchValue value = new NumberSearchValue(23.56m);
 
             Assert.Equal("23.56", value.ToString());
         }

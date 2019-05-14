@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [Fact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
-            var value = new QuantitySearchValue("system", "code", 1, 1);
+            var value = new QuantitySearchValue("system", "code", 1);
 
             Assert.True(value.IsValidAsCompositeComponent);
         }
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
             public QuantitySearchValue ToQuantitySearchValue()
             {
-                return new QuantitySearchValue(System, Code, Value, Value);
+                return new QuantitySearchValue(System, Code, Value);
             }
         }
     }

@@ -22,10 +22,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// </summary>
         /// <param name="system">The system value.</param>
         /// <param name="code">The code value.</param>
+        /// <param name="quantity">The single quantity value.</param>
+        public QuantitySearchValue(string system, string code, decimal quantity)
+            : this(system, code, quantity, quantity)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="QuantitySearchValue"/> class.
+        /// </summary>
+        /// <param name="system">The system value.</param>
+        /// <param name="code">The code value.</param>
         /// <param name="low">The lower bound of the quantity range.</param>
         /// <param name="high">The upper bound of the quantity range.</param>
         public QuantitySearchValue(string system, string code, decimal? low, decimal? high)
         {
+            if (low == null && high == null)
+            {
+                throw new ArgumentNullException(nameof(low), $"Arguments '{nameof(low)}' and '{nameof(high)}' cannot both be null");
+            }
+
             System = system;
             Code = code;
             Low = low;
@@ -83,7 +99,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             return new QuantitySearchValue(
                 system.UnescapeSearchParameterValue(),
                 code.UnescapeSearchParameterValue(),
-                quantity,
                 quantity);
         }
 
