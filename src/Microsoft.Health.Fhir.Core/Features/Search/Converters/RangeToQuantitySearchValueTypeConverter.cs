@@ -16,9 +16,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     {
         protected override IEnumerable<QuantitySearchValue> ConvertTo(Range value)
         {
-            Quantity quantityRepresentative = value.Low ?? value.High;
+            decimal? lowValue = value.Low?.Value;
+            decimal? highValue = value.High?.Value;
 
-            yield return new QuantitySearchValue(quantityRepresentative.System, quantityRepresentative.Code, value.Low?.Value, value.High?.Value);
+            if (lowValue != null || highValue != null)
+            {
+                // FROM https://www.hl7.org/fhir/datatypes.html#Range: "The unit and code/system elements of the low or high elements SHALL match."
+
+                Quantity quantityRepresentative = value.Low ?? value.High;
+
+                yield return new QuantitySearchValue(quantityRepresentative.System, quantityRepresentative.Code, lowValue, highValue);
+            }
         }
     }
 }

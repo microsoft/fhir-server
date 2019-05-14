@@ -16,7 +16,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     {
         protected override IEnumerable<NumberSearchValue> ConvertTo(Range value)
         {
-            yield return new NumberSearchValue(value.Low?.Value, value.High?.Value);
+            decimal? lowValue = value.Low?.Value;
+            decimal? highValue = value.High?.Value;
+
+            if (lowValue != null || highValue != null)
+            {
+                yield return new NumberSearchValue(lowValue, highValue);
+            }
         }
     }
 }
