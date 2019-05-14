@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class PositiveIntToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<PositiveIntToSearchValueTypeConverter, PositiveInt>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Number;
+
         [Fact]
         public void GivenAPositiveIntWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

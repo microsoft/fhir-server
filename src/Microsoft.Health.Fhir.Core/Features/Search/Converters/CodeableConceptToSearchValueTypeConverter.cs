@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class CodeableConceptToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<CodeableConcept>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(CodeableConcept value)
+        protected override IEnumerable<ISearchValue> ConvertTo(CodeableConcept value, SearchParamType searchParameterType)
         {
             // Based on spec: http://hl7.org/fhir/STU3/search.html#token,
             // CodeableConcept.text is searchable, but we will only create a dedicated entry for it

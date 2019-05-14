@@ -45,7 +45,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             NumberSearchValue value = NumberSearchValue.Parse("245234.34");
 
             Assert.NotNull(value);
-            Assert.Equal(245234.34m, value.Number);
+            Assert.Equal(245234.34m, value.Low);
+            Assert.Equal(value.Low, value.High);
         }
 
         [Fact]
@@ -56,24 +57,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             NumberSearchValue value = NumberSearchValue.Parse(expected);
 
             Assert.NotNull(value);
-            Assert.Equal(0.010m, value.Number);
+            Assert.Equal(0.010m, value.Low);
+            Assert.Equal(value.Low, value.High);
             Assert.Equal(expected, value.ToString());
         }
 
         [Fact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
-            var value = new NumberSearchValue(123);
+            var value = new NumberSearchValue(123, 123);
 
             Assert.True(value.IsValidAsCompositeComponent);
         }
 
         [Fact]
-        public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
+        public void GivenASearchValueWithEqualLowAndHighValues_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
-            NumberSearchValue value = new NumberSearchValue(23.56m);
+            NumberSearchValue value = new NumberSearchValue(23.56m, 23.56m);
 
             Assert.Equal("23.56", value.ToString());
+        }
+
+        [Fact]
+        public void GivenASearchValueWithUnequalLowAndHighValues_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
+        {
+            NumberSearchValue value = new NumberSearchValue(23.56m, 27);
+
+            Assert.Equal("[23.56, 27)", value.ToString());
         }
     }
 }

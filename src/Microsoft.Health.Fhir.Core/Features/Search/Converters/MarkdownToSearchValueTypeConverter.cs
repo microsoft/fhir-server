@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class MarkdownToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Markdown>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Markdown value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Markdown value, SearchParamType searchParameterType)
         {
             if (value.Value == null)
             {

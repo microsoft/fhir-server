@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             _referenceSearchValueParser = referenceSearchValueParser;
         }
 
-        protected override IEnumerable<ISearchValue> ConvertTo(ResourceReference value)
+        protected override IEnumerable<ISearchValue> ConvertTo(ResourceReference value, SearchParamType searchParameterType)
         {
             if (value.Reference == null)
             {

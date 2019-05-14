@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class FhirBooleanToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<FhirBoolean>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(FhirBoolean value)
+        protected override IEnumerable<ISearchValue> ConvertTo(FhirBoolean value, SearchParamType searchParameterType)
         {
             if (value.Value == null)
             {

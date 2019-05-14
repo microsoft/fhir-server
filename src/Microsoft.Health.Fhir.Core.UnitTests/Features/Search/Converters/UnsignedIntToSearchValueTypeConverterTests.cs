@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class UnsignedIntToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<UnsignedIntToSearchValueTypeConverter, UnsignedInt>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Number;
+
         [Fact]
         public void GivenAUnsignedIntWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

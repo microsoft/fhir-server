@@ -21,6 +21,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string NumberName = "n";
 
+        public const string LowNumberName = "ln";
+
+        public const string HighNumberName = "hn";
+
         public const string NormalizedPrefix = "n_";
 
         public const string NormalizedStringName = NormalizedPrefix + StringName;
@@ -28,6 +32,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         public const string NormalizedTextName = NormalizedPrefix + TextName;
 
         public const string QuantityName = "q";
+
+        public const string LowQuantityName = "lq";
+
+        public const string HighQuantityName = "hq";
 
         public const string SystemName = "s";
 

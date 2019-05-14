@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class ContactPointToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<ContactPointToSearchValueTypeConverter, ContactPoint>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Token;
+
         [Fact]
         public void GivenAContactPointWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

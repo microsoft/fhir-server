@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class PeriodToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<PeriodToSearchValueTypeConverter, Period>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Date;
+
         [Theory]
         [InlineData("2018-01", "2018-12-25T15:30")]
         [InlineData(null, "2017")]

@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 {
                     new ISearchValue[] { new TokenSearchValue(system1, code1, text1) },
                     new ISearchValue[] { new TokenSearchValue(system2, code2, text2) },
-                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity) },
+                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity, quantity) },
                 });
 
             var expectedValues = new[]
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                         new TokenSearchValue(system1, code1, text1),
                         new TokenSearchValue(system2, code2, text2),
                     },
-                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity) },
+                    new ISearchValue[] { new QuantitySearchValue(system3, code3, quantity, quantity) },
                     new ISearchValue[]
                     {
                         new StringSearchValue(s1),
@@ -163,11 +163,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         }
 
         [Fact]
-        public void GivenANumberSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        public void GivenANumberSearchValueWithEqualLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const decimal number = 1.25m;
 
-            var value = new NumberSearchValue(number);
+            var value = new NumberSearchValue(number, number);
 
             TestAndValidateOutput(
                 "number",
@@ -176,7 +176,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         }
 
         [Fact]
-        public void GivenAQuantitySearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        public void GivenANumberSearchValueWithUnequalLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        {
+            const decimal low = 1.25m;
+            const decimal high = 1.25m;
+
+            var value = new NumberSearchValue(low, high);
+
+            TestAndValidateOutput(
+                "number",
+                value,
+                new[] { CreateTuple("ln", low), CreateTuple("hn", high) });
+        }
+
+        [Fact]
+        public void GivenAQuantitySearchValueWithEqualLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system = "system";
             const string code = "code";
@@ -185,6 +199,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             var value = new QuantitySearchValue(
                 system,
                 code,
+                quantity,
                 quantity);
 
             var expectedValues = new[]
@@ -192,6 +207,34 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 CreateTuple(SystemName, system),
                 CreateTuple(CodeName, code),
                 CreateTuple("q", quantity),
+            };
+
+            TestAndValidateOutput(
+                "quantity",
+                value,
+                expectedValues);
+        }
+
+        [Fact]
+        public void GivenAQuantitySearchValueWithUnequalLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        {
+            const string system = "system";
+            const string code = "code";
+            const decimal low = 3.0m;
+            const decimal high = 5.0m;
+
+            var value = new QuantitySearchValue(
+                system,
+                code,
+                low,
+                high);
+
+            var expectedValues = new[]
+            {
+                CreateTuple(SystemName, system),
+                CreateTuple(CodeName, code),
+                CreateTuple("lq", low),
+                CreateTuple("hq", high),
             };
 
             TestAndValidateOutput(

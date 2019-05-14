@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     public class ContactPointToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<ContactPoint>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(ContactPoint value)
+        protected override IEnumerable<ISearchValue> ConvertTo(ContactPoint value, SearchParamType searchParameterType)
         {
             if (string.IsNullOrWhiteSpace(value.Value))
             {

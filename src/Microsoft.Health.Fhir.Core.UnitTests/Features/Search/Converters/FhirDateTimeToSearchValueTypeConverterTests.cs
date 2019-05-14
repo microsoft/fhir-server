@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class FhirDateTimeToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<FhirDateTimeToSearchValueTypeConverter, FhirDateTime>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Date;
+
         [Fact]
         public void GivenAFhirDateTimeWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

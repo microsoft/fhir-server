@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class InstantToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<InstantToSearchValueTypeConverter, Instant>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Date;
+
         [Fact]
         public void GivenAInstantWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

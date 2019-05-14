@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class CodingToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Coding>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Coding value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Coding value, SearchParamType searchParameterType)
         {
             TokenSearchValue searchValue = value.ToTokenSearchValue();
 

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
@@ -16,6 +17,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     {
         Type FhirElementType { get; }
 
-        IEnumerable<ISearchValue> ConvertTo(object value);
+        IEnumerable<ISearchValue> ConvertTo(object value, SearchParamType searchParameterType);
     }
 }

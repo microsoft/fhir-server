@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         [Fact]
         public void GivenANullValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            IEnumerable<ISearchValue> values = _converter.ConvertTo(null);
+            IEnumerable<ISearchValue> values = _converter.ConvertTo(null, SearchParamType.Reference);
 
             Assert.NotNull(values);
             Assert.Empty(values);
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 
             _reference.Reference = reference;
 
-            IEnumerable<ISearchValue> results = _converter.ConvertTo(_reference);
+            IEnumerable<ISearchValue> results = _converter.ConvertTo(_reference, SearchParamType.Reference);
 
             Assert.NotNull(results);
             Assert.Collection(
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         {
             setup(_reference);
 
-            IEnumerable<ISearchValue> values = _converter.ConvertTo(_reference);
+            IEnumerable<ISearchValue> values = _converter.ConvertTo(_reference, SearchParamType.Reference);
 
             Assert.NotNull(values);
             Assert.Empty(values);

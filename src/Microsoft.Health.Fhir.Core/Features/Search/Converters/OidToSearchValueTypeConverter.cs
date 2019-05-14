@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class OidToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Oid>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Oid value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Oid value, SearchParamType searchParameterType)
         {
             if (value.Value == null)
             {

@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class IdentifierToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Identifier>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Identifier value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Identifier value, SearchParamType searchParameterType)
         {
             if (string.IsNullOrEmpty(value.Value))
             {

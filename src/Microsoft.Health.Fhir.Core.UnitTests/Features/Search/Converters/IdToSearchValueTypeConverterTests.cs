@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class IdToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<IdToSearchValueTypeConverter, Id>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Token;
+
         [Fact]
         public void GivenAnIdWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

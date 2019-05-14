@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class QuantityToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Quantity>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Quantity value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Quantity value, SearchParamType searchParameterType)
         {
             if (value.Value == null)
             {
@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             yield return new QuantitySearchValue(
                 value.System,
                 value.Code,
+                value.Value.Value,
                 value.Value.Value);
         }
     }

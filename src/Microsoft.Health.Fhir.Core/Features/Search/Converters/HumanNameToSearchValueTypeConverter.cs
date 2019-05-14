@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class HumanNameToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<HumanName>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(HumanName value)
+        protected override IEnumerable<ISearchValue> ConvertTo(HumanName value, SearchParamType searchParameterType)
         {
             // https://www.hl7.org/fhir/STU3/patient.html recommends the following:
             // A server defined search that may match any of the string fields in the HumanName, including family, give, prefix, suffix, suffix, and/or text

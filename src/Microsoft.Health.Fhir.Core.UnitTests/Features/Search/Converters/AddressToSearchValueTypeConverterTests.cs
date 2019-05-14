@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class AddressToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<AddressTypeToSearchValueConverter, Address>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.String;
+
         [Fact]
         public void GivenAnAddressWithCity_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {

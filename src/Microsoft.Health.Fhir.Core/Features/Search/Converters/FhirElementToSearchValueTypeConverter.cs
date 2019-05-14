@@ -28,8 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         /// Converts the FHIR element to a list of <see cref="ISearchValue"/>.
         /// </summary>
         /// <param name="value">The value to convert.</param>
+        /// <param name="searchParameterType">The target type</param>
         /// <returns>A list of <see cref="ISearchValue"/>.</returns>
-        public IEnumerable<ISearchValue> ConvertTo(object value)
+        public IEnumerable<ISearchValue> ConvertTo(object value, SearchParamType searchParameterType)
         {
             if (value == null)
             {
@@ -38,14 +39,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             EnsureArg.IsOfType(value, typeof(TFhirElement), nameof(value));
 
-            return ConvertTo((TFhirElement)value);
+            return ConvertTo((TFhirElement)value, searchParameterType);
         }
 
         /// <summary>
         /// Converts the FHIR element to a list of <see cref="ISearchValue"/>.
         /// </summary>
         /// <param name="value">The value to convert.</param>
+        /// <param name="searchParameterType">The target type</param>
         /// <returns>A list of <see cref="ISearchValue"/>.</returns>
-        protected abstract IEnumerable<ISearchValue> ConvertTo(TFhirElement value);
+        protected abstract IEnumerable<ISearchValue> ConvertTo(TFhirElement value, SearchParamType searchParameterType);
     }
 }

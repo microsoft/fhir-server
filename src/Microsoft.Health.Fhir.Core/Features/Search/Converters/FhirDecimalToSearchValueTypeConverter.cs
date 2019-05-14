@@ -14,14 +14,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class FhirDecimalToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<FhirDecimal>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(FhirDecimal value)
+        protected override IEnumerable<ISearchValue> ConvertTo(FhirDecimal value, SearchParamType searchParameterType)
         {
             if (value.Value == null)
             {
                 yield break;
             }
 
-            yield return new NumberSearchValue(value.Value.Value);
+            yield return new NumberSearchValue(value.Value.Value, value.Value.Value);
         }
     }
 }

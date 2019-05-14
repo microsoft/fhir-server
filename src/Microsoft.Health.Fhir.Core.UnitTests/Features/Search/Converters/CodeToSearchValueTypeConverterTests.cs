@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class CodeToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<CodeToSearchValueTypeConverter, Code>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Token;
+
         [Fact]
         public void GivenACode_WhenConverted_ThenATokenSearchValueShouldBeCreated()
         {

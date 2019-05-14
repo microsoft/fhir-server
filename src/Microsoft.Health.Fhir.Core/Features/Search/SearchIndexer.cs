@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     extractedValue.TypeName,
                     converter.GetType().FullName);
 
-                results.AddRange(converter.ConvertTo(extractedValue) ?? Enumerable.Empty<ISearchValue>());
+                results.AddRange(converter.ConvertTo(extractedValue, searchParameterType) ?? Enumerable.Empty<ISearchValue>());
             }
 
             return results;

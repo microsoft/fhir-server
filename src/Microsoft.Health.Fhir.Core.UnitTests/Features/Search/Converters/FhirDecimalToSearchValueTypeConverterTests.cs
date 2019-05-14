@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class FhirDecimalToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<FhirDecimalToSearchValueTypeConverter, FhirDecimal>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Number;
+
         [Fact]
         public void GivenAFhirDecimalWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

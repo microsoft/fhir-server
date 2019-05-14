@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class CodeToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Code>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Code value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Code value, SearchParamType searchParameterType)
         {
             // From spec: http://hl7.org/fhir/STU3/terminologies.html#4.1
             // The instance represents the code only.

@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class FhirDateTimeToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<FhirDateTime>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(FhirDateTime value)
+        protected override IEnumerable<ISearchValue> ConvertTo(FhirDateTime value, SearchParamType searchParameterType)
         {
             if (value.Value == null)
             {

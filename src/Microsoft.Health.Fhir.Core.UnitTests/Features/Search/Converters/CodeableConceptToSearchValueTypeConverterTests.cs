@@ -14,6 +14,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class CodeableConceptToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<CodeableConceptToSearchValueTypeConverter, CodeableConcept>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Token;
+
         public static IEnumerable<object[]> GetMultipleCodingDataSource()
         {
             yield return new[] { new Token("system", "code") };

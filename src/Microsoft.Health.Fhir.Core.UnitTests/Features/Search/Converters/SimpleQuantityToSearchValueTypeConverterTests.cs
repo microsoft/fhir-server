@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class SimpleQuantityToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<SimpleQuantityToSearchValueTypeConverter, SimpleQuantity>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Quantity;
+
         [Fact]
         public void GivenASimpleQuantityWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

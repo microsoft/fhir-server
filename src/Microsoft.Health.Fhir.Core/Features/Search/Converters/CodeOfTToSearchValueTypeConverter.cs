@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     {
         public Type FhirElementType { get; } = typeof(Code<>);
 
-        public IEnumerable<ISearchValue> ConvertTo(object value)
+        public IEnumerable<ISearchValue> ConvertTo(object value, SearchParamType searchParameterType)
         {
             if (value == null)
             {

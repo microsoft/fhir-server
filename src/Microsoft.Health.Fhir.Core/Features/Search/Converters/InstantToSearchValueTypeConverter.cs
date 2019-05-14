@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class InstantToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Instant>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Instant value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Instant value, SearchParamType searchParameterType)
         {
             if (value.Value == null)
             {

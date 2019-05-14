@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class AddressTypeToSearchValueConverter : FhirElementToSearchValueTypeConverter<Address>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Address value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Address value, SearchParamType searchParameterType)
         {
             // http://hl7.org/fhir/STU3/patient.html recommends the following:
             // A server defined search that may match any of the string fields in the Address, including line, city, state, country, postalCode, and/or text.

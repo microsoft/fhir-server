@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class OidToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<OidToSearchValueTypeConverter, Oid>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Uri;
+
         [Fact]
         public void GivenAOidWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

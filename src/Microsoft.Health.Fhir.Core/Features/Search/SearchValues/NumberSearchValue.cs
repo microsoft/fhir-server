@@ -17,12 +17,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// Initializes a new instance of the <see cref="NumberSearchValue"/> class.
         /// </summary>
         /// <param name="number">The number value.</param>
-        public NumberSearchValue(decimal number) => Number = number;
+        /// <param name="low">The lower bound of the quantity range.</param>
+        /// <param name="high">The upper bound of the quantity range.</param>
+        public NumberSearchValue(decimal? low, decimal? high)
+        {
+            Low = low;
+            High = high;
+        }
 
         /// <summary>
-        /// Gets the number value.
+        /// Gets the lower bound
         /// </summary>
-        public decimal Number { get; }
+        public decimal? Low { get; }
+
+        /// <summary>
+        /// Gets the upper bound
+        /// </summary>
+        public decimal? High { get; }
 
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
@@ -37,7 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
             // TODO: Is invariant culture correct? FHIR spec does not specify what culture it accepts for input.
-            return new NumberSearchValue(decimal.Parse(s, NumberStyles.Number, CultureInfo.InvariantCulture));
+            decimal value = decimal.Parse(s, NumberStyles.Number, CultureInfo.InvariantCulture);
+            return new NumberSearchValue(value, value);
         }
 
         /// <inheritdoc />
@@ -51,7 +63,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public override string ToString()
         {
-            return Number.ToString(CultureInfo.InvariantCulture);
+            if (Low == High)
+            {
+                return Low.Value.ToString(CultureInfo.InvariantCulture);
+            }
+
+            return $"[{Low}, {High})";
         }
     }
 }

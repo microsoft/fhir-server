@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     public class PeriodToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Period>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(Period value)
+        protected override IEnumerable<ISearchValue> ConvertTo(Period value, SearchParamType searchParameterType)
         {
             PartialDateTime start = string.IsNullOrWhiteSpace(value.Start) ?
                 PartialDateTime.MinValue :

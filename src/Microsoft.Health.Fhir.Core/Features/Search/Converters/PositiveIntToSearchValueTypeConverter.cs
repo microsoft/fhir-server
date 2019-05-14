@@ -14,14 +14,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class PositiveIntToSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<PositiveInt>
     {
-        protected override IEnumerable<ISearchValue> ConvertTo(PositiveInt value)
+        protected override IEnumerable<ISearchValue> ConvertTo(PositiveInt value, SearchParamType searchParameterType)
         {
             if (value.Value == null)
             {
                 yield break;
             }
 
-            yield return new NumberSearchValue(value.Value.Value);
+            yield return new NumberSearchValue(value.Value.Value, value.Value.Value);
         }
     }
 }

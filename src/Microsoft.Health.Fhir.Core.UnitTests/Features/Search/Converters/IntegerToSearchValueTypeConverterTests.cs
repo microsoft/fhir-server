@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class IntegerToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<IntegerToSearchValueTypeConverter, Integer>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.Number;
+
         [Fact]
         public void GivenAIntegerWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {

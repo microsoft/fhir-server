@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class MarkdownToSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<MarkdownToSearchValueTypeConverter, Markdown>
     {
+        protected override SearchParamType DefaultSearchParamType => SearchParamType.String;
+
         [Fact]
         public void GivenAMarkdownWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
