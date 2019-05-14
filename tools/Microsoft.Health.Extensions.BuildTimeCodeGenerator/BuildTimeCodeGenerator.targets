@@ -26,6 +26,6 @@
         <ItemGroup>
             <Compile Include="@(Generated)" Condition="!Exists('@(Generated)')" />
         </ItemGroup>
-        <Exec Command="dotnet @(GeneratorPath) --generator-name %(Generated.Generator) --output-file %(Generated.FullPath) --namespace %(Generated.Namespace) %(Generated.Args)" />
+        <Exec Command='dotnet "@(GeneratorPath)" --generator-name "%(Generated.Generator)" --output-file "%(Generated.FullPath)" --namespace "%(Generated.Namespace)" "%(Generated.Args)"' />
     </Target>
 </Project>
