@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 case Common.FixtureParameters.DataStore.CosmosDb:
                     _fixture = new CosmosDbFhirStorageTestsFixture();
                     break;
-                case Common.FixtureParameters.DataStore.Sql:
+                case Common.FixtureParameters.DataStore.SqlServer:
                     _fixture = new SqlServerFhirStorageTestsFixture();
                     break;
                 default:

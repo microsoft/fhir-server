@@ -22,12 +22,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// </summary>
         /// <param name="system">The system value.</param>
         /// <param name="code">The code value.</param>
-        /// <param name="quantity">The quantity value.</param>
+        /// <param name="quantity">The single quantity value.</param>
         public QuantitySearchValue(string system, string code, decimal quantity)
+            : this(system, code, quantity, quantity)
         {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="QuantitySearchValue"/> class.
+        /// </summary>
+        /// <param name="system">The system value.</param>
+        /// <param name="code">The code value.</param>
+        /// <param name="low">The lower bound of the quantity range.</param>
+        /// <param name="high">The upper bound of the quantity range.</param>
+        public QuantitySearchValue(string system, string code, decimal? low, decimal? high)
+        {
+            if (low == null && high == null)
+            {
+                throw new ArgumentNullException(nameof(low), $"Arguments '{nameof(low)}' and '{nameof(high)}' cannot both be null");
+            }
+
             System = system;
             Code = code;
-            Quantity = quantity;
+            Low = low;
+            High = high;
         }
 
         /// <summary>
@@ -41,9 +59,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public string Code { get; }
 
         /// <summary>
-        /// Gets the quantity value.
+        /// Gets the lower bound of the quantity range.
         /// </summary>
-        public decimal Quantity { get; }
+        public decimal? Low { get; }
+
+        /// <summary>
+        /// Gets the upper bound of the quantity range.
+        /// </summary>
+        public decimal? High { get; }
 
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
@@ -92,7 +115,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             var sb = new StringBuilder();
 
-            sb.Append(Quantity);
+            if (Low == High)
+            {
+                sb.Append(Low);
+            }
+            else
+            {
+                sb.Append('[').Append(Low).Append(',').Append(High).Append(')');
+            }
 
             if (System != null)
             {

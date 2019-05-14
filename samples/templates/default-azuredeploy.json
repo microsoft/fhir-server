@@ -144,7 +144,8 @@
             "FhirServer:Security:EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
-            "CosmosDb:ContinuationTokenSizeLimitInKb": "1"
+            "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
+            "DataStore": "CosmosDb"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]"
     },
@@ -246,7 +247,7 @@
         },
         {
             "apiVersion": "2015-04-08",
-            "type": "Microsoft.DocumentDb/databaseAccounts",
+            "type": "Microsoft.DocumentDB/databaseAccounts",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
@@ -285,7 +286,8 @@
                         "permissions": {
                             "secrets": [
                                 "get",
-                                "list"
+                                "list",
+                                "set"
                             ]
                         }
                     }

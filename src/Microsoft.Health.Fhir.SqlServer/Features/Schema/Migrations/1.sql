@@ -273,7 +273,6 @@ ON dbo.CompartmentAssignment
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
-
 GO
 
 /*************************************************************

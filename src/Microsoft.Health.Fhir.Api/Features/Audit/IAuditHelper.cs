@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// <param name="controllerName">The controller name.</param>
         /// <param name="actionName">The action name.</param>
         /// <param name="statusCode">The HTTP status code.</param>
-        /// <param name="resourceType">The optional resource type.</param>
-        void LogExecuted(string controllerName, string actionName, HttpStatusCode statusCode, string resourceType);
+        /// <param name="responseResultType">The optional response result type.</param>
+        void LogExecuted(string controllerName, string actionName, HttpStatusCode statusCode, string responseResultType);
     }
 }

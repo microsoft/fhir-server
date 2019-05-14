@@ -15,19 +15,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class FhirElementToSearchValueTypeConverterManager : IFhirElementToSearchValueTypeConverterManager
     {
-        private Dictionary<Type, IFhirElementToSearchValueTypeConverter> _converterDictionary = new Dictionary<Type, IFhirElementToSearchValueTypeConverter>();
+        private readonly Dictionary<(Type fhirElementType, Type searchValueType), IFhirElementToSearchValueTypeConverter> _converterDictionary;
 
         public FhirElementToSearchValueTypeConverterManager(IEnumerable<IFhirElementToSearchValueTypeConverter> converters)
         {
             EnsureArg.IsNotNull(converters, nameof(converters));
 
             _converterDictionary = converters.ToDictionary(
-                converter => converter.FhirElementType,
+                converter => (converter.FhirElementType, converter.SearchValueType),
                 converter => converter);
         }
 
         /// <inheritdoc />
-        public bool TryGetConverter(Type fhirElementType, out IFhirElementToSearchValueTypeConverter converter)
+        public bool TryGetConverter(Type fhirElementType, Type searchValueType, out IFhirElementToSearchValueTypeConverter converter)
         {
             EnsureArg.IsNotNull(fhirElementType, nameof(fhirElementType));
 
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 fhirElementType = fhirElementType.GetGenericTypeDefinition();
             }
 
-            return _converterDictionary.TryGetValue(fhirElementType, out converter);
+            return _converterDictionary.TryGetValue((fhirElementType, searchValueType), out converter);
         }
     }
 }

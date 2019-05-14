@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.Tests.Common.FixtureParameters
     {
         CosmosDb = 1,
 
-        Sql = 2,
+        SqlServer = 2,
     }
 }

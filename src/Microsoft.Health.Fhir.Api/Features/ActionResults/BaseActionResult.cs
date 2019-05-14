@@ -13,7 +13,7 @@ using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
-    public abstract class BaseActionResult<TResult> : ActionResult
+    public abstract class BaseActionResult<TResult> : ActionResult, IBaseActionResult
     {
         protected BaseActionResult()
         {
@@ -72,6 +72,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             }
 
             return result.ExecuteResultAsync(context);
+        }
+
+        public string GetResultTypeName()
+        {
+            return Result?.GetType().Name;
         }
     }
 }
