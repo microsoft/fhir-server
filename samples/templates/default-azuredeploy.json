@@ -285,7 +285,8 @@
                         "permissions": {
                             "secrets": [
                                 "get",
-                                "list"
+                                "list",
+                                "set"
                             ]
                         }
                     }

@@ -26,6 +26,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
+        private const string DestinationType = "destinationType";
+        private const string DestinationConnection = "destinationConnection";
+
         public ExportControllerTests()
         {
             _exportEnabledController = GetController(new ExportJobConfiguration() { Enabled = true });
@@ -36,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportJobConfiguration() { Enabled = false });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export());
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(DestinationType, DestinationConnection));
         }
 
         [Fact]

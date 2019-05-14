@@ -17,6 +17,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord
     {
+        private const string SecretPrefix = "Export-Destination-";
+
         public ExportJobRecord(Uri exportRequestUri, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
         {
             EnsureArg.IsNotNull(exportRequestUri, nameof(exportRequestUri));
@@ -39,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
 
             QueuedTime = DateTimeOffset.UtcNow;
+            SecretName = SecretPrefix + Id;
         }
 
         [JsonConstructor]
@@ -51,6 +54,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.RequestorClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
+
+        [JsonProperty(JobRecordProperties.SecretName)]
+        public string SecretName { get; private set; }
 
         [JsonProperty(JobRecordProperties.Id)]
         public string Id { get; private set; }

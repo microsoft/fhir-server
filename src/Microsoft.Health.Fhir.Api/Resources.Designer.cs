@@ -268,6 +268,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &quot;{0}&quot; parameter is not supported..
+        /// </summary>
+        public static string UnsupportedParameter {
+            get {
+                return ResourceManager.GetString("UnsupportedParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The supplied value for &quot;{0}&quot; paramter is invalid..
+        /// </summary>
+        public static string UnsupportedParameterValue {
+            get {
+                return ResourceManager.GetString("UnsupportedParameterValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Requested operation does not support resource type: {0}..
         /// </summary>
         public static string UnsupportedResourceType {

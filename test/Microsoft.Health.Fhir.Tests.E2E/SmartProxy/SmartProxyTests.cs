@@ -121,6 +121,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 // Consent, should only be done if we can find the button
                 try
                 {
+                    // Sleep in case a light box is shown.
+                    Thread.Sleep(TimeSpan.FromMilliseconds(1000));
                     var button = driver.FindElementById("idSIButton9");
                     Advance();
                 }

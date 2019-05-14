@@ -72,9 +72,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         }
 
         /// <inheritdoc />
-        public void LogExecuted(string controllerName, string actionName, HttpStatusCode statusCode, string resourceType)
+        public void LogExecuted(string controllerName, string actionName, HttpStatusCode statusCode, string responseResultType)
         {
-            Log(AuditAction.Executed, controllerName, actionName, statusCode, resourceType);
+            Log(AuditAction.Executed, controllerName, actionName, statusCode, responseResultType);
         }
 
         void IStartable.Start()
