@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -19,5 +20,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);
 
         public TimeSpan JobPollingFrequency { get; set; } = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// List of destinations that are supported for export operation.
+        /// </summary>
+        public HashSet<string> SupportedDestinations { get; } = new HashSet<string>(StringComparer.Ordinal);
     }
 }
