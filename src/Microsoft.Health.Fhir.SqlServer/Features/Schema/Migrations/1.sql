@@ -391,6 +391,44 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
+    URI Search Param
+**************************************************************/
+
+CREATE TYPE dbo.UriSearchParamTableType_1 AS TABLE  
+(
+    SearchParamId smallint NOT NULL,
+    Uri varchar(256) COLLATE Latin1_General_CS_AS NOT NULL
+)
+
+CREATE TABLE dbo.UriSearchParam
+(
+    ResourceSurrogateId bigint NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Uri varchar(256) COLLATE Latin1_General_CS_AS NOT NULL,
+    IsHistory bit NOT NULL
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_UriSearchParam
+ON dbo.UriSearchParam
+(
+    ResourceSurrogateId,
+    SearchParamId,
+    Uri
+)
+
+CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
+ON dbo.UriSearchParam
+(
+    SearchParamId,
+    Uri
+) 
+WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+
+GO
+
+
+/*************************************************************
     Number Search Param
 **************************************************************/
 
@@ -420,7 +458,7 @@ ON dbo.NumberSearchParam
     SingleValue
 )
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SingleValue
+CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
 ON dbo.NumberSearchParam
 (
     SearchParamId,
@@ -428,7 +466,7 @@ ON dbo.NumberSearchParam
 ) 
 WHERE IsHistory = 0 AND SingleValue IS NOT NULL
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_LowValue_HighValue
+CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
 ON dbo.NumberSearchParam
 (
     SearchParamId,
@@ -437,13 +475,91 @@ ON dbo.NumberSearchParam
 ) 
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_HighValue_LowValue
+CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
 ON dbo.NumberSearchParam
 (
     SearchParamId,
     HighValue,
     LowValue
 ) 
+WHERE IsHistory = 0 AND LowValue IS NOT NULL
+
+GO
+
+/*************************************************************
+    Quantity Search Param
+**************************************************************/
+
+CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE  
+(
+    SearchParamId smallint NOT NULL,
+    SystemId int NULL,
+    QuantityCodeId int NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NULL,
+    HighValue decimal(18,6) NULL
+)
+
+CREATE TABLE dbo.QuantitySearchParam
+(
+    ResourceSurrogateId bigint NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NULL,
+    QuantityCodeId int NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) SPARSE NULL,
+    HighValue decimal(18,6) SPARSE NULL,
+    IsHistory bit NOT NULL
+)
+
+CREATE CLUSTERED INDEX QuantitySearchParam
+ON dbo.QuantitySearchParam
+(
+    ResourceSurrogateId,
+    SearchParamId,
+    QuantityCodeId,
+    SingleValue
+)
+
+CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
+ON dbo.QuantitySearchParam
+(
+    SearchParamId,
+    QuantityCodeId,
+    SingleValue
+) 
+INCLUDE
+(
+    SystemId
+)
+WHERE IsHistory = 0 AND SingleValue IS NOT NULL
+
+CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
+ON dbo.QuantitySearchParam
+(
+    SearchParamId,
+    QuantityCodeId,
+    LowValue,
+    HighValue
+)
+INCLUDE
+(
+    SystemId
+)
+WHERE IsHistory = 0 AND LowValue IS NOT NULL
+
+CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
+ON dbo.QuantitySearchParam
+(
+    SearchParamId,
+    QuantityCodeId,
+    HighValue,
+    LowValue
+) 
+INCLUDE
+(
+    SystemId
+)
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
 
 GO
@@ -509,7 +625,9 @@ CREATE PROCEDURE dbo.UpsertResource
     @tokenSearchParams dbo.TokenSearchParamTableType_1 READONLY,
     @tokenTextSearchParams dbo.TokenTextTableType_1 READONLY,
     @stringSearchParams dbo.StringSearchParamTableType_1 READONLY,
-    @numberSearchParams dbo.NumberSearchParamTableType_1 READONLY
+    @numberSearchParams dbo.NumberSearchParamTableType_1 READONLY,
+    @quantitySearchParams dbo.QuantitySearchParamTableType_1 READONLY,
+    @uriSearchParams dbo.UriSearchParamTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
@@ -580,9 +698,18 @@ AS
             SET IsHistory = 1
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
+            UPDATE dbo.UriSearchParam
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
             UPDATE dbo.NumberSearchParam
             SET IsHistory = 1
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            UPDATE dbo.QuantitySearchParam
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
         END
         ELSE BEGIN
 
@@ -601,7 +728,13 @@ AS
             DELETE FROM dbo.StringSearchParam
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
+            DELETE FROM dbo.UriSearchParam
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
             DELETE FROM dbo.NumberSearchParam
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            DELETE FROM dbo.QuantitySearchParam
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
         END
@@ -644,10 +777,20 @@ AS
     SELECT DISTINCT @resourceSurrogateId, SearchParamId, Text, 0
     FROM @stringSearchParams
 
+    INSERT INTO dbo.UriSearchParam
+        (ResourceSurrogateId, SearchParamId, Uri, IsHistory)
+    SELECT DISTINCT @resourceSurrogateId, SearchParamId, Uri, 0
+    FROM @uriSearchParams
+
     INSERT INTO dbo.NumberSearchParam
         (ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
     SELECT DISTINCT @resourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, 0
     FROM @numberSearchParams
+
+    INSERT INTO dbo.QuantitySearchParam
+        (ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
+    SELECT DISTINCT @resourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, 0
+    FROM @quantitySearchParams
 
     SELECT @version
 

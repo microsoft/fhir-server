@@ -15,6 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CompartmentTypeTable CompartmentType = new CompartmentTypeTable();
         internal readonly static NumberSearchParamTable NumberSearchParam = new NumberSearchParamTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
+        internal readonly static QuantitySearchParamTable QuantitySearchParam = new QuantitySearchParamTable();
         internal readonly static ResourceTable Resource = new ResourceTable();
         internal readonly static ResourceTypeTable ResourceType = new ResourceTypeTable();
         internal readonly static ResourceWriteClaimTable ResourceWriteClaim = new ResourceWriteClaimTable();
@@ -24,6 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static SystemTable System = new SystemTable();
         internal readonly static TokenSearchParamTable TokenSearchParam = new TokenSearchParamTable();
         internal readonly static TokenTextTable TokenText = new TokenTextTable();
+        internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
@@ -83,6 +85,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly IntColumn QuantityCodeId = new IntColumn("QuantityCodeId");
             internal readonly NVarCharColumn Value = new NVarCharColumn("Value", 256);
+        }
+
+        internal class QuantitySearchParamTable : Table
+        {
+            internal QuantitySearchParamTable(): base("dbo.QuantitySearchParam")
+            {
+            }
+
+            internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
+            internal readonly NullableIntColumn QuantityCodeId = new NullableIntColumn("QuantityCodeId");
+            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
+            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
+            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
+            internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
         internal class ResourceTable : Table
@@ -190,6 +208,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
+        internal class UriSearchParamTable : Table
+        {
+            internal UriSearchParamTable(): base("dbo.UriSearchParam")
+            {
+            }
+
+            internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256);
+            internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
+        }
+
         internal class HardDeleteResourceProcedure : StoredProcedure
         {
             internal HardDeleteResourceProcedure(): base("dbo.HardDeleteResource")
@@ -260,7 +290,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly TokenTextTableTypeTableValuedParameterDefinition _tokenTextSearchParams = new TokenTextTableTypeTableValuedParameterDefinition("@tokenTextSearchParams");
             private readonly StringSearchParamTableTypeTableValuedParameterDefinition _stringSearchParams = new StringSearchParamTableTypeTableValuedParameterDefinition("@stringSearchParams");
             private readonly NumberSearchParamTableTypeTableValuedParameterDefinition _numberSearchParams = new NumberSearchParamTableTypeTableValuedParameterDefinition("@numberSearchParams");
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> compartmentAssignments, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> tokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> tokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> stringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> numberSearchParams)
+            private readonly QuantitySearchParamTableTypeTableValuedParameterDefinition _quantitySearchParams = new QuantitySearchParamTableTypeTableValuedParameterDefinition("@quantitySearchParams");
+            private readonly UriSearchParamTableTypeTableValuedParameterDefinition _uriSearchParams = new UriSearchParamTableTypeTableValuedParameterDefinition("@uriSearchParams");
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> compartmentAssignments, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> tokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> tokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> stringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> numberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> quantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> uriSearchParams)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpsertResource";
@@ -279,17 +311,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _tokenTextSearchParams.AddParameter(command.Parameters, tokenTextSearchParams);
                 _stringSearchParams.AddParameter(command.Parameters, stringSearchParams);
                 _numberSearchParams.AddParameter(command.Parameters, numberSearchParams);
+                _quantitySearchParams.AddParameter(command.Parameters, quantitySearchParams);
+                _uriSearchParams.AddParameter(command.Parameters, uriSearchParams);
             }
 
             public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, UpsertResourceTableValuedParameters tableValuedParameters)
             {
-                PopulateCommand(command, resourceTypeId: resourceTypeId, resourceId: resourceId, eTag: eTag, allowCreate: allowCreate, isDeleted: isDeleted, updatedDateTime: updatedDateTime, keepHistory: keepHistory, requestMethod: requestMethod, rawResource: rawResource, resourceWriteClaims: tableValuedParameters.ResourceWriteClaims, compartmentAssignments: tableValuedParameters.CompartmentAssignments, tokenSearchParams: tableValuedParameters.TokenSearchParams, tokenTextSearchParams: tableValuedParameters.TokenTextSearchParams, stringSearchParams: tableValuedParameters.StringSearchParams, numberSearchParams: tableValuedParameters.NumberSearchParams);
+                PopulateCommand(command, resourceTypeId: resourceTypeId, resourceId: resourceId, eTag: eTag, allowCreate: allowCreate, isDeleted: isDeleted, updatedDateTime: updatedDateTime, keepHistory: keepHistory, requestMethod: requestMethod, rawResource: rawResource, resourceWriteClaims: tableValuedParameters.ResourceWriteClaims, compartmentAssignments: tableValuedParameters.CompartmentAssignments, tokenSearchParams: tableValuedParameters.TokenSearchParams, tokenTextSearchParams: tableValuedParameters.TokenTextSearchParams, stringSearchParams: tableValuedParameters.StringSearchParams, numberSearchParams: tableValuedParameters.NumberSearchParams, quantitySearchParams: tableValuedParameters.QuantitySearchParams, uriSearchParams: tableValuedParameters.UriSearchParams);
             }
         }
 
         internal class UpsertResourceTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpsertResourceTableValuedParameters>
         {
-            public UpsertResourceTvpGenerator(ITableValuedParameterRowGenerator<TInput, ResourceWriteClaimTableTypeRow> ResourceWriteClaimTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, CompartmentAssignmentTableTypeRow> CompartmentAssignmentTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenSearchParamTableTypeRow> TokenSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenTextTableTypeRow> TokenTextTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, StringSearchParamTableTypeRow> StringSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, NumberSearchParamTableTypeRow> NumberSearchParamTableTypeRowGenerator)
+            public UpsertResourceTvpGenerator(ITableValuedParameterRowGenerator<TInput, ResourceWriteClaimTableTypeRow> ResourceWriteClaimTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, CompartmentAssignmentTableTypeRow> CompartmentAssignmentTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenSearchParamTableTypeRow> TokenSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenTextTableTypeRow> TokenTextTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, StringSearchParamTableTypeRow> StringSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, NumberSearchParamTableTypeRow> NumberSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, QuantitySearchParamTableTypeRow> QuantitySearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, UriSearchParamTableTypeRow> UriSearchParamTableTypeRowGenerator)
             {
                 this.ResourceWriteClaimTableTypeRowGenerator = ResourceWriteClaimTableTypeRowGenerator;
                 this.CompartmentAssignmentTableTypeRowGenerator = CompartmentAssignmentTableTypeRowGenerator;
@@ -297,6 +331,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 this.TokenTextTableTypeRowGenerator = TokenTextTableTypeRowGenerator;
                 this.StringSearchParamTableTypeRowGenerator = StringSearchParamTableTypeRowGenerator;
                 this.NumberSearchParamTableTypeRowGenerator = NumberSearchParamTableTypeRowGenerator;
+                this.QuantitySearchParamTableTypeRowGenerator = QuantitySearchParamTableTypeRowGenerator;
+                this.UriSearchParamTableTypeRowGenerator = UriSearchParamTableTypeRowGenerator;
             }
 
             private readonly ITableValuedParameterRowGenerator<TInput, ResourceWriteClaimTableTypeRow> ResourceWriteClaimTableTypeRowGenerator;
@@ -305,15 +341,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly ITableValuedParameterRowGenerator<TInput, TokenTextTableTypeRow> TokenTextTableTypeRowGenerator;
             private readonly ITableValuedParameterRowGenerator<TInput, StringSearchParamTableTypeRow> StringSearchParamTableTypeRowGenerator;
             private readonly ITableValuedParameterRowGenerator<TInput, NumberSearchParamTableTypeRow> NumberSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, QuantitySearchParamTableTypeRow> QuantitySearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, UriSearchParamTableTypeRow> UriSearchParamTableTypeRowGenerator;
             public UpsertResourceTableValuedParameters Generate(TInput input)
             {
-                return new UpsertResourceTableValuedParameters(ResourceWriteClaimTableTypeRowGenerator.GenerateRows(input), CompartmentAssignmentTableTypeRowGenerator.GenerateRows(input), TokenSearchParamTableTypeRowGenerator.GenerateRows(input), TokenTextTableTypeRowGenerator.GenerateRows(input), StringSearchParamTableTypeRowGenerator.GenerateRows(input), NumberSearchParamTableTypeRowGenerator.GenerateRows(input));
+                return new UpsertResourceTableValuedParameters(ResourceWriteClaimTableTypeRowGenerator.GenerateRows(input), CompartmentAssignmentTableTypeRowGenerator.GenerateRows(input), TokenSearchParamTableTypeRowGenerator.GenerateRows(input), TokenTextTableTypeRowGenerator.GenerateRows(input), StringSearchParamTableTypeRowGenerator.GenerateRows(input), NumberSearchParamTableTypeRowGenerator.GenerateRows(input), QuantitySearchParamTableTypeRowGenerator.GenerateRows(input), UriSearchParamTableTypeRowGenerator.GenerateRows(input));
             }
         }
 
         internal struct UpsertResourceTableValuedParameters
         {
-            internal UpsertResourceTableValuedParameters(global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> ResourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> CompartmentAssignments, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> TokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> TokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> StringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> NumberSearchParams)
+            internal UpsertResourceTableValuedParameters(global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> ResourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> CompartmentAssignments, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> TokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> TokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> StringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> NumberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> QuantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> UriSearchParams)
             {
                 this.ResourceWriteClaims = ResourceWriteClaims;
                 this.CompartmentAssignments = CompartmentAssignments;
@@ -321,6 +359,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 this.TokenTextSearchParams = TokenTextSearchParams;
                 this.StringSearchParams = StringSearchParams;
                 this.NumberSearchParams = NumberSearchParams;
+                this.QuantitySearchParams = QuantitySearchParams;
+                this.UriSearchParams = UriSearchParams;
             }
 
             internal global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> ResourceWriteClaims
@@ -349,6 +389,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> NumberSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> QuantitySearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> UriSearchParams
             {
                 get;
             }
@@ -437,6 +487,73 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> SingleValue
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> LowValue
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> HighValue
+            {
+                get;
+            }
+        }
+
+        private class QuantitySearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<QuantitySearchParamTableTypeRow>
+        {
+            internal QuantitySearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.QuantitySearchParamTableType_1")
+            {
+            }
+
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
+            internal readonly NullableIntColumn QuantityCodeId = new NullableIntColumn("QuantityCodeId");
+            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
+            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
+            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, QuantitySearchParamTableTypeRow rowData)
+            {
+                SearchParamId.Set(record, 0, rowData.SearchParamId);
+                SystemId.Set(record, 1, rowData.SystemId);
+                QuantityCodeId.Set(record, 2, rowData.QuantityCodeId);
+                SingleValue.Set(record, 3, rowData.SingleValue);
+                LowValue.Set(record, 4, rowData.LowValue);
+                HighValue.Set(record, 5, rowData.HighValue);
+            }
+        }
+
+        internal struct QuantitySearchParamTableTypeRow
+        {
+            internal QuantitySearchParamTableTypeRow(System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId, System.Nullable<System.Int32> QuantityCodeId, System.Nullable<System.Decimal> SingleValue, System.Nullable<System.Decimal> LowValue, System.Nullable<System.Decimal> HighValue)
+            {
+                this.SearchParamId = SearchParamId;
+                this.SystemId = SystemId;
+                this.QuantityCodeId = QuantityCodeId;
+                this.SingleValue = SingleValue;
+                this.LowValue = LowValue;
+                this.HighValue = HighValue;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> QuantityCodeId
             {
                 get;
             }
@@ -600,6 +717,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal System.String Text
+            {
+                get;
+            }
+        }
+
+        private class UriSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<UriSearchParamTableTypeRow>
+        {
+            internal UriSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.UriSearchParamTableType_1")
+            {
+            }
+
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Uri};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, UriSearchParamTableTypeRow rowData)
+            {
+                SearchParamId.Set(record, 0, rowData.SearchParamId);
+                Uri.Set(record, 1, rowData.Uri);
+            }
+        }
+
+        internal struct UriSearchParamTableTypeRow
+        {
+            internal UriSearchParamTableTypeRow(System.Int16 SearchParamId, System.String Uri)
+            {
+                this.SearchParamId = SearchParamId;
+                this.Uri = Uri;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.String Uri
             {
                 get;
             }
