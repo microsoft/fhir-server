@@ -15,6 +15,11 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
+    /// <summary>
+    /// Maintains a mapping from search parameters to a "representative" type. This is
+    /// either one that implements ISearchValue, or for composites, a Tuple with the component types as type arguments,
+    /// for example: <see cref="Tuple{UriSearchValue}"/>
+    /// </summary>
     internal class SearchParameterToSearchValueTypeMap
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
