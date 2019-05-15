@@ -614,6 +614,55 @@ WHERE IsHistory = 0 AND LowValue IS NOT NULL
 GO
 
 /*************************************************************
+    Date Search Param
+**************************************************************/
+
+CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE  
+(
+    SearchParamId smallint NOT NULL,
+    StartDateTime datetimeoffset(7) NOT NULL,
+    EndDateTime datetimeoffset(7) NOT NULL
+)
+
+CREATE TABLE dbo.DateTimeSearchParam
+(
+    ResourceSurrogateId bigint NOT NULL,
+    SearchParamId smallint NOT NULL,
+    StartDateTime datetime2(7) NOT NULL,
+    EndDateTime datetime2(7) NOT NULL,
+    IsHistory bit NOT NULL
+)
+
+CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
+ON dbo.DateTimeSearchParam
+(
+    ResourceSurrogateId,
+    SearchParamId,
+    StartDateTime,
+    EndDateTime
+)
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    StartDateTime,
+    EndDateTime
+) 
+WHERE IsHistory = 0
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    EndDateTime,
+    StartDateTime
+) 
+WHERE IsHistory = 0
+
+GO
+
+/*************************************************************
     Sequence for generating surrogate IDs for resources
 **************************************************************/
 
@@ -677,7 +726,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @stringSearchParams dbo.StringSearchParamTableType_1 READONLY,
     @numberSearchParams dbo.NumberSearchParamTableType_1 READONLY,
     @quantitySearchParams dbo.QuantitySearchParamTableType_1 READONLY,
-    @uriSearchParams dbo.UriSearchParamTableType_1 READONLY
+    @uriSearchParams dbo.UriSearchParamTableType_1 READONLY,
+    @dateTimeSearchParms dbo.DateTimeSearchParamTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
@@ -764,6 +814,10 @@ AS
             SET IsHistory = 1
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
+            UPDATE dbo.DateTimeSearchParam
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
         END
         ELSE BEGIN
 
@@ -792,6 +846,9 @@ AS
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.QuantitySearchParam
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            DELETE FROM dbo.DateTimeSearchParam
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
         END
@@ -853,6 +910,11 @@ AS
         (ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
     SELECT DISTINCT @resourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, 0
     FROM @quantitySearchParams
+
+    INSERT INTO dbo.DateTimeSearchParam
+        (ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsHistory)
+    SELECT DISTINCT @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, 0
+    FROM @dateTimeSearchParms
 
     SELECT @version
 
