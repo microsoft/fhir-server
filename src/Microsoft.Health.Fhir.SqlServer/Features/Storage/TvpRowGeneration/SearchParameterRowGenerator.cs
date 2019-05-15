@@ -24,8 +24,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         public virtual IEnumerable<TRow> GenerateRows(ResourceMetadata input)
         {
-            return input.GetSearchIndexEntriesByType(typeof(TSearchValue)).Select(v => GenerateRow(Model.GetSearchParamId(v.SearchParameter.Url), v.SearchParameter, (TSearchValue)v.Value));
+            return input.GetSearchIndexEntriesByType(typeof(TSearchValue))
+                .Where(v => ShouldGenerateRow(v.SearchParameter, (TSearchValue)v.Value))
+                .Select(v => GenerateRow(Model.GetSearchParamId(v.SearchParameter.Url), v.SearchParameter, (TSearchValue)v.Value))
+                .Distinct();
         }
+
+        protected virtual bool ShouldGenerateRow(SearchParameter searchParameter, TSearchValue searchValue) => true;
 
         protected abstract TRow GenerateRow(short searchParamId, SearchParameter searchParameter, TSearchValue searchValue);
     }

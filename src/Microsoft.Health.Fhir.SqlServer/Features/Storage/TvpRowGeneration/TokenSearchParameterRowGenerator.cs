@@ -16,6 +16,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
+        protected override bool ShouldGenerateRow(SearchParameter searchParameter, TokenSearchValue searchValue) => !string.IsNullOrWhiteSpace(searchValue.Code);
+
         protected override V1.TokenSearchParamTableTypeRow GenerateRow(short searchParamId, SearchParameter searchParameter, TokenSearchValue searchValue)
         {
             return new V1.TokenSearchParamTableTypeRow(
