@@ -391,6 +391,64 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
+    Number Search Param
+**************************************************************/
+
+CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE  
+(
+    SearchParamId smallint NOT NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NULL,
+    HighValue decimal(18,6) NULL
+)
+
+CREATE TABLE dbo.NumberSearchParam
+(
+    ResourceSurrogateId bigint NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) SPARSE NULL,
+    HighValue decimal(18,6) SPARSE NULL,
+    IsHistory bit NOT NULL
+)
+
+CREATE CLUSTERED INDEX IXC_NumberSearchParam
+ON dbo.NumberSearchParam
+(
+    ResourceSurrogateId,
+    SearchParamId,
+    SingleValue
+)
+
+CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SingleValue
+ON dbo.NumberSearchParam
+(
+    SearchParamId,
+    SingleValue
+) 
+WHERE IsHistory = 0 AND SingleValue IS NOT NULL
+
+CREATE NONCLUSTERED INDEX IX_NumberSearchParam_LowValue_HighValue
+ON dbo.NumberSearchParam
+(
+    SearchParamId,
+    LowValue,
+    HighValue
+) 
+WHERE IsHistory = 0 AND LowValue IS NOT NULL
+
+CREATE NONCLUSTERED INDEX IX_NumberSearchParam_HighValue_LowValue
+ON dbo.NumberSearchParam
+(
+    SearchParamId,
+    HighValue,
+    LowValue
+) 
+WHERE IsHistory = 0 AND LowValue IS NOT NULL
+
+GO
+
+/*************************************************************
     Sequence for generating surrogate IDs for resources
 **************************************************************/
 
@@ -450,7 +508,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
     @tokenSearchParams dbo.TokenSearchParamTableType_1 READONLY,
     @tokenTextSearchParams dbo.TokenTextTableType_1 READONLY,
-    @stringSearchParams dbo.StringSearchParamTableType_1 READONLY
+    @stringSearchParams dbo.StringSearchParamTableType_1 READONLY,
+    @numberSearchParams dbo.NumberSearchParamTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
@@ -521,6 +580,9 @@ AS
             SET IsHistory = 1
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
+            UPDATE dbo.NumberSearchParam
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
         END
         ELSE BEGIN
 
@@ -537,6 +599,9 @@ AS
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.StringSearchParam
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            DELETE FROM dbo.NumberSearchParam
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
         END
@@ -578,6 +643,11 @@ AS
         (ResourceSurrogateId, SearchParamId, Text, IsHistory)
     SELECT DISTINCT @resourceSurrogateId, SearchParamId, Text, 0
     FROM @stringSearchParams
+
+    INSERT INTO dbo.NumberSearchParam
+        (ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
+    SELECT DISTINCT @resourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, 0
+    FROM @numberSearchParams
 
     SELECT @version
 
