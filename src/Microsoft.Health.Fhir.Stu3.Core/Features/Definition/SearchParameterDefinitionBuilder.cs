@@ -100,8 +100,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             return (resourceType == ResourceType.DomainResource.ToString() && searchParameterName == "_text") ||
                 (resourceType == ResourceType.Resource.ToString() && searchParameterName == "_content") ||
-                (resourceType == ResourceType.Resource.ToString() && searchParameterName == "_query") ||
-                (resourceType == ResourceType.DataElement.ToString() && (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty"));
+                (resourceType == ResourceType.Resource.ToString() && searchParameterName == "_query")
+#if !R4
+                || (resourceType == ResourceType.DataElement.ToString() && (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty"))
+#endif
+                ;
         }
 
         private List<(string ResourceType, SearchParameter SearchParameter)> ValidateAndGetFlattendList()
@@ -183,8 +186,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     {
                         ComponentComponent component = searchParameter.Component[componentIndex];
 
-                        if (component.Definition.Url == null ||
-                            !_uriDictionary.TryGetValue(component.Definition.Url, out SearchParameter componentSearchParameter))
+                        if (component.GetComponentDefinitionUri() == null ||
+                            !_uriDictionary.TryGetValue(component.GetComponentDefinitionUri(), out SearchParameter componentSearchParameter))
                         {
                             AddIssue(
                                 Core.Resources.SearchParameterDefinitionInvalidComponentReference,

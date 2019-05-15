@@ -8,12 +8,14 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ModelExtensions
     {
+#if !R4
         static ModelExtensions()
         {
             SetModelInfoProvider();
@@ -26,6 +28,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             ModelInfoProvider.SetProvider(new Stu3ModelInfoProvider());
         }
+
+#endif
 
         public static CodeableConcept ToPoco(this CodingInfo model)
         {
@@ -102,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 searchParam.Name,
                 new Uri(searchParam.Url),
                 searchParam.Type?.ToString(),
-                searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.Definition.Url)).ToArray());
+                searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri())).ToArray());
         }
     }
 }

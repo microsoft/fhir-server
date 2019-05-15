@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 

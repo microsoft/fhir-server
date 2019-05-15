@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _typeLookup = builder.ResourceTypeDictionary;
             _urlLookup = builder.UriDictionary;
 
-            List<string> list = _urlLookup.Values.Where(p => p.Type == SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => _urlLookup[new Uri(c.Definition.Reference)].Type))).Distinct().ToList();
+            List<string> list = _urlLookup.Values.Where(p => p.Type == SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => _urlLookup[c.GetComponentDefinitionUri()].Type))).Distinct().ToList();
         }
 
         public IEnumerable<SearchParameter> GetSearchParameters(string resourceType)
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 return value.Values;
             }
 
-            throw new ResourceNotSupportedException(resourceType.ToString());
+            throw new ResourceNotSupportedException(resourceType);
         }
 
         public bool TryGetSearchParameter(string resourceType, string name, out SearchParameter searchParameter)

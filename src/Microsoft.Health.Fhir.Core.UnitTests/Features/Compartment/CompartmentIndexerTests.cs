@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -18,6 +19,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
 {
     public class CompartmentIndexerTests
     {
+        public CompartmentIndexerTests()
+        {
+            ModelExtensions.SetModelInfoProvider();
+        }
+
         [Theory]
         [InlineData(ResourceType.Observation, CompartmentType.Patient, "123")]
         [InlineData(ResourceType.Account, CompartmentType.Encounter, "example")]

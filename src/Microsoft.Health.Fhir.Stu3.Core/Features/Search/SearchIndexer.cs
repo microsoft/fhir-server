@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     SearchParameter.ComponentComponent component = searchParameter.Component[i];
 
                     // First find the type of the component.
-                    SearchParameter componentSearchParameterDefinition = _searchParameterDefinitionManager.GetSearchParameter(component.Definition.Url);
+                    SearchParameter componentSearchParameterDefinition = _searchParameterDefinitionManager.GetSearchParameter(component.GetComponentDefinitionUri());
 
                     IReadOnlyList<ISearchValue> extractedComponentValues = ExtractSearchValues(
                         componentSearchParameterDefinition.Url,

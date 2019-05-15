@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
