@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -46,6 +47,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             if (match.Success)
             {
                 string resourceTypeInString = match.Groups[ResourceTypeCapture].Value;
+
+                if (!ModelFactory.IsKnownResource(resourceTypeInString))
+                {
+                    throw new RequestNotValidException(string.Format(Resources.ResourceNotSupported, resourceTypeInString));
+                }
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
 

@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
            : this(
-                 IsNotNull(resource).Id,
+                 EnsureArg.IsNotNull(resource).Id,
                  resource.VersionId,
                  resource.InstanceType,
                  rawResource,
@@ -105,13 +105,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public ResourceKey ToResourceKey()
         {
             return new ResourceKey(ResourceTypeName, ResourceId, Version);
-        }
-
-        private static ResourceElement IsNotNull(ResourceElement resource)
-        {
-            EnsureArg.IsNotNull(resource, nameof(resource));
-
-            return resource;
         }
     }
 }

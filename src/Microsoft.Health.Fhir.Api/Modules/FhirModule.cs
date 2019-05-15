@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 return resource.ToResourceElement();
             }
 
-            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(x =>
+            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(_ =>
             {
                 return new Dictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>
                 {
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<IFhirRequestContextAccessor>();
 
-            services.AddSingleton<CorrelationIdProvider>(provider => () => Guid.NewGuid().ToString());
+            services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
             // Add conformance provider for implementation metadata.
             services.AddSingleton<IConfiguredConformanceProvider, DefaultConformanceProvider>();
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
 
             var stu3ModelFactory = new Stu3ModelFactory();
-            services.Add(c => stu3ModelFactory).Singleton().AsSelf().AsImplementedInterfaces();
+            services.Add(_ => stu3ModelFactory).Singleton().AsSelf().AsImplementedInterfaces();
             ModelFactory.SetModelFactory(stu3ModelFactory);
 
             // Register a factory to resolve a scope that returns all components that provide capabilities

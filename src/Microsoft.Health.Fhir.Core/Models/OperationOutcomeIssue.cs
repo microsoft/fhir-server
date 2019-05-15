@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -11,6 +12,10 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         public OperationOutcomeIssue(string severity, string code, string diagnostics, string[] location = null)
         {
+            EnsureArg.IsNotNullOrEmpty(severity, nameof(severity));
+            EnsureArg.IsNotNullOrEmpty(code, nameof(code));
+            EnsureArg.IsNotNullOrEmpty(diagnostics, nameof(diagnostics));
+
             Severity = severity;
             Code = code;
             Diagnostics = diagnostics;

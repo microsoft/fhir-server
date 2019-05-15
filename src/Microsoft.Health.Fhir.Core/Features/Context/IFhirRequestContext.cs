@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Security.Claims;
-using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -22,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         string CorrelationId { get; }
 
-        ResourceElement RequestType { get; }
+        CodingInfo RequestType { get; }
 
         string RouteName { get; set; }
 

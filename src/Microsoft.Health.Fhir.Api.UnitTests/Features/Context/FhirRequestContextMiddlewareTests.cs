@@ -24,8 +24,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.NotNull(fhirRequestContext.RequestType);
 
-            Assert.Equal(ValueSets.AuditEventType.System, fhirRequestContext.RequestType.Scalar<string>("Coding.system"));
-            Assert.Equal(ValueSets.AuditEventType.RestFulOperationCode, fhirRequestContext.RequestType.Scalar<string>("Coding.code"));
+            Assert.Equal(ValueSets.AuditEventType.System, fhirRequestContext.RequestType.System);
+            Assert.Equal(ValueSets.AuditEventType.RestFulOperationCode, fhirRequestContext.RequestType.Code);
         }
 
         [Fact]

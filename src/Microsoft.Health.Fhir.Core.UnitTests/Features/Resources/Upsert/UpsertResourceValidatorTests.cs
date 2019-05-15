@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
@@ -26,10 +24,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
         public void GivenAResourceWithoutInvalidId_WhenValidatingUpsert_ThenInvalidShouldBeReturned(string id)
         {
             var validator = new UpsertResourceValidator(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
-            var resource = Samples.GetDefaultObservation().Instance.ToPoco<Observation>();
+            var resource = Samples.GetDefaultObservation()
+                .UpdateId(id);
 
-            resource.Id = id;
-            var upsertResourceRequest = new UpsertResourceRequest(resource.ToResourceElement());
+            var upsertResourceRequest = new UpsertResourceRequest(resource);
             var result = validator.Validate(upsertResourceRequest);
             Assert.False(result.IsValid);
         }

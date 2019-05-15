@@ -3,12 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
+
 namespace Microsoft.Health.Fhir.Core.Models
 {
     public class CodeableConceptInfo
     {
         public CodeableConceptInfo(string system, string value)
         {
+            EnsureArg.IsNotNullOrEmpty(system, nameof(system));
+            EnsureArg.IsNotNullOrEmpty(value, nameof(value));
+
             System = system;
             Value = value;
         }

@@ -28,9 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 foreach (var validationError in role.Validate(new ValidationContext(role)))
                 {
                     issues.Add(new OperationOutcomeIssue(
-                            "Fatal",
-                            "Invalid",
-                            validationError.ErrorMessage));
+                        OperationOutcomeConstants.IssueSeverity.Fatal,
+                        OperationOutcomeConstants.IssueType.Invalid,
+                        validationError.ErrorMessage));
                 }
             }
 
