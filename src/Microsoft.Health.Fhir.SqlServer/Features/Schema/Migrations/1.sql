@@ -354,6 +354,43 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
+    String Search Param
+**************************************************************/
+
+CREATE TYPE dbo.StringSearchParamTableType_1 AS TABLE  
+(
+    SearchParamId smallint NOT NULL,
+    Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
+)
+
+CREATE TABLE dbo.StringSearchParam
+(
+    ResourceSurrogateId bigint NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL,
+    IsHistory bit NOT NULL
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_StringSearchParam
+ON dbo.StringSearchParam
+(
+    ResourceSurrogateId,
+    SearchParamId,
+    Text
+)
+
+CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
+ON dbo.StringSearchParam
+(
+    SearchParamId,
+    Text
+) 
+WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+
+GO
+
+/*************************************************************
     Sequence for generating surrogate IDs for resources
 **************************************************************/
 
@@ -412,7 +449,8 @@ CREATE PROCEDURE dbo.UpsertResource
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
     @tokenSearchParams dbo.TokenSearchParamTableType_1 READONLY,
-    @tokenTextSearchParams dbo.TokenTextTableType_1 READONLY
+    @tokenTextSearchParams dbo.TokenTextTableType_1 READONLY,
+    @stringSearchParams dbo.StringSearchParamTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
@@ -479,6 +517,10 @@ AS
             SET IsHistory = 1
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
+            UPDATE dbo.StringSearchParam
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
         END
         ELSE BEGIN
 
@@ -492,6 +534,9 @@ AS
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenText
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            DELETE FROM dbo.StringSearchParam
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
         END
@@ -528,6 +573,11 @@ AS
         (ResourceSurrogateId, SearchParamId, Text, IsHistory)
     SELECT DISTINCT @resourceSurrogateId, SearchParamId, Text, 0
     FROM @tokenTextSearchParams
+
+    INSERT INTO dbo.StringSearchParam
+        (ResourceSurrogateId, SearchParamId, Text, IsHistory)
+    SELECT DISTINCT @resourceSurrogateId, SearchParamId, Text, 0
+    FROM @stringSearchParams
 
     SELECT @version
 
