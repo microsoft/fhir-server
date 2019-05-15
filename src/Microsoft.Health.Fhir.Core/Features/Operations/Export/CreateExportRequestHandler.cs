@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -38,7 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = _claimsExtractor.Extract();
+            IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = _claimsExtractor.Extract()?
+                .OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 
             // Compute the hash of the job.
             var hashObject = new

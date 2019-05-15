@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using EnsureThat;
 using Newtonsoft.Json;
 
@@ -25,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
             RequestUri = exportRequestUri;
             Hash = hash;
-            RequestorClaims = requestorClaims?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
+            RequestorClaims = requestorClaims;
 
             // Default values
             SchemaVersion = 1;

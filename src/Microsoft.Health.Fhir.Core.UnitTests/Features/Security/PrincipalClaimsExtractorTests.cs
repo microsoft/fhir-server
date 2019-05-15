@@ -16,19 +16,19 @@ using Claim = System.Security.Claims.Claim;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 {
-    public class ClaimsPrincipalExtractorTests
+    public class PrincipalClaimsExtractorTests
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly IOptions<SecurityConfiguration> _securityOptions = Substitute.For<IOptions<SecurityConfiguration>>();
         private readonly SecurityConfiguration _securityConfiguration = Substitute.For<SecurityConfiguration>();
         private readonly ClaimsPrincipal _claimsPrincipal = Substitute.For<ClaimsPrincipal>();
-        private readonly ClaimsPrincipalExtractor _claimsIndexer;
+        private readonly PrincipalClaimsExtractor _claimsIndexer;
 
-        public ClaimsPrincipalExtractorTests()
+        public PrincipalClaimsExtractorTests()
         {
             _securityOptions.Value.Returns(_securityConfiguration);
             _fhirRequestContextAccessor.FhirRequestContext.Principal.Returns(_claimsPrincipal);
-            _claimsIndexer = new ClaimsPrincipalExtractor(_fhirRequestContextAccessor, _securityOptions);
+            _claimsIndexer = new PrincipalClaimsExtractor(_fhirRequestContextAccessor, _securityOptions);
         }
 
         private static Claim Claim1 => new Claim("claim1", "value1");
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         {
             Assert.Throws<ArgumentNullException>(
                 "fhirRequestContextAccessor",
-                () => new ClaimsPrincipalExtractor(null, Options.Create(new SecurityConfiguration())));
+                () => new PrincipalClaimsExtractor(null, Options.Create(new SecurityConfiguration())));
         }
 
         [Fact]
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         {
             Assert.Throws<ArgumentNullException>(
                 "securityConfiguration",
-                () => new ClaimsPrincipalExtractor(new FhirRequestContextAccessor(), null));
+                () => new PrincipalClaimsExtractor(new FhirRequestContextAccessor(), null));
         }
 
         [Fact]

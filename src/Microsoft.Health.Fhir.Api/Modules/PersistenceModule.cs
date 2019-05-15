@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IRawResourceFactory, RawResourceFactory>();
             services.AddSingleton<IResourceWrapperFactory, ResourceWrapperFactory>();
-            services.AddSingleton<IClaimsExtractor, ClaimsPrincipalExtractor>();
+            services.AddSingleton<IClaimsExtractor, PrincipalClaimsExtractor>();
         }
     }
 }

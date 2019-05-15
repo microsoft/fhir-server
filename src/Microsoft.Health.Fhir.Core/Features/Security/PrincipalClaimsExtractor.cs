@@ -12,12 +12,12 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public class ClaimsPrincipalExtractor : IClaimsExtractor
+    public class PrincipalClaimsExtractor : IClaimsExtractor
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly SecurityConfiguration _securityConfiguration;
 
-        public ClaimsPrincipalExtractor(IFhirRequestContextAccessor fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfiguration)
+        public PrincipalClaimsExtractor(IFhirRequestContextAccessor fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfiguration)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));

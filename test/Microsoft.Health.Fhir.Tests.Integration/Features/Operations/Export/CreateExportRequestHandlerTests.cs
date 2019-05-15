@@ -108,14 +108,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            _claimsExtractor.ExtractImpl = () => new[] { KeyValuePair.Create("oid", "user1") };
+            _claimsExtractor.ExtractImpl = () => new[] { KeyValuePair.Create("oid", "user2") };
 
-            var newRequest = new CreateExportRequest(RequestUrl, DestinationType, "123");
+            var newRequest = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
             Assert.NotNull(newResponse);
             Assert.NotEqual(response.JobId, newResponse.JobId);
+        }
+
+        [Fact]
+        public async Task GivenThereIsAMatchingJob_WhenRequestorClaimsInDifferentOrder_ThenExistingJobShouldBeReturned()
+        {
+            var claim1 = KeyValuePair.Create("oid", "user1");
+            var claim2 = KeyValuePair.Create("iss", "http://localhost/authority");
+
+            _claimsExtractor.ExtractImpl = () => new[] { claim1, claim2 };
+
+            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            _claimsExtractor.ExtractImpl = () => new[] { claim2, claim1 };
+
+            var newRequest = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+
+            CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
+
+            Assert.Equal(response.JobId, newResponse.JobId);
         }
 
         [Fact]
