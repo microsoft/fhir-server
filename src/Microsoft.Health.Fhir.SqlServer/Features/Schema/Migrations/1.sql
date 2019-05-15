@@ -276,6 +276,55 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
+    Reference Search Param
+**************************************************************/
+
+CREATE TYPE dbo.ReferenceSearchParamTableType_1 AS TABLE  
+(
+    SearchParamId smallint NOT NULL,
+    BaseUri varchar(128) NULL,
+    ReferenceResourceTypeId smallint NOT NULL,
+    ReferenceResourceId varchar(64) NOT NULL,
+    ReferenceResourceVersion int NULL
+)
+
+CREATE TABLE dbo.ReferenceSearchParam
+(
+    ResourceSurrogateId bigint NOT NULL,
+    SearchParamId smallint NOT NULL,
+    BaseUri varchar(128) NULL,
+    ReferenceResourceTypeId smallint NOT NULL,
+    ReferenceResourceId varchar(64) NOT NULL,
+    ReferenceResourceVersion int NULL,
+    IsHistory bit NOT NULL,
+) WITH (DATA_COMPRESSION = PAGE)
+
+CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
+ON dbo.ReferenceSearchParam
+(
+    ResourceSurrogateId,
+    SearchParamId,
+    ReferenceResourceTypeId,
+    ReferenceResourceId,
+    BaseUri,
+    ReferenceResourceVersion
+)
+
+CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
+ON dbo.ReferenceSearchParam
+(
+    SearchParamId,
+    ReferenceResourceTypeId,
+    ReferenceResourceId,
+    BaseUri,
+    ReferenceResourceVersion
+) 
+WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+
+GO
+
+/*************************************************************
     Token Search Param
 **************************************************************/
 
@@ -622,6 +671,7 @@ CREATE PROCEDURE dbo.UpsertResource
     @rawResource varbinary(max),
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
+    @referenceSearchParams dbo.ReferenceSearchParamTableType_1 READONLY,
     @tokenSearchParams dbo.TokenSearchParamTableType_1 READONLY,
     @tokenTextSearchParams dbo.TokenTextTableType_1 READONLY,
     @stringSearchParams dbo.StringSearchParamTableType_1 READONLY,
@@ -686,6 +736,10 @@ AS
             SET IsHistory = 1
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
+            UPDATE dbo.ReferenceSearchParam
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
             UPDATE dbo.TokenSearchParam
             SET IsHistory = 1
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
@@ -717,6 +771,9 @@ AS
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.CompartmentAssignment
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            DELETE FROM dbo.ReferenceSearchParam
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenSearchParam
@@ -761,6 +818,11 @@ AS
         (ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
     SELECT DISTINCT @resourceSurrogateId, CompartmentTypeId, ReferenceResourceId, 0
     FROM @compartmentAssignments
+
+    INSERT INTO dbo.ReferenceSearchParam
+        (ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
+    SELECT DISTINCT @resourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, 0
+    FROM @referenceSearchParams
 
     INSERT INTO dbo.TokenSearchParam
         (ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
