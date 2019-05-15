@@ -3,15 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using System.Net;
 using EnsureThat;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {

@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
         public ValidateCapabilityPreProcessorTests()
         {
-            ModelExtensions.SetModelFactory();
+            ModelExtensions.SetModelInfoProvider();
 
             var statement = CapabilityStatementMock.GetMockedCapabilityStatement();
             CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, new[] { CapabilityStatement.TypeRestfulInteraction.Read });

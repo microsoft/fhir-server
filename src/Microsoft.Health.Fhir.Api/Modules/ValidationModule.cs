@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 options.ModelValidatorProviders.Clear();
             });
 
-            services.TypesInSameAssembly(typeof(ResourceNotValidException).Assembly, typeof(Stu3ModelFactory).Assembly)
+            services.TypesInSameAssembly(typeof(ResourceNotValidException).Assembly, typeof(Stu3ModelInfoProvider).Assembly)
                 .AssignableTo<IValidator>()
                 .Singleton()
                 .AsSelf()

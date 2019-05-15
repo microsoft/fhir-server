@@ -6,6 +6,7 @@
 using System;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -25,7 +26,16 @@ namespace Microsoft.Health.Fhir.Core.Models
             _context = new Lazy<EvaluationContext>(() => new EvaluationContext(instance));
         }
 
+        internal ResourceElement(ITypedElement instance, object resourceInstance)
+            : this(instance)
+        {
+            EnsureArg.IsNotNull(resourceInstance, nameof(resourceInstance));
+            ResourceInstance = resourceInstance;
+        }
+
         public string InstanceType => Instance.InstanceType;
+
+        internal object ResourceInstance { get; }
 
         public ITypedElement Instance { get; }
 
@@ -37,9 +47,13 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             get
             {
-                // TODO: Find a better way to convert this (i.e. Resource.meta.lastUpdated.as(System.DateTime))
-                var dateTime = Instance.Scalar("Resource.meta.lastUpdated", _context.Value);
-                return DateTimeOffset.TryParse(dateTime?.ToString(), out var parsedDate) ? parsedDate : (DateTimeOffset?)null;
+                var obj = Instance.Scalar("Resource.meta.lastUpdated", _context.Value);
+                if (obj != null)
+                {
+                    return PrimitiveTypeConverter.ConvertTo<DateTimeOffset>(obj.ToString());
+                }
+
+                return null;
             }
         }
 

@@ -15,19 +15,19 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         static ModelExtensions()
         {
-            SetModelFactory();
+            SetModelInfoProvider();
         }
 
-        public static void SetModelFactory()
+        public static void SetModelInfoProvider()
         {
-            ModelFactory.SetModelFactory(new Stu3ModelFactory());
+            ModelInfoProvider.SetProvider(new Stu3ModelInfoProvider());
         }
 
-        public static CodeableConcept ToPoco(this CodeableConceptInfo model)
+        public static CodeableConcept ToPoco(this CodingInfo model)
         {
             EnsureArg.IsNotNull(model, nameof(model));
 
-            return new CodeableConcept(model.System, model.Value);
+            return new CodeableConcept(model.System, model.Code);
         }
 
         public static OperationOutcome.IssueComponent ToPoco(this OperationOutcomeIssue issue)
@@ -55,14 +55,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            return resource.Instance.ToPoco<T>();
+            return (T)resource.ResourceInstance ?? resource.Instance.ToPoco<T>();
         }
 
         public static Resource ToPoco(this ResourceElement resource)
         {
-            EnsureArg.IsNotNull(resource, nameof(resource));
-
-            return resource.ToPoco<Resource>();
+            return ToPoco<Resource>(resource);
         }
 
         public static ResourceElement UpdateId(this ResourceElement resource, string newId)

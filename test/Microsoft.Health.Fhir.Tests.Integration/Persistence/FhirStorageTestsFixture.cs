@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public FhirStorageTestsFixture(DataStore dataStore)
         {
-            ModelExtensions.SetModelFactory();
+            ModelExtensions.SetModelInfoProvider();
 
             switch (dataStore)
             {

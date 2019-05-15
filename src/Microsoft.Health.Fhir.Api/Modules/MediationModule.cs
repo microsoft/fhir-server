@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             var coreAssembly = typeof(IFhirDataStore).Assembly;
-            var stu3Assembly = typeof(Stu3ModelFactory).Assembly;
+            var stu3Assembly = typeof(Stu3ModelInfoProvider).Assembly;
 
             services.AddMediatR(GetType().Assembly, coreAssembly, stu3Assembly);
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(RequestPreProcessorBehavior<,>));
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Transient()
                 .AsImplementedInterfaces(isPipelineBehavior);
 
-            services.TypesInSameAssemblyAs<Stu3ModelFactory>()
+            services.TypesInSameAssemblyAs<Stu3ModelInfoProvider>()
                 .Transient()
                 .AsImplementedInterfaces(isPipelineBehavior);
 

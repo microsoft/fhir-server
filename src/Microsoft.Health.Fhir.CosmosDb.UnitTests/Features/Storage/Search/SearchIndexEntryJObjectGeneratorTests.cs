@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -25,6 +26,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         private const string ReferenceResourceIdName = "ri";
 
         private SearchIndexEntryJObjectGenerator _generator = new SearchIndexEntryJObjectGenerator();
+
+        public SearchIndexEntryJObjectGeneratorTests()
+        {
+            ModelExtensions.SetModelInfoProvider();
+        }
 
         [Fact]
         public void GivenACompositeSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()

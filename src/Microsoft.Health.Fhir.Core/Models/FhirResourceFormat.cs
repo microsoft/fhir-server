@@ -7,8 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public enum FhirResourceFormat
     {
+        Unknown = 0,
         Xml = 1,
         Json = 2,
-        Unknown = 3,
     }
 }

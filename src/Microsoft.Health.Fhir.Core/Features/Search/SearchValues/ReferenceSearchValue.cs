@@ -5,6 +5,7 @@
 
 using System;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             }
 
             EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
+            ModelInfoProvider.EnsureValidResourceType(resourceType, nameof(resourceType));
 
             Kind = referenceKind;
             BaseUri = baseUri;

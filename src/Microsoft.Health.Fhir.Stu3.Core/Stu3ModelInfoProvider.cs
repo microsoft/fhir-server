@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core
 {
-    public class Stu3ModelFactory : IModelFactory
+    public class Stu3ModelInfoProvider : IModelInfoProvider
     {
         public FhirSpecification Version => FhirSpecification.Stu3;
 

@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static Type ToResourceModelType(this ResourceElement resourceType)
         {
-            return ModelFactory.GetTypeForFhirType(resourceType.InstanceType);
+            return ModelInfoProvider.GetTypeForFhirType(resourceType.InstanceType);
         }
 
         public static ResourceElement ToResourceElement(this ITypedElement typedElement)

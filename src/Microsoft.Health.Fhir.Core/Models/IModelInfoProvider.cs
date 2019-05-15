@@ -9,7 +9,7 @@ using Hl7.FhirPath;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
-    public interface IModelFactory
+    public interface IModelInfoProvider
     {
         FhirSpecification Version { get; }
 

@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
         public SearchParameterDefinitionBuilderTests()
         {
-            ModelExtensions.SetModelFactory();
+            ModelExtensions.SetModelInfoProvider();
 
             _builderWithInvalidEntries = CreateBuilder("SearchParametersWithInvalidEntries");
             _builderWithInvalidDefinitions = CreateBuilder("SearchParametersWithInvalidDefinitions");

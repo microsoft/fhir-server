@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
         public ReferenceSearchValueParserTests()
         {
-            ModelExtensions.SetModelFactory();
+            ModelExtensions.SetModelInfoProvider();
 
             _fhirRequestContextAccessor.FhirRequestContext.BaseUri.Returns(BaseUri);
 

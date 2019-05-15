@@ -166,9 +166,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
 
-            var stu3ModelFactory = new Stu3ModelFactory();
+            var stu3ModelFactory = new Stu3ModelInfoProvider();
             services.Add(_ => stu3ModelFactory).Singleton().AsSelf().AsImplementedInterfaces();
-            ModelFactory.SetModelFactory(stu3ModelFactory);
+            ModelInfoProvider.SetProvider(stu3ModelFactory);
 
             // Register a factory to resolve a scope that returns all components that provide capabilities
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();

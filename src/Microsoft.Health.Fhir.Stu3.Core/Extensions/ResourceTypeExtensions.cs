@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static ResourceElement ToResourceElement(this Resource resource)
         {
-            return new ResourceElement(resource.ToTypedElement());
+            return new ResourceElement(resource.ToTypedElement(), resource);
         }
     }
 }

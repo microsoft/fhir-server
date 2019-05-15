@@ -279,7 +279,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             IEnumerable<SearchParameter> results = Enumerable.Empty<SearchParameter>();
 
-            Type type = ModelFactory.GetTypeForFhirType(resourceType);
+            Type type = ModelInfoProvider.GetTypeForFhirType(resourceType);
 
             Debug.Assert(type != null, "The type should not be null.");
 

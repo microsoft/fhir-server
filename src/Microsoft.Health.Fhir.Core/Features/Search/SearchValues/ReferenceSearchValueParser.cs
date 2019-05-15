@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         private const string ResourceTypeCapture = "resourceType";
         private const string ResourceIdCapture = "resourceId";
         private static readonly string[] SupportedSchemes = new string[] { Uri.UriSchemeHttps, Uri.UriSchemeHttp };
-        private static readonly string ResourceTypesPattern = string.Join('|', ModelFactory.GetResourceTypeNames());
+        private static readonly string ResourceTypesPattern = string.Join('|', ModelInfoProvider.GetResourceTypeNames());
         private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,64}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
         private static readonly Regex ReferenceRegex = new Regex(
@@ -48,10 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             {
                 string resourceTypeInString = match.Groups[ResourceTypeCapture].Value;
 
-                if (!ModelFactory.IsKnownResource(resourceTypeInString))
-                {
-                    throw new RequestNotValidException(string.Format(Resources.ResourceNotSupported, resourceTypeInString));
-                }
+                ModelInfoProvider.EnsureValidResourceType(resourceTypeInString, nameof(s));
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
 

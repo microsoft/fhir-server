@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format)
         {
-            ModelExtensions.SetModelFactory();
+            ModelExtensions.SetModelInfoProvider();
 
             _dataStore = dataStore;
             _format = format;

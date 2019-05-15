@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     public class ResourceKey<T> : ResourceKey
     {
         public ResourceKey(string id, string versionId = null)
-            : base(ModelFactory.GetFhirTypeNameForType(typeof(T)), id, versionId)
+            : base(ModelInfoProvider.GetFhirTypeNameForType(typeof(T)), id, versionId)
         {
         }
     }

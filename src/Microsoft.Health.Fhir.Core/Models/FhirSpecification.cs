@@ -7,7 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public enum FhirSpecification
     {
-        Any,
         Stu3,
         R4,
     }
