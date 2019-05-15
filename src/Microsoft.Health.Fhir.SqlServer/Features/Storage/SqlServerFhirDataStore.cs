@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var resourceMetadata = new ResourceMetadata(
                 resource.CompartmentIndices,
-                resource.SearchIndices.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
+                resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))

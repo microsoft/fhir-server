@@ -990,5 +990,32 @@ AS
     DELETE FROM dbo.ResourceWriteClaim
     WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
 
+    DELETE FROM dbo.CompartmentAssignment
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    DELETE FROM dbo.ReferenceSearchParam
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    DELETE FROM dbo.TokenSearchParam
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    DELETE FROM dbo.TokenText
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    DELETE FROM dbo.StringSearchParam
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    DELETE FROM dbo.UriSearchParam
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    DELETE FROM dbo.NumberSearchParam
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    DELETE FROM dbo.QuantitySearchParam
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    DELETE FROM dbo.DateTimeSearchParam
+    WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
     COMMIT TRANSACTION
 GO
