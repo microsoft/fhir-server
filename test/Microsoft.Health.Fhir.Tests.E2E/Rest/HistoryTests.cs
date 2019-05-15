@@ -69,7 +69,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var updatedResource = Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
 
-            Thread.Sleep(5000); // ensure that the server has fully processed the PUT
             FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
 
             Assert.Single(readResponse.Resource.Entry);
@@ -98,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
             FhirResponse<Patient> newPatient = Client.CreateAsync(Samples.GetDefaultPatient()).GetAwaiter().GetResult();
 
-            Thread.Sleep(5000); // ensure that the server has fully processed the edits
+            Thread.Sleep(500);
             var before = DateTime.UtcNow;
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
@@ -151,7 +150,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             newResources.Add(Client.CreateAsync(Samples.GetJsonSample("Patient-f001") as Patient).Result);
             newResources.Add(Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001") as Condition).Result);
 
-            Thread.Sleep(5000); // ensure that the server has fully processed the edits
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
             // Query all the recent changes
@@ -212,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             newResources.Add(Client.CreateAsync(Samples.GetJsonSample("ObservationWith1MinuteApgarScore") as Observation).Result);
             newResources.Add(Client.CreateAsync(Samples.GetJsonSample("ObservationWith20MinuteApgarScore") as Observation).Result);
 
-            Thread.Sleep(5000); // ensure that the server has fully processed the edits
+            Thread.Sleep(500); // Leave a small gap in the timestamp
             var before = DateTime.UtcNow;
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
@@ -259,14 +257,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // ensure that the server has fully processed the PUT
             var since = GetStartTimeForHistoryTest();
-            Thread.Sleep(5000);
             var before = DateTime.UtcNow;
 
-            Thread.Sleep(1000); // ensure that the server has fully processed the PUT
+            Thread.Sleep(500);
 
             var newPatient = Client.CreateAsync(Samples.GetDefaultPatient()).GetAwaiter().GetResult();
 
-            Thread.Sleep(4000); // ensure that the server has fully processed the POST
+            Thread.Sleep(500);
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
