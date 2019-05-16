@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 message.ResourceId,
                 message.At,
                 message.Since,
+                message.Before,
                 message.Count,
                 message.ContinuationToken,
                 cancellationToken);

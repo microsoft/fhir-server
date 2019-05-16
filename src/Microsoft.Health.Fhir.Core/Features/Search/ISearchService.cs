@@ -40,6 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <returns>A <see cref="Bundle"/> representing the search result.</returns>
         Task<Bundle> SearchCompartmentAsync(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, CancellationToken cancellationToken);
 
-        Task<Bundle> SearchHistoryAsync(string resourceType, string resourceId, PartialDateTime at, PartialDateTime since, int? count, string continuationToken, CancellationToken cancellationToken);
+        Task<Bundle> SearchHistoryAsync(string resourceType, string resourceId, PartialDateTime at, PartialDateTime since, PartialDateTime before, int? count, string continuationToken, CancellationToken cancellationToken);
     }
 }
