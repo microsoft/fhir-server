@@ -26,7 +26,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             throw new NotImplementedException();
         }
 
-        public Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
+        public Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

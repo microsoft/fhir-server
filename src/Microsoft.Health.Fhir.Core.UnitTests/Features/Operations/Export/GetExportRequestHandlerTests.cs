@@ -6,6 +6,7 @@
 using System;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -14,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Export;
 using NSubstitute;
 using Xunit;
 
@@ -35,38 +37,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
-            jobRecord.Status = OperationStatus.Completed;
-            var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
-
-            _fhirOperationDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
-
-            var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
+            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(OperationStatus.Completed);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.NotNull(result.JobResult);
 
             // Check whether required fields are present.
             Assert.NotNull(result.JobResult.Output);
-            Assert.NotEqual(default(DateTimeOffset), result.JobResult.TransactionTime);
+            Assert.NotEqual(default, result.JobResult.TransactionTime);
             Assert.NotNull(result.JobResult.RequestUri);
         }
 
         [Fact]
-        public async void GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
         {
-            var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl));
-            jobRecord.Status = OperationStatus.Running;
-            var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
-
-            _fhirOperationDataStore.GetExportJobAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
-
-            var result = await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
+            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(OperationStatus.Running);
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Null(result.JobResult);
+        }
+
+        private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus)
+        {
+            var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl), "hash")
+            {
+                Status = jobStatus,
+            };
+
+            var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
+
+            _fhirOperationDataStore.GetExportJobByIdAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
+
+            return await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
         }
     }
 }

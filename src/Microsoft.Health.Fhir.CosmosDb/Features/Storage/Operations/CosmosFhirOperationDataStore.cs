@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -13,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Documents.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -29,6 +29,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
     public sealed class CosmosFhirOperationDataStore : IFhirOperationDataStore
     {
+        private const string HashParameterName = "@hash";
+
+        private static readonly string GetJobByHashQuery =
+            $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Hash} = {HashParameterName} AND r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}') ORDER BY r.{KnownDocumentProperties.Timestamp} ASC";
+
         private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger _logger;
@@ -99,24 +104,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
 
-                _logger.LogError(dce, "Unhandled Document Client Exception");
+                _logger.LogError(dce, "Failed to create an export job.");
                 throw;
             }
         }
 
-        public async Task<ExportJobOutcome> GetExportJobAsync(string jobId, CancellationToken cancellationToken)
+        public async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(jobId);
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
             try
             {
                 DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await DocumentClient.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
-                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobId),
+                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, id),
                     new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     cancellationToken);
 
-                var eTagHeaderValue = cosmosExportJobRecord.ResponseHeaders["ETag"];
-                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(eTagHeaderValue));
+                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
 
                 return outcome;
             }
@@ -128,10 +132,51 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 }
                 else if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
-                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
                 }
 
-                _logger.LogError(dce, "Unhandled Document Client Exception");
+                _logger.LogError(dce, "Failed to get an export job by id.");
+                throw;
+            }
+        }
+
+        public async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
+
+            try
+            {
+                IDocumentQuery<CosmosExportJobRecordWrapper> query = DocumentClient.CreateDocumentQuery<CosmosExportJobRecordWrapper>(
+                    CollectionUri,
+                    new SqlQuerySpec(
+                       GetJobByHashQuery,
+                       new SqlParameterCollection()
+                       {
+                           new SqlParameter(HashParameterName, hash),
+                       }),
+                    new FeedOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) })
+                    .AsDocumentQuery();
+
+                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosExportJobRecordWrapper>();
+
+                if (result.Count == 1)
+                {
+                    // We found an existing job that matches the hash.
+                    CosmosExportJobRecordWrapper wrapper = result.First();
+
+                    return new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag));
+                }
+
+                return null;
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
+                _logger.LogError(dce, "Failed to get an export job by hash.");
                 throw;
             }
         }
@@ -183,7 +228,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
                 }
 
-                _logger.LogError(dce, "Unhandled Document Client Exception");
+                _logger.LogError(dce, "Failed to update an export job.");
                 throw;
             }
         }
@@ -213,7 +258,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw new RequestRateExceededException(null);
                 }
 
-                _logger.LogError(dce, "Unhandled Document Client Exception");
+                _logger.LogError(dce, "Failed to acquire export jobs.");
                 throw;
             }
         }

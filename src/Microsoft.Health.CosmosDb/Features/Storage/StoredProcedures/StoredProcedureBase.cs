@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
 {
@@ -21,7 +22,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
         protected StoredProcedureBase()
         {
             _body = new Lazy<string>(GetBody);
-            _versionedName = new Lazy<string>(() => $"{Name}_{Hasher.ComputeHash(_body.Value)}");
+            _versionedName = new Lazy<string>(() => $"{Name}_{_body.Value.ComputeHash()}");
         }
 
         protected virtual string Name => CamelCase(GetType().Name);

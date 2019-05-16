@@ -12,13 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class CreateExportRequest : IRequest<CreateExportResponse>
     {
-        public CreateExportRequest(Uri requestUri)
-        {
-            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-
-            RequestUri = requestUri;
-        }
-
         public CreateExportRequest(Uri requestUri, string destinationType, string destinationConnectionString)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));

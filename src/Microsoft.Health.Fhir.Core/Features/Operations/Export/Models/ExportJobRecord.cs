@@ -17,16 +17,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     {
         private const string SecretPrefix = "Export-Destination-";
 
-        public ExportJobRecord(Uri exportRequestUri)
+        public ExportJobRecord(Uri exportRequestUri, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
         {
             EnsureArg.IsNotNull(exportRequestUri, nameof(exportRequestUri));
+            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
 
             RequestUri = exportRequestUri;
+            Hash = hash;
+            RequestorClaims = requestorClaims;
 
             // Default values
             SchemaVersion = 1;
-            Status = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
+            Status = OperationStatus.Queued;
+
             QueuedTime = DateTimeOffset.UtcNow;
             SecretName = SecretPrefix + Id;
         }
@@ -38,6 +42,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Request)]
         public Uri RequestUri { get; private set; }
+
+        [JsonProperty(JobRecordProperties.RequestorClaims)]
+        public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
 
         [JsonProperty(JobRecordProperties.SecretName)]
         public string SecretName { get; private set; }

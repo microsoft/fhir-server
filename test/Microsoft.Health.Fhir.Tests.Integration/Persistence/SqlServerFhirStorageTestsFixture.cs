@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new SearchParameter[0]);
 
-            var securityConfiguration = new SecurityConfiguration { LastModifiedClaims = { "oid" } };
+            var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
