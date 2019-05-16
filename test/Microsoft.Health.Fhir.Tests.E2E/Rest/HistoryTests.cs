@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            Thread.Sleep(500);
+            Thread.Sleep(1000);
             FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
 
             Assert.Equal(2, readResponse.Resource.Entry.Count);
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // There is no remote FHIR server. Skip test
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TestEnvironmentUrl")))
             {
-                return;
+               return;
             }
 
             var since = GetStartTimeForHistoryTest();
@@ -213,11 +213,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith1MinuteApgarScore").ToPoco()));
             newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith20MinuteApgarScore").ToPoco()));
 
-            Thread.Sleep(500); // Leave a small gap in the timestamp
+            Thread.Sleep(1000); // Leave a small gap in the timestamp
             var before = DateTime.UtcNow;
 
-            var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
+            var sinceUriString = string.Empty;
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
+            bool historyHas10Entries = false;
+
+            // wait for above values to be represented in history results
+            for (int i = 0; i < 5; i++)
+            {
+                sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
+                FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
+
+                if (readResponse.Resource.Entry.Count == 10)
+                {
+                    historyHas10Entries = true;
+                    break;
+                }
+
+                Thread.Sleep(2000);
+                since = DateTime.UtcNow;
+            }
+
+            Assert.True(historyHas10Entries);
+
+            Thread.Sleep(500);
+
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWithBloodPressure") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWithEyeColor") as Observation));
 
             Thread.Sleep(500);
 
