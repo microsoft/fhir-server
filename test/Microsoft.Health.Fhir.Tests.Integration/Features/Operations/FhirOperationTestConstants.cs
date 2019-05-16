@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
-    public static class FhirOperationConstants
+    public static class FhirOperationTestConstants
     {
         /// <summary>
         ///  The FHIR operations test require all job records to be deleted before each test is executed

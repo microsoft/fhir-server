@@ -19,7 +19,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 {
-    [Collection(FhirOperationConstants.FhirOperationTests)]
+    [Collection(FhirOperationTestConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
     public class CreateExportRequestHandlerTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenThereIsAMatchingJob_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated()
+        public async Task GivenThereIsAMatchingJob_WhenCreatingAnExportJob_ThenExistingJobShouldBeReturned()
         {
             var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
 
