@@ -16,6 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Models
             Name = name;
         }
 
-        public string Name { get; set; }
+        public string Name { get; }
     }
 }

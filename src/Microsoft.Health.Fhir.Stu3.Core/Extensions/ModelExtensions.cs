@@ -18,7 +18,10 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             SetModelInfoProvider();
         }
 
-        public static void SetModelInfoProvider()
+        /// <summary>
+        /// This method provides temporary compatibility while STU3/R4 compatibility is added
+        /// </summary>
+        internal static void SetModelInfoProvider()
         {
             ModelInfoProvider.SetProvider(new Stu3ModelInfoProvider());
         }
