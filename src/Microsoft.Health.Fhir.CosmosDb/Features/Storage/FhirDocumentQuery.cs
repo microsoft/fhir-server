@@ -104,6 +104,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 return response;
             }
+            catch (NullReferenceException nex)
+            {
+                _logger.LogQueryExecutionResult(
+                    queryId,
+                    null,
+                    0,
+                    null,
+                    null,
+                    0,
+                    nex);
+
+                _fhirRequestContextAccessor.FhirRequestContext.ProcessException(nex);
+
+                throw;
+            }
             catch (DocumentClientException ex)
             {
                 _logger.LogQueryExecutionResult(
