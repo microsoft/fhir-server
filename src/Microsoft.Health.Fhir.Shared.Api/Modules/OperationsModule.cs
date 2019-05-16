@@ -7,6 +7,7 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -18,6 +19,19 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
+
+            services.Add<ExportDestinationClientFactory>()
+                .Singleton()
+                .AsService<IExportDestinationClientFactory>();
+
+            services.Add<InMemoryExportDestinationClient>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<IExportDestinationClient>(sp => sp.GetRequiredService<InMemoryExportDestinationClient>())
+                .Transient()
+                .AsSelf()
+                .AsFactory();
 
             services.Add<ExportJobTask>()
                 .Transient()
@@ -31,6 +45,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<ExportJobWorker>()
                 .Singleton()
                 .AsSelf();
+
+            services.Add<ResourceToNdjsonBytesSerializer>()
+                .Singleton()
+                .AsService<IResourceToNdjsonBytesSerializer>();
         }
     }
 }

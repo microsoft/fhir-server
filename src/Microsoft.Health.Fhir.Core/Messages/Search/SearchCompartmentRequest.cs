@@ -9,9 +9,9 @@ using MediatR;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
-    public class CompartmentResourceRequest : IRequest<CompartmentResourceResponse>
+    public class SearchCompartmentRequest : IRequest<SearchCompartmentResponse>
     {
-        public CompartmentResourceRequest(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)
+        public SearchCompartmentRequest(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)
         {
             // If wildcard (*) is specified for ResourceType, then set the value to null so that
             //  resource type is not used in expression generation.

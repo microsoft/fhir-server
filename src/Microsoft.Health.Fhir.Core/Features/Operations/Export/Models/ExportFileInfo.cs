@@ -18,9 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public ExportFileInfo(
             string type,
             Uri fileUri,
-            int sequence,
-            int count,
-            long committedBytes)
+            int sequence)
         {
             EnsureArg.IsNotNullOrWhiteSpace(type);
             EnsureArg.IsNotNull(fileUri);
@@ -28,8 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Type = type;
             FileUri = fileUri;
             Sequence = sequence;
-            Count = count;
-            CommittedBytes = committedBytes;
         }
 
         [JsonConstructor]
@@ -51,5 +47,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.CommitedBytes)]
         public long CommittedBytes { get; private set; }
+
+        public void Increment(int numberOfBytes)
+        {
+            CommittedBytes += numberOfBytes;
+            Count++;
+        }
     }
 }

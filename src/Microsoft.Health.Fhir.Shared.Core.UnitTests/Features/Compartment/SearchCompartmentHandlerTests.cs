@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -15,34 +16,39 @@ using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
+namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Compartment
 {
-    public class SearchResourceHistoryHandlerTests
+    public class SearchCompartmentHandlerTests
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IBundleFactory _bundleFactory = Substitute.For<IBundleFactory>();
 
-        private readonly SearchResourceHistoryHandler _searchResourceHistoryHandler;
+        private readonly SearchCompartmentHandler _searchCompartmentHandler;
 
-        public SearchResourceHistoryHandlerTests()
+        public SearchCompartmentHandlerTests()
         {
-            _searchResourceHistoryHandler = new SearchResourceHistoryHandler(_searchService, _bundleFactory);
+            _searchCompartmentHandler = new SearchCompartmentHandler(_searchService, _bundleFactory);
         }
 
         [Fact]
-        public async Task GivenASearchResourceHistoryRequest_WhenHandled_ThenABundleShouldBeReturned()
+        public async Task GivenASearchCompartmentRequest_WhenHandled_ThenABundleShouldBeReturned()
         {
-            var request = new SearchResourceHistoryRequest("Patient");
+            var request = new SearchCompartmentRequest("Patient", "123", "Observation", new Tuple<string, string>[0]);
 
             var searchResult = new SearchResult(Enumerable.Empty<ResourceWrapper>(), new Tuple<string, string>[0], null);
 
-            _searchService.SearchHistoryAsync(request.ResourceType, null, null, null, null, null, null, CancellationToken.None).Returns(searchResult);
+            _searchService.SearchCompartmentAsync(
+                request.CompartmentType,
+                request.CompartmentId,
+                request.ResourceType,
+                request.Queries,
+                CancellationToken.None).Returns(searchResult);
 
             var expectedBundle = new Bundle().ToResourceElement();
 
-            _bundleFactory.CreateHistoryBundle(searchResult).Returns(expectedBundle);
+            _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
 
-            SearchResourceHistoryResponse actualResponse = await _searchResourceHistoryHandler.Handle(request, CancellationToken.None);
+            SearchCompartmentResponse actualResponse = await _searchCompartmentHandler.Handle(request, CancellationToken.None);
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);
