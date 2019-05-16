@@ -20,6 +20,8 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json | Format.Xml)]
+    [CollectionDefinition("History", DisableParallelization=true)]
+    [Collection("History")]
     public class HistoryTests : IClassFixture<HttpIntegrationTestFixture<Startup>>, IDisposable
     {
         private FhirResponse<Observation> _createdResource;
@@ -133,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public void WhenGettingSystemHistory_GivenAValueForSinceAndBeforeCloseToLastModifiedTime_TheServerShouldNotMissRecords()
+        public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeCloseToLastModifiedTime_TheServerShouldNotMissRecords()
         {
             var since = GetStartTimeForHistoryTest();
 
@@ -141,19 +143,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // First make a few edits
             _createdResource.Resource.Comment = "Changed by E2E test";
-            Client.UpdateAsync<Observation>(_createdResource).Wait();
-            newResources.Add(Client.CreateAsync(Samples.GetDefaultPatient()).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetDefaultOrganization()).Result);
+            await Client.UpdateAsync<Observation>(_createdResource);
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient()));
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization()));
             Thread.Sleep(1000);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("BloodGlucose") as Observation).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("BloodPressure") as Observation).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("Patient-f001") as Patient).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001") as Condition).Result);
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodGlucose") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodPressure") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Patient-f001") as Patient));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001") as Condition));
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
             // Query all the recent changes
-            FhirResponse<Bundle> allChanges = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
+            FhirResponse<Bundle> allChanges = await Client.SearchAsync("_history?_since=" + sinceUriString);
 
             Assert.Equal(7, allChanges.Resource.Entry.Count);
 
@@ -163,7 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var before = lastUpdatedTimes.ToList()[4];
             var beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
             Thread.Sleep(500);
-            var firstSet = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
+            var firstSet = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
 
             Assert.Equal(4, firstSet.Resource.Entry.Count);
 
@@ -171,7 +173,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             before = DateTime.UtcNow;
             beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
             Thread.Sleep(500);
-            var secondSet = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
+            var secondSet = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
 
             Assert.Equal(3, secondSet.Resource.Entry.Count);
 
@@ -182,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public void WhenGettingSystemHistory_GivenAQueryThatReturnsMoreThan10Results_TheServerShouldBatchTheResponse()
+        public async Task WhenGettingSystemHistory_GivenAQueryThatReturnsMoreThan10Results_TheServerShouldBatchTheResponse()
         {
             // The batch test does not work reliably on local Cosmos DB Emulator
             // Skip the test if this is local
@@ -198,17 +200,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // First make 11 edits
             _createdResource.Resource.Comment = "Changed by E2E test";
-            Client.UpdateAsync<Observation>(_createdResource).Wait();
-            newResources.Add(Client.CreateAsync(Samples.GetDefaultPatient()).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetDefaultOrganization()).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("BloodGlucose") as Observation).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("BloodPressure") as Observation).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("Patient-f001") as Patient).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001") as Condition).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("Encounter-For-Patient-f001") as Encounter).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("Observation-For-Patient-f001") as Observation).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("ObservationWith1MinuteApgarScore") as Observation).Result);
-            newResources.Add(Client.CreateAsync(Samples.GetJsonSample("ObservationWith20MinuteApgarScore") as Observation).Result);
+            await Client.UpdateAsync<Observation>(_createdResource);
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient()));
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodGlucose") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodPressure") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Patient-f001") as Patient));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001") as Condition));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Encounter-For-Patient-f001") as Encounter));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Observation-For-Patient-f001") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith1MinuteApgarScore") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith20MinuteApgarScore") as Observation));
 
             Thread.Sleep(500); // Leave a small gap in the timestamp
             var before = DateTime.UtcNow;
@@ -218,11 +220,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Thread.Sleep(500);
 
-            FhirResponse<Bundle> firstBatch = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
+            FhirResponse<Bundle> firstBatch = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
 
             Assert.Equal(10, firstBatch.Resource.Entry.Count);
 
-            var secondBatch = Client.SearchAsync(firstBatch.Resource.NextLink.ToString()).Result;
+            var secondBatch = await Client.SearchAsync(firstBatch.Resource.NextLink.ToString());
 
             Assert.Single(secondBatch.Resource.Entry);
 
