@@ -26,6 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string Since = "_since";
 
+        public const string Before = "_before";
+
         public const string DestinationType = "_destinationType";
 
         public const string DestinationConnectionSettings = "_destinationConnectionSettings";

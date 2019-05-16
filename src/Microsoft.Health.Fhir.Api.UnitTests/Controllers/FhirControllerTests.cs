@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenHardDeleteActionNotAuthorized_WhenRequestingHardDeleteAction_ThenForbiddenResultShouldBeReturned()
+        public async Task GivenHardDeleteActionNotAuthorized_WhenRequestingHardDeleteAction_ThenForbiddenResultShouldBeReturned()
         {
             _authorizationService.AuthorizeAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<object>(), policyName: "HardDelete").Returns(Task.FromResult(AuthorizationResult.Failed()));
             var result = await _controller.Delete("typea", "ida", true);

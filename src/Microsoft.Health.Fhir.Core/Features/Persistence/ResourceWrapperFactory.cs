@@ -8,6 +8,7 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly ISearchIndexer _searchIndexer;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly IClaimsIndexer _claimsIndexer;
+        private readonly IClaimsExtractor _claimsExtractor;
         private readonly ICompartmentIndexer _compartmentIndexer;
 
         /// <summary>
@@ -29,25 +30,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="rawResourceFactory">The raw resource factory.</param>
         /// <param name="fhirRequestContextAccessor">The FHIR request context accessor.</param>
         /// <param name="searchIndexer">The search indexer used to generate search indices.</param>
-        /// <param name="claimsIndexer">The claims indexer used to generate claims indices.</param>
+        /// <param name="claimsExtractor">The claims extractor used to extract claims.</param>
         /// <param name="compartmentIndexer">The compartment indexer.</param>
         public ResourceWrapperFactory(
             IRawResourceFactory rawResourceFactory,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             ISearchIndexer searchIndexer,
-            IClaimsIndexer claimsIndexer,
+            IClaimsExtractor claimsExtractor,
             ICompartmentIndexer compartmentIndexer)
         {
             EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(claimsIndexer, nameof(claimsIndexer));
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(compartmentIndexer, nameof(compartmentIndexer));
 
             _rawResourceFactory = rawResourceFactory;
             _searchIndexer = searchIndexer;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _claimsIndexer = claimsIndexer;
+            _claimsExtractor = claimsExtractor;
             _compartmentIndexer = compartmentIndexer;
         }
 
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 deleted,
                 searchIndices,
                 _compartmentIndexer.Extract(resource.InstanceType, searchIndices),
-                _claimsIndexer.Extract());
+                _claimsExtractor.Extract());
         }
     }
 }

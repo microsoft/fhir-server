@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     string commaSeparatedResourceTypes = string.Join(",", ModelInfo.SupportedResources);
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
-                    string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.LastModifiedClaims);
+                    string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
                     string commaSeparatedCompartmentTypes = string.Join(',', Enum.GetNames(typeof(CompartmentType)));
 
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);

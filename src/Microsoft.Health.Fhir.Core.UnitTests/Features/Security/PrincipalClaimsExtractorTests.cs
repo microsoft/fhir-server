@@ -9,26 +9,26 @@ using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using NSubstitute;
 using Xunit;
 using Claim = System.Security.Claims.Claim;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 {
-    public class ClaimsIndexerTests
+    public class PrincipalClaimsExtractorTests
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly IOptions<SecurityConfiguration> _securityOptions = Substitute.For<IOptions<SecurityConfiguration>>();
         private readonly SecurityConfiguration _securityConfiguration = Substitute.For<SecurityConfiguration>();
         private readonly ClaimsPrincipal _claimsPrincipal = Substitute.For<ClaimsPrincipal>();
-        private readonly ClaimsIndexer _claimsIndexer;
+        private readonly PrincipalClaimsExtractor _claimsIndexer;
 
-        public ClaimsIndexerTests()
+        public PrincipalClaimsExtractorTests()
         {
             _securityOptions.Value.Returns(_securityConfiguration);
             _fhirRequestContextAccessor.FhirRequestContext.Principal.Returns(_claimsPrincipal);
-            _claimsIndexer = new ClaimsIndexer(_fhirRequestContextAccessor, _securityOptions);
+            _claimsIndexer = new PrincipalClaimsExtractor(_fhirRequestContextAccessor, _securityOptions);
         }
 
         private static Claim Claim1 => new Claim("claim1", "value1");
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         {
             Assert.Throws<ArgumentNullException>(
                 "fhirRequestContextAccessor",
-                () => new ClaimsIndexer(null, Options.Create(new SecurityConfiguration())));
+                () => new PrincipalClaimsExtractor(null, Options.Create(new SecurityConfiguration())));
         }
 
         [Fact]
@@ -52,13 +52,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         {
             Assert.Throws<ArgumentNullException>(
                 "securityConfiguration",
-                () => new ClaimsIndexer(new FhirRequestContextAccessor(), null));
+                () => new PrincipalClaimsExtractor(new FhirRequestContextAccessor(), null));
         }
 
         [Fact]
         public void GivenANullPrincipal_WhenExtracting_ThenAnEmptyListShouldBeReturned()
         {
-            _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string> { "claim1" });
+            _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1" });
             var result = _claimsIndexer.Extract();
 
             Assert.Empty(result);
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenAnEmptyListOfClaims_WhenExtracting_ThenAnEmptyListShouldBeReturned()
         {
-            _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string> { "claim1" });
+            _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1" });
             _claimsPrincipal.Claims.Returns(new List<Claim>());
 
             var result = _claimsIndexer.Extract();
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenAnEmptyListOfLastModifiedClaims_WhenExtracting_ThenAnEmptyListShouldBeReturned()
         {
-            _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string>());
+            _securityConfiguration.PrincipalClaims.Returns(new HashSet<string>());
             _claimsPrincipal.Claims.Returns(new List<Claim> { Claim1 });
 
             var result = _claimsIndexer.Extract();
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenAMismatchedListOfClaimsAndLastModifiedClaims_WhenExtracting_ThenAnEmptyListShouldBeReturned()
         {
-            _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string> { "claim2" });
+            _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim2" });
             _claimsPrincipal.Claims.Returns(new List<Claim> { Claim1 });
 
             var result = _claimsIndexer.Extract();
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenAMatchedListOfClaimsAndLastModifiedClaims_WhenExtracting_TheEntireSetShouldReturn()
         {
-            _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string> { "claim1" });
+            _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1" });
             _claimsPrincipal.Claims.Returns(new List<Claim> { Claim1 });
 
             var result = _claimsIndexer.Extract();
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenAMatchedListOfClaimsAndLastModifiedClaimsWithMultipleDifferentClaims_WhenExtracting_TheEntireSetShouldReturn()
         {
-            _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string> { "claim1", "claim2" });
+            _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1", "claim2" });
             _claimsPrincipal.Claims.Returns(new List<Claim> { Claim1, Claim2 });
 
             var result = _claimsIndexer.Extract();
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenAMatchedListOfClaimsAndLastModifiedClaimsWithMultipleSimilar_WhenExtracting_TheEntireSetShouldReturn()
         {
-            _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string> { "claim1" });
+            _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1" });
             _claimsPrincipal.Claims.Returns(new List<Claim> { Claim1, Claim1 });
 
             var result = _claimsIndexer.Extract();
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenAPartiallyMatchedListOfClaimsAndLastModifiedClaims_WhenExtracting_ASubsetShouldReturn()
         {
-            _securityConfiguration.LastModifiedClaims.Returns(new HashSet<string> { "claim1", "claim3" });
+            _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1", "claim3" });
             _claimsPrincipal.Claims.Returns(new List<Claim> { Claim1, Claim2 });
 
             var result = _claimsIndexer.Extract();

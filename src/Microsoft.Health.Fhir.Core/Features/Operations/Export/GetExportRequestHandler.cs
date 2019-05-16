@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobAsync(request.JobId, cancellationToken);
+            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;

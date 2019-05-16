@@ -71,29 +71,29 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Bundle;
         }
 
-        public static async Task<ResourceElement> SearchResourceHistoryAsync(this IMediator mediator, PartialDateTime since = null, PartialDateTime at = null, int? count = null, string continuationToken = null, CancellationToken cancellationToken = default)
+        public static async Task<ResourceElement> SearchResourceHistoryAsync(this IMediator mediator, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchResourceHistoryRequest(since, at, count, continuationToken), cancellationToken);
+            var result = await mediator.Send(new SearchResourceHistoryRequest(since, before, at, count, continuationToken), cancellationToken);
 
             return result.Bundle;
         }
 
-        public static async Task<ResourceElement> SearchResourceHistoryAsync(this IMediator mediator, string resourceType, PartialDateTime since = null, PartialDateTime at = null, int? count = null, string continuationToken = null, CancellationToken cancellationToken = default)
+        public static async Task<ResourceElement> SearchResourceHistoryAsync(this IMediator mediator, string resourceType, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchResourceHistoryRequest(resourceType, since, at, count, continuationToken), cancellationToken);
+            var result = await mediator.Send(new SearchResourceHistoryRequest(resourceType, since, before, at, count, continuationToken), cancellationToken);
 
             return result.Bundle;
         }
 
-        public static async Task<ResourceElement> SearchResourceHistoryAsync(this IMediator mediator, string resourceType, string resourceId, PartialDateTime since = null, PartialDateTime at = null, int? count = null, string continuationToken = null, CancellationToken cancellationToken = default)
+        public static async Task<ResourceElement> SearchResourceHistoryAsync(this IMediator mediator, string resourceType, string resourceId, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchResourceHistoryRequest(resourceType, resourceId, since, at, count, continuationToken), cancellationToken);
+            var result = await mediator.Send(new SearchResourceHistoryRequest(resourceType, resourceId, since, before, at, count, continuationToken), cancellationToken);
 
             return result.Bundle;
         }

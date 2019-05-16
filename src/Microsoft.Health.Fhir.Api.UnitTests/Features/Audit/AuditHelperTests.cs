@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using NSubstitute;
 using Xunit;
 
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
         private readonly IActionDescriptorCollectionProvider _actionDescriptorCollectionProvider = Substitute.For<IActionDescriptorCollectionProvider>();
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private readonly IClaimsIndexer _claimsIndexer = Substitute.For<IClaimsIndexer>();
+        private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
 
         private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
@@ -80,9 +80,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _fhirRequestContextAccessor.FhirRequestContext = _fhirRequestContext;
 
-            _claimsIndexer.Extract().Returns(Claims);
+            _claimsExtractor.Extract().Returns(Claims);
 
-            _auditHelper = new AuditHelper(_actionDescriptorCollectionProvider, _fhirRequestContextAccessor, _claimsIndexer, _auditLogger, NullLogger<AuditHelper>.Instance);
+            _auditHelper = new AuditHelper(_actionDescriptorCollectionProvider, _fhirRequestContextAccessor, _claimsExtractor, _auditLogger, NullLogger<AuditHelper>.Instance);
 
             ((IStartable)_auditHelper).Start();
         }

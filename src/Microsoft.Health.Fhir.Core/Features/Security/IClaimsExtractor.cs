@@ -5,9 +5,9 @@
 
 using System.Collections.Generic;
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public interface IClaimsIndexer
+    public interface IClaimsExtractor
     {
         IReadOnlyCollection<KeyValuePair<string, string>> Extract();
     }

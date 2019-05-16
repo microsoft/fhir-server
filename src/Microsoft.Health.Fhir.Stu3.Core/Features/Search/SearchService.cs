@@ -72,21 +72,58 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceId,
             PartialDateTime at,
             PartialDateTime since,
+            PartialDateTime before,
             int? count,
             string continuationToken,
             CancellationToken cancellationToken)
         {
             var queryParameters = new List<Tuple<string, string>>();
 
-            if (at != null && since != null)
+            if (at != null)
             {
-                // _at and _since cannot be both specified.
-                throw new InvalidSearchOperationException(
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Core.Resources.AtAndSinceCannotBeBothSpecified,
-                        KnownQueryParameterNames.At,
-                        KnownQueryParameterNames.Since));
+                if (since != null)
+                {
+                    // _at and _since cannot be both specified.
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.AtCannotBeSpecifiedWithBeforeOrSince,
+                            KnownQueryParameterNames.At,
+                            KnownQueryParameterNames.Since));
+                }
+
+                if (before != null)
+                {
+                    // _at and _since cannot be both specified.
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.AtCannotBeSpecifiedWithBeforeOrSince,
+                            KnownQueryParameterNames.At,
+                            KnownQueryParameterNames.Before));
+                }
+            }
+
+            if (before != null)
+            {
+                var beforeOffset = before.ToDateTimeOffset(
+                    defaultMonth: 1,
+                    defaultDaySelector: (year, month) => 1,
+                    defaultHour: 0,
+                    defaultMinute: 0,
+                    defaultSecond: 0,
+                    defaultFraction: 0.0000000m,
+                    defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
+
+                if (beforeOffset.CompareTo(Clock.UtcNow) > 0)
+                {
+                    // you cannot specify a value for _before in the future
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.HistoryParameterBeforeCannotBeFuture,
+                            KnownQueryParameterNames.Before));
+                }
             }
 
             bool searchByResourceId = !string.IsNullOrEmpty(resourceId);
@@ -105,9 +142,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, at.ToString()));
             }
-            else if (since != null)
+            else
             {
-                queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
+                if (since != null)
+                {
+                    queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
+                }
+
+                if (before != null)
+                {
+                    queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"lt{before}"));
+                }
             }
 
             if (count.HasValue && count > 0)

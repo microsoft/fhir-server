@@ -6,46 +6,27 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.Fhir.Core.Features.SecretStore;
-using Microsoft.Health.Fhir.Core.Messages.Export;
-using Microsoft.Health.Fhir.KeyVault;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
+    [Collection(FhirOperationTestConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
     public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
-        private IFhirOperationDataStore _dataStore;
+        private IFhirOperationDataStore _operationDataStore;
         private IFhirStorageTestHelper _testHelper;
-        private ISecretStore _secretStore;
-        private Mediator _mediator;
 
         public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {
-            _dataStore = fixture.OperationDataStore;
+            _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
-            _secretStore = new InMemorySecretStore();
-
-            var collection = new ServiceCollection();
-
-            collection.AddSingleton(typeof(IRequestHandler<CreateExportRequest, CreateExportResponse>), new CreateExportRequestHandler(_dataStore, _secretStore));
-            collection.AddSingleton(typeof(IRequestHandler<GetExportRequest, GetExportResponse>), new GetExportRequestHandler(_dataStore));
-
-            ServiceProvider services = collection.BuildServiceProvider();
-
-            _mediator = new Mediator(type => services.GetService(type));
         }
 
         public async Task InitializeAsync()
@@ -61,33 +42,52 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenANewExportRequest_WhenCreatingExportJob_ThenGetsJobCreated()
         {
-            var requestUri = new Uri("https://localhost/$export");
+            var jobRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), "hash");
 
-            CreateExportResponse result = await _mediator.ExportAsync(requestUri, "destinationType", "connectionString");
+            ExportJobOutcome outcome = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
-            Assert.NotNull(result);
-            Assert.NotEmpty(result.JobId);
+            Assert.NotNull(outcome);
+            Assert.NotNull(outcome.JobRecord);
+            Assert.NotEmpty(outcome.JobRecord.Id);
+            Assert.NotNull(outcome.ETag);
         }
 
         [Fact]
-        public async Task GivenExportJobThatExists_WhenGettingExportStatus_ThenGetsHttpStatuscodeAccepted()
+        public async Task GivenAMatchingJob_WhenGettingById_ThenTheMatchingJobShouldBeReturned()
         {
-            var requestUri = new Uri("https://localhost/$export");
-            var result = await _mediator.ExportAsync(requestUri, "destinationType", "connectionString");
+            var jobRecord = await InsertNewExportJobRecordAsync();
 
-            requestUri = new Uri("https://localhost/_operation/export/" + result.JobId);
-            var exportStatus = await _mediator.GetExportStatusAsync(requestUri, result.JobId);
+            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
-            Assert.Equal(HttpStatusCode.Accepted, exportStatus.StatusCode);
+            Assert.Equal(jobRecord.Id, outcome?.JobRecord?.Id);
         }
 
         [Fact]
-        public async Task GivenExportJobThatDoesNotExist_WhenGettingExportStatus_ThenJobNotFoundExceptionIsThrown()
+        public async Task GivenNoMatchingJob_WhenGettingById_ThehJobNotFoundExceptionShouldBeThrown()
         {
-            string id = "exportJobId-1234567";
-            var requestUri = new Uri("https://localhost/_operation/export/" + id);
+            var jobRecord = await InsertNewExportJobRecordAsync();
 
-            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _mediator.GetExportStatusAsync(requestUri, id));
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync("test", CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenAMatchingJob_WhenGettingByHash_ThenTheMatchingJobShouldBeReturned()
+        {
+            var jobRecord = await InsertNewExportJobRecordAsync();
+
+            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByHashAsync(jobRecord.Hash, CancellationToken.None);
+
+            Assert.Equal(jobRecord.Id, outcome?.JobRecord?.Id);
+        }
+
+        [Fact]
+        public async Task GivenNoMatchingJob_WhenGettingByHash_ThenNoMatchingJobShouldBeReturned()
+        {
+            var jobRecord = await InsertNewExportJobRecordAsync();
+
+            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByHashAsync("test", CancellationToken.None);
+
+            Assert.Null(outcome);
         }
 
         [Fact]
@@ -181,13 +181,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
             };
 
+            var completionSource = new TaskCompletionSource<bool>();
+
             Task<IReadOnlyCollection<ExportJobOutcome>>[] tasks = new[]
             {
-                AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2),
-                AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2),
+                WaitAndAcquireExportJobsAsync(),
+                WaitAndAcquireExportJobsAsync(),
             };
 
-            Parallel.ForEach(tasks, task => Task.Run(async () => { await task; }));
+            completionSource.SetResult(true);
 
             await Task.WhenAll(tasks);
 
@@ -196,17 +198,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
             // Only 1 of the tasks should be fulfilled.
             Assert.Equal(2, tasks[0].Result.Count ^ tasks[1].Result.Count);
+
+            async Task<IReadOnlyCollection<ExportJobOutcome>> WaitAndAcquireExportJobsAsync()
+            {
+                await completionSource.Task;
+
+                return await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2);
+            }
         }
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ExportJobRecord(new Uri("http://localhost"));
+            var jobRecord = new ExportJobRecord(new Uri($"http://localhost"), "hash");
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
-            await _dataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
+            ExportJobOutcome result = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
-            return jobRecord;
+            return result.JobRecord;
         }
 
         private async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(
@@ -218,7 +227,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 jobHeartbeatTimeoutThreshold = TimeSpan.FromMinutes(1);
             }
 
-            return await _dataStore.AcquireExportJobsAsync(
+            return await _operationDataStore.AcquireExportJobsAsync(
                 maximumNumberOfConcurrentJobAllowed,
                 jobHeartbeatTimeoutThreshold.Value,
                 CancellationToken.None);
