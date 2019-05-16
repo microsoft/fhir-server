@@ -9,6 +9,7 @@ using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,22 +37,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
-        private readonly V1.UpsertResourceTvpGenerator<ResourceWrapper> _upsertResourceTvpGenerator;
+        private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
+        private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
 
         public SqlServerFhirDataStore(
             SqlServerDataStoreConfiguration configuration,
             SqlServerFhirModel model,
-            V1.UpsertResourceTvpGenerator<ResourceWrapper> upsertResourceTvpGenerator,
+            SearchParameterToSearchValueTypeMap searchParameterTypeMap,
+            V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
             ILogger<SqlServerFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
+            EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
             EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = configuration;
             _model = model;
+            _searchParameterTypeMap = searchParameterTypeMap;
             _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
             _logger = logger;
             _memoryStreamManager = new RecyclableMemoryStreamManager();
@@ -66,6 +71,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 throw new ResourceConflictException(weakETag);
             }
+
+            var resourceMetadata = new ResourceMetadata(
+                resource.CompartmentIndices,
+                resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
+                resource.LastModifiedClaims);
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
@@ -92,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         keepHistory: keepHistory,
                         requestMethod: resource.Request.Method,
                         rawResource: stream,
-                        tableValuedParameters: _upsertResourceTvpGenerator.Generate(resource));
+                        tableValuedParameters: _upsertResourceTvpGenerator.Generate(resourceMetadata));
 
                     try
                     {

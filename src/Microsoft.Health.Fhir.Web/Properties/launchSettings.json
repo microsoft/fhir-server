@@ -1,24 +1,25 @@
 {
-    "profiles": {
-        "Microsoft.Health.Fhir.Web - CosmosDb": {
-            "commandName": "Project",
-            "launchBrowser": true,
-            "environmentVariables": {
-                "ASPNETCORE_ENVIRONMENT": "development",
-                "DataStore": "CosmosDb",
-                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
-            },
-            "applicationUrl": "https://localhost:44348/"
-        },
-        "Microsoft.Health.Fhir.Web - SqlServer": {
-            "commandName": "Project",
-            "launchBrowser": true,
-            "environmentVariables": {
-                "ASPNETCORE_ENVIRONMENT": "development",
-                "DataStore": "SqlServer",
-                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
-            },
-            "applicationUrl": "https://localhost:44348/"
-        }
+  "profiles": {
+    "Microsoft.Health.Fhir.Web - CosmosDb": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+        "DataStore": "CosmosDb",
+        "ASPNETCORE_ENVIRONMENT": "development"
+      },
+      "applicationUrl": "https://localhost:44348/"
+    },
+    "Microsoft.Health.Fhir.Web - SqlServer": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "SqlServer:Initialize": "true",
+        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+        "DataStore": "SqlServer",
+        "ASPNETCORE_ENVIRONMENT": "development"
+      },
+      "applicationUrl": "https://localhost:44348/"
     }
+  }
 }

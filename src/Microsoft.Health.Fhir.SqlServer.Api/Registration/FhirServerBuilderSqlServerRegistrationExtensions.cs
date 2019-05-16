@@ -58,6 +58,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<SearchParameterToSearchValueTypeMap>()
+                .Singleton()
+                .AsSelf();
+
             services.Add<SqlServerFhirDataStore>()
                 .Singleton()
                 .AsSelf()
