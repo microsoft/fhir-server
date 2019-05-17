@@ -8,6 +8,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 options.ModelValidatorProviders.Clear();
             });
 
-            services.TypesInSameAssemblyAs<ResourceNotValidException>()
+            services.TypesInSameAssembly(typeof(ResourceNotValidException).Assembly, typeof(Stu3ModelInfoProvider).Assembly)
                 .AssignableTo<IValidator>()
                 .Singleton()
                 .AsSelf()

@@ -8,10 +8,12 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
+using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -23,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     internal class SearchParameterToSearchValueTypeMap
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly ConcurrentDictionary<SearchParameter, Type> _map = new ConcurrentDictionary<SearchParameter, Type>();
+        private readonly ConcurrentDictionary<SearchParameterInfo, Type> _map = new ConcurrentDictionary<SearchParameterInfo, Type>();
 
         public SearchParameterToSearchValueTypeMap(ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
@@ -31,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        public Type GetSearchValueType(SearchParameter searchParameter)
+        public Type GetSearchValueType(SearchParameterInfo searchParameter)
         {
             if (!_map.TryGetValue(searchParameter, out Type type))
             {
@@ -57,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return searchValueType;
         }
 
-        private Type GetSearchValueTypeImpl(SearchParameter searchParameter)
+        private Type GetSearchValueTypeImpl(SearchParameterInfo searchParameter)
         {
             switch (searchParameter.Type)
             {
@@ -65,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return typeof(NumberSearchValue);
                 case SearchParamType.Date:
                     return typeof(DateTimeSearchValue);
-                case SearchParamType.String:
+                case SearchParamType.Str:
                     return typeof(StringSearchValue);
                 case SearchParamType.Token:
                     return typeof(TokenSearchValue);
@@ -77,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return typeof(UriSearchValue);
                 case SearchParamType.Composite:
                     return typeof(Tuple).Assembly.GetType($"{typeof(ValueTuple).FullName}`{searchParameter.Component.Count}", throwOnError: true)
-                        .MakeGenericType(searchParameter.Component.Select(c => GetSearchValueType(_searchParameterDefinitionManager.GetSearchParameter(c.Definition.Url))).ToArray());
+                        .MakeGenericType(searchParameter.Component.Select(c => GetSearchValueType(_searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl).ToInfo())).ToArray());
                 default:
                     throw new ArgumentOutOfRangeException(searchParameter.Code);
             }

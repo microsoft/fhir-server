@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 foreach (var searchValue in ConvertSearchValue(v))
                 {
-                    if (TryGenerateRow(Model.GetSearchParamId(v.SearchParameter.Url), searchValue, out TRow row))
+                    if (TryGenerateRow(Model.GetSearchParamId(v.SearchParameter.Url.ToString()), searchValue, out TRow row))
                     {
                         yield return row;
                     }

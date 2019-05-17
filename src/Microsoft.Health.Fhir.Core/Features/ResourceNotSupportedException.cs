@@ -5,8 +5,8 @@
 
 using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features
 {
@@ -32,12 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
-            Issues.Add(new OperationOutcome.IssueComponent
-            {
-                Severity = OperationOutcome.IssueSeverity.Error,
-                Code = OperationOutcome.IssueType.Forbidden,
-                Diagnostics = string.Format(Core.Resources.ResourceNotSupported, resourceType),
-            });
+            Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Forbidden,
+                    string.Format(Core.Resources.ResourceNotSupported, resourceType)));
         }
     }
 }

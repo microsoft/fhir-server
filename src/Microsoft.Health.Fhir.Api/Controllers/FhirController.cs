@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Net.Http.Headers;
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                             Diagnostics = diagnosticInfo,
                         },
                     },
-                }, returnCode);
+                }.ToResourceElement(), returnCode);
         }
 
         /// <summary>
@@ -144,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
-            Resource response = await _mediator.CreateResourceAsync(resource, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -171,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 weakETag = WeakETag.FromWeakETag(suppliedWeakETag);
             }
 
-            SaveOutcome response = await _mediator.UpsertResourceAsync(resource, weakETag, HttpContext.RequestAborted);
+            SaveOutcome response = await _mediator.UpsertResourceAsync(resource.ToResourceElement(), weakETag, HttpContext.RequestAborted);
 
             switch (response.Outcome)
             {
@@ -200,7 +201,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Read(string type, string id)
         {
-            Resource response = await _mediator.GetResourceAsync(new ResourceKey(type, id), HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(type, id), HttpContext.RequestAborted);
 
             return FhirResult.Create(response)
                 .SetETagHeader()
@@ -226,7 +227,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            Bundle response = await _mediator.SearchResourceHistoryAsync(since, before, at, count, ct, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceHistoryAsync(since, before, at, count, ct, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -252,7 +253,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            Bundle response = await _mediator.SearchResourceHistoryAsync(type, since, before, at, count, ct, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceHistoryAsync(type, since, before, at, count, ct, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -280,7 +281,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            Bundle response = await _mediator.SearchResourceHistoryAsync(type, id, since, before, at, count, ct, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceHistoryAsync(type, id, since, before, at, count, ct, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -297,7 +298,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> VRead(string type, string id, string vid)
         {
-            var response = await _mediator.GetResourceAsync(new ResourceKey(type, id, vid), HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(type, id, vid), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.OK)
                     .SetETagHeader()
@@ -327,7 +328,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return Forbid();
             }
 
-            var response = await _mediator.DeleteResourceAsync(new ResourceKey(type, id), hardDelete, HttpContext.RequestAborted);
+            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(type, id), hardDelete, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
         }
@@ -424,20 +425,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Search)]
         public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentType, string id, string type)
         {
-            var queries = GetQueriesForSearch();
+            IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
             return await PerformCompartmentSearch(compartmentType, id, type, queries);
         }
 
         private async Task<IActionResult> PerformCompartmentSearch(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)
         {
-            Bundle response = await _mediator.SearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
 
         private async Task<IActionResult> PerformSearch(string type, IReadOnlyList<Tuple<string, string>> queries)
         {
-            Bundle response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -452,7 +453,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Metadata, Name = RouteNames.Metadata)]
         public async Task<IActionResult> Metadata(bool system = false)
         {
-            CapabilityStatement response = await _mediator.GetCapabilitiesAsync(system, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.GetCapabilitiesAsync(system, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }

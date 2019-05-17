@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [InlineData(ResourceType.Observation, CompartmentType.Encounter, 1)]
         public void GivenAValidCompartmentDefinitionBundle_WhenValidated_ThenValidSearchParams(ResourceType resourceType, CompartmentType compartmentType, int testCount)
         {
-            Assert.True(_validBuiltCompartment.TryGetSearchParams(resourceType, compartmentType, out HashSet<string> searchParams));
+            Assert.True(_validBuiltCompartment.TryGetSearchParams(resourceType.ToString(), compartmentType.ToString(), out HashSet<string> searchParams));
             Assert.Equal(testCount, searchParams.Count);
         }
 
@@ -43,9 +43,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             var exception = Assert.Throws<InvalidDefinitionException>(() => invalidBuiltCompartment.Build(invalidCompartmentBundle));
             Assert.Contains("invalid entries", exception.Message);
             Assert.Equal(3, exception.Issues.Count);
-            Assert.Contains(exception.Issues, ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal && ic.Code == OperationOutcome.IssueType.Invalid && ic.Diagnostics.Contains("not a CompartmentDefinition"));
-            Assert.Contains(exception.Issues, ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal && ic.Code == OperationOutcome.IssueType.Invalid && ic.Diagnostics.Contains("url is invalid"));
-            Assert.Contains(exception.Issues, ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal && ic.Code == OperationOutcome.IssueType.Invalid && ic.Diagnostics.Contains("bundle.entry[1].resource has duplicate resources."));
+            Assert.Contains(exception.Issues, ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal.ToString() && ic.Code == OperationOutcome.IssueType.Invalid.ToString() && ic.Diagnostics.Contains("not a CompartmentDefinition"));
+            Assert.Contains(exception.Issues, ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal.ToString() && ic.Code == OperationOutcome.IssueType.Invalid.ToString() && ic.Diagnostics.Contains("url is invalid"));
+            Assert.Contains(exception.Issues, ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal.ToString() && ic.Code == OperationOutcome.IssueType.Invalid.ToString() && ic.Diagnostics.Contains("bundle.entry[1].resource has duplicate resources."));
         }
     }
 }

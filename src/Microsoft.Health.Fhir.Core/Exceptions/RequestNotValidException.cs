@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
@@ -15,12 +15,10 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            Issues.Add(new OperationOutcome.IssueComponent
-            {
-                Severity = OperationOutcome.IssueSeverity.Error,
-                Code = OperationOutcome.IssueType.Invalid,
-                Diagnostics = message,
-            });
+            Issues.Add(new OperationOutcomeIssue(
+                OperationOutcomeConstants.IssueSeverity.Error,
+                OperationOutcomeConstants.IssueType.Invalid,
+                message));
         }
     }
 }

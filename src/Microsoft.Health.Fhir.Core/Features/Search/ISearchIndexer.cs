@@ -4,7 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -18,6 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="resource">The resource to extract the search indices from.</param>
         /// <returns>An <see cref="IEnumerable{SearchIndex}"/> that contains the search index entries.</returns>
-        IReadOnlyCollection<SearchIndexEntry> Extract(Resource resource);
+        IReadOnlyCollection<SearchIndexEntry> Extract(ResourceElement resource);
     }
 }

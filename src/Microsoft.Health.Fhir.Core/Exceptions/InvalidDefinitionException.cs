@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using static Hl7.Fhir.Model.OperationOutcome;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     /// </summary>
     public class InvalidDefinitionException : FhirException
     {
-        public InvalidDefinitionException(string message, IssueComponent[] issues = null)
+        public InvalidDefinitionException(string message, OperationOutcomeIssue[] issues = null)
             : base(message, issues)
         {
         }

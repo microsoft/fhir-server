@@ -8,8 +8,9 @@ using FluentValidation;
 using FluentValidation.Internal;
 using FluentValidation.Results;
 using FluentValidation.Validators;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 
@@ -24,8 +25,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
         public void GivenAnInvalidId_WhenProcessingAResource_ThenAValidationMessageIsCreated(string id)
         {
-            Observation defaultObservation = Samples.GetDefaultObservation();
-            defaultObservation.Id = id;
+            var defaultObservation = Samples.GetDefaultObservation()
+                .UpdateId(id);
 
             IEnumerable<ValidationFailure> result = GetValidationFailures(defaultObservation);
 
@@ -41,20 +42,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         [InlineData("0000000000000000000000000000000000000000000000000000000000000064")]
         public void GivenAValidId_WhenProcessingAResource_ThenAValidationMessageIsCreated(string id)
         {
-            Observation defaultObservation = Samples.GetDefaultObservation();
-            defaultObservation.Id = id;
+            var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 
             IEnumerable<ValidationFailure> result = GetValidationFailures(defaultObservation);
 
             Assert.Empty(result);
         }
 
-        private static IEnumerable<ValidationFailure> GetValidationFailures(Observation defaultObservation)
+        private static IEnumerable<ValidationFailure> GetValidationFailures(ResourceElement defaultObservation)
         {
             var validator = new IdValidator();
 
             var result = validator.Validate(
-                new PropertyValidatorContext(new ValidationContext(defaultObservation), PropertyRule.Create<Observation, string>(x => x.Id), "Id"));
+                new PropertyValidatorContext(new ValidationContext(defaultObservation), PropertyRule.Create<ResourceElement, string>(x => x.Id), "Id"));
 
             return result;
         }

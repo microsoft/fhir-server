@@ -68,13 +68,18 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             }
             else
             {
-                result = new ObjectResult(Result);
+                result = new ObjectResult(GetResultToSerialize());
             }
 
             return result.ExecuteResultAsync(context);
         }
 
-        public string GetResultTypeName()
+        protected virtual object GetResultToSerialize()
+        {
+            return Result;
+        }
+
+        public virtual string GetResultTypeName()
         {
             return Result?.GetType().Name;
         }

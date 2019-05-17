@@ -7,9 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
@@ -62,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [Fact]
         public void GivenAResource_WhenCreatingAResourceWrapper_ThenMetaPropertiesAreCorrect()
         {
-            var observation = Samples.GetDefaultObservation();
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Id = "id1";
             observation.VersionId = "version1";
             observation.Meta.Profile = new List<string> { "test" };
@@ -70,12 +74,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             var lastModified = new DateTimeOffset(2017, 1, 1, 1, 1, 1, TimeSpan.Zero);
             using (Mock.Property(() => Clock.UtcNowFunc, () => lastModified))
             {
-                var wrapper = new ResourceWrapper(observation, _rawResourceFactory.Create(observation), new ResourceRequest("http://fhir", HttpMethod.Post), false, null, null, null);
+                ResourceElement typedElement = observation.ToResourceElement();
+
+                var wrapper = new ResourceWrapper(typedElement, _rawResourceFactory.Create(typedElement), new ResourceRequest("http://fhir", HttpMethod.Post), false, null, null, null);
                 var resource = Deserializers.ResourceDeserializer.Deserialize(wrapper);
 
-                Assert.Equal(observation.VersionId, resource.Meta.VersionId);
-                Assert.Equal(lastModified, resource.Meta.LastUpdated);
-                Assert.Equal("test", resource.Meta.Profile.First());
+                var poco = resource.Instance.ToPoco<Observation>();
+
+                Assert.Equal(observation.VersionId, poco.Meta.VersionId);
+                Assert.Equal(lastModified, poco.Meta.LastUpdated);
+                Assert.Equal("test", poco.Meta.Profile.First());
             }
         }
     }

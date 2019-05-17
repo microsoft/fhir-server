@@ -4,15 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ResourceTypeExtensions
     {
-        public static Type ToResourceModelType(this ResourceType resourceType)
+        public static Type ToResourceModelType(this ResourceElement resourceType)
         {
-            return ModelInfo.GetTypeForFhirType(resourceType.ToString());
+            return ModelInfoProvider.GetTypeForFhirType(resourceType.InstanceType);
+        }
+
+        public static ResourceElement ToResourceElement(this ITypedElement typedElement)
+        {
+            return new ResourceElement(typedElement);
         }
     }
 }

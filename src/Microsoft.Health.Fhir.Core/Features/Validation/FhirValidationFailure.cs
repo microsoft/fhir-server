@@ -3,14 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using FluentValidation.Results;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class FhirValidationFailure : ValidationFailure
     {
-        public FhirValidationFailure(string propertyName, string errorMessage, OperationOutcome.IssueComponent issueComponent)
+        public FhirValidationFailure(string propertyName, string errorMessage, IList<OperationOutcomeIssue> issueComponent)
             : base(propertyName, errorMessage)
         {
             IssueComponent = issueComponent;
@@ -26,6 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
         }
 
-        public OperationOutcome.IssueComponent IssueComponent { get; }
+        public IList<OperationOutcomeIssue> IssueComponent { get; }
     }
 }

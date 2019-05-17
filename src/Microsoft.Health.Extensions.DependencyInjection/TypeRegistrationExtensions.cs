@@ -17,11 +17,16 @@ namespace Microsoft.Health.Extensions.DependencyInjection
     {
         public static IEnumerable<TypeRegistration> TypesInSameAssemblyAs<T>(this IServiceCollection serviceCollection)
         {
-            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+            return TypesInSameAssembly(serviceCollection, typeof(T).Assembly);
+        }
 
-            return typeof(T)
-                .Assembly
-                .GetTypes()
+        public static IEnumerable<TypeRegistration> TypesInSameAssembly(this IServiceCollection serviceCollection, params Assembly[] assemblies)
+        {
+            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+            EnsureArg.IsNotNull(assemblies, nameof(assemblies));
+
+            return assemblies
+                .SelectMany(x => x.GetTypes())
                 .Where(x => x.IsClass && !x.IsAbstract && !x.ContainsGenericParameters)
                 .Select(x => new TypeRegistration(serviceCollection, x))
                 .ToArray();

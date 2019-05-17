@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -18,6 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="resource">The resource to be wrapped.</param>
         /// <param name="deleted">A flag indicating whether the resource is deleted or not.</param>
         /// <returns>An instance of <see cref="ResourceWrapper"/>.</returns>
-        ResourceWrapper Create(Resource resource, bool deleted);
+        ResourceWrapper Create(ResourceElement resource, bool deleted);
     }
 }

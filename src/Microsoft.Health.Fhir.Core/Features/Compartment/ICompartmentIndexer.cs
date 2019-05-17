@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
@@ -18,6 +17,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Compartment
         /// <param name="resourceType">The resourceType to extract the compartment indices from.</param>
         /// <param name="searchIndices">The search indices for the resource.</param>
         /// <returns>ComaprtmentIndices.</returns>
-        CompartmentIndices Extract(ResourceType resourceType, IReadOnlyCollection<SearchIndexEntry> searchIndices);
+        CompartmentIndices Extract(string resourceType, IReadOnlyCollection<SearchIndexEntry> searchIndices);
     }
 }
