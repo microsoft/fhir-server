@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -26,12 +26,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
             return input.GetSearchIndexEntriesByType(typeof(TSearchValue))
                 .Where(v => ShouldGenerateRow(v.SearchParameter, (TSearchValue)v.Value))
-                .Select(v => GenerateRow(Model.GetSearchParamId(v.SearchParameter.Url), v.SearchParameter, (TSearchValue)v.Value))
+                .Select(v => GenerateRow(Model.GetSearchParamId(v.SearchParameter.Url.ToString()), v.SearchParameter, (TSearchValue)v.Value))
                 .Distinct();
         }
 
-        protected virtual bool ShouldGenerateRow(SearchParameter searchParameter, TSearchValue searchValue) => true;
+        protected virtual bool ShouldGenerateRow(SearchParameterInfo searchParameter, TSearchValue searchValue) => true;
 
-        protected abstract TRow GenerateRow(short searchParamId, SearchParameter searchParameter, TSearchValue searchValue);
+        protected abstract TRow GenerateRow(short searchParamId, SearchParameterInfo searchParameter, TSearchValue searchValue);
     }
 }

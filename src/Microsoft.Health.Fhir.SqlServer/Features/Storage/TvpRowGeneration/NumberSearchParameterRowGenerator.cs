@@ -3,8 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        protected override V1.NumberSearchParamTableTypeRow GenerateRow(short searchParamId, SearchParameter searchParameter, NumberSearchValue searchValue)
+        protected override V1.NumberSearchParamTableTypeRow GenerateRow(short searchParamId, SearchParameterInfo searchParameter, NumberSearchValue searchValue)
         {
             bool isSingleValue = searchValue.Low == searchValue.High;
 

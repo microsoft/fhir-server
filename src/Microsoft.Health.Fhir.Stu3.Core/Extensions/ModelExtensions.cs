@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -91,6 +92,17 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             var poco = resource.ToPoco();
             poco.Meta.LastUpdated = lastUpdated;
             return poco.ToResourceElement();
+        }
+
+        public static SearchParameterInfo ToInfo(this SearchParameter searchParam)
+        {
+            EnsureArg.IsNotNull(searchParam, nameof(searchParam));
+
+            return new SearchParameterInfo(
+                searchParam.Name,
+                new Uri(searchParam.Url),
+                searchParam.Type?.ToString(),
+                searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.Definition.Url)).ToArray());
         }
     }
 }
