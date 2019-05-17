@@ -29,7 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,
-                    string2Row.Text);
+                    string2Row.Text,
+                    TextOverflow2: string2Row.TextOverflow);
 
                 return true;
             }

@@ -222,7 +222,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400);
+            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256);
+            internal readonly NullableNVarCharColumn TextOverflow = new NullableNVarCharColumn("TextOverflow", -1);
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -312,7 +313,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
-            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 400);
+            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256);
+            internal readonly NVarCharColumn TextOverflow2 = new NVarCharColumn("TextOverflow2", -1);
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -1008,21 +1010,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Text};
+            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256);
+            internal readonly NullableNVarCharColumn TextOverflow = new NullableNVarCharColumn("TextOverflow", -1);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Text, TextOverflow};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, StringSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 Text.Set(record, 1, rowData.Text);
+                TextOverflow.Set(record, 2, rowData.TextOverflow);
             }
         }
 
         internal struct StringSearchParamTableTypeRow
         {
-            internal StringSearchParamTableTypeRow(System.Int16 SearchParamId, System.String Text)
+            internal StringSearchParamTableTypeRow(System.Int16 SearchParamId, System.String Text, System.String TextOverflow)
             {
                 this.SearchParamId = SearchParamId;
                 this.Text = Text;
+                this.TextOverflow = TextOverflow;
             }
 
             internal System.Int16 SearchParamId
@@ -1031,6 +1036,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal System.String Text
+            {
+                get;
+            }
+
+            internal System.String TextOverflow
             {
                 get;
             }
@@ -1329,25 +1339,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
-            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 400);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, Text2};
+            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256);
+            internal readonly NVarCharColumn TextOverflow2 = new NVarCharColumn("TextOverflow2", -1);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, Text2, TextOverflow2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenStringCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SystemId1.Set(record, 1, rowData.SystemId1);
                 Code1.Set(record, 2, rowData.Code1);
                 Text2.Set(record, 3, rowData.Text2);
+                TextOverflow2.Set(record, 4, rowData.TextOverflow2);
             }
         }
 
         internal struct TokenStringCompositeSearchParamTableTypeRow
         {
-            internal TokenStringCompositeSearchParamTableTypeRow(System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.String Text2)
+            internal TokenStringCompositeSearchParamTableTypeRow(System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.String Text2, System.String TextOverflow2)
             {
                 this.SearchParamId = SearchParamId;
                 this.SystemId1 = SystemId1;
                 this.Code1 = Code1;
                 this.Text2 = Text2;
+                this.TextOverflow2 = TextOverflow2;
             }
 
             internal System.Int16 SearchParamId
@@ -1366,6 +1379,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal System.String Text2
+            {
+                get;
+            }
+
+            internal System.String TextOverflow2
             {
                 get;
             }

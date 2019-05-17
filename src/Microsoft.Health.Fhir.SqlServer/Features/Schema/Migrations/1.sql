@@ -409,14 +409,16 @@ GO
 CREATE TYPE dbo.StringSearchParamTableType_1 AS TABLE  
 (
     SearchParamId smallint NOT NULL,
-    Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
+    Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
 
 CREATE TABLE dbo.StringSearchParam
 (
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL,
+    Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsHistory bit NOT NULL
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -424,8 +426,7 @@ CREATE CLUSTERED INDEX IXC_StringSearchParam
 ON dbo.StringSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Text
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
@@ -433,8 +434,21 @@ ON dbo.StringSearchParam
 (
     SearchParamId,
     Text
-) 
-WHERE IsHistory = 0
+)
+INCLUDE
+(
+    TextOverflow -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
+)
+WHERE IsHistory = 0 AND TextOverflow IS NULL
+WITH (DATA_COMPRESSION = PAGE)
+
+CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWhereNoOverflow
+ON dbo.StringSearchParam
+(
+    SearchParamId,
+    Text
+)
+WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 
 GO
@@ -446,14 +460,14 @@ GO
 CREATE TYPE dbo.UriSearchParamTableType_1 AS TABLE  
 (
     SearchParamId smallint NOT NULL,
-    Uri varchar(256) COLLATE Latin1_General_CS_AS NOT NULL
+    Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.UriSearchParam
 (
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    Uri varchar(256) COLLATE Latin1_General_CS_AS NOT NULL,
+    Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -696,22 +710,22 @@ ON dbo.ReferenceTokenCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId,
     ReferenceResourceId1,
-    Code2,
-    ReferenceResourceTypeId1,
-    BaseUri1,
-    SystemId2
+    Code2
 )
 
-CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2_ReferenceResourceTypeId1_BaseUri1_SystemId2
+CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
 ON dbo.ReferenceTokenCompositeSearchParam
 (
     SearchParamId,
     ReferenceResourceId1,
-    Code2,
+    Code2
+)
+INCLUDE
+(
     ReferenceResourceTypeId1,
     BaseUri1,
     SystemId2
-) 
+)
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
@@ -747,20 +761,21 @@ ON dbo.TokenTokenCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId,
     Code1,
-    Code2,
-    SystemId1,
-    SystemId2
+    Code2
 )
 
-CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2_System1_System2
+CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
 ON dbo.TokenTokenCompositeSearchParam
 (
     SearchParamId,
     Code1,
-    Code2,
+    Code2
+) 
+INCLUDE
+(
     SystemId1,
     SystemId2
-) 
+)
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
@@ -797,31 +812,37 @@ ON dbo.TokenDateTimeCompositeSearchParam
     SearchParamId,
     Code1,
     StartDateTime2,
-    EndDateTime2,
+    EndDateTime2
+)
+
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
+ON dbo.TokenDateTimeCompositeSearchParam
+(
+    SearchParamId,
+    Code1,
+    StartDateTime2,
+    EndDateTime2
+) 
+INCLUDE
+(
     SystemId1
 )
 
-CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_SystemId1
-ON dbo.TokenDateTimeCompositeSearchParam
-(
-    SearchParamId,
-    Code1,
-    StartDateTime2,
-    EndDateTime2,
-    SystemId1
-) 
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
-CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_SystemId1
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2
 ON dbo.TokenDateTimeCompositeSearchParam
 (
     SearchParamId,
     Code1,
     EndDateTime2,
-    StartDateTime2,
+    StartDateTime2
+)
+INCLUDE
+(
     SystemId1
-) 
+)
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
@@ -863,45 +884,53 @@ ON dbo.TokenQuantityCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId,
     Code1,
-    QuantityCodeId2,
-    SingleValue2,
-    SystemId1
+    SingleValue2
 )
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2_SystemId1
+CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
     SearchParamId,
     Code1,
+    SingleValue2
+)
+INCLUDE
+(
     QuantityCodeId2,
-    SingleValue2,
-    SystemId1
+    SystemId1,
+    SystemId2
 )
 WHERE IsHistory = 0 AND SingleValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2_SystemId1_SystemId2
+CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
     SearchParamId,
     Code1,
-    QuantityCodeId2,
     LowValue2,
-    HighValue2,
+    HighValue2
+)
+INCLUDE
+(
+    QuantityCodeId2,
     SystemId1,
     SystemId2
 )
 WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2_SystemId1_SystemId2
+CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
     SearchParamId,
     Code1,
-    QuantityCodeId2,
     HighValue2,
-    LowValue2,
+    LowValue2
+)
+INCLUDE
+(
+    QuantityCodeId2,
     SystemId1,
     SystemId2
 )
@@ -919,7 +948,8 @@ CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) NOT NULL,
-    Text2 nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
+    Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
 )
 
 CREATE TABLE dbo.TokenStringCompositeSearchParam
@@ -928,7 +958,8 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) NOT NULL,
-    Text2 nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL,
+    Text2 nvarchar(256) COLLATE Latin1_General_CI_AI NOT NULL,
+    TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -938,19 +969,36 @@ ON dbo.TokenStringCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId,
     Code1,
-    Text2,
-    SystemId1
+    Text2
 )
 
-CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2_SystemId1
+CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
 ON dbo.TokenStringCompositeSearchParam
 (
     SearchParamId,
     Code1,
-    Text2,
+    Text2
+)
+INCLUDE
+(
+    SystemId1,
+    TextOverflow2 -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
+)
+WHERE IsHistory = 0 AND TextOverflow2 IS NULL
+WITH (DATA_COMPRESSION = PAGE)
+
+CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2_WithOverflow
+ON dbo.TokenStringCompositeSearchParam
+(
+    SearchParamId,
+    Code1,
+    Text2
+)
+INCLUDE
+(
     SystemId1
 )
-WHERE IsHistory = 0
+WHERE IsHistory = 0 AND TextOverflow2 IS  NULL
 WITH (DATA_COMPRESSION = PAGE)
 
 GO
@@ -997,23 +1045,24 @@ ON dbo.TokenNumberNumberCompositeSearchParam
     SearchParamId,
     Code1,
     SingleValue2,
-    SingleValue3,
-    SystemId1
+    SingleValue3
 )
 
-CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2_SystemId1
+CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
     SearchParamId,
     Code1,
-    SingleValue2,
-    SingleValue3,
+    SingleValue2
+)
+INCLUDE
+(
     SystemId1
 )
 WHERE IsHistory = 0 AND HasRange = 0
 WITH (DATA_COMPRESSION = PAGE)
 
-CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3_SystemId1
+CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
     SearchParamId,
@@ -1021,7 +1070,10 @@ ON dbo.TokenNumberNumberCompositeSearchParam
     LowValue2,
     HighValue2,
     LowValue3,
-    HighValue3,
+    HighValue3
+)
+INCLUDE
+(
     SystemId1
 )
 WHERE IsHistory = 0 AND HasRange = 1
@@ -1337,8 +1389,8 @@ AS
     FROM @tokenTextSearchParams
 
     INSERT INTO dbo.StringSearchParam
-        (ResourceSurrogateId, SearchParamId, Text, IsHistory)
-    SELECT DISTINCT @resourceSurrogateId, SearchParamId, Text, 0
+        (ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory)
+    SELECT DISTINCT @resourceSurrogateId, SearchParamId, Text, TextOverflow, 0
     FROM @stringSearchParams
 
     INSERT INTO dbo.UriSearchParam
@@ -1382,8 +1434,8 @@ AS
     FROM @tokenQuantityCompositeSearchParams
 
     INSERT INTO dbo.TokenStringCompositeSearchParam
-        (ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, IsHistory)
-    SELECT DISTINCT @resourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, 0
+        (ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+    SELECT DISTINCT @resourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, 0
     FROM @tokenStringCompositeSearchParams
 
     INSERT INTO dbo.TokenNumberNumberCompositeSearchParam

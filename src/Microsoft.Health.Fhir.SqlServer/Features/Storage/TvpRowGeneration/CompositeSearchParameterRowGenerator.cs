@@ -32,10 +32,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
             foreach (var components in compositeSearchValue.Components.CartesianProduct())
             {
-                yield return _converter(new EnumeratorWrapper<ISearchValue>(components.GetEnumerator()));
+                using (IEnumerator<ISearchValue> enumerator = components.GetEnumerator())
+                {
+                    yield return _converter(new EnumeratorWrapper<ISearchValue>(enumerator));
+                }
             }
         }
 
+        /// <summary>
+        /// Creates a function that takes the components of a composite search parameter as an
+        /// enumerator and creates a ValueTuple with fields for each component.
+        /// </summary>
+        /// <returns>The generated function.</returns>
         private static Func<EnumeratorWrapper<ISearchValue>, TSearchValue> CreateConverterFunc()
         {
             var parameter = LinqExpression.Parameter(typeof(EnumeratorWrapper<ISearchValue>));
