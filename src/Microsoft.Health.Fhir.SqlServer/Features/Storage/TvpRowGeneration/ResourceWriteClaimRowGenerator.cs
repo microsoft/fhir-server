@@ -6,12 +6,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class ResourceWriteClaimRowGenerator : ITableValuedParameterRowGenerator<ResourceWrapper, V1.ResourceWriteClaimTableTypeRow>
+    internal class ResourceWriteClaimRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, V1.ResourceWriteClaimTableTypeRow>
     {
         private readonly SqlServerFhirModel _model;
 
@@ -21,9 +20,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _model = model;
         }
 
-        public IEnumerable<V1.ResourceWriteClaimTableTypeRow> GenerateRows(ResourceWrapper resource)
+        public IEnumerable<V1.ResourceWriteClaimTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
         {
-            return resource.LastModifiedClaims?.Select(c =>
+            return resourceMetadata.WriteClaims?.Select(c =>
                 new V1.ResourceWriteClaimTableTypeRow(_model.GetClaimTypeId(c.Key), c.Value));
         }
     }

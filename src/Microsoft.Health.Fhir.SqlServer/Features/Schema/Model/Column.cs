@@ -173,7 +173,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public DecimalColumn(string name, byte precision, byte scale)
             : base(name, SqlDbType.Decimal, false, precision, scale)
         {
+            MinValue = SqlMetadataUtilities.GetMinValueForDecimalColumn(Metadata);
+            MaxValue = SqlMetadataUtilities.GetMaxValueForDecimalColumn(Metadata);
         }
+
+        public decimal MinValue { get; }
+
+        public decimal MaxValue { get; }
 
         public override decimal Read(SqlDataReader reader, int ordinal)
         {
@@ -352,7 +358,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public NullableDecimalColumn(string name, byte precision, byte scale)
             : base(name, SqlDbType.Decimal, true, precision, scale)
         {
+            MinValue = SqlMetadataUtilities.GetMinValueForDecimalColumn(Metadata);
+            MaxValue = SqlMetadataUtilities.GetMaxValueForDecimalColumn(Metadata);
         }
+
+        public decimal MinValue { get; }
+
+        public decimal MaxValue { get; }
 
         public override decimal? Read(SqlDataReader reader, int ordinal)
         {

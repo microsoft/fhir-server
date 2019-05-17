@@ -7,12 +7,11 @@ using System.Collections.Generic;
 using System.Threading;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class CompartmentAssignmentRowGenerator : ITableValuedParameterRowGenerator<ResourceWrapper, V1.CompartmentAssignmentTableTypeRow>
+    internal class CompartmentAssignmentRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, V1.CompartmentAssignmentTableTypeRow>
     {
         private readonly SqlServerFhirModel _model;
         private bool _initialized;
@@ -28,11 +27,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _model = model;
         }
 
-        public IEnumerable<V1.CompartmentAssignmentTableTypeRow> GenerateRows(ResourceWrapper resource)
+        public IEnumerable<V1.CompartmentAssignmentTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
         {
             EnsureInitialized();
 
-            var compartments = resource.CompartmentIndices;
+            var compartments = resourceMetadata.Compartments;
             if (compartments == null)
             {
                 yield break;
