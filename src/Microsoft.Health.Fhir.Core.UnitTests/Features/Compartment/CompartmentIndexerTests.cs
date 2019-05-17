@@ -6,11 +6,11 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
 
@@ -30,14 +30,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             var compartmentIndexer = new CompartmentIndexer(compartmentManager);
 
             HashSet<string> compParams = null;
-            compartmentManager.TryGetSearchParams(resourceType, compartmentType, out compParams)
+            compartmentManager.TryGetSearchParams(resourceType.ToString(), compartmentType.ToString(), out compParams)
                 .Returns(x =>
                 {
                     x[2] = new HashSet<string> { "testParam" };
                     return true;
                 });
-            var searchIndexEntries = new List<SearchIndexEntry> { new SearchIndexEntry(new SearchParameter { Name = "testParam" }, new ReferenceSearchValue(ReferenceKind.Internal, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType), resourceId)) };
-            CompartmentIndices compartmentIndices = compartmentIndexer.Extract(resourceType, searchIndexEntries);
+            var searchIndexEntries = new List<SearchIndexEntry> { new SearchIndexEntry(new SearchParameterInfo("testParam"), new ReferenceSearchValue(ReferenceKind.Internal, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType.ToString()).ToString(), resourceId)) };
+            CompartmentIndices compartmentIndices = compartmentIndexer.Extract(resourceType.ToString(), searchIndexEntries);
 
             IReadOnlyCollection<string> resourceIds = null;
             if (compartmentType == CompartmentType.Device)

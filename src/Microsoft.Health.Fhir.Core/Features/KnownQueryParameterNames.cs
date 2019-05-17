@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.Rest;
-
 namespace Microsoft.Health.Fhir.Core.Features
 {
     /// <summary>
@@ -15,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// <summary>
         /// The format query parameter.
         /// </summary>
-        public const string Format = HttpUtil.RESTPARAM_FORMAT;
+        public const string Format = "_format";
 
         public const string At = "_at";
 
@@ -24,9 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// </summary>
         public const string ContinuationToken = "ct";
 
-        public const string Count = HttpUtil.HISTORY_PARAM_COUNT;
+        public const string Count = "_count";
 
-        public const string Since = HttpUtil.HISTORY_PARAM_SINCE;
+        public const string Since = "_since";
 
         public const string Before = "_before";
 

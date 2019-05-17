@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -58,8 +59,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
-            await Client.CreateAsync(Samples.GetDefaultObservation());
-            await Client.CreateAsync(Samples.GetDefaultOrganization());
+            await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>());
 
             await ExecuteAndValidateBundle("Patient", patients);
         }
@@ -84,8 +85,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
-            Observation observation = (await Client.CreateAsync(Samples.GetDefaultObservation())).Resource;
-            Organization organization = (await Client.CreateAsync(Samples.GetDefaultOrganization())).Resource;
+            Observation observation = (await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
+            Organization organization = (await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>())).Resource;
 
             await ExecuteAndValidateBundle("?_type=Patient", patients);
 
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var testCoding = new Coding("https://testSystem", Guid.NewGuid().ToString());
 
             // Add the coding and set the observation status
-            var originalObservation = Samples.GetDefaultObservation();
+            var originalObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             originalObservation.Status = ObservationStatus.Preliminary;
             originalObservation.Code.Coding.Add(testCoding);
 
@@ -221,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient patient = Samples.GetDefaultPatient();
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
 
             for (int i = 0; i < numberOfResources; i++)
             {

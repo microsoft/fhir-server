@@ -8,8 +8,10 @@ using System.Globalization;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
@@ -19,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
     public class FhirResultExtensionsTests
     {
         private const string ETagFormat = "W/\"{0}\"";
-        private readonly Resource _mockResource;
+        private readonly ResourceElement _mockResource;
 
         public FhirResultExtensionsTests()
         {
@@ -35,15 +37,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
                     VersionId = version,
                     LastUpdated = date,
                 },
-            };
+            }.ToResourceElement();
         }
 
         [Fact]
         public void WhenSettingALocationHeader_ThenFhirResultHasALocationHeader()
         {
-            var locationUrl = new Uri($"http://localhost/{_mockResource.GetType().Name}/{_mockResource.Id}/_history/{_mockResource.Meta.VersionId}");
+            var locationUrl = new Uri($"http://localhost/{_mockResource.InstanceType}/{_mockResource.Id}/_history/{_mockResource.VersionId}");
+
             var urlResolver = Substitute.For<IUrlResolver>();
-            urlResolver.ResolveResourceUrl(Arg.Any<Resource>(), Arg.Any<bool>()).Returns(locationUrl);
+            urlResolver.ResolveResourceUrl(Arg.Any<ResourceElement>(), Arg.Any<bool>()).Returns(locationUrl);
 
             var fhirResult = FhirResult.Create(_mockResource).SetLocationHeader(urlResolver);
 
@@ -53,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenSettingAnETagHeader_ThenFhirResultHasAnETagHeader()
         {
-            var version = _mockResource.Meta.VersionId;
+            var version = _mockResource.VersionId;
             var fhirResult = FhirResult.Create(_mockResource).SetETagHeader();
 
             Assert.Equal(string.Format(ETagFormat, version), fhirResult.Headers[HeaderNames.ETag]);
@@ -64,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         {
             var fhirResult = FhirResult.Create(_mockResource).SetLastModifiedHeader();
 
-            Assert.Equal(_mockResource.Meta.LastUpdated?.ToString("r", CultureInfo.InvariantCulture), fhirResult.Headers[HeaderNames.LastModified]);
+            Assert.Equal(_mockResource.LastUpdated?.ToString("r", CultureInfo.InvariantCulture), fhirResult.Headers[HeaderNames.LastModified]);
         }
 
         [Fact]
@@ -86,7 +89,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenAddingSameHeaderTwice_ThenOnlyOneHeaderIsPresent()
         {
-            Assert.Throws<ArgumentException>(() => FhirResult.Create(_mockResource).SetLastModifiedHeader().SetLastModifiedHeader());
+            Assert.Throws<ArgumentException>(() => FhirResult.Create(_mockResource)
+                .SetLastModifiedHeader()
+                .SetLastModifiedHeader());
         }
 
         [Fact]

@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenGettingAResource_GivenAUserWithNoReadPermissions_TheServerShouldReturnForbidden()
         {
             await Client.RunAsClientApplication(TestApplications.ServiceClient);
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             await Client.RunAsUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id));
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenCreatingAResource_GivenAUserWithNoCreatePermissions_TheServerShouldReturnForbidden()
         {
             await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenUpdatingAResource_GivenAUserWithNoWritePermissions_TheServerShouldReturnForbidden()
         {
             await Client.RunAsUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.UpdateAsync(createdResource));
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenHardDeletingAResource_GivenAUserWithNoHardDeletePermissions_TheServerShouldReturnForbidden()
         {
             await Client.RunAsUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.HardDeleteAsync(createdResource));
             Assert.Equal(ForbiddenMessage, fhirException.Message);
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenHardDeletingAResource_GivenAUserWithHardDeletePermissions_TheServerShouldReturnSuccess()
         {
             await Client.RunAsUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             await Client.RunAsUser(TestUsers.HardDeleteUser, TestApplications.NativeClient);
 
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenUpdatingAResource_GivenAUserWithUpdatePermissions_TheServerShouldReturnSuccess()
         {
             await Client.RunAsUser(TestUsers.AdminUser, TestApplications.NativeClient);
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             await Client.RunAsUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource);
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             await Client.RunAsClientApplication(TestApplications.InvalidClient);
 
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
         }
@@ -152,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             await Client.RunAsClientApplication(TestApplications.InvalidClient);
             Client.HttpClient.SetBearerToken(Invalidtoken);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
         }
@@ -162,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenCreatingAResource_GivenAClientWithWrongAudience_TheServerShouldReturnUnauthorized()
         {
             await Client.RunAsClientApplication(TestApplications.WrongAudienceClient);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation()));
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
         }
@@ -172,7 +173,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenGettingAResource_GivenAUserWithReadPermissions_TheServerShouldReturnSuccess()
         {
             await Client.RunAsClientApplication(TestApplications.ServiceClient);
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             FhirResponse<Observation> readResponse = await Client.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id);

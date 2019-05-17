@@ -5,23 +5,23 @@
 
 using System;
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
     public abstract class FhirException : Exception
     {
-        protected FhirException(params OperationOutcome.IssueComponent[] issues)
+        protected FhirException(params OperationOutcomeIssue[] issues)
             : this(null, issues)
         {
         }
 
-        protected FhirException(string message, params OperationOutcome.IssueComponent[] issues)
+        protected FhirException(string message, params OperationOutcomeIssue[] issues)
             : this(message, null, issues)
         {
         }
 
-        protected FhirException(string message, Exception innerException, params OperationOutcome.IssueComponent[] issues)
+        protected FhirException(string message, Exception innerException, params OperationOutcomeIssue[] issues)
             : base(message, innerException)
         {
             if (issues != null)
@@ -33,6 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
             }
         }
 
-        public ICollection<OperationOutcome.IssueComponent> Issues { get; } = new List<OperationOutcome.IssueComponent>();
+        public ICollection<OperationOutcomeIssue> Issues { get; } = new List<OperationOutcomeIssue>();
     }
 }

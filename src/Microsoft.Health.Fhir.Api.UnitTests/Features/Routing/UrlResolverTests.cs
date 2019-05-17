@@ -13,8 +13,10 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
 
@@ -70,10 +72,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         {
             const string id = "12345";
 
-            Patient patient = new Patient()
+            ResourceElement patient = new Patient
             {
                 Id = id,
-            };
+            }.ToResourceElement();
 
             _urlResolver.ResolveResourceUrl(patient);
 
@@ -92,11 +94,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             const string id = "12345";
             const string version = "abc";
 
-            Patient patient = new Patient()
+            ResourceElement patient = new Patient
             {
                 Id = id,
                 VersionId = version,
-            };
+            }.ToResourceElement();
 
             _urlResolver.ResolveResourceUrl(patient, includeVersion: true);
 

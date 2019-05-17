@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -25,6 +26,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         private const string ReferenceResourceIdName = "ri";
 
         private SearchIndexEntryJObjectGenerator _generator = new SearchIndexEntryJObjectGenerator();
+
+        public SearchIndexEntryJObjectGeneratorTests()
+        {
+            ModelExtensions.SetModelInfoProvider();
+        }
 
         [Fact]
         public void GivenACompositeSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
@@ -259,7 +265,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         {
             const string resourceId = "xyz";
 
-            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, ResourceType.Immunization, resourceId);
+            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, ResourceType.Immunization.ToString(), resourceId);
 
             var expectedValues = new[]
             {
@@ -279,7 +285,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             var baseUri = new Uri("https://localhost/stu3/");
             const string resourceId = "123";
 
-            var value = new ReferenceSearchValue(ReferenceKind.Internal, baseUri, ResourceType.Account, resourceId);
+            var value = new ReferenceSearchValue(ReferenceKind.Internal, baseUri, ResourceType.Account.ToString(), resourceId);
 
             var expectedValues = new[]
             {
@@ -415,7 +421,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
         private void TestAndValidateOutput(string parameterName, ISearchValue value, params (string Name, object Value)[][] expectedValues)
         {
-            SearchIndexEntry entry = new SearchIndexEntry(new SearchParameter { Name = parameterName }, value);
+            SearchIndexEntry entry = new SearchIndexEntry(new SearchParameterInfo(parameterName), value);
 
             IReadOnlyList<JObject> generatedObjects = _generator.Generate(entry);
 

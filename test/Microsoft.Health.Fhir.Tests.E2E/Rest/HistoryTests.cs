@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Web;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Client = fixture.FhirClient;
 
-            _createdResource = Client.CreateAsync(Samples.GetDefaultObservation()).GetAwaiter().GetResult();
+            _createdResource = Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()).GetAwaiter().GetResult();
         }
 
         protected FhirClient Client { get; set; }
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             _createdResource.Resource.Comment = "Changed by E2E test";
             Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
-            FhirResponse<Patient> newPatient = Client.CreateAsync(Samples.GetDefaultPatient()).GetAwaiter().GetResult();
+            FhirResponse<Resource> newPatient = Client.CreateAsync(Samples.GetDefaultPatient().ToPoco()).GetAwaiter().GetResult();
 
             Thread.Sleep(500);
             var before = DateTime.UtcNow;
@@ -144,13 +145,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // First make a few edits
             _createdResource.Resource.Comment = "Changed by E2E test";
             await Client.UpdateAsync<Observation>(_createdResource);
-            newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient()));
-            newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization()));
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient().ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco()));
             Thread.Sleep(1000);
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodGlucose") as Observation));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodPressure") as Observation));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Patient-f001") as Patient));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001") as Condition));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodGlucose").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodPressure").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Patient-f001").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001").ToPoco()));
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
@@ -201,16 +202,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // First make 11 edits
             _createdResource.Resource.Comment = "Changed by E2E test";
             await Client.UpdateAsync<Observation>(_createdResource);
-            newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient()));
-            newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization()));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodGlucose") as Observation));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodPressure") as Observation));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Patient-f001") as Patient));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001") as Condition));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Encounter-For-Patient-f001") as Encounter));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Observation-For-Patient-f001") as Observation));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith1MinuteApgarScore") as Observation));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith20MinuteApgarScore") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient().ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodGlucose").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("BloodPressure").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Patient-f001").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Condition-For-Patient-f001").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("Observation-For-Patient-f001").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith1MinuteApgarScore").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith20MinuteApgarScore").ToPoco()));
 
             Thread.Sleep(500); // Leave a small gap in the timestamp
             var before = DateTime.UtcNow;
@@ -263,7 +264,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Thread.Sleep(500);
 
-            var newPatient = Client.CreateAsync(Samples.GetDefaultPatient()).GetAwaiter().GetResult();
+            var newPatient = Client.CreateAsync(Samples.GetDefaultPatient().ToPoco()).GetAwaiter().GetResult();
 
             Thread.Sleep(500);
 
