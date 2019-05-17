@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -16,14 +15,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        protected override V1.ReferenceSearchParamTableTypeRow GenerateRow(short searchParamId, SearchParameter searchParameter, ReferenceSearchValue searchValue)
+        internal override bool TryGenerateRow(short searchParamId, ReferenceSearchValue searchValue, out V1.ReferenceSearchParamTableTypeRow row)
         {
-            return new V1.ReferenceSearchParamTableTypeRow(
+            row = new V1.ReferenceSearchParamTableTypeRow(
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 Model.GetResourceTypeId(searchValue.ResourceType.ToString()),
                 searchValue.ResourceId,
                 ReferenceResourceVersion: null);
+
+            return true;
         }
     }
 }

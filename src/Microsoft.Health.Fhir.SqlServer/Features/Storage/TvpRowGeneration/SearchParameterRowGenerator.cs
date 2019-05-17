@@ -4,9 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -24,14 +23,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         public virtual IEnumerable<TRow> GenerateRows(ResourceMetadata input)
         {
-            return input.GetSearchIndexEntriesByType(typeof(TSearchValue))
-                .Where(v => ShouldGenerateRow(v.SearchParameter, (TSearchValue)v.Value))
-                .Select(v => GenerateRow(Model.GetSearchParamId(v.SearchParameter.Url), v.SearchParameter, (TSearchValue)v.Value))
-                .Distinct();
+            foreach (SearchIndexEntry v in input.GetSearchIndexEntriesByType(typeof(TSearchValue)))
+            {
+                foreach (var searchValue in ConvertSearchValue(v))
+                {
+                    if (TryGenerateRow(Model.GetSearchParamId(v.SearchParameter.Url), searchValue, out TRow row))
+                    {
+                        yield return row;
+                    }
+                }
+            }
         }
 
-        protected virtual bool ShouldGenerateRow(SearchParameter searchParameter, TSearchValue searchValue) => true;
+        protected virtual IEnumerable<TSearchValue> ConvertSearchValue(SearchIndexEntry entry) => new[] { (TSearchValue)entry.Value };
 
-        protected abstract TRow GenerateRow(short searchParamId, SearchParameter searchParameter, TSearchValue searchValue);
+        internal abstract bool TryGenerateRow(short searchParamId, TSearchValue searchValue, out TRow row);
     }
 }
