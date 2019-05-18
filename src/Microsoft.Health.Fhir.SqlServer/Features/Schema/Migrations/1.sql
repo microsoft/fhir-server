@@ -957,7 +957,7 @@ CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
     SystemId1 int NULL,
     Code1 varchar(128) NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
-    TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
+    TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
 
 CREATE TABLE dbo.TokenStringCompositeSearchParam
@@ -967,7 +967,7 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
     SystemId1 int NULL,
     Code1 varchar(128) NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_CI_AI NOT NULL,
-    TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NOT NULL,
+    TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 

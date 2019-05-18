@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
             internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256);
-            internal readonly NVarCharColumn TextOverflow2 = new NVarCharColumn("TextOverflow2", -1);
+            internal readonly NullableNVarCharColumn TextOverflow2 = new NullableNVarCharColumn("TextOverflow2", -1);
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -1340,7 +1340,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
             internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256);
-            internal readonly NVarCharColumn TextOverflow2 = new NVarCharColumn("TextOverflow2", -1);
+            internal readonly NullableNVarCharColumn TextOverflow2 = new NullableNVarCharColumn("TextOverflow2", -1);
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, Text2, TextOverflow2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenStringCompositeSearchParamTableTypeRow rowData)
             {
