@@ -59,6 +59,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 parameter).Compile();
         }
 
+        /// <summary>
+        /// Helper class to make the generated code in <see cref="CreateConverterFunc"/>
+        /// a little simpler.
+        /// </summary>
+        /// <typeparam name="T">The element type</typeparam>
         private struct EnumeratorWrapper<T>
         {
             private readonly IEnumerator<T> _enumerator;

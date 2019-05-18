@@ -495,6 +495,12 @@ GO
     Number Search Param
 **************************************************************/
 
+-- We support the underlying value being a range, though we expect the vast majority of entries to be a single value.
+-- Either: 
+--  (1) SingleValue is not null and LowValue and HighValue are both null, or
+--  (2) SingleValue is null and LowValue and HighValue are both not null
+-- We make use of filtered nonclustered indexes to keep queries over the ranges limited to those rows that actually have ranges
+
 CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE  
 (
     SearchParamId smallint NOT NULL,
@@ -552,6 +558,8 @@ GO
 /*************************************************************
     Quantity Search Param
 **************************************************************/
+
+-- See comment above for number search params for how we store ranges
 
 CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE  
 (
@@ -1007,6 +1015,12 @@ GO
 /*************************************************************
     Token$Number$Number Composite Search Param
 **************************************************************/
+
+-- See number search param for how we deal with null. We apply a similar pattern here,
+-- except that we pass in a HasRange bit though the TVP. The alternative would have
+-- for a computed column, but a computed column cannot be used in as a index filter
+-- (even if it is a persisted computed column).
+
 
 CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE  
 (
