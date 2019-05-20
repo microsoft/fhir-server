@@ -13,5 +13,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Configs
         /// Allows the experimental schema initializer to attempt to bring the schema to the minimum supported version.
         /// </summary>
         public bool Initialize { get; set; }
+
+        /// <summary>
+        /// WARNING: THIS RESETS ALL DATA IN THE DATABASE
+        /// If set, this applies schema 1 which resets all the data in the database. This is temporary until the schema migration tool is complete. 
+        /// </summary>
+        public bool DeleteAllDataOnStartup { get; set; }
     }
 }
