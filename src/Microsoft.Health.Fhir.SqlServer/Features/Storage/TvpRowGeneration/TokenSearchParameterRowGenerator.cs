@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         internal override bool TryGenerateRow(short searchParamId, TokenSearchValue searchValue, out V1.TokenSearchParamTableTypeRow row)
         {
-            // don't store if the code is empty or if this the Resource _id parameter. The id is already maintained on the Resource table.
+            // don't store if the code is empty or if this is the Resource _id parameter. The id is already maintained on the Resource table.
             if (string.IsNullOrWhiteSpace(searchValue.Code) ||
                 searchParamId == _resourceIdSearchParamId)
             {

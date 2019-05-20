@@ -16,7 +16,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         where TRow : struct
     {
         private readonly bool _isConvertSearchValueOverridden;
-        private readonly bool _isInitializeOverridden;
         private bool _isInitialized;
 
         protected SearchParameterRowGenerator(SqlServerFhirModel model)
@@ -24,8 +23,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             EnsureArg.IsNotNull(model, nameof(model));
             Model = model;
             _isConvertSearchValueOverridden = GetType().GetMethod(nameof(ConvertSearchValue), BindingFlags.Instance | BindingFlags.NonPublic).DeclaringType != typeof(SearchParameterRowGenerator<TSearchValue, TRow>);
-            _isInitializeOverridden = GetType().GetMethod(nameof(Initialize), BindingFlags.Instance | BindingFlags.NonPublic).DeclaringType != typeof(SearchParameterRowGenerator<TSearchValue, TRow>);
-            _isInitialized = !_isInitializeOverridden;
         }
 
         protected SqlServerFhirModel Model { get; }
@@ -61,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         private void EnsureInitialized()
         {
-            if (!_isInitializeOverridden || Volatile.Read(ref _isInitialized))
+            if (Volatile.Read(ref _isInitialized))
             {
                 return;
             }
