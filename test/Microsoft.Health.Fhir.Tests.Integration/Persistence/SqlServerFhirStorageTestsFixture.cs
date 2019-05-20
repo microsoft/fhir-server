@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
             _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            _masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "Master", ConnectTimeout = 600 }.ToString();
+            _masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "master" }.ToString();
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             using (var connection = new SqlConnection(_masterConnectionString))
@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 using (SqlCommand command = connection.CreateCommand())
                 {
+                    command.CommandTimeout = 600;
                     command.CommandText = $"CREATE DATABASE {_databaseName}";
                     command.ExecuteNonQuery();
                 }
@@ -85,6 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 using (SqlCommand command = connection.CreateCommand())
                 {
+                    command.CommandTimeout = 600;
                     command.CommandText = $"DROP DATABASE IF EXISTS {_databaseName}";
                     command.ExecuteNonQuery();
                 }
