@@ -23,18 +23,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestsFixture : IServiceProvider, IDisposable
     {
-        private readonly string _initialConnectionString;
+        private readonly string _masterConnectionString;
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
 
         public SqlServerFhirStorageTestsFixture()
         {
-            _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
+            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
             _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName }.ToString();
+            _masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "Master" }.ToString();
+            TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
-            using (var connection = new SqlConnection(_initialConnectionString))
+            using (var connection = new SqlConnection(_masterConnectionString))
             {
                 connection.Open();
 
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public void Dispose()
         {
-            using (var connection = new SqlConnection(_initialConnectionString))
+            using (var connection = new SqlConnection(_masterConnectionString))
             {
                 connection.Open();
                 SqlConnection.ClearAllPools();
