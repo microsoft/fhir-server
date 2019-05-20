@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Configs
 
         /// <summary>
         /// WARNING: THIS RESETS ALL DATA IN THE DATABASE
-        /// If set, this applies schema 1 which resets all the data in the database. This is temporary until the schema migration tool is complete. 
+        /// If set, this applies schema 1 which resets all the data in the database. This is temporary until the schema migration tool is complete.
         /// </summary>
         public bool DeleteAllDataOnStartup { get; set; }
     }
