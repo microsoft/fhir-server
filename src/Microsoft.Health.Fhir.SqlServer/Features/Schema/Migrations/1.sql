@@ -1227,8 +1227,12 @@ AS
 
     -- This should place a range lock on a row in the IX_Resource_ResourceTypeId_ResourceId nonclustered filtered index
     SELECT @previousResourceSurrogateId = ResourceSurrogateId, @previousVersion = Version, @previousIsDeleted = IsDeleted
-    FROM Resource WITH (UPDLOCK, HOLDLOCK)
+    FROM dbo.Resource WITH (UPDLOCK, HOLDLOCK)
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
+
+    IF (@etag IS NOT NULL AND @etag <> @previousVersion) BEGIN
+        THROW 50412, 'Precondition failed', 1;
+    END
 
     DECLARE @version int -- the version of the resource being written
 
@@ -1385,11 +1389,6 @@ AS
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
         END
-    END
-
-
-    IF (@etag IS NOT NULL AND @etag <> @previousVersion) BEGIN
-        THROW 50412, 'Precondition failed', 1;
     END
 
     DECLARE @resourceSurrogateId bigint = NEXT VALUE FOR dbo.ResourceSurrogateIdSequence
