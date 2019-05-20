@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // There is no remote FHIR server. Skip test
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TestEnvironmentUrl")))
             {
-               return;
+                return;
             }
 
             var since = GetStartTimeForHistoryTest();
@@ -216,14 +216,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Thread.Sleep(1000); // Leave a small gap in the timestamp
             var before = DateTime.UtcNow;
 
-            var sinceUriString = string.Empty;
+            var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
             bool historyHas10Entries = false;
 
             // wait for above values to be represented in history results
             for (int i = 0; i < 5; i++)
             {
-                sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
                 FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
 
                 if (readResponse.Resource.Entry.Count == 10)
@@ -233,7 +232,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 }
 
                 Thread.Sleep(2000);
-                since = DateTime.UtcNow;
             }
 
             Assert.True(historyHas10Entries);
