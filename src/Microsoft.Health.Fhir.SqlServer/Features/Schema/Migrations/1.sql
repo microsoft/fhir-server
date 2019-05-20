@@ -29,10 +29,20 @@ GO
 **************************************************************/
 
 -- Enable RCSI
-ALTER DATABASE CURRENT SET READ_COMMITTED_SNAPSHOT ON
+IF ((SELECT is_read_committed_snapshot_on FROM sys.databases WHERE database_id = DB_ID()) = 0) BEGIN
+    ALTER DATABASE CURRENT SET READ_COMMITTED_SNAPSHOT ON
+END
 
 -- Avoid blocking queries when statistics need to be rebuilt
-ALTER DATABASE CURRENT SET AUTO_UPDATE_STATISTICS_ASYNC ON
+IF ((SELECT is_auto_update_stats_async_on FROM sys.databases WHERE database_id = DB_ID()) = 0) BEGIN
+    ALTER DATABASE CURRENT SET AUTO_UPDATE_STATISTICS_ASYNC ON
+END
+
+-- Use ANSI behavior for null values
+IF ((SELECT is_ansi_nulls_on FROM sys.databases WHERE database_id = DB_ID()) = 0) BEGIN
+    ALTER DATABASE CURRENT SET ANSI_NULLS ON 
+END
+
 GO
 
 /*************************************************************
@@ -176,21 +186,28 @@ CREATE TABLE dbo.Resource
     RawResource varbinary(max) NOT NULL
 )
 
-CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource (
+CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource 
+(
     ResourceSurrogateId
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON dbo.Resource (
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON dbo.Resource 
+(
     ResourceTypeId,
     ResourceId,
     Version
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Resource (
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Resource 
+(
     ResourceTypeId,
     ResourceId
 )
-INCLUDE (Version)
+INCLUDE -- We want the query in UpsertResource, which is done with UPDLOCK AND HOLDLOCK, to not require a key lookup
+(
+    Version, 
+    IsDeleted
+)
 WHERE IsHistory = 0
 
 /*************************************************************
@@ -1203,33 +1220,23 @@ AS
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
-    DECLARE @previousVersion TABLE(
-        ResourceSurrogateId bigint NOT NULL,
-        Version int NOT NULL);
+    -- variables for the existing version of the resource that will be replaced
+    DECLARE @previousResourceSurrogateId bigint
+    DECLARE @previousVersion bigint
+    DECLARE @previousIsDeleted bit
 
-    if (@keepHistory = 1) BEGIN
-        -- Preserve the existing version, marking it as history
-        UPDATE dbo.Resource WITH (UPDLOCK, HOLDLOCK)
-        SET IsHistory = 1
-        OUTPUT inserted.ResourceSurrogateId,
-                inserted.Version
-        INTO @previousVersion
-        WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0 AND (@isDeleted = 0 OR IsDeleted = 0)
-    END
-    ELSE BEGIN
-        -- Delete the previous version
-        DELETE FROM dbo.Resource WITH (UPDLOCK, HOLDLOCK)
-        OUTPUT deleted.ResourceSurrogateId,
-                deleted.Version
-        INTO @previousVersion
-        WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0 AND (@isDeleted = 0 OR IsDeleted = 0)
-    END
+    -- This should place a range lock on a row in the IX_Resource_ResourceTypeId_ResourceId nonclustered filtered index
+    SELECT @previousResourceSurrogateId = ResourceSurrogateId, @previousVersion = Version, @previousIsDeleted = IsDeleted 
+    FROM Resource WITH (UPDLOCK, HOLDLOCK)
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
 
-    DECLARE @version int;
+    DECLARE @version int -- the version of the resource being written
 
-    if (@@ROWCOUNT = 0) BEGIN
+    IF (@previousResourceSurrogateId IS NULL) BEGIN
+        -- There is no previous version of this resource
+
         IF (@isDeleted = 1) BEGIN
-            -- Either a previous version does not exist or it is already an "IsDeleted" version
+            -- Don't bother marking the resource as deleted since it already does not exist.
             COMMIT TRANSACTION
             RETURN
         END
@@ -1242,14 +1249,24 @@ AS
     END
     ELSE BEGIN
         -- There is a previous version
-        DECLARE @previousResourceSurrogateId bigint
         
-        SELECT @version = (Version + 1), @previousResourceSurrogateId = ResourceSurrogateId 
-        FROM @previousVersion
+        IF (@isDeleted = 1 AND @previousIsDeleted = 1) BEGIN
+            -- Already deleted - don't create a new version
+            COMMIT TRANSACTION
+            RETURN
+        END
+
+        SELECT @version = @previousVersion + 1
 
         IF (@keepHistory = 1) BEGIN
 
-            -- note there is no IsHistory column on ResourceWriteClaim since we do not query it
+            -- Set the existing resource as history
+            UPDATE dbo.Resource
+            SET IsHistory = 1
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+
+            -- Set the indexes for this resource as history.
+            -- Note there is no IsHistory column on ResourceWriteClaim since we do not query it.
 
             UPDATE dbo.CompartmentAssignment
             SET IsHistory = 1
@@ -1313,6 +1330,11 @@ AS
 
         END
         ELSE BEGIN
+            
+            -- Not keeping history. Delete the current resource and all associated indexes.
+
+            DELETE FROM dbo.Resource 
+            WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.ResourceWriteClaim
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
@@ -1366,7 +1388,7 @@ AS
     END
 
 
-    IF (@etag IS NOT NULL AND @etag <> (@version - 1)) BEGIN
+    IF (@etag IS NOT NULL AND @etag <> @previousVersion) BEGIN
         THROW 50412, 'Precondition failed', 1;
     END
 
