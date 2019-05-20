@@ -210,6 +210,11 @@ INCLUDE -- We want the query in UpsertResource, which is done with UPDLOCK AND H
 )
 WHERE IsHistory = 0
 
+CREATE NONCLUSTERED INDEX IX_Resource_LastUpdated ON dbo.Resource
+(
+    LastUpdated
+)
+
 /*************************************************************
     Capture claims on write
 **************************************************************/
