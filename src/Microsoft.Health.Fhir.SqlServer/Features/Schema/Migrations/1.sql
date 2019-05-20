@@ -442,7 +442,7 @@ INCLUDE
 WHERE IsHistory = 0 AND TextOverflow IS NULL
 WITH (DATA_COMPRESSION = PAGE)
 
-CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWhereNoOverflow
+CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 ON dbo.StringSearchParam
 (
     SearchParamId,
