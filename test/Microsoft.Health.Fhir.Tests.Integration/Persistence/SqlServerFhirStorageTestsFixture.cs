@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
             _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            _masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "Master" }.ToString();
+            _masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "Master", ConnectTimeout = 600 }.ToString();
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             using (var connection = new SqlConnection(_masterConnectionString))
