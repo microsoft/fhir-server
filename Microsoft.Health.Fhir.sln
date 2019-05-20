@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28729.10
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.645
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8AD2A324-DAB5-4380-94A5-31F7D817C384}"
 EndProject
@@ -75,6 +75,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SqlServer.UnitTests", "src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj", "{E02E5224-32CD-490F-B1E5-8509AD669334}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.KeyVault", "src\Microsoft.Health.Fhir.KeyVault\Microsoft.Health.Fhir.KeyVault.csproj", "{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Stu3.Api", "src\FHIR\STU3\Microsoft.Health.Fhir.Stu3.Api\Microsoft.Health.Fhir.Stu3.Api.csproj", "{CDE7A8A6-9A40-4914-8E7B-FAAF98DD4EE8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -186,6 +188,10 @@ Global
 		{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CDE7A8A6-9A40-4914-8E7B-FAAF98DD4EE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CDE7A8A6-9A40-4914-8E7B-FAAF98DD4EE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CDE7A8A6-9A40-4914-8E7B-FAAF98DD4EE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CDE7A8A6-9A40-4914-8E7B-FAAF98DD4EE8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -221,9 +227,10 @@ Global
 		{4DDF9576-E22C-460A-937F-0EE0FEA6DB87} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{E02E5224-32CD-490F-B1E5-8509AD669334} = {7457B218-2651-49B5-BED8-22233889516A}
 		{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD} = {7457B218-2651-49B5-BED8-22233889516A}
+		{CDE7A8A6-9A40-4914-8E7B-FAAF98DD4EE8} = {D6F23CE5-CCF6-4B52-9BEB-72294756E6C6}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 EndGlobal
