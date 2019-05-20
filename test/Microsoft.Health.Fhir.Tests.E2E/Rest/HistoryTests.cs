@@ -240,8 +240,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Thread.Sleep(500);
 
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWithBloodPressure") as Observation));
-            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWithEyeColor") as Observation));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWithBloodPressure").ToPoco()));
+            newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWithEyeColor").ToPoco()));
 
             Thread.Sleep(500);
 
