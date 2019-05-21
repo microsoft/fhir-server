@@ -13,5 +13,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.FixtureParameters
         Json = 1,
 
         Xml = 2,
+
+        All = Json | Xml,
     }
 }
