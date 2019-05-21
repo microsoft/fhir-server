@@ -93,8 +93,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+#if DEBUG // checks are only enabled on debug builds.
         [Fact]
-        [Conditional("DEBUG")] // checks are only enabled on debug builds.
         public void GivenASqlDataReader_WhenReadingFieldsWithIncorrectCorrectNamesAndOrdinals_Throws()
         {
             using (var connection = new SqlConnection(_connectionString))
@@ -111,5 +111,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.Throws<InvalidOperationException>(() => sqlDataReader.GetInt64("int", 0));
             }
         }
+#endif
     }
 }
