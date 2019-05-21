@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -15,6 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         where TRow : struct
     {
         private readonly bool _isConvertSearchValueOverridden;
+        private bool _isInitialized;
 
         protected SearchParameterRowGenerator(SqlServerFhirModel model)
         {
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         public virtual IEnumerable<TRow> GenerateRows(ResourceMetadata input)
         {
+            EnsureInitialized();
+
             foreach (SearchIndexEntry v in input.GetSearchIndexEntriesByType(typeof(TSearchValue)))
             {
                 short searchParamId = Model.GetSearchParamId(v.SearchParameter.Url);
@@ -52,7 +56,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             }
         }
 
+        private void EnsureInitialized()
+        {
+            if (Volatile.Read(ref _isInitialized))
+            {
+                return;
+            }
+
+            Initialize();
+
+            Volatile.Write(ref _isInitialized, true);
+        }
+
         protected virtual IEnumerable<TSearchValue> ConvertSearchValue(SearchIndexEntry entry) => new[] { (TSearchValue)entry.Value };
+
+        protected virtual void Initialize()
+        {
+        }
 
         internal abstract bool TryGenerateRow(short searchParamId, TSearchValue searchValue, out TRow row);
     }

@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly TinyIntColumn CompartmentTypeId = new TinyIntColumn("CompartmentTypeId");
             internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64);
@@ -77,6 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly DateTime2Column StartDateTime = new DateTime2Column("StartDateTime", 7);
@@ -90,6 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
@@ -114,6 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
@@ -130,6 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableVarCharColumn BaseUri = new NullableVarCharColumn("BaseUri", 128);
@@ -145,6 +150,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableVarCharColumn BaseUri1 = new NullableVarCharColumn("BaseUri1", 128);
@@ -220,6 +226,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256);
@@ -243,6 +250,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
@@ -258,6 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
@@ -278,6 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
@@ -296,6 +306,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
@@ -309,6 +320,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
@@ -324,6 +336,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400);
@@ -336,6 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
@@ -351,6 +365,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256);
