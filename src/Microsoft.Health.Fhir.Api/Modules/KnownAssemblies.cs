@@ -3,16 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.ValueSets
+using System.Reflection;
+using Microsoft.Health.Fhir.Core;
+
+namespace Microsoft.Health.Fhir.Api.Modules
 {
-    public static class SystemRestfulInteraction
+    public static class KnownAssemblies
     {
-        public const string Batch = "batch";
+        public static Assembly Core => typeof(Clock).Assembly;
 
-        public const string HistorySystem = "history-system";
-
-        public const string SearchSystem = "search-system";
-
-        public const string Transaction = "transaction";
+        public static Assembly CoreStu3 => typeof(Stu3ModelInfoProvider).Assembly;
     }
 }

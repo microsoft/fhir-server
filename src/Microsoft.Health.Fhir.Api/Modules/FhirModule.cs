@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<IProvideCapability>();
 
-            services.TypesInSameAssembly(typeof(IProvideCapability).Assembly, typeof(Stu3ModelInfoProvider).Assembly)
+            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreStu3)
                 .AssignableTo<IProvideCapability>()
                 .Transient()
                 .AsService<IProvideCapability>();

@@ -7,13 +7,7 @@ namespace Microsoft.Health.Fhir.ValueSets
 {
     public static class TypeRestfulInteraction
     {
-        public const string Read = "read";
-
-        public const string Vread = "vread";
-
-        public const string Update = "update";
-
-        public const string Patch = "patch";
+        public const string Create = "create";
 
         public const string Delete = "delete";
 
@@ -21,8 +15,14 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string HistoryType = "history-type";
 
-        public const string Create = "create";
+        public const string Patch = "patch";
+
+        public const string Read = "read";
 
         public const string SearchType = "search-type";
+
+        public const string Update = "update";
+
+        public const string Vread = "vread";
     }
 }
