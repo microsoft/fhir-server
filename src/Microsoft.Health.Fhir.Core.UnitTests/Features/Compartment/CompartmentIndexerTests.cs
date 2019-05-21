@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
 
         private readonly ICompartmentDefinitionManager _compartmentManager = Substitute.For<ICompartmentDefinitionManager>();
         private readonly CompartmentIndexer _compartmentIndexer;
+        private readonly Uri _baseUri = new Uri("http://localhost");
 
         public CompartmentIndexerTests()
         {
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
                 });
             var searchIndexEntries = new List<SearchIndexEntry>
             {
-                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(referenceKind, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType.ToString()).ToString(), expectedResourceId)),
+                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(referenceKind, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType.ToString()).ToString(), expectedResourceId)),
                 new SearchIndexEntry(_nonReferenceReferenceSearchTestParam, new StringSearchValue("aadsdas")),
             };
             CompartmentIndices compartmentIndices = _compartmentIndexer.Extract(resourceType.ToString(), searchIndexEntries);
@@ -124,9 +125,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             // Setup multiple reference search parameters with expected resource ids for the compartments.
             var searchIndexEntries = new List<SearchIndexEntry>
             {
-                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType1Str).ToString(), ExpectedResourceIdR1)),
-                new SearchIndexEntry(_anotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.Internal, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType2Str).ToString(), ExpectedResourceIdR2)),
-                new SearchIndexEntry(_yetAnotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.External, new Uri("http://localhost"), CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType3Str).ToString(), ExpectedResourceIdR3)),
+                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType1Str).ToString(), ExpectedResourceIdR1)),
+                new SearchIndexEntry(_anotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.Internal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType2Str).ToString(), ExpectedResourceIdR2)),
+                new SearchIndexEntry(_yetAnotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.External, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType3Str).ToString(), ExpectedResourceIdR3)),
             };
 
             CompartmentIndices compartmentIndices = _compartmentIndexer.Extract(expectedCareTeamResource, searchIndexEntries);
