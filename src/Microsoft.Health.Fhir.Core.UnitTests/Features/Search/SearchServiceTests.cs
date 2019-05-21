@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
                 .Returns(x => new SearchOptions());
 
-            _searchService = new TestSearchService(_searchOptionsFactory, _bundleFactory, _fhirDataStore);
+            _searchService = new TestSearchService(_searchOptionsFactory, _bundleFactory, _fhirDataStore, new Stu3ModelInfoProvider());
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
 
             _urlResolver.ResolveRouteUrl(Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(SearchUrl);
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenANullSearchOptionsFactory_WhenInitializing_ThenInitializationShouldFail()
         {
-            Assert.Throws<ArgumentNullException>(ParamNameSearchOptionsFactory, () => new TestSearchService(null, _bundleFactory, null));
+            Assert.Throws<ArgumentNullException>(ParamNameSearchOptionsFactory, () => new TestSearchService(null, _bundleFactory, null, new Stu3ModelInfoProvider()));
         }
 
         [Fact]
@@ -185,8 +185,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private class TestSearchService : SearchService
         {
-            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore)
-                : base(searchOptionsFactory, bundleFactory, fhirDataStore)
+            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
+                : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
             {
                 SearchImplementation = options => null;
             }

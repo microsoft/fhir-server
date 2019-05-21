@@ -5,13 +5,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using static Hl7.Fhir.Model.CapabilityStatement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
-    public sealed class ListedCapabilityStatement
+    public sealed class ListedCapabilityStatement : IListedCapabilityStatement
     {
         public Uri Url { get; set; }
 
@@ -42,5 +45,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public IList<ListedRestComponent> Rest { get; set; }
 
         public IList<Code<PublicationStatus>> StatusElement { get; set; }
+
+        public void TryAddRestInteraction(string resourceType, string value)
+        {
+            EnsureArg.IsNotNullOrEmpty(value, nameof(value));
+            EnsureArg.IsTrue(Enum.TryParse<ResourceType>(resourceType, out var resource), nameof(resourceType));
+
+            var interaction = value.GetValueByEnumLiteral<TypeRestfulInteraction>();
+
+            this.TryAddRestInteraction(resource, interaction);
+        }
+
+        public void TryAddRestInteraction(string interaction)
+        {
+            EnsureArg.IsNotNullOrEmpty(interaction, nameof(interaction));
+
+            var systemInteraction = interaction.GetValueByEnumLiteral<SystemRestfulInteraction>();
+
+            var restComponent = Rest.Single();
+
+            if (restComponent.Interaction == null)
+            {
+                restComponent.Interaction = new List<SystemInteractionComponent>();
+            }
+
+            restComponent.Interaction.Add(new SystemInteractionComponent
+            {
+                Code = systemInteraction,
+            });
+        }
+
+        public void BuildRestResourceComponent(string resourceType, Action<IListedResourceComponent> action)
+        {
+            EnsureArg.IsTrue(Enum.TryParse<ResourceType>(resourceType, out var resource), nameof(resourceType));
+
+            this.BuildRestResourceComponent(resource, action);
+        }
     }
 }

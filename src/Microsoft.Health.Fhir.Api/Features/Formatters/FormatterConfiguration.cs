@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             options.Filters.Remove(unsupportedContentTypeFilter);
         }
 
-        public void Build(ListedCapabilityStatement statement)
+        public void Build(IListedCapabilityStatement statement)
         {
             if (_featureConfiguration.SupportsXml)
             {

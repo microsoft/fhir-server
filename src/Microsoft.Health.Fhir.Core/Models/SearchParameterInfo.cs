@@ -18,9 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Models
             ICollection<SearchParameterComponentInfo> components)
             : this(name)
         {
-            EnsureArg.IsNotNull(url, nameof(url));
-            EnsureArg.IsNotNullOrEmpty(searchParamType, nameof(searchParamType));
-
             Url = url;
             Type = searchParamType;
             Component = components;

@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 {
@@ -49,9 +50,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), result.OutcomeType));
         }
 
-        protected override void AddResourceCapability(ListedCapabilityStatement statement, ResourceType resourceType)
+        protected override void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
         {
-            statement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.Update);
+            statement.TryAddRestInteraction(resourceType, TypeRestfulInteraction.Update);
         }
     }
 }

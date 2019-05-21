@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 typeof(INotificationHandler<>),
             };
 
-            services.TypesInSameAssemblyAs<IFhirDataStore>()
+            services.TypesInSameAssembly(typeof(IFhirDataStore).Assembly, typeof(Stu3ModelInfoProvider).Assembly)
                 .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
                 .Transient()
                 .AsImplementedInterfaces(x => x == typeof(IProvideCapability));

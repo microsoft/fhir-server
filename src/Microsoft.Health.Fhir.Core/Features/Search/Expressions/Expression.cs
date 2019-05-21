@@ -4,8 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -20,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="expression">The expression over the parameter's values.</param>
         /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
-        public static SearchParameterExpression SearchParameter(SearchParameter searchParameter, Expression expression)
+        public static SearchParameterExpression SearchParameter(SearchParameterInfo searchParameter, Expression expression)
         {
             return new SearchParameterExpression(searchParameter, expression);
         }
@@ -31,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
         /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
-        public static MissingSearchParameterExpression MissingSearchParameter(SearchParameter searchParameter, bool isMissing)
+        public static MissingSearchParameterExpression MissingSearchParameter(SearchParameterInfo searchParameter, bool isMissing)
         {
             return new MissingSearchParameterExpression(searchParameter, isMissing);
         }
@@ -64,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="targetResourceType">The target resource type.</param>
         /// <param name="expression">The expression.</param>
         /// <returns>A <see cref="ChainedExpression"/> that represents chained operation on <paramref name="targetResourceType"/> through <paramref name="paramName"/>.</returns>
-        public static ChainedExpression Chained(string resourceType, string paramName, ResourceType targetResourceType, Expression expression)
+        public static ChainedExpression Chained(string resourceType, string paramName, string targetResourceType, Expression expression)
         {
             return new ChainedExpression(resourceType, paramName, targetResourceType, expression);
         }
@@ -229,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="compartmentType">The compartment type.</param>
         /// <param name="compartmentId">The compartment id.</param>
         /// <returns>A <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.</returns>
-        public static CompartmentSearchExpression CompartmentSearch(CompartmentType compartmentType, string compartmentId)
+        public static CompartmentSearchExpression CompartmentSearch(string compartmentType, string compartmentId)
         {
             return new CompartmentSearchExpression(compartmentType, compartmentId);
         }
