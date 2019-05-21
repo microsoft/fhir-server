@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -57,7 +58,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             schemaInitializer.Start();
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.AllSearchParameters.Returns(new SearchParameter[0]);
+            searchParameterDefinitionManager.AllSearchParameters.Returns(new[]
+            {
+                new SearchParameter { Id = SearchParameterNames.Id, Url = SearchParameterNames.IdUri.ToString() },
+                new SearchParameter { Id = SearchParameterNames.LastUpdated, Url = SearchParameterNames.LastUpdatedUri.ToString() },
+            });
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 

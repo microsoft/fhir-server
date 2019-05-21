@@ -16,7 +16,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb | DataStore.SqlServer, Format.Json | Format.Xml)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class UpdateTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         public UpdateTests(HttpIntegrationTestFixture<Startup> fixture)

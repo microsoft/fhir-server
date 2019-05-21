@@ -19,7 +19,7 @@ using HttpMethod = System.Net.Http.HttpMethod;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Cors)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb | DataStore.SqlServer, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CorsTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly FhirClient _client;
