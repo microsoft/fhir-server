@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Compartment
 
             foreach (var indexEntry in searchIndices)
             {
-                if (indexEntry.Value is ReferenceSearchValue refValue && CompartmentDefinitionManager.ResourceTypeToCompartmentType.TryGetValue(refValue.ResourceType.Value, out CompartmentType compartmentType))
+                if (indexEntry.Value is ReferenceSearchValue refValue && refValue.ResourceType.HasValue && CompartmentDefinitionManager.ResourceTypeToCompartmentType.TryGetValue(refValue.ResourceType.Value, out CompartmentType compartmentType))
                 {
                     if (!retDict.TryGetValue(compartmentType, out List<SearchIndexEntry> searchIndexEntries))
                     {
