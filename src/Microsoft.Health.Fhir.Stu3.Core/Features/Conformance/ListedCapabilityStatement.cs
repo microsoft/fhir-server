@@ -46,21 +46,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public IList<Code<PublicationStatus>> StatusElement { get; set; }
 
-        public void TryAddRestInteraction(string resourceType, string value)
-        {
-            EnsureArg.IsNotNullOrEmpty(value, nameof(value));
-            EnsureArg.IsTrue(Enum.TryParse<ResourceType>(resourceType, out var resource), nameof(resourceType));
-
-            var interaction = value.GetValueByEnumLiteral<TypeRestfulInteraction>();
-
-            this.TryAddRestInteraction(resource, interaction);
-        }
-
-        public void TryAddRestInteraction(string interaction)
+        public void TryAddRestInteraction(string resourceType, string interaction)
         {
             EnsureArg.IsNotNullOrEmpty(interaction, nameof(interaction));
+            EnsureArg.IsTrue(Enum.TryParse<ResourceType>(resourceType, out var resource), nameof(resourceType));
 
-            var systemInteraction = interaction.GetValueByEnumLiteral<SystemRestfulInteraction>();
+            var restInteraction = interaction.GetValueByEnumLiteral<TypeRestfulInteraction>();
+
+            this.TryAddRestInteraction(resource, restInteraction);
+        }
+
+        public void TryAddRestInteraction(string systemInteraction)
+        {
+            EnsureArg.IsNotNullOrEmpty(systemInteraction, nameof(systemInteraction));
+
+            var interaction = systemInteraction.GetValueByEnumLiteral<SystemRestfulInteraction>();
 
             var restComponent = Rest.Single();
 
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             restComponent.Interaction.Add(new SystemInteractionComponent
             {
-                Code = systemInteraction,
+                Code = interaction,
             });
         }
 

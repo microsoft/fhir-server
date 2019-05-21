@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         IList<string> Format { get; }
 
-        void TryAddRestInteraction(string resourceType, string value);
+        void TryAddRestInteraction(string resourceType, string interaction);
 
-        void TryAddRestInteraction(string interaction);
+        void TryAddRestInteraction(string systemInteraction);
 
         void BuildRestResourceComponent(string resourceType, Action<IListedResourceComponent> action);
     }
