@@ -20,12 +20,12 @@ namespace Microsoft.Health.Extensions.Xunit
     /// <summary>
     /// The custom <see cref="XunitTestFrameworkExecutor"/> that has special handling for test classes that use fixtures with parameterized constructor arguments.
     /// </summary>
-    public class FixtureArgumentSetsXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
+    internal class CustomXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
-        public FixtureArgumentSetsXunitTestFrameworkExecutor(AssemblyName assemblyName, ISourceInformationProvider sourceInformationProvider, IMessageSink diagnosticMessageSink)
+        public CustomXunitTestFrameworkExecutor(AssemblyName assemblyName, ISourceInformationProvider sourceInformationProvider, IMessageSink diagnosticMessageSink)
             : base(assemblyName, sourceInformationProvider, diagnosticMessageSink)
         {
-            AssemblyInfo = new FixtureArgumentsAssemblyInfo(AssemblyInfo);
+            AssemblyInfo = new CustomAssemblyInfo(AssemblyInfo);
         }
 
         protected override void RunTestCases(IEnumerable<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
@@ -38,20 +38,54 @@ namespace Microsoft.Health.Extensions.Xunit
 
         private class AssemblyRunner : XunitTestAssemblyRunner
         {
+            private readonly Dictionary<Type, object> _assemblyFixtureMappings = new Dictionary<Type, object>();
+
             public AssemblyRunner(ITestAssembly testAssembly, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
                 : base(testAssembly, testCases, diagnosticMessageSink, executionMessageSink, executionOptions)
             {
             }
 
+            protected override async Task AfterTestAssemblyStartingAsync()
+            {
+                // Let everything initialize
+                await base.AfterTestAssemblyStartingAsync();
+
+                // Find the AssemblyFixtureAttributes placed on the test assembly
+                Aggregator.Run(() =>
+                {
+                    var fixtureAttributes = ((IReflectionAssemblyInfo)TestAssembly.Assembly).Assembly
+                        .GetCustomAttributes(typeof(AssemblyFixtureAttribute), false)
+                        .Cast<AssemblyFixtureAttribute>();
+
+                    foreach (var fixtureAttr in fixtureAttributes)
+                    {
+                        _assemblyFixtureMappings[fixtureAttr.FixtureType] = Activator.CreateInstance(fixtureAttr.FixtureType);
+                    }
+                });
+            }
+
+            protected override Task BeforeTestAssemblyFinishedAsync()
+            {
+                foreach (var disposable in _assemblyFixtureMappings.Values.OfType<IDisposable>())
+                {
+                    Aggregator.Run(disposable.Dispose);
+                }
+
+                return base.BeforeTestAssemblyFinishedAsync();
+            }
+
             protected override Task<RunSummary> RunTestCollectionAsync(IMessageBus messageBus, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, CancellationTokenSource cancellationTokenSource)
-                => new CollectionRunner(testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync();
+                => new CollectionRunner(_assemblyFixtureMappings, testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync();
         }
 
         private class CollectionRunner : XunitTestCollectionRunner
         {
-            public CollectionRunner(ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource)
+            private readonly Dictionary<Type, object> _assemblyFixtureMappings;
+
+            public CollectionRunner(Dictionary<Type, object> assemblyFixtureMappings, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource)
                 : base(testCollection, testCases, diagnosticMessageSink, messageBus, testCaseOrderer, aggregator, cancellationTokenSource)
             {
+                _assemblyFixtureMappings = assemblyFixtureMappings;
             }
 
             protected override Task<RunSummary> RunTestClassAsync(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases)
@@ -73,6 +107,11 @@ namespace Microsoft.Health.Extensions.Xunit
                     combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
                 }
 
+                foreach (var assemblyFixtureMapping in _assemblyFixtureMappings)
+                {
+                    combinedMappings.Add(assemblyFixtureMapping.Key, assemblyFixtureMapping.Value);
+                }
+
                 return new XunitTestClassRunner(
                         testClass,
                         @class,
@@ -92,12 +131,12 @@ namespace Microsoft.Health.Extensions.Xunit
         /// the synthetic classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
         /// <see cref="TestClassWithFixtureArgumentsTypeInfo"/> with Arg1 and Arg2 as the fixture arguments
         /// </summary>
-        private class FixtureArgumentsAssemblyInfo : IAssemblyInfo
+        private class CustomAssemblyInfo : IAssemblyInfo
         {
             private readonly IAssemblyInfo _assemblyInfoImplementation;
             private readonly Regex _argumentsRegex = new Regex(@"\((\s*(?<VALUE>[^, )]+)\s*,?)*\)");
 
-            public FixtureArgumentsAssemblyInfo(IAssemblyInfo assemblyInfoImplementation)
+            public CustomAssemblyInfo(IAssemblyInfo assemblyInfoImplementation)
             {
                 _assemblyInfoImplementation = assemblyInfoImplementation;
             }

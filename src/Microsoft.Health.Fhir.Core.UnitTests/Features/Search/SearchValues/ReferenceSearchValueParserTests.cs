@@ -5,7 +5,6 @@
 
 using System;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using NSubstitute;
@@ -23,8 +22,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
         public ReferenceSearchValueParserTests()
         {
-            ModelExtensions.SetModelInfoProvider();
-
             _fhirRequestContextAccessor.FhirRequestContext.BaseUri.Returns(BaseUri);
 
             _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor);
