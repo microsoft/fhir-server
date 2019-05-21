@@ -11,6 +11,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
@@ -44,7 +45,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         {
             get
             {
-                if (_initializationOperation.EnsureInitialized().Status != TaskStatus.RanToCompletion)
+                if (!_initializationOperation.IsInitialized)
                 {
                     throw new InvalidOperationException($"{nameof(DocumentClientProvider)} has not been initialized.");
                 }
@@ -70,7 +71,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// can be called again to retry the operation.
         /// </summary>
         /// <returns>A task representing the initialization operation.</returns>
-        public Task EnsureInitialized() => _initializationOperation.EnsureInitialized();
+        public async Task EnsureInitialized() => await _initializationOperation.EnsureInitialized();
 
         /// <inheritdoc />
         public void Dispose()
@@ -90,7 +91,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
 
         public IScoped<IDocumentClient> CreateDocumentClientScope()
         {
-            if (_initializationOperation.EnsureInitialized().Status != TaskStatus.RanToCompletion)
+            if (!_initializationOperation.IsInitialized)
             {
                 _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
             }

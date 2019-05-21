@@ -5,7 +5,8 @@
 
 using System;
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Routing
 {
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="resource">The resource whose URL should be resolved for.</param>
         /// <param name="includeVersion">Includes the version in the URL.</param>
         /// <returns>The URL for the given <paramref name="resource"/>.</returns>
-        Uri ResolveResourceUrl(Resource resource, bool includeVersion = false);
+        Uri ResolveResourceUrl(ResourceElement resource, bool includeVersion = false);
 
         /// <summary>
         /// Resolves the URL for the specified route
@@ -44,5 +45,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="routeValues">Any route values to use in the route.</param>
         /// <returns>The URL.</returns>
         Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues);
+
+        /// <summary>
+        /// Resolves the URL for the specified operation.
+        /// </summary>
+        /// <param name="operationName">The name of the operation.</param>
+        /// <param name="id">The id that corresponds to the current operation.</param>
+        /// <returns>The final url.</returns>
+        Uri ResolveOperationResultUrl(string operationName, string id);
     }
 }

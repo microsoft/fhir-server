@@ -6,7 +6,6 @@
 using System;
 using System.IO;
 using System.Net;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,6 +13,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -59,9 +59,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
                 .Received()
                 .ExecuteResultAsync(
                     Arg.Any<HttpContext>(),
-                    Arg.Is<FhirResult>(x => x.StatusCode == HttpStatusCode.InternalServerError &&
-                                            ((OperationOutcome)x.Resource).Id == _correlationId &&
-                                            ((OperationOutcome)x.Resource).Issue[0].Diagnostics == diagnosticMessage));
+                    Arg.Is<OperationOutcomeResult>(x => x.StatusCode == HttpStatusCode.InternalServerError &&
+                                            x.Result.Id == _correlationId &&
+                                            x.Result.Issue[0].Diagnostics == diagnosticMessage));
         }
 
         [Fact]

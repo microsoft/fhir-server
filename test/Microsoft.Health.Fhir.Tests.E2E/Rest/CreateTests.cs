@@ -11,7 +11,9 @@ using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Validation;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
@@ -20,6 +22,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb | DataStore.SqlServer, Format.Json | Format.Xml)]
     public class CreateTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         public CreateTests(HttpIntegrationTestFixture<Startup> fixture)
@@ -33,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenAResource_TheServerShouldRespondSuccessfully()
         {
-            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation());
+            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.NotNull(response.Headers.ETag);
@@ -58,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenAResourceWithIdAndMeta_TheServerShouldRespondSuccessfullyWithUpdatedContents()
         {
-            Observation originalResource = Samples.GetDefaultObservation();
+            Observation originalResource = Samples.GetDefaultObservation().ToPoco<Observation>();
             originalResource.Id = Guid.NewGuid().ToString();
             originalResource.Meta = new Meta
             {
@@ -93,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenAnUnsupportedResourceType_TheServerShouldRespondWithANotFoundResponse()
         {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync("NotObservation", Samples.GetDefaultObservation()));
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync("NotObservation", Samples.GetDefaultObservation().ToPoco<Observation>()));
 
             Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -131,7 +134,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttpWithMaliciousUrl_GivenAResource_TheServerShouldHandleRequest(string code)
         {
-            FhirResponse<Observation> response = await Client.CreateAsync($"Observation?{code}", Samples.GetDefaultObservation());
+            FhirResponse<Observation> response = await Client.CreateAsync($"Observation?{code}", Samples.GetDefaultObservation().ToPoco<Observation>());
 
             // Status should always be created in these tests
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -144,8 +147,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttpWithMaliciousId_GivenAResource_TheServerShouldThrowBadRequestOrNotFound()
         {
-            var observation = Samples.GetDefaultObservation();
-            observation.Id = "' SELECT name FROM syscolumns WHERE id = (SELECT id FROM sysobjects WHERE name = tablename')--";
+            var observation = Samples.GetDefaultObservation()
+                .UpdateId("' SELECT name FROM syscolumns WHERE id = (SELECT id FROM sysobjects WHERE name = tablename')--")
+                .ToPoco<Observation>();
 
             var exception = await Assert.ThrowsAsync<FhirException>(async () => await Client.UpdateAsync(observation));
 
@@ -157,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttpWithMaliciousNarrative_GivenAResource_TheServerShouldHandleRequest(string code)
         {
-            var observation = Samples.GetDefaultObservation();
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Text = new Narrative
             {
                 Status = Narrative.NarrativeStatus.Generated,
@@ -177,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttpWithMaliciousNarrative_GivenAResource_TheServerShouldBlockRequest(string code)
         {
-            var observation = Samples.GetDefaultObservation();
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Text = new Narrative
             {
                 Status = Narrative.NarrativeStatus.Generated,

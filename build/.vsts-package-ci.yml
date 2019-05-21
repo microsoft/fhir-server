@@ -1,0 +1,33 @@
+# DESCRIPTION: 
+# This build configuration is used to test the latest alpha/beta packages for the fhir-net-api.
+
+name: vNext$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
+variables:
+  buildConfiguration: 'Release'
+jobs:
+- job: Windows
+  pool:
+    vmImage: 'vs2017-win2016'
+  steps:
+  - task: NuGetToolInstaller@0
+    displayName: 'Use NuGet 4.7.1'
+    inputs:
+      versionSpec: 4.7.1
+      checkLatest: true
+  - task: PowerShell@2
+    displayName: 'Get latest Hl7.Fhir version'
+    inputs:
+      pwsh: true
+      targetType: Inline
+      script: |
+        $FhirPackage = nuget list $(package.name) -Prerelease -Source https://www.myget.org/F/fhir-net-api/api/v3/index.json | Out-String
+        Write-Host "##vso[task.setvariable variable=packageVersion]$($FhirPackage.Split()[1])"
+  - task: PowerShell@2
+    displayName: 'Update $(package.name)'
+    inputs:
+      pwsh: true
+      targetType: filePath
+      filePath: build/Update-Packages.ps1
+      arguments: -PackageName $(package.name) -PackageVersion $(packageVersion)
+      workingDirectory: $(Build.SourcesDirectory)
+  - template: build.yml

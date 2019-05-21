@@ -117,7 +117,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AtAndSinceCannotBeBothSpecified" xml:space="preserve">
+  <data name="AtCannotBeSpecifiedWithBeforeOrSince" xml:space="preserve">
     <value>{0} and {1} cannot both be specified.</value>
   </data>
   <data name="AuthorizationPermissionDefinitionInvalid" xml:space="preserve">
@@ -169,6 +169,9 @@
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
   </data>
+  <data name="HistoryParameterBeforeCannotBeFuture" xml:space="preserve">
+    <value>Parameter {0} cannot a be a value in the future.</value>
+  </data>
   <data name="IdRequirements" xml:space="preserve">
     <value>Id must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z'), numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.)</value>
   </data>
@@ -210,6 +213,10 @@
   </data>
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>Invalid value for :missing modifier. Valid values are: true, false.</value>
+  </data>
+  <data name="JobNotFound" xml:space="preserve">
+    <value>The requested job "{0}" was not found.</value>
+    <comment>{0} is the job id</comment>
   </data>
   <data name="MalformedSearchValue" xml:space="preserve">
     <value>Malformed search value '{0}'.</value>
@@ -257,7 +264,7 @@
     <value>Resource type '{0}' is not supported.</value>
   </data>
   <data name="ResourcePermissionEmpty" xml:space="preserve">
-    <value>Role '{0}' must have one or more ResourcePermissions.</value>
+    <value>Role must have one or more resource permissions.</value>
   </data>
   <data name="ResourceVersionConflict" xml:space="preserve">
     <value>The supplied version '{0}' did not match.</value>
@@ -267,7 +274,7 @@
     <value>Role name cannot be null or empty.</value>
   </data>
   <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
-    <value>Role '{0}' contains a ResourcePermission with no Actions.</value>
+    <value>Role contains a resource permissions with no actions.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>

@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -53,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the search expression.
         /// </summary>
-        public Expression Expression { get; internal set; }
+        public IExpression Expression { get; internal set; }
 
         /// <summary>
         /// Gets the list of search parameters that were not used in the search.

@@ -14,5 +14,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         public const string WritePolicy = "Write";
 
         public const string HardDeletePolicy = "HardDelete";
+
+        public const string ExportPolicy = "Export";
     }
 }

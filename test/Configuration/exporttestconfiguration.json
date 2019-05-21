@@ -1,0 +1,10 @@
+{
+  "FhirServer": {
+    "Operations": {
+      "Export": {
+        "Enabled": true,
+        "SupportedDestinations": [ "AzureBlockBlob" ]
+      }
+    }
+  }
+}

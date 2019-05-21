@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Extensions;
 using NSubstitute;
 using Xunit;
 
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
 
-            var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } });
+            var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } }.ToResourceElement());
 
             SetupExecutedAction(expectedStatusCode, fhirResult);
 

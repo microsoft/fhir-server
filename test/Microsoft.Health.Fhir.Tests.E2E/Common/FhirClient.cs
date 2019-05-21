@@ -14,6 +14,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Net.Http.Headers;
@@ -241,6 +242,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<Bundle>(response);
+        }
+
+        public async Task<string> ExportAsync(Dictionary<string, string> queryParams)
+        {
+            string path = QueryHelpers.AddQueryString("$export", queryParams);
+            var message = new HttpRequestMessage(HttpMethod.Get, path);
+
+            message.Headers.Add("Accept", "application/fhir+json");
+            message.Headers.Add("Prefer", "respond-async");
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            IEnumerable<string> contentLocation = response.Content.Headers.GetValues(HeaderNames.ContentLocation);
+
+            return contentLocation.First();
         }
 
         private StringContent CreateStringContent(Resource resource)

@@ -20,12 +20,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     public class FhirCosmosSearchService : SearchService
     {
-        private readonly FhirDataStore _fhirDataStore;
+        private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
 
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
-            FhirDataStore fhirDataStore,
+            CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
             IBundleFactory bundleFactory)
             : base(searchOptionsFactory, bundleFactory, fhirDataStore)

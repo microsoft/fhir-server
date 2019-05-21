@@ -234,8 +234,8 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   >    END OF TERMS AND CONDITIONS
 
-## Hl7.Fhir.STU3 1.1.3
-* Component Source:   https://github.com/ewoutkramer/fhir-net-api/
+## Hl7.Fhir.STU3 1.2.0
+* Component Source:   https://github.com/FirelyTeam/fhir-net-api
 * Component Copyright and License:  
   > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
   > and contributors. See the file CONTRIBUTORS for details
@@ -709,7 +709,7 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   > [ http://www.opensource.org/licenses/bsd-license.php ]> 
 
-## Polly 7.0.3
+## Polly 7.1.0
 * Component Source:   https://github.com/App-vNext/Polly
 * Component Copyright and License:
   > New BSD License

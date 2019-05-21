@@ -22,10 +22,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(exception.Issues);
             Assert.Equal(1, exception.Issues.Count);
 
-            OperationOutcome.IssueComponent issue = exception.Issues.First();
+            var issue = exception.Issues.First();
 
-            Assert.Equal(OperationOutcome.IssueSeverity.Error, issue.Severity);
-            Assert.Equal(OperationOutcome.IssueType.Forbidden, issue.Code);
+            Assert.Equal(OperationOutcome.IssueSeverity.Error.ToString(), issue.Severity);
+            Assert.Equal(OperationOutcome.IssueType.Forbidden.ToString(), issue.Code);
             Assert.Equal(message, issue.Diagnostics);
         }
     }

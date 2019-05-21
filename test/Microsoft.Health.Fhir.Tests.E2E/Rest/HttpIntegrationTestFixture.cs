@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -18,6 +19,8 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -32,28 +35,48 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <typeparam name="TStartup">The target web project startup</typeparam>
     public class HttpIntegrationTestFixture<TStartup> : IDisposable
     {
+        private readonly DataStore _dataStore;
+        private readonly Format _format;
         private string _environmentUrl;
         private HttpMessageHandler _messageHandler;
 
-        public HttpIntegrationTestFixture()
-            : this(Path.Combine("src"))
+        public HttpIntegrationTestFixture(DataStore dataStore, Format format)
+            : this(Path.Combine("src"), dataStore, format)
         {
         }
 
-        protected HttpIntegrationTestFixture(string targetProjectParentDirectory)
+        protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format)
         {
+            ModelExtensions.SetModelInfoProvider();
+
+            _dataStore = dataStore;
+            _format = format;
+
             SetUpEnvironmentVariables();
 
-            string environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
+            string environmentUrl = string.Empty;
+
+            switch (dataStore)
+            {
+                case DataStore.CosmosDb:
+                    environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
+                    break;
+                case DataStore.SqlServer:
+                    environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl_Sql");
+                    break;
+            }
 
             if (string.IsNullOrWhiteSpace(environmentUrl))
             {
                 environmentUrl = "http://localhost/";
 
-                StartInMemoryServer(targetProjectParentDirectory);
+                StartInMemoryServer(targetProjectParentDirectory, dataStore);
 
                 _messageHandler = Server.CreateHandler();
                 IsUsingInProcTestServer = true;
+
+                // We need to suppress the execution context because there is no boundary between the client and server while using TestServer
+                _messageHandler = new SuppressExecutionContextHandler(_messageHandler);
             }
             else
             {
@@ -69,8 +92,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             HttpClient = CreateHttpClient();
 
-            FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
-            FhirXmlClient = new Lazy<FhirClient>(() => new FhirClient(HttpClient, ResourceFormat.Xml));
+            switch (_format)
+            {
+                case Format.Json:
+                    FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
+                    break;
+                case Format.Xml:
+                    FhirClient = new FhirClient(HttpClient, ResourceFormat.Xml);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
         public bool IsUsingInProcTestServer { get; }
@@ -78,8 +110,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public HttpClient HttpClient { get; }
 
         public FhirClient FhirClient { get; }
-
-        public Lazy<FhirClient> FhirXmlClient { get; set; }
 
         protected TestServer Server { get; private set; }
 
@@ -91,10 +121,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public HttpClient CreateHttpClient()
             => new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
-        private void StartInMemoryServer(string targetProjectParentDirectory)
+        private void StartInMemoryServer(string targetProjectParentDirectory, DataStore dataStore)
         {
             var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
+            var exportPath = Path.GetFullPath("exporttestconfiguration.json");
+            var dataStoreConfiguration = new Dictionary<string, string> { { "DataStore", dataStore.ToString() } };
+
+            if (dataStore == DataStore.SqlServer)
+            {
+                dataStoreConfiguration.Add("SqlServer:Initialize", "true");
+            }
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
@@ -102,6 +139,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json");
                     configurationBuilder.AddJsonFile(corsPath);
+                    configurationBuilder.AddJsonFile(exportPath);
+                    configurationBuilder.AddInMemoryCollection(dataStoreConfiguration);
                 })
                 .UseStartup(typeof(TStartup))
                 .ConfigureServices(serviceCollection =>

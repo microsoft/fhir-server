@@ -3,7 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Tests.Common
@@ -15,36 +18,36 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// <summary>
         /// This returns a weight sample from the json files
         /// </summary>
-        public static Observation GetDefaultObservation()
+        public static ResourceElement GetDefaultObservation()
         {
-            return GetJsonSample("Weight") as Observation;
+            return GetJsonSample("Weight");
         }
 
         /// <summary>
         /// This returns a patient sample from the json files
         /// </summary>
-        public static Patient GetDefaultPatient()
+        public static ResourceElement GetDefaultPatient()
         {
-            return GetJsonSample("Patient") as Patient;
+            return GetJsonSample("Patient");
         }
 
         /// <summary>
         /// This returns a organization sample from the json files
         /// </summary>
-        public static Organization GetDefaultOrganization()
+        public static ResourceElement GetDefaultOrganization()
         {
-            return GetJsonSample("Organization") as Organization;
+            return GetJsonSample("Organization");
         }
 
         /// <summary>
         /// Gets back a resource from a json sample file.
         /// </summary>
         /// <param name="fileName">The JSON filename, omit the extension</param>
-        public static Resource GetJsonSample(string fileName)
+        public static ResourceElement GetJsonSample(string fileName)
         {
             var fhirSource = GetJson(fileName);
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            return parser.Parse<Resource>(fhirSource);
+            return parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
         }
 
         /// <summary>

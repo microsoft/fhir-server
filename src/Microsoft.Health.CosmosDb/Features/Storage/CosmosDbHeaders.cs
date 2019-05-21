@@ -12,5 +12,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         public const string SessionToken = "x-ms-session-token";
 
         public const string RequestCharge = "x-ms-request-charge";
+
+        public const string SubStatus = "x-ms-substatus";
     }
 }

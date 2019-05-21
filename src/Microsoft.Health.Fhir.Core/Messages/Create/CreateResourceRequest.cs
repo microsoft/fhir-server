@@ -5,27 +5,28 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Create
 {
     public class CreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
     {
-        public CreateResourceRequest(Resource resource)
+        public CreateResourceRequest(ResourceElement resource)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             Resource = resource;
         }
 
-        public Resource Resource { get; }
+        public ResourceElement Resource { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {
-            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{Resource.TypeName}').interaction.where(code = 'create').exists()");
+            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{Resource.InstanceType}').interaction.where(code = 'create').exists()");
         }
     }
 }

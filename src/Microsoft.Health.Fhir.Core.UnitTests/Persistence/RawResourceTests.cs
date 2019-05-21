@@ -5,6 +5,7 @@
 
 using System;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
@@ -19,16 +20,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var serializer = new FhirJsonSerializer();
             var rawResourceFactory = new RawResourceFactory(serializer);
 
-            var observation = Samples.GetDefaultObservation();
-
             string versionId = Guid.NewGuid().ToString();
-            observation.VersionId = versionId;
-            Assert.NotNull(observation.Meta.VersionId);
+            var observation = Samples.GetDefaultObservation()
+                .UpdateVersion(versionId);
+
+            Assert.NotNull(observation.VersionId);
 
             var raw = rawResourceFactory.Create(observation);
 
             Assert.NotNull(raw.Data);
-            Assert.Equal(versionId, observation.Meta.VersionId);
+            Assert.Equal(versionId, observation.VersionId);
         }
     }
 }

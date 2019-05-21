@@ -12,7 +12,9 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
@@ -20,6 +22,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
@@ -41,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenAResource_WhenCreated_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                () => _client.CreateAsync(Samples.GetDefaultObservation()),
+                () => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco()),
                 "create",
                 ResourceType.Observation,
                 _ => "Observation",
@@ -54,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 async () =>
                 {
-                    FhirResponse<Patient> response = await _client.CreateAsync(Samples.GetDefaultPatient());
+                    FhirResponse<Patient> response = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
 
                     return await _client.ReadAsync<Patient>(ResourceType.Patient, response.Resource.Id);
                 },
@@ -96,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 async () =>
                 {
-                    FhirResponse<Organization> result = await _client.CreateAsync(Samples.GetDefaultOrganization());
+                    FhirResponse<Organization> result = await _client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>());
 
                     return await _client.VReadAsync<Organization>(ResourceType.Organization, result.Resource.Id, result.Resource.Meta.VersionId);
                 },
@@ -112,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 async () =>
                 {
-                    FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient());
+                    FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
 
                     result.Resource.Name.Add(new HumanName() { Family = "Anderson" });
 
@@ -133,7 +136,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient());
+            FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
 
             FhirResponse deleteResult = await _client.DeleteAsync(result.Resource);
 
@@ -182,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 async () =>
                 {
-                    FhirResponse<Observation> result = await _client.CreateAsync(Samples.GetDefaultObservation());
+                    FhirResponse<Observation> result = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
                     return await _client.SearchAsync($"Observation/{result.Resource.Id}/_history");
                 },
