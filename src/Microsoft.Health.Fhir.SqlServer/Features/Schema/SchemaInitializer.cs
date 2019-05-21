@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             GetCurrentSchemaVersion();
 
             // GetCurrentVersion doesn't exist, so run version 1.
-            if (_schemaInformation.Current == null)
+            if (_schemaInformation.Current == null || _sqlServerDataStoreConfiguration.DeleteAllDataOnStartup)
             {
                 _schemaUpgradeRunner.ApplySchema(1);
                 GetCurrentSchemaVersion();

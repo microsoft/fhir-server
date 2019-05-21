@@ -8,7 +8,6 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -27,8 +26,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
         public SearchParameterDefinitionBuilderTests()
         {
-            ModelExtensions.SetModelInfoProvider();
-
             _builderWithInvalidEntries = CreateBuilder("SearchParametersWithInvalidEntries");
             _builderWithInvalidDefinitions = CreateBuilder("SearchParametersWithInvalidDefinitions");
             _builderWithValidEntries = CreateBuilder("SearchParameters");

@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly RetryableInitializationOperation _initializationOperation;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
-        private Dictionary<string, short> _searchParamUriToId;
+        private Dictionary<Uri, short> _searchParamUriToId;
         private ConcurrentDictionary<string, int> _systemToId;
         private ConcurrentDictionary<string, int> _quantityCodeToId;
         private Dictionary<string, byte> _claimNameToId;
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _claimNameToId[claimTypeName];
         }
 
-        public short GetSearchParamId(string searchParamUri)
+        public short GetSearchParamId(Uri searchParamUri)
         {
             ThrowIfNotInitialized();
             return _searchParamUriToId[searchParamUri];
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
                         var resourceTypeIdToTypeName = new Dictionary<short, string>();
-                        var searchParamUriToId = new Dictionary<string, short>(StringComparer.Ordinal);
+                        var searchParamUriToId = new Dictionary<Uri, short>();
                         var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         while (reader.Read())
                         {
                             (string uri, short searchParamId) = reader.ReadRow(V1.SearchParam.Uri, V1.SearchParam.SearchParamId);
-                            searchParamUriToId.Add(uri, searchParamId);
+                            searchParamUriToId.Add(new Uri(uri), searchParamId);
                         }
 
                         // result set 3
