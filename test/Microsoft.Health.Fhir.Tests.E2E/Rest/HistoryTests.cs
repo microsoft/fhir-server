@@ -20,7 +20,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json | Format.Xml)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
     [CollectionDefinition("History", DisableParallelization=true)]
     [Collection("History")]
     public class HistoryTests : IClassFixture<HttpIntegrationTestFixture<Startup>>, IDisposable

@@ -13,5 +13,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.FixtureParameters
         CosmosDb = 1,
 
         SqlServer = 2,
+
+        All = CosmosDb | SqlServer,
     }
 }
