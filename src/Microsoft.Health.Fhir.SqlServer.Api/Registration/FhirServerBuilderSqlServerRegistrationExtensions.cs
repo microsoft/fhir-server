@@ -103,7 +103,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(ITableValuedParameterRowGenerator<,>))
                     {
-                        serviceCollection.AddSingleton(interfaceType, type);
+                        serviceCollection.Add(type).Singleton().AsSelf().AsService(interfaceType);
                     }
                 }
             }

@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -16,14 +15,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        protected override V1.ReferenceSearchParamTableTypeRow GenerateRow(short searchParamId, SearchParameterInfo searchParameter, ReferenceSearchValue searchValue)
+        internal override bool TryGenerateRow(short searchParamId, ReferenceSearchValue searchValue, out V1.ReferenceSearchParamTableTypeRow row)
         {
-            return new V1.ReferenceSearchParamTableTypeRow(
+            row = new V1.ReferenceSearchParamTableTypeRow(
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 Model.GetResourceTypeId(searchValue.ResourceType.ToString()),
                 searchValue.ResourceId,
                 ReferenceResourceVersion: null);
+
+            return true;
         }
     }
 }

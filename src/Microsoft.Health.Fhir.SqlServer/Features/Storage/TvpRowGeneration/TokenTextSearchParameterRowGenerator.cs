@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -16,14 +15,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        protected override bool ShouldGenerateRow(SearchParameterInfo searchParameter, TokenSearchValue searchValue)
+        internal override bool TryGenerateRow(short searchParamId, TokenSearchValue searchValue, out V1.TokenTextTableTypeRow row)
         {
-            return !string.IsNullOrWhiteSpace(searchValue.Text);
-        }
+            if (string.IsNullOrWhiteSpace(searchValue.Text))
+            {
+                row = default;
+                return false;
+            }
 
-        protected override V1.TokenTextTableTypeRow GenerateRow(short searchParamId, SearchParameterInfo searchParameter, TokenSearchValue searchValue)
-        {
-            return new V1.TokenTextTableTypeRow(searchParamId, searchValue.Text);
+            row = new V1.TokenTextTableTypeRow(searchParamId, searchValue.Text);
+            return true;
         }
     }
 }

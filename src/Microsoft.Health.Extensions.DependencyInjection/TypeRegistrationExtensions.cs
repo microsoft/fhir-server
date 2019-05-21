@@ -40,11 +40,14 @@ namespace Microsoft.Health.Extensions.DependencyInjection
             return new TypeRegistration(serviceCollection, typeof(T), provider => delegateRegistration(provider));
         }
 
-        public static TypeRegistration Add<T>(this IServiceCollection serviceCollection)
+        public static TypeRegistration Add<T>(this IServiceCollection serviceCollection) => serviceCollection.Add(typeof(T));
+
+        public static TypeRegistration Add(this IServiceCollection serviceCollection, Type type)
         {
             EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+            EnsureArg.IsNotNull(type, nameof(type));
 
-            return new TypeRegistration(serviceCollection, typeof(T));
+            return new TypeRegistration(serviceCollection, type);
         }
 
         /// <summary>
