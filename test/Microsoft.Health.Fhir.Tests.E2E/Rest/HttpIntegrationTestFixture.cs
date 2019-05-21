@@ -19,7 +19,6 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
@@ -47,8 +46,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format)
         {
-            ModelExtensions.SetModelInfoProvider();
-
             _dataStore = dataStore;
             _format = format;
 

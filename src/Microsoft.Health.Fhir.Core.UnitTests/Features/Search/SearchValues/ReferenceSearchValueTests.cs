@@ -5,7 +5,6 @@
 
 using System;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Xunit;
 
@@ -22,11 +21,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         private static readonly string DefaultResourceId = "123";
 
         private readonly ReferenceSearchValueBuilder _builder = new ReferenceSearchValueBuilder();
-
-        public ReferenceSearchValueTests()
-        {
-            ModelExtensions.SetModelInfoProvider();
-        }
 
         [Fact]
         public void GivenANonNullBaseUriAndNullResourceType_WhenInitializing_ThenArgumentNullExceptionShouldBeThrown()
