@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         return Expression.Chained(
                             resourceType,
                             currentPath,
-                            targetType.Value,
+                            targetType.Value.ToString(),
                             Parse(
                                 targetType.Value.ToString(),
                                 paths,

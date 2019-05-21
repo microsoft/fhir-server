@@ -40,8 +40,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
         public ResourceHandlerTests()
         {
-            ModelExtensions.SetModelInfoProvider();
-
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
 

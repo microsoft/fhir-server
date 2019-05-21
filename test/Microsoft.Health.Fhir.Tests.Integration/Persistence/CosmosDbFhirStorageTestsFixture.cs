@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -108,7 +109,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 optionsMonitor,
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
-                NullLogger<CosmosFhirDataStore>.Instance);
+                NullLogger<CosmosFhirDataStore>.Instance,
+                new Stu3ModelInfoProvider());
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 () => documentClient,

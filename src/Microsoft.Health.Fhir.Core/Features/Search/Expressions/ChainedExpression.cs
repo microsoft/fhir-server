@@ -3,9 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -24,12 +23,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public ChainedExpression(
             string resourceType,
             string paramName,
-            ResourceType targetResourceType,
+            string targetResourceType,
             Expression expression)
         {
-            EnsureArg.IsTrue(Enum.IsDefined(typeof(ResourceType), resourceType), nameof(resourceType));
+            EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(resourceType), nameof(resourceType));
             EnsureArg.IsNotNullOrWhiteSpace(paramName, nameof(paramName));
-            EnsureArg.IsTrue(Enum.IsDefined(typeof(ResourceType), targetResourceType), nameof(targetResourceType));
+            EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(targetResourceType), nameof(targetResourceType));
             EnsureArg.IsNotNull(expression, nameof(expression));
 
             ResourceType = resourceType;
@@ -51,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Gets the target resource type.
         /// </summary>
-        public ResourceType TargetResourceType { get; }
+        public string TargetResourceType { get; }
 
         /// <summary>
         /// Gets the search expression.

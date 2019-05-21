@@ -53,16 +53,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             return resourceWrapper;
         }
 
-        public void Build(ListedCapabilityStatement statement)
+        public void Build(IListedCapabilityStatement statement)
         {
             foreach (var resource in ModelInfo.SupportedResources)
             {
-                var resourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource);
-                AddResourceCapability(statement, resourceType);
+                AddResourceCapability(statement, resource);
             }
         }
 
-        protected virtual void AddResourceCapability(ListedCapabilityStatement statement, ResourceType resourceType)
+        protected virtual void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
         {
         }
     }

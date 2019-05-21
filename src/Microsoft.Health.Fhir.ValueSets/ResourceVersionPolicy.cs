@@ -3,12 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Search
+namespace Microsoft.Health.Fhir.ValueSets
 {
-    public static class SearchParameterNames
+    public static class ResourceVersionPolicy
     {
-        public static readonly string Id = "_id";
-        public static readonly string LastUpdated = "_lastUpdated";
-        public static readonly string ResourceType = "_type";
+        public const string NoVersion = "no-version";
+
+        public const string Versioned = "versioned";
+
+        public const string VersionedUpdate = "versioned-update";
     }
 }

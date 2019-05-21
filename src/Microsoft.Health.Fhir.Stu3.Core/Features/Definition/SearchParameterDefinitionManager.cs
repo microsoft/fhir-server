@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
-        void IProvideCapability.Build(ListedCapabilityStatement statement)
+        void IProvideCapability.Build(IListedCapabilityStatement statement)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
 
@@ -105,8 +105,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 var resourceType = Enum.Parse<ResourceType>(entry.Key);
 
-                statement.TryAddSearchParams(resourceType, searchParameters);
-                statement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.SearchType);
+                var capabilityStatement = (ListedCapabilityStatement)statement;
+
+                capabilityStatement.TryAddSearchParams(resourceType, searchParameters);
+                capabilityStatement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.SearchType);
             }
         }
     }

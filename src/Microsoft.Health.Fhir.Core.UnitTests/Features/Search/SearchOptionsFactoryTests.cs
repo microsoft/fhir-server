@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 options.Expression,
                 MultiaryOperator.And,
                 e => ValidateResourceTypeSearchParameterExpression(e, resourceType.ToString()),
-                e => ValidateCompartmentSearchExpression(e, compartmentType, compartmentId));
+                e => ValidateCompartmentSearchExpression(e, compartmentType.ToString(), compartmentId));
         }
 
         [Theory]
@@ -282,7 +282,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 compartmentId);
 
             Assert.NotNull(options);
-            ValidateCompartmentSearchExpression(options.Expression, compartmentType, compartmentId);
+            ValidateCompartmentSearchExpression(options.Expression, compartmentType.ToString(), compartmentId);
         }
 
         [Theory]
@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 e => ValidateResourceTypeSearchParameterExpression(e, resourceType.ToString()),
                 e => Assert.Equal(expression1, e),
                 e => Assert.Equal(expression2, e),
-                e => ValidateCompartmentSearchExpression(e, compartmentType, compartmentId));
+                e => ValidateCompartmentSearchExpression(e, compartmentType.ToString(), compartmentId));
         }
 
         [Theory]

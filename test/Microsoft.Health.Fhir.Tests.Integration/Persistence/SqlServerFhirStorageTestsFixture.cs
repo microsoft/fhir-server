@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -23,23 +24,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestsFixture : IServiceProvider, IDisposable
     {
-        private readonly string _initialConnectionString;
+        private readonly string _masterConnectionString;
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
 
         public SqlServerFhirStorageTestsFixture()
         {
-            _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
+            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
             _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName }.ToString();
+            _masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "master" }.ToString();
+            TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
-            using (var connection = new SqlConnection(_initialConnectionString))
+            using (var connection = new SqlConnection(_masterConnectionString))
             {
                 connection.Open();
 
                 using (SqlCommand command = connection.CreateCommand())
                 {
+                    command.CommandTimeout = 600;
                     command.CommandText = $"CREATE DATABASE {_databaseName}";
                     command.ExecuteNonQuery();
                 }
@@ -55,7 +58,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             schemaInitializer.Start();
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.AllSearchParameters.Returns(new SearchParameter[0]);
+            searchParameterDefinitionManager.AllSearchParameters.Returns(new[]
+            {
+                new SearchParameter { Id = SearchParameterNames.Id, Url = SearchParameterNames.IdUri.ToString() },
+                new SearchParameter { Id = SearchParameterNames.LastUpdated, Url = SearchParameterNames.LastUpdatedUri.ToString() },
+            });
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
@@ -78,13 +85,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public void Dispose()
         {
-            using (var connection = new SqlConnection(_initialConnectionString))
+            using (var connection = new SqlConnection(_masterConnectionString))
             {
                 connection.Open();
                 SqlConnection.ClearAllPools();
 
                 using (SqlCommand command = connection.CreateCommand())
                 {
+                    command.CommandTimeout = 600;
                     command.CommandText = $"DROP DATABASE IF EXISTS {_databaseName}";
                     command.ExecuteNonQuery();
                 }

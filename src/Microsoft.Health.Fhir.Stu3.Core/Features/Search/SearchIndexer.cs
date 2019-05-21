@@ -92,7 +92,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");
 
-            Base[] rootObjects = resource.Select(searchParameter.Expression, context).ToArray();
+            SearchParameterInfo compositeSearchParameterInfo = searchParameter.ToInfo();
+
+            IEnumerable<Base> rootObjects = resource.Select(searchParameter.Expression, context);
 
             foreach (var rootObject in rootObjects)
             {
@@ -137,13 +139,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                yield return new SearchIndexEntry(searchParameter.ToInfo(), new CompositeSearchValue(componentValues));
+                yield return new SearchIndexEntry(compositeSearchParameterInfo, new CompositeSearchValue(componentValues));
             }
         }
 
         private IEnumerable<SearchIndexEntry> ProcessNonCompositeSearchParameter(SearchParameter searchParameter, Base resource, FhirEvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type != SearchParamType.Composite, "The search parameter must be non-composite.");
+
+            SearchParameterInfo searchParameterInfo = searchParameter.ToInfo();
 
             foreach (ISearchValue searchValue in ExtractSearchValues(
                 searchParameter.Url,
@@ -153,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.Expression,
                 context))
             {
-                yield return new SearchIndexEntry(searchParameter.ToInfo(), searchValue);
+                yield return new SearchIndexEntry(searchParameterInfo, searchValue);
             }
         }
 

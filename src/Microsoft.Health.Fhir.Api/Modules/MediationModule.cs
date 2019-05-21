@@ -35,11 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             Predicate<Type> isPipelineBehavior = y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
 
-            services.TypesInSameAssemblyAs<IFhirDataStore>()
-                .Transient()
-                .AsImplementedInterfaces(isPipelineBehavior);
-
-            services.TypesInSameAssemblyAs<Stu3ModelInfoProvider>()
+            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreStu3)
                 .Transient()
                 .AsImplementedInterfaces(isPipelineBehavior);
 
@@ -50,7 +46,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 typeof(INotificationHandler<>),
             };
 
-            services.TypesInSameAssemblyAs<IFhirDataStore>()
+            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreStu3)
                 .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
                 .Transient()
                 .AsImplementedInterfaces(x => x == typeof(IProvideCapability));

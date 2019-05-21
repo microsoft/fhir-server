@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return new SearchParameterInfo(
                 searchParam.Name,
-                new Uri(searchParam.Url),
+                string.IsNullOrEmpty(searchParam.Url) ? null : new Uri(searchParam.Url),
                 searchParam.Type?.ToString(),
                 searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri())).ToArray());
         }

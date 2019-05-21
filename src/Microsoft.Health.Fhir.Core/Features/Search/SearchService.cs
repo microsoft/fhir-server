@@ -10,11 +10,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IBundleFactory _bundleFactory;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
@@ -33,13 +34,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="searchOptionsFactory">The search options factory.</param>
         /// <param name="bundleFactory">The bundle factory</param>
         /// <param name="fhirDataStore">The data store</param>
-        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore)
+        /// <param name="modelInfoProvider">The model info provider</param>
+        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchOptionsFactory = searchOptionsFactory;
             _bundleFactory = bundleFactory;
             _fhirDataStore = fhirDataStore;
+            _modelInfoProvider = modelInfoProvider;
         }
 
         /// <inheritdoc />
@@ -199,29 +203,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 
-        public void Build(ListedCapabilityStatement statement)
+        public void Build(IListedCapabilityStatement statement)
         {
-            foreach (var resource in ModelInfo.SupportedResources)
+            foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
             {
-                var resourceType = ModelInfo.FhirTypeNameToResourceType(resource).GetValueOrDefault();
-
-                statement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.HistoryType);
-                statement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.HistoryInstance);
+                statement.TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryType);
+                statement.TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryInstance);
             }
 
-            var restComponent = statement
-                .Rest
-                .Single();
-
-            if (restComponent.Interaction == null)
-            {
-                restComponent.Interaction = new List<CapabilityStatement.SystemInteractionComponent>();
-            }
-
-            restComponent.Interaction.Add(new CapabilityStatement.SystemInteractionComponent
-            {
-                Code = CapabilityStatement.SystemRestfulInteraction.HistorySystem,
-            });
+            statement.TryAddRestInteraction(SystemRestfulInteraction.HistorySystem);
         }
     }
 }

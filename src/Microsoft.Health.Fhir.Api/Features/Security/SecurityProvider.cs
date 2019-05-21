@@ -33,17 +33,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             _urlResolver = urlResolver;
         }
 
-        public void Build(ListedCapabilityStatement statement)
+        public void Build(IListedCapabilityStatement statement)
         {
             if (_securityConfiguration.Enabled)
             {
+                var capabilityStatement = (ListedCapabilityStatement)statement;
+
                 if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                 {
-                    statement.AddProxyOAuthSecurityService(_urlResolver, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
+                    capabilityStatement.AddProxyOAuthSecurityService(_urlResolver, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
                 }
                 else
                 {
-                    statement.AddOAuthSecurityService(_securityConfiguration.Authentication.Authority, _httpClientFactory, _logger);
+                    capabilityStatement.AddOAuthSecurityService(_securityConfiguration.Authentication.Authority, _httpClientFactory, _logger);
                 }
             }
         }

@@ -10,7 +10,6 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
@@ -23,8 +22,10 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
+using Microsoft.Health.Fhir.ValueSets;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
@@ -51,13 +53,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cosmosDocumentQueryFactory">The factory used to create the document query.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
+        /// <param name="modelInfoProvider">The model provider</param>
         public CosmosFhirDataStore(
             IScoped<IDocumentClient> documentClient,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
-            ILogger<CosmosFhirDataStore> logger)
+            ILogger<CosmosFhirDataStore> logger,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -65,11 +69,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _documentClient = documentClient.Value;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
+            _modelInfoProvider = modelInfoProvider;
 
             CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
 
@@ -233,18 +239,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return ((int)type).ToString();
         }
 
-        public void Build(ListedCapabilityStatement statement)
+        public void Build(IListedCapabilityStatement statement)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
 
-            foreach (var resource in ModelInfo.SupportedResources)
+            foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
             {
-                var resourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource);
-                statement.BuildRestResourceComponent(resourceType, builder =>
+                statement.BuildRestResourceComponent(resource, builder =>
                 {
-                    builder.Versioning.Add(CapabilityStatement.ResourceVersionPolicy.NoVersion);
-                    builder.Versioning.Add(CapabilityStatement.ResourceVersionPolicy.Versioned);
-                    builder.Versioning.Add(CapabilityStatement.ResourceVersionPolicy.VersionedUpdate);
+                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.NoVersion);
+                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.Versioned);
+                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.VersionedUpdate);
+
                     builder.ReadHistory = true;
                     builder.UpdateCreate = true;
                 });

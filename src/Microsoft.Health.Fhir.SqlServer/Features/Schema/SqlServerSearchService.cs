@@ -7,13 +7,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
     public class SqlServerSearchService : SearchService
     {
-        public SqlServerSearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore)
-            : base(searchOptionsFactory, bundleFactory, fhirDataStore)
+        public SqlServerSearchService(
+            ISearchOptionsFactory searchOptionsFactory,
+            IBundleFactory bundleFactory,
+            IFhirDataStore fhirDataStore,
+            IModelInfoProvider modelInfoProvider)
+            : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
         {
         }
 
