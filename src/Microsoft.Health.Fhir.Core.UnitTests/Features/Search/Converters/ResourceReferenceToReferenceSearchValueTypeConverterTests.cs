@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using NSubstitute;
@@ -22,7 +21,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 
         public ResourceReferenceToReferenceSearchValueTypeConverterTests()
         {
-            ModelExtensions.SetModelInfoProvider();
             _converter = new ResourceReferenceToReferenceSearchValueTypeConverter(_referenceSearchValueParser);
         }
 
