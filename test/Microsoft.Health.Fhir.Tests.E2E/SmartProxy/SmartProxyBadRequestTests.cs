@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json | Format.Xml)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
     public class SmartProxyBadRequestTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly FhirClient _client;

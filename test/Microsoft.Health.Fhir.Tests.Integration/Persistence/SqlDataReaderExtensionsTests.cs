@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _connectionString = fixture.TestConnectionString;
         }
 
-        [Fact(Skip = "test infrastructure missing")]
+        [Fact]
         public void GivenASqlDataReader_WhenReadingFieldsWithCorrectNamesAndOrdinals_ReturnsCorrectData()
         {
             using (var connection = new SqlConnection(_connectionString))
@@ -93,8 +93,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact(Skip = "test infrastructure missing")]
-        [Conditional("DEBUG")] // checks are only enabled on debug builds.
+#if DEBUG // checks are only enabled on debug builds.
+        [Fact]
         public void GivenASqlDataReader_WhenReadingFieldsWithIncorrectCorrectNamesAndOrdinals_Throws()
         {
             using (var connection = new SqlConnection(_connectionString))
@@ -111,5 +111,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.Throws<InvalidOperationException>(() => sqlDataReader.GetInt64("int", 0));
             }
         }
+#endif
     }
 }
