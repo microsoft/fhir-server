@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     chainedExpression,
                     sourceResourceType,
                     param1,
-                    targetResourceType,
+                    targetResourceType.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
         }
 
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                             chainedExpression,
                             sourceResourceType,
                             param1,
-                            expected.TargetResourceType,
+                            expected.TargetResourceType.ToString(),
                             actualSearchExpression => Assert.Equal(expected.Expression, actualSearchExpression)));
                 })
                 .ToArray());
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     chainedExpression,
                     sourceResourceType,
                     param1,
-                    ResourceType.Organization,
+                    ResourceType.Organization.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpressions[0], actualSearchExpression)));
         }
 
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     chainedExpression,
                     sourceResourceType,
                     param1,
-                    ResourceType.Practitioner,
+                    ResourceType.Practitioner.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
         }
 
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                      chainedExpression,
                      sourceResourceType,
                      param1,
-                     firstTargetResourceType,
+                     firstTargetResourceType.ToString(),
                      nestedExpression => ValidateMultiaryExpression(
                          nestedExpression,
                          MultiaryOperator.Or,
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                              nestedChainedExpression,
                              firstTargetResourceType,
                              param2,
-                             secondTargetResourceType,
+                             secondTargetResourceType.ToString(),
                              actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)))));
         }
 

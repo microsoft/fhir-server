@@ -3,9 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -19,9 +18,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="compartmentType">The compartment type.</param>
         /// <param name="compartmentId">The compartment id.</param>
-        public CompartmentSearchExpression(CompartmentType compartmentType, string compartmentId)
+        public CompartmentSearchExpression(string compartmentType, string compartmentId)
         {
-            EnsureArg.IsTrue(Enum.IsDefined(typeof(CompartmentType), compartmentType), nameof(compartmentType));
+            EnsureArg.IsTrue(ModelInfoProvider.IsKnownCompartmentType(compartmentType), nameof(compartmentType));
             EnsureArg.IsNotNullOrWhiteSpace(compartmentId, nameof(compartmentId));
 
             CompartmentType = compartmentType;
@@ -31,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// The compartment type.
         /// </summary>
-        public CompartmentType CompartmentType { get; }
+        public string CompartmentType { get; }
 
         /// <summary>
         /// The compartment id.

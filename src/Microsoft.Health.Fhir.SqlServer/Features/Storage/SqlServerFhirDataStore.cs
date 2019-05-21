@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IO;
 using Task = System.Threading.Tasks.Task;
 
@@ -222,18 +223,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public void Build(ListedCapabilityStatement statement)
+        public void Build(IListedCapabilityStatement statement)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
 
             foreach (var resource in ModelInfo.SupportedResources)
             {
-                var resourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource);
-                statement.BuildRestResourceComponent(resourceType, builder =>
+                statement.BuildRestResourceComponent(resource, builder =>
                 {
-                    builder.Versioning.Add(CapabilityStatement.ResourceVersionPolicy.NoVersion);
-                    builder.Versioning.Add(CapabilityStatement.ResourceVersionPolicy.Versioned);
-                    builder.Versioning.Add(CapabilityStatement.ResourceVersionPolicy.VersionedUpdate);
+                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.NoVersion);
+                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.Versioned);
+                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.VersionedUpdate);
                     builder.ReadHistory = true;
                     builder.UpdateCreate = true;
                 });

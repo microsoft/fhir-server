@@ -41,6 +41,12 @@ namespace Microsoft.Health.Fhir.Core.Models
             return _modelInfoProvider.IsKnownResource(name);
         }
 
+        public static bool IsKnownCompartmentType(string compartmentType)
+        {
+            EnsureProvider();
+            return _modelInfoProvider.IsKnownCompartmentType(compartmentType);
+        }
+
         public static string[] GetResourceTypeNames()
         {
             EnsureProvider();

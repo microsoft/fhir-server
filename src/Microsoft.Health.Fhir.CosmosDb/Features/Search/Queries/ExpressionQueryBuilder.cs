@@ -9,11 +9,11 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
@@ -58,13 +58,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             { StringOperator.StartsWith, "STARTSWITH" },
         };
 
-        private static readonly Dictionary<CompartmentType, string> CompartmentTypeToParamName = new Dictionary<CompartmentType, string>
+        private static readonly Dictionary<string, string> CompartmentTypeToParamName = new Dictionary<string, string>
         {
-            { CompartmentType.Device, KnownResourceWrapperProperties.Device },
-            { CompartmentType.Encounter, KnownResourceWrapperProperties.Encounter },
-            { CompartmentType.Patient, KnownResourceWrapperProperties.Patient },
-            { CompartmentType.Practitioner, KnownResourceWrapperProperties.Practitioner },
-            { CompartmentType.RelatedPerson, KnownResourceWrapperProperties.RelatedPerson },
+            { KnownCompartmentTypes.Device, KnownResourceWrapperProperties.Device },
+            { KnownCompartmentTypes.Encounter, KnownResourceWrapperProperties.Encounter },
+            { KnownCompartmentTypes.Patient, KnownResourceWrapperProperties.Patient },
+            { KnownCompartmentTypes.Practitioner, KnownResourceWrapperProperties.Practitioner },
+            { KnownCompartmentTypes.RelatedPerson, KnownResourceWrapperProperties.RelatedPerson },
         };
 
         private readonly StringBuilder _queryBuilder;
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             AppendArrayContainsFilter(GetCompartmentIndicesParamName(expression.CompartmentType), expression.CompartmentId);
         }
 
-        private static string GetCompartmentIndicesParamName(CompartmentType compartmentType)
+        private static string GetCompartmentIndicesParamName(string compartmentType)
         {
             Debug.Assert(CompartmentTypeToParamName.ContainsKey(compartmentType), $"CompartmentType {compartmentType} should have a corresponding index param");
             return $"{KnownResourceWrapperProperties.CompartmentIndices}.{CompartmentTypeToParamName[compartmentType]}";

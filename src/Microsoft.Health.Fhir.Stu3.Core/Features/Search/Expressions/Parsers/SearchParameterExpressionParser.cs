@@ -11,6 +11,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using static Hl7.Fhir.Model.SearchParameter;
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     throw new InvalidSearchOperationException(Core.Resources.InvalidValueTypeForMissingModifier);
                 }
 
-                return Expression.MissingSearchParameter(searchParameter, isMissing);
+                return Expression.MissingSearchParameter(searchParameter.ToInfo(), isMissing);
             }
 
             if (modifier == SearchModifierCode.Text)
@@ -142,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
             }
 
-            return Expression.SearchParameter(searchParameter, outputExpression);
+            return Expression.SearchParameter(searchParameter.ToInfo(), outputExpression);
         }
 
         private Expression Build(

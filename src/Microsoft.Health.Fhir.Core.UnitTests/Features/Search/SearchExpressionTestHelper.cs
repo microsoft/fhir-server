@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             IExpression expression,
             ResourceType resourceType,
             string key,
-            ResourceType targetResourceType,
+            string targetResourceType,
             Action<Expression> childExpressionValidator)
         {
             ChainedExpression chainedExpression = Assert.IsType<ChainedExpression>(expression);
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static void ValidateCompartmentSearchExpression(
             IExpression expression,
-            CompartmentType compartmentType,
+            string compartmentType,
             string compartmentId)
         {
             CompartmentSearchExpression compartmentSearchExpression = Assert.IsType<CompartmentSearchExpression>(expression);

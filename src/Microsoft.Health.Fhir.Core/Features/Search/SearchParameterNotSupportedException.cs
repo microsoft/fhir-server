@@ -6,7 +6,6 @@
 using System;
 using System.Diagnostics;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -28,18 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             Debug.Assert(!string.IsNullOrWhiteSpace(paramName), $"{nameof(paramName)} should not be null or whitespace.");
 
             AddIssue(string.Format(Core.Resources.SearchParameterNotSupported, paramName, resourceType.Name));
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SearchParameterNotSupportedException"/> class.
-        /// </summary>
-        /// <param name="resourceType">The resource type.</param>
-        /// <param name="paramName">The parameter name.</param>
-        public SearchParameterNotSupportedException(ResourceType resourceType, string paramName)
-        {
-            Debug.Assert(!string.IsNullOrWhiteSpace(paramName), $"{nameof(paramName)} should not be null or whitespace.");
-
-            AddIssue(string.Format(Core.Resources.SearchParameterNotSupported, paramName, resourceType));
         }
 
         /// <summary>

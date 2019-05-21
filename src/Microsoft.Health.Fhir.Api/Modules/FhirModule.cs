@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc;
@@ -159,7 +158,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<IProvideCapability>();
 
-            services.TypesInSameAssemblyAs<IProvideCapability>()
+            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreStu3)
                 .AssignableTo<IProvideCapability>()
                 .Transient()
                 .AsService<IProvideCapability>();
