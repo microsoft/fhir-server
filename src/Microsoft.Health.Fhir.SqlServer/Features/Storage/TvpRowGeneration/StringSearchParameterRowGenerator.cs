@@ -4,21 +4,37 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class StringSearchParameterRowGenerator : SearchParameterRowGenerator<StringSearchValue, V1.StringSearchParamTableTypeRow>
     {
+        private readonly int _indexedTextMaxLength = (int)V1.StringSearchParam.Text.Metadata.MaxLength;
+
         public StringSearchParameterRowGenerator(SqlServerFhirModel model)
             : base(model)
         {
         }
 
-        protected override V1.StringSearchParamTableTypeRow GenerateRow(short searchParamId, SearchParameterInfo searchParameter, StringSearchValue searchValue)
+        internal override bool TryGenerateRow(short searchParamId, StringSearchValue searchValue, out V1.StringSearchParamTableTypeRow row)
         {
-            return new V1.StringSearchParamTableTypeRow(searchParamId, searchValue.String);
+            string indexedPrefix;
+            string overflow;
+            if (searchValue.String.Length > _indexedTextMaxLength)
+            {
+                // TODO: this truncation can break apart grapheme clusters.
+                indexedPrefix = searchValue.String.Substring(0, _indexedTextMaxLength);
+                overflow = searchValue.String;
+            }
+            else
+            {
+                indexedPrefix = searchValue.String;
+                overflow = null;
+            }
+
+            row = new V1.StringSearchParamTableTypeRow(searchParamId, indexedPrefix, overflow);
+            return true;
         }
     }
 }

@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -16,9 +15,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        protected override V1.UriSearchParamTableTypeRow GenerateRow(short searchParamId, SearchParameterInfo searchParameter, UriSearchValue searchValue)
+        internal override bool TryGenerateRow(short searchParamId, UriSearchValue searchValue, out V1.UriSearchParamTableTypeRow row)
         {
-            return new V1.UriSearchParamTableTypeRow(searchParamId, searchValue.Uri);
+            row = new V1.UriSearchParamTableTypeRow(searchParamId, searchValue.Uri);
+            return true;
         }
     }
 }

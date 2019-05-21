@@ -19,8 +19,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
     /// Maintains a mapping from search parameters to a "representative" type. This is
-    /// either one that implements ISearchValue, or for composites, a Tuple with the component types as type arguments,
-    /// for example: <see cref="Tuple{UriSearchValue}"/>
+    /// either one that implements ISearchValue, or for composites, a ValueTuple with the component types as type arguments,
+    /// for example: <see cref="ValueTuple{UriSearchValue}"/>
     /// </summary>
     internal class SearchParameterToSearchValueTypeMap
     {
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 case SearchParamType.Uri:
                     return typeof(UriSearchValue);
                 case SearchParamType.Composite:
-                    return typeof(Tuple).Assembly.GetType($"{typeof(Tuple).FullName}`{searchParameter.Component.Count}", throwOnError: true)
+                    return typeof(Tuple).Assembly.GetType($"{typeof(ValueTuple).FullName}`{searchParameter.Component.Count}", throwOnError: true)
                         .MakeGenericType(searchParameter.Component.Select(c => GetSearchValueType(_searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl).ToInfo())).ToArray());
                 default:
                     throw new ArgumentOutOfRangeException(searchParameter.Code);
