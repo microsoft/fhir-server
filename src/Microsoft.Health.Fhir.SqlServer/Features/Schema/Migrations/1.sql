@@ -486,7 +486,7 @@ INCLUDE
 WHERE IsHistory = 0 AND TextOverflow IS NULL
 WITH (DATA_COMPRESSION = PAGE)
 
-CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWhereNoOverflow
+CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 ON dbo.StringSearchParam
 (
     SearchParamId,
@@ -1087,7 +1087,7 @@ INCLUDE
 WHERE IsHistory = 0 AND TextOverflow2 IS NULL
 WITH (DATA_COMPRESSION = PAGE)
 
-CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2_WithOverflow
+CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
 ON dbo.TokenStringCompositeSearchParam
 (
     SearchParamId,
@@ -1099,7 +1099,7 @@ INCLUDE
     ResourceTypeId,
     SystemId1
 )
-WHERE IsHistory = 0 AND TextOverflow2 IS  NULL
+WHERE IsHistory = 0 AND TextOverflow2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 
 GO
@@ -1339,7 +1339,7 @@ AS
             RETURN
         END
 
-        SELECT @version = @previousVersion + 1
+        SET @version = @previousVersion + 1
 
         IF (@keepHistory = 1) BEGIN
 
