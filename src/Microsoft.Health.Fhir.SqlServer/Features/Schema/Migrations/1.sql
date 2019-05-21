@@ -208,7 +208,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
     Name
 )
 
-CREATE TYPE dbo.ResourceWriteClaimTableType_1 AS TABLE  
+CREATE TYPE dbo.ResourceWriteClaimTableType_1 AS TABLE
 (
     ClaimTypeId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL
@@ -242,7 +242,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
     Name
 )
 
-CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE  
+CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE
 (
     CompartmentTypeId tinyint NOT NULL,
     ReferenceResourceId varchar(64) NOT NULL
@@ -256,7 +256,7 @@ CREATE TABLE dbo.CompartmentAssignment
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
-CREATE CLUSTERED INDEX IXC_CompartmentAssignment 
+CREATE CLUSTERED INDEX IXC_CompartmentAssignment
 ON dbo.CompartmentAssignment
 (
     ResourceSurrogateId,
@@ -264,12 +264,12 @@ ON dbo.CompartmentAssignment
     ReferenceResourceId
 )
 
-CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId 
+CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId
 ON dbo.CompartmentAssignment
 (
     CompartmentTypeId,
     ReferenceResourceId
-) 
+)
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
@@ -279,7 +279,7 @@ GO
     Reference Search Param
 **************************************************************/
 
-CREATE TYPE dbo.ReferenceSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.ReferenceSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     BaseUri varchar(128) NULL,
@@ -318,7 +318,7 @@ ON dbo.ReferenceSearchParam
     ReferenceResourceId,
     BaseUri,
     ReferenceResourceVersion
-) 
+)
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
@@ -328,7 +328,7 @@ GO
     Token Search Param
 **************************************************************/
 
-CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
@@ -353,13 +353,13 @@ ON dbo.TokenSearchParam
     SystemId
 )
 
-CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId 
+CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
 ON dbo.TokenSearchParam
 (
     SearchParamId,
     Code,
     SystemId
-) 
+)
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
@@ -369,7 +369,7 @@ GO
     Token Text
 **************************************************************/
 
-CREATE TYPE dbo.TokenTextTableType_1 AS TABLE  
+CREATE TYPE dbo.TokenTextTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
@@ -396,7 +396,7 @@ ON dbo.TokenText
 (
     SearchParamId,
     Text
-) 
+)
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
@@ -406,7 +406,7 @@ GO
     String Search Param
 **************************************************************/
 
-CREATE TYPE dbo.StringSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.StringSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
@@ -457,7 +457,7 @@ GO
     URI Search Param
 **************************************************************/
 
-CREATE TYPE dbo.UriSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.UriSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
@@ -484,7 +484,7 @@ ON dbo.UriSearchParam
 (
     SearchParamId,
     Uri
-) 
+)
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
@@ -496,12 +496,12 @@ GO
 **************************************************************/
 
 -- We support the underlying value being a range, though we expect the vast majority of entries to be a single value.
--- Either: 
+-- Either:
 --  (1) SingleValue is not null and LowValue and HighValue are both null, or
 --  (2) SingleValue is null and LowValue and HighValue are both not null
 -- We make use of filtered nonclustered indexes to keep queries over the ranges limited to those rows that actually have ranges
 
-CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SingleValue decimal(18,6) NULL,
@@ -532,7 +532,7 @@ ON dbo.NumberSearchParam
 (
     SearchParamId,
     SingleValue
-) 
+)
 WHERE IsHistory = 0 AND SingleValue IS NOT NULL
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
@@ -541,7 +541,7 @@ ON dbo.NumberSearchParam
     SearchParamId,
     LowValue,
     HighValue
-) 
+)
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
@@ -550,7 +550,7 @@ ON dbo.NumberSearchParam
     SearchParamId,
     HighValue,
     LowValue
-) 
+)
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
 
 GO
@@ -561,7 +561,7 @@ GO
 
 -- See comment above for number search params for how we store ranges
 
-CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
@@ -598,7 +598,7 @@ ON dbo.QuantitySearchParam
     SearchParamId,
     QuantityCodeId,
     SingleValue
-) 
+)
 INCLUDE
 (
     SystemId
@@ -626,7 +626,7 @@ ON dbo.QuantitySearchParam
     QuantityCodeId,
     HighValue,
     LowValue
-) 
+)
 INCLUDE
 (
     SystemId
@@ -639,7 +639,7 @@ GO
     Date Search Param
 **************************************************************/
 
-CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     StartDateTime datetimeoffset(7) NOT NULL,
@@ -670,7 +670,7 @@ ON dbo.DateTimeSearchParam
     SearchParamId,
     StartDateTime,
     EndDateTime
-) 
+)
 WHERE IsHistory = 0
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
@@ -679,7 +679,7 @@ ON dbo.DateTimeSearchParam
     SearchParamId,
     EndDateTime,
     StartDateTime
-) 
+)
 WHERE IsHistory = 0
 
 GO
@@ -688,7 +688,7 @@ GO
     Reference$Token Composite Search Param
 **************************************************************/
 
-CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     BaseUri1 varchar(128) NULL,
@@ -743,7 +743,7 @@ GO
     Token$Token Composite Search Param
 **************************************************************/
 
-CREATE TYPE dbo.TokenTokenCompositeSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.TokenTokenCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
@@ -778,7 +778,7 @@ ON dbo.TokenTokenCompositeSearchParam
     SearchParamId,
     Code1,
     Code2
-) 
+)
 INCLUDE
 (
     SystemId1,
@@ -793,7 +793,7 @@ GO
     Token$DateTime Composite Search Param
 **************************************************************/
 
-CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
@@ -830,7 +830,7 @@ ON dbo.TokenDateTimeCompositeSearchParam
     Code1,
     StartDateTime2,
     EndDateTime2
-) 
+)
 INCLUDE
 (
     SystemId1
@@ -860,7 +860,7 @@ GO
     Token$Quantity Composite Search Param
 **************************************************************/
 
-CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
@@ -951,7 +951,7 @@ GO
     Token$String Composite Search Param
 **************************************************************/
 
-CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
@@ -995,7 +995,7 @@ INCLUDE
 WHERE IsHistory = 0 AND TextOverflow2 IS NULL
 WITH (DATA_COMPRESSION = PAGE)
 
-CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2_WithOverflow
+CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
 ON dbo.TokenStringCompositeSearchParam
 (
     SearchParamId,
@@ -1006,7 +1006,7 @@ INCLUDE
 (
     SystemId1
 )
-WHERE IsHistory = 0 AND TextOverflow2 IS  NULL
+WHERE IsHistory = 0 AND TextOverflow2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 
 GO
@@ -1022,7 +1022,7 @@ GO
 -- (even if it is a persisted computed column).
 
 
-CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE  
+CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
@@ -1243,8 +1243,8 @@ AS
     ELSE BEGIN
         -- There is a previous version
         DECLARE @previousResourceSurrogateId bigint
-        
-        SELECT @version = (Version + 1), @previousResourceSurrogateId = ResourceSurrogateId 
+
+        SELECT @version = (Version + 1), @previousResourceSurrogateId = ResourceSurrogateId
         FROM @previousVersion
 
         IF (@keepHistory = 1) BEGIN
@@ -1377,9 +1377,9 @@ AS
     VALUES
         (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
 
-    INSERT INTO dbo.ResourceWriteClaim 
+    INSERT INTO dbo.ResourceWriteClaim
         (ResourceSurrogateId, ClaimTypeId, ClaimValue)
-    SELECT @resourceSurrogateId, ClaimTypeId, ClaimValue 
+    SELECT @resourceSurrogateId, ClaimTypeId, ClaimValue
     FROM @resourceWriteClaims
 
     INSERT INTO dbo.CompartmentAssignment
@@ -1487,12 +1487,12 @@ AS
     SET NOCOUNT ON
 
     IF (@version IS NULL) BEGIN
-        SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource 
+        SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
     END
     ELSE BEGIN
-        SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource 
+        SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND Version = @version
     END
