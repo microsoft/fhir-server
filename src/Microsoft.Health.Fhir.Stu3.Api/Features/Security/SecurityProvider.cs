@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Security
+namespace Microsoft.Health.Fhir.Api.Features.Security
 {
     public class SecurityProvider : IProvideCapability
     {

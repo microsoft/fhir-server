@@ -15,13 +15,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.Formatters.Json.Internal;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Formatters
+namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public class FhirJsonOutputFormatter : TextOutputFormatter
+    internal class FhirJsonOutputFormatter : TextOutputFormatter
     {
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly ILogger<FhirJsonOutputFormatter> _logger;

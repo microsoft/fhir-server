@@ -10,14 +10,13 @@ using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Api;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Stu3.Api.Features.ContentTypes;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Filters
+namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
     internal class ValidateContentTypeFilterAttribute : ActionFilterAttribute

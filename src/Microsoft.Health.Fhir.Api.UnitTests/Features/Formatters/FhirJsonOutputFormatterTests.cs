@@ -13,7 +13,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Stu3.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;

@@ -5,11 +5,10 @@
 
 using System.Net;
 using EnsureThat;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.ActionResults
+namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
     /// Handles the output of a FHIR MVC Action Method

@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     [AttributeUsage(AttributeTargets.Class)]
-    public class AuditLoggingFilterAttribute : ActionFilterAttribute
+    internal class AuditLoggingFilterAttribute : ActionFilterAttribute
     {
         private readonly IAuditHelper _auditHelper;
 

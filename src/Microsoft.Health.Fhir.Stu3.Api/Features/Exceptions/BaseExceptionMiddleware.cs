@@ -13,15 +13,14 @@ using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Api;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Stu3.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Stu3.Api.Features.ContentTypes;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Exceptions
+namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 {
     public class BaseExceptionMiddleware
     {

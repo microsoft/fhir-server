@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Modules
+namespace Microsoft.Health.Fhir.Api.Modules
 {
     /// <summary>
     /// Installs mediation components in container

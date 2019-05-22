@@ -21,13 +21,12 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Models;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Formatters
+namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     public class HtmlOutputFormatter : TextOutputFormatter
     {

@@ -5,7 +5,7 @@
 
 using Microsoft.AspNetCore.Builder;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Exceptions
+namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 {
     public static class BaseExceptionMiddlewareExtensions
     {

@@ -9,7 +9,7 @@ using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Formatters
+namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     public static class SummaryTypeExtensions
     {

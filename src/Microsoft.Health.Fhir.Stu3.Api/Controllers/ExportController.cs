@@ -2,6 +2,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
+
 using System;
 using System.Net;
 using System.Threading.Tasks;
@@ -11,7 +12,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -26,12 +26,10 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Export;
-using Microsoft.Health.Fhir.Stu3.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Stu3.Api.Features.Filters;
 using Microsoft.Health.Fhir.ValueSets;
 using ResourceType = Hl7.Fhir.Model.ResourceType;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Controllers
+namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]

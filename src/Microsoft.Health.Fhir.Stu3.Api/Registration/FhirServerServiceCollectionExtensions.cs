@@ -9,18 +9,18 @@ using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
-using Microsoft.Health.Fhir.Api.Registration;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.Stu3.Api.Features.Exceptions;
 
-namespace Microsoft.Extensions.DependencyInjection
+namespace Microsoft.Health.Fhir.Api.Registration
 {
     public static class FhirServerServiceCollectionExtensions
     {
@@ -51,13 +51,13 @@ namespace Microsoft.Extensions.DependencyInjection
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Conformance));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
+            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration));
+            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Security));
+            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Conformance));
+            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Features));
+            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Cors));
+            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Operations));
+            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Operations.Export));
 
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 

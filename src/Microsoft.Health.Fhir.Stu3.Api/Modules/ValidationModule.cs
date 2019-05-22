@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Modules
+namespace Microsoft.Health.Fhir.Api.Modules
 {
     /// <summary>
     /// Adds validators to container

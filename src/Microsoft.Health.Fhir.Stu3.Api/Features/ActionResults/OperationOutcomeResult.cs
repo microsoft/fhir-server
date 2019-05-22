@@ -6,9 +6,8 @@
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.ActionResults
+namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
     /// This action result is specifically used when we want to return an error

@@ -6,7 +6,7 @@
 using System.Reflection;
 using Microsoft.Health.Fhir.Core;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Modules
+namespace Microsoft.Health.Fhir.Api.Modules
 {
     public static class KnownAssemblies
     {

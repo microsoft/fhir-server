@@ -7,7 +7,7 @@ using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public static class KnownMediaTypeHeaderValues
+    internal static class KnownMediaTypeHeaderValues
     {
         public static readonly MediaTypeHeaderValue ApplicationJson = MediaTypeHeaderValue.Parse("application/json").CopyAsReadOnly();
         public static readonly MediaTypeHeaderValue ApplicationXml = MediaTypeHeaderValue.Parse("application/xml").CopyAsReadOnly();

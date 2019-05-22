@@ -8,7 +8,7 @@ using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Stu3.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters

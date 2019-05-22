@@ -13,11 +13,10 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.Formatters.Json.Internal;
-using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Formatters
+namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     public class FhirJsonInputFormatter : TextInputFormatter
     {

@@ -17,7 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Modules
+namespace Microsoft.Health.Fhir.Api.Modules
 {
     /// <summary>
     /// Registration of search components.

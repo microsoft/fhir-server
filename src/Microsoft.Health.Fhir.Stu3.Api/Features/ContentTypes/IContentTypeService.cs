@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.ContentTypes
+namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 {
     public interface IContentTypeService
     {

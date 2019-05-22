@@ -14,12 +14,11 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Formatters
+namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public class FhirXmlOutputFormatter : TextOutputFormatter
+    internal class FhirXmlOutputFormatter : TextOutputFormatter
     {
         private readonly FhirXmlSerializer _fhirXmlSerializer;
         private readonly ILogger<FhirXmlOutputFormatter> _logger;

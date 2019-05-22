@@ -14,8 +14,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -23,12 +26,8 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Stu3.Api.Features.ContentTypes;
-using Microsoft.Health.Fhir.Stu3.Api.Features.Filters;
-using Microsoft.Health.Fhir.Stu3.Api.Features.Formatters;
-using Microsoft.Health.Fhir.Stu3.Api.Features.Security;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Modules
+namespace Microsoft.Health.Fhir.Api.Modules
 {
     /// <summary>
     /// Registration of FHIR components

@@ -4,13 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Globalization;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Stu3.Api.Features.ActionResults;
 using Microsoft.Net.Http.Headers;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Headers
+namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
     public static class FhirResultExtensions
     {

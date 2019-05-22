@@ -15,17 +15,16 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Health.Fhir.Api;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Stu3.Api.Features.Formatters;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.ContentTypes
+namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 {
-    public class ContentTypeService : IContentTypeService
+    internal class ContentTypeService : IContentTypeService
     {
         private readonly IConformanceProvider _conformanceProvider;
         private readonly ICollection<TextOutputFormatter> _outputFormatters;

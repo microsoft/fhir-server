@@ -9,11 +9,10 @@ using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Filters
+namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Method)]
     internal class ValidateResourceIdFilterAttribute : ActionFilterAttribute

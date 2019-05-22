@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Gets or sets the action result Headers.
         /// </summary>
-        public IHeaderDictionary Headers { get; } = new HeaderDictionary();
+        internal IHeaderDictionary Headers { get; } = new HeaderDictionary();
 
         public override Task ExecuteResultAsync(ActionContext context)
         {

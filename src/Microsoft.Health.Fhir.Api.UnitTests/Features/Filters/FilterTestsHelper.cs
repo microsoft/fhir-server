@@ -7,7 +7,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Stu3.Api.Controllers;
 using Microsoft.Health.Fhir.Tests.Common;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters

@@ -8,10 +8,9 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Core.Exceptions;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Formatters
+namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     public static class FormatterExtensions
     {

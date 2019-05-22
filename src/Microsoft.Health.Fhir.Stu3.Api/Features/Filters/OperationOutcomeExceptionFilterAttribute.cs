@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -20,10 +21,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Stu3.Api.Features.ActionResults;
 using Microsoft.Net.Http.Headers;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Features.Filters
+namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
     internal class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
