@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 compartmentTypeObj is string compartmentType &&
                 !string.IsNullOrEmpty(compartmentType))
             {
-                return ModelInfoProvider.IsKnownCompartment(compartmentType);
+                return ModelInfoProvider.IsKnownCompartmentType(compartmentType);
             }
 
             return false;

@@ -15,8 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         string GetFhirTypeNameForType(Type type);
 
-        bool IsKnownCompartment(string compartmentType);
-
         bool IsKnownResource(string name);
 
         bool IsKnownCompartmentType(string compartmentType);

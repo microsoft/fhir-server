@@ -3,15 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Reflection;
-using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.Tests.Common;
+using Xunit;
 
-namespace Microsoft.Health.Fhir.Api.Modules
-{
-    public static class KnownAssemblies
-    {
-        public static Assembly Core => typeof(Clock).Assembly;
-
-        public static Assembly CoreStu3 => typeof(Stu3ModelInfoProvider).Assembly;
-    }
-}
+[assembly: TestFramework(typeName: CustomXunitTestFramework.TypeName, assemblyName: CustomXunitTestFramework.AssemblyName)]
+[assembly: AssemblyFixture(typeof(SetModelInfoProviderAssemblyFixture))]

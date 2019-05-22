@@ -8,6 +8,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Stu3.Api.Modules;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
