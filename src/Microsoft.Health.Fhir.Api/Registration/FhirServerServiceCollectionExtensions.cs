@@ -5,11 +5,10 @@
 
 using System.Reflection;
 using EnsureThat;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 
-namespace Microsoft.Health.Fhir.Api.Registration
+namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerServiceCollectionExtensions
     {

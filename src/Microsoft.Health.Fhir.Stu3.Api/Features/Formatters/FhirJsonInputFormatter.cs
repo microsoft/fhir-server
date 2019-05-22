@@ -18,7 +18,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public class FhirJsonInputFormatter : TextInputFormatter
+    internal class FhirJsonInputFormatter : TextInputFormatter
     {
         private readonly FhirJsonParser _parser;
         private readonly JsonArrayPool<char> _charPool;

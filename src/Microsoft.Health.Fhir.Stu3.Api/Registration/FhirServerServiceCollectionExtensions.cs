@@ -9,7 +9,6 @@ using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
@@ -20,7 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
 
-namespace Microsoft.Health.Fhir.Api.Registration
+namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerServiceCollectionExtensions
     {

@@ -7,7 +7,7 @@ using OperationsConstants = Microsoft.Health.Fhir.Core.Features.Operations.Opera
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
-    internal static class KnownRoutes
+    internal class KnownRoutes
     {
         internal const string ResourceTypeRouteConstraint = "fhirResource";
         internal const string CompartmentResourceTypeRouteConstraint = "fhirCompartmentResource";
