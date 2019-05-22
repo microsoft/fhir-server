@@ -9,7 +9,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 
-namespace Microsoft.Health.Fhir.Api.Modules
+namespace Microsoft.Health.Fhir.Stu3.Api.Modules
 {
     /// <summary>
     /// Registration of data persistence components

@@ -96,13 +96,10 @@ namespace Microsoft.Extensions.DependencyInjection
             public IServiceCollection Services { get; }
         }
 
-#pragma warning disable CA1812 // Avoid uninstantiated internal classes
-
-                              /// <summary>
-                              /// An <see cref="IStartupFilter"/> that configures middleware components before any components are added in Startup.Configure
-                              /// </summary>
+        /// <summary>
+        /// An <see cref="IStartupFilter"/> that configures middleware components before any components are added in Startup.Configure
+        /// </summary>
         private class FhirServerStartupFilter : IStartupFilter
-#pragma warning restore CA1812 // Avoid uninstantiated internal classes
         {
             public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
             {
