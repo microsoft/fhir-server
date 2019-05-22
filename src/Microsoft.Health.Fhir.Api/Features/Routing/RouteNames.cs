@@ -5,36 +5,36 @@
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
-    internal static class RouteNames
+    public static class RouteNames
     {
-        internal const string Metadata = "Metadata";
+        public const string Metadata = "Metadata";
 
-        internal const string ReadResource = "ReadResource";
+        public const string ReadResource = "ReadResource";
 
-        internal const string ReadResourceWithVersionRoute = "ReadResourceWithVersionRoute";
+        public const string ReadResourceWithVersionRoute = "ReadResourceWithVersionRoute";
 
-        internal const string SearchResources = "SearchResources";
+        public const string SearchResources = "SearchResources";
 
-        internal const string SearchAllResources = "SearchAllResources";
+        public const string SearchAllResources = "SearchAllResources";
 
-        internal const string History = "History";
+        public const string History = "History";
 
-        internal const string HistoryType = "HistoryType";
+        public const string HistoryType = "HistoryType";
 
-        internal const string HistoryTypeId = "HistoryTypeId";
+        public const string HistoryTypeId = "HistoryTypeId";
 
-        internal const string SearchResourcesPost = "SearchResourcesPost";
+        public const string SearchResourcesPost = "SearchResourcesPost";
 
-        internal const string SearchAllResourcesPost = "SearchAllResourcesPost";
+        public const string SearchAllResourcesPost = "SearchAllResourcesPost";
 
-        internal const string SearchCompartmentByResourceType = "SearchCompartmentByResourceType";
+        public const string SearchCompartmentByResourceType = "SearchCompartmentByResourceType";
 
-        internal const string AadSmartOnFhirProxyAuthorize = "AadSmartOnFhirProxyAuthorize";
+        public const string AadSmartOnFhirProxyAuthorize = "AadSmartOnFhirProxyAuthorize";
 
-        internal const string AadSmartOnFhirProxyCallback = "AadSmartOnFhirProxyCallback";
+        public const string AadSmartOnFhirProxyCallback = "AadSmartOnFhirProxyCallback";
 
-        internal const string AadSmartOnFhirProxyToken = "AadSmartOnFhirProxyToken";
+        public const string AadSmartOnFhirProxyToken = "AadSmartOnFhirProxyToken";
 
-        internal const string GetExportStatusById = "GetExportStatusById";
+        public const string GetExportStatusById = "GetExportStatusById";
     }
 }

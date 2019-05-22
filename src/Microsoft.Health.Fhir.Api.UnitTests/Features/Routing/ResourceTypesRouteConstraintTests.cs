@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Modules;
+using Microsoft.Health.Fhir.Stu3.Api.Modules;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing

@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
-    internal class KnownActionParameterNames
+    public static class KnownActionParameterNames
     {
         public const string ResourceType = "type";
         public const string Resource = "resource";

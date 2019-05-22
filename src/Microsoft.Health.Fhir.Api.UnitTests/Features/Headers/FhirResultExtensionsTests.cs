@@ -6,12 +6,12 @@
 using System;
 using System.Globalization;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Stu3.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Stu3.Api.Features.Headers;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
