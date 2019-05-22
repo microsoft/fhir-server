@@ -16,7 +16,7 @@ using Microsoft.Health.Fhir.Api.Features.Binders;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 
-namespace Microsoft.Health.Fhir.Stu3.Api.Modules
+namespace Microsoft.Health.Fhir.Api.Modules
 {
     public class MvcModule : IStartupModule
     {

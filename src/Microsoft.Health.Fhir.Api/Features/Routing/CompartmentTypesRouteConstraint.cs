@@ -4,13 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
-    public class ResourceTypesRouteConstraint : IRouteConstraint
+    public class CompartmentTypesRouteConstraint : IRouteConstraint
     {
         public bool Match(HttpContext httpContext, IRouter route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection)
         {
@@ -19,9 +19,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             EnsureArg.IsNotNullOrEmpty(routeKey, nameof(routeKey));
             EnsureArg.IsNotNull(values, nameof(values));
 
-            if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj) && resourceTypeObj is string resourceType && !string.IsNullOrEmpty(resourceType))
+            if (values.TryGetValue(KnownActionParameterNames.CompartmentType, out var compartmentTypeObj) &&
+                compartmentTypeObj is string compartmentType &&
+                !string.IsNullOrEmpty(compartmentType))
             {
-                return ModelInfo.IsKnownResource(resourceType);
+                return ModelInfoProvider.IsKnownCompartment(compartmentType);
             }
 
             return false;

@@ -3,16 +3,21 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
-    public class CompartmentTypesRouteConstraint : IRouteConstraint
+    public class CompartmentResourceTypesRouteConstraint : IRouteConstraint
     {
+        private readonly ResourceTypesRouteConstraint _resourceTypesRouteConstraint;
+
+        public CompartmentResourceTypesRouteConstraint()
+        {
+            _resourceTypesRouteConstraint = new ResourceTypesRouteConstraint();
+        }
+
         public bool Match(HttpContext httpContext, IRouter route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection)
         {
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
@@ -20,11 +25,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             EnsureArg.IsNotNullOrEmpty(routeKey, nameof(routeKey));
             EnsureArg.IsNotNull(values, nameof(values));
 
-            if (values.TryGetValue(KnownActionParameterNames.CompartmentType, out var compartmentTypeObj) &&
-                compartmentTypeObj is string compartmentType &&
-                !string.IsNullOrEmpty(compartmentType))
+            if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj) &&
+                resourceTypeObj is string resourceType &&
+                !string.IsNullOrEmpty(resourceType))
             {
-                return Enum.IsDefined(typeof(CompartmentType), compartmentType);
+                // Don't validate wild card.
+                if (resourceType == "*")
+                {
+                    return true;
+                }
+
+                return _resourceTypesRouteConstraint.Match(httpContext, route, routeKey, values, routeDirection);
             }
 
             return false;
