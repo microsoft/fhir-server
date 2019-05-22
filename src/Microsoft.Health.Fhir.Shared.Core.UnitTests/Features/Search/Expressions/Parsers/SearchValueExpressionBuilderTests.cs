@@ -18,6 +18,7 @@ using NSubstitute;
 using Xunit;
 using static Hl7.Fhir.Model.SearchParameter;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
+using Expression=Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
 {
@@ -129,11 +130,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SearchParameter searchParameter = CreateCompositeSearchParameter(
                 new ComponentComponent()
                 {
-                    Definition = new ResourceReference(codeUri.ToString()),
+                    Definition = new ResourceReference(codeUri.ToString()).GetComponentDefinition(),
                 },
                 new ComponentComponent()
                 {
-                    Definition = new ResourceReference(quantityUri.ToString()),
+                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 });
 
             _searchParameterDefinitionManager.GetSearchParameter(codeUri).Returns(
@@ -189,11 +190,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SearchParameter searchParameter = CreateCompositeSearchParameter(
                 new ComponentComponent()
                 {
-                    Definition = new ResourceReference(quantityUri.ToString()),
+                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 },
                 new ComponentComponent()
                 {
-                    Definition = new ResourceReference(quantityUri.ToString()),
+                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 });
 
             _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(
@@ -233,11 +234,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SearchParameter searchParameter = CreateCompositeSearchParameter(
                 new ComponentComponent()
                 {
-                    Definition = new ResourceReference(quantityUri.ToString()),
+                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 },
                 new ComponentComponent()
                 {
-                    Definition = new ResourceReference(quantityUri.ToString()),
+                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 });
 
             _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(

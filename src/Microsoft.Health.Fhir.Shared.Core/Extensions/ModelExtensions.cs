@@ -15,16 +15,17 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ModelExtensions
     {
-#if !R4
         /// <summary>
         /// This method provides temporary compatibility while STU3/R4 compatibility is added
         /// </summary>
-        internal static void SetModelInfoProvider()
+        public static void SetModelInfoProvider()
         {
+#if !R4
             ModelInfoProvider.SetProvider(new Stu3ModelInfoProvider());
-        }
-
+#else
+            ModelInfoProvider.SetProvider(new R4ModelInfoProvider());
 #endif
+        }
 
         public static CodeableConcept ToPoco(this CodingInfo model)
         {

@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
@@ -24,8 +24,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var issue = exception.Issues.First();
 
-            Assert.Equal(OperationOutcome.IssueSeverity.Error.ToString(), issue.Severity);
-            Assert.Equal(OperationOutcome.IssueType.Forbidden.ToString(), issue.Code);
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, issue.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Forbidden, issue.Code);
             Assert.Equal(message, issue.Diagnostics);
         }
     }

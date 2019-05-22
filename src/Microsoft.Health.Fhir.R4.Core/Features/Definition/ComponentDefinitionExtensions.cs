@@ -14,5 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             return !string.IsNullOrEmpty(component.Definition) ? new Uri(component.Definition) : null;
         }
+
+        public static string GetComponentDefinition(this ResourceReference component)
+        {
+            return component.Url?.ToString();
+        }
     }
 }

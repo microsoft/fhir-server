@@ -14,6 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         private static IModelInfoProvider _modelInfoProvider;
 
+        public static FhirSpecification Version => _modelInfoProvider?.Version ?? FhirSpecification.Stu3;
+
+        public static IModelInfoProvider Instance => _modelInfoProvider;
+
         public static void SetProvider(IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));

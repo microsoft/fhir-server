@@ -7,7 +7,6 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -15,7 +14,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
 {
     public static class Deserializers
     {
-        private static readonly FhirJsonParser JsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
+        private static readonly FhirJsonParser JsonParser = new FhirJsonParser();
 
         public static ResourceDeserializer ResourceDeserializer => new ResourceDeserializer(
             (FhirResourceFormat.Json, (str, version, lastModified) =>

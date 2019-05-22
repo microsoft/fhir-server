@@ -10,6 +10,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Api")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Core.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Core.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Common")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.E2E")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Integration")]

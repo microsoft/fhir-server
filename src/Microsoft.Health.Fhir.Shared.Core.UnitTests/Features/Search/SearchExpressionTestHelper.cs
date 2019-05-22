@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Xunit;
@@ -29,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static void ValidateChainedExpression(
             IExpression expression,
-            ResourceType resourceType,
+            Hl7.Fhir.Model.ResourceType resourceType,
             string key,
             string targetResourceType,
             Action<Expression> childExpressionValidator)

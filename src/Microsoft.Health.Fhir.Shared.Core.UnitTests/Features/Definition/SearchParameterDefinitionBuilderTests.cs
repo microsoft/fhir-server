@@ -8,8 +8,8 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 using static Hl7.Fhir.Model.OperationOutcome;
@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 {
     public class SearchParameterDefinitionBuilderTests
     {
-        private readonly FhirJsonParser _jsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
+        private readonly FhirJsonParser _jsonParser = new FhirJsonParser();
 
         private readonly SearchParameterDefinitionBuilder _builderWithInvalidEntries;
         private readonly SearchParameterDefinitionBuilder _builderWithInvalidDefinitions;
@@ -112,8 +112,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             return new SearchParameterDefinitionBuilder(
                 _jsonParser,
-                typeof(Definitions).Assembly,
-                $"{typeof(Definitions).Namespace}.DefinitionFiles.{fileName}.json");
+                typeof(EmbeddedResourceManager).Assembly,
+                $"{typeof(Definitions).Namespace}.DefinitionFiles.{ModelInfoProvider.Version}.{fileName}.json");
         }
 
         private void BuildAndVerify(SearchParameterDefinitionBuilder builder, string expectedIssue)

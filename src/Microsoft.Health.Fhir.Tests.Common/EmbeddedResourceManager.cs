@@ -5,6 +5,7 @@
 
 using System.IO;
 using System.Reflection;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Tests.Common
 {
@@ -12,7 +13,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
     {
         public static string GetStringContent(string embeddedResourceSubNamespace, string fileName, string extension)
         {
-            string resourceName = $"{typeof(Samples).Namespace}.{embeddedResourceSubNamespace}.{fileName}.{extension}";
+            string resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{ModelInfoProvider.Version}.{fileName}.{extension}";
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
             {
                 using (var reader = new StreamReader(stream))

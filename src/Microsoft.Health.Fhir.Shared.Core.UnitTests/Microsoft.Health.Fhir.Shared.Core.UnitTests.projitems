@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>df7fb46c-281a-48c9-a86e-f1f9314636e0</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Core.UnitTests</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\CompartmentIndexerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentDefinitionManagerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionBuilderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceDeserializerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeableConceptToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeOfTToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodingToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\ContactPointToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\DateToDateTimeSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirBooleanToBooleanSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirDateTimeToDateTimeSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirDecimalToDecimalSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirElementToSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirStringToStringSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirUriToUriSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\HumanNameToStringSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IdentifierToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IdToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\InstantToDateTimeSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IntegerToIntegerSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\MarkdownToStringSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\OidToUriSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\PeriodToDateTimeSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\PositiveIntToNumberSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\QuantityToQuantitySearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\ResourceReferenceToReferenceSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\SimpleQuantityToQuantitySearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\UnsignedIntToNumberSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ExpressionParserTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchValueExpressionBuilderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchExpressionTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchServiceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchValues\ReferenceSearchValueParserTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchValues\ReferenceSearchValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Security\AuthPermissionConfigTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\FhirPrimitiveTypes\IdValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\Narratives\NarrativeDataTestBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\Narratives\NarrativeHtmlSanitizerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\Narratives\NarrativeValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateCapabilityPreProcessorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateRequestPreProcessorTests.cs" />
+  </ItemGroup>
+</Project>

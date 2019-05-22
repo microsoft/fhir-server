@@ -50,49 +50,48 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithInvalidType.json" />
-    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithInvalidDefinitions.json" />
-    <EmbeddedResource Include="DefinitionFiles\SearchParameters.json" />
-    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithInvalidBase.json" />
-    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithNullEntry.json" />
-    <EmbeddedResource Include="DefinitionFiles\SearchParametersWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\BasicExampleNarrative.json" />
-    <EmbeddedResource Include="TestFiles\BasicExampleNarrative.xml" />
-    <EmbeddedResource Include="TestFiles\BloodGlucose.json" />
-    <EmbeddedResource Include="TestFiles\BloodPressure.json" />
-    <EmbeddedResource Include="TestFiles\Condition-For-Patient-f001.json" />
-    <EmbeddedResource Include="TestFiles\Device-d1.json" />
-    <EmbeddedResource Include="TestFiles\DeviceComponent-For-Device-d1.json" />
-    <EmbeddedResource Include="TestFiles\Encounter-For-Patient-f001.json" />
-    <EmbeddedResource Include="TestFiles\Observation-For-Patient-f001.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWith1MinuteApgarScore.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWith20MinuteApgarScore.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWithBloodPressure.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWithEyeColor.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWithTemperature.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWithTPMTDiplotype.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWithTPMTHaplotypeOne.json" />
-    <EmbeddedResource Include="TestFiles\InvalidCompartmentDefinition.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWithInvalidStatus.xml" />
-    <EmbeddedResource Include="TestFiles\ObservationWithInvalidStatus.json" />
-    <EmbeddedResource Include="TestFiles\ObservationWithNoCode.xml" />
-    <EmbeddedResource Include="TestFiles\ObservationWithNoCode.json" />
-    <EmbeddedResource Include="TestFiles\Organization.json" />
-    <EmbeddedResource Include="TestFiles\Patient-f001.json" />
-    <EmbeddedResource Include="TestFiles\Patient.json" />
-    <EmbeddedResource Include="TestFiles\Patient.xml" />
-    <EmbeddedResource Include="TestFiles\ResourceWrapperNoVersion.json" />
-    <EmbeddedResource Include="TestFiles\AuthConfigWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\AuthConfigWithValidRoles.json" />
-    <EmbeddedResource Include="TestFiles\ValidCompartmentDefinition.json" />
-    <EmbeddedResource Include="TestFiles\Weight.json" />
-    <EmbeddedResource Include="TestFiles\WeightInGrams.json" />
-    <EmbeddedResource Include="TestFiles\WeightInPounds.json" />
+    <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidType.json" />
+    <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidDefinitions.json" />
+    <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParameters.json" />
+    <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidBase.json" />
+    <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithNullEntry.json" />
+    <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.xml" />
+    <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Condition-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Device-d1.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DeviceComponent-For-Device-d1.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Observation-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWith1MinuteApgarScore.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWith20MinuteApgarScore.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithBloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithEyeColor.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithTemperature.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithTPMTDiplotype.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithTPMTHaplotypeOne.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\InvalidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithInvalidStatus.xml" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithInvalidStatus.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithNoCode.xml" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithNoCode.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Organization.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
+    <EmbeddedResource Include="TestFiles\Stu3\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\AuthConfigWithInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\AuthConfigWithValidRoles.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\WeightInPounds.json" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.0.1" />
-    <PackageReference Include="Hl7.Fhir.STU3" Version="1.2.1" />
     <PackageReference Include="NSubstitute" Version="4.0.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
@@ -101,7 +100,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Abstractions\Microsoft.Health.Abstractions.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.Fhir.Stu3.Core\Microsoft.Health.Fhir.Stu3.Core.csproj" />
   </ItemGroup>
 
 </Project>

@@ -12,7 +12,6 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -119,36 +118,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var response = await mediator.Send(new GetCapabilitiesRequest(), cancellationToken);
             return response.CapabilityStatement;
-        }
-
-        public static async Task<CreateExportResponse> ExportAsync(
-            this IMediator mediator,
-            Uri requestUri,
-            string destinationType,
-            string destinationConnectionString,
-            CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-            EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
-            EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString, nameof(destinationConnectionString));
-
-            var request = new CreateExportRequest(requestUri, destinationType, destinationConnectionString);
-
-            var response = await mediator.Send(request, cancellationToken);
-            return response;
-        }
-
-        public static async Task<GetExportResponse> GetExportStatusAsync(this IMediator mediator, Uri requestUri, string jobId, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
-
-            var request = new GetExportRequest(requestUri, jobId);
-
-            GetExportResponse response = await mediator.Send(request, cancellationToken);
-            return response;
         }
     }
 }
