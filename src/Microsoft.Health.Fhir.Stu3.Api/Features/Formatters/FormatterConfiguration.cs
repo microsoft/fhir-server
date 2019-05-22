@@ -6,12 +6,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             if (_featureConfiguration.SupportsXml)
             {
                 // TODO: This feature flag should be removed when we support custom capability statements
-                _configuredConformanceProvider.ConfigureOptionalCapabilities(statement => statement.Format = statement.Format.Concat(new[] { ContentType.XML_CONTENT_HEADER }));
+                _configuredConformanceProvider.ConfigureOptionalCapabilities(statement => statement.Format = statement.Format.Concat(new[] { KnownContentTypes.XmlContentType }));
             }
 
             // Disable the built-in global UnsupportedContentTypeFilter
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             if (_featureConfiguration.SupportsXml)
             {
-                statement.Format.Add(ContentType.XML_CONTENT_HEADER);
+                statement.Format.Add(KnownContentTypes.XmlContentType);
             }
         }
     }

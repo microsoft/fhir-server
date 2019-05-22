@@ -9,7 +9,6 @@ using System.Diagnostics;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -102,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                 }
                 catch (UnsupportedMediaTypeException)
                 {
-                    context.Response.ContentType = ContentType.JSON_CONTENT_HEADER;
+                    context.Response.ContentType = KnownContentTypes.JsonContentType;
                 }
 
                 var result = new OperationOutcomeResult(operationOutcome, HttpStatusCode.InternalServerError);

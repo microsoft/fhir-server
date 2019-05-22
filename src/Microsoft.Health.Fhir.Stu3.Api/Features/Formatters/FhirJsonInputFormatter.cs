@@ -9,10 +9,10 @@ using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.Formatters.Json.Internal;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             SupportedEncodings.Add(UTF8EncodingWithoutBOM);
             SupportedEncodings.Add(UTF16EncodingLittleEndian);
-            SupportedMediaTypes.Add(ContentType.JSON_CONTENT_HEADER);
+            SupportedMediaTypes.Add(KnownContentTypes.JsonContentType);
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.ApplicationJson);
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.TextJson);
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.ApplicationAnyJsonSyntax);

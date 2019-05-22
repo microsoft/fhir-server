@@ -8,5 +8,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
     public static class KnownContentTypes
     {
         public const string JsonContentType = "application/fhir+json";
+        public const string XmlContentType = "application/fhir+xml";
     }
 }

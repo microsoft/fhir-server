@@ -15,6 +15,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             SupportedEncodings.Add(UTF8EncodingWithoutBOM);
             SupportedEncodings.Add(UTF16EncodingLittleEndian);
 
-            SupportedMediaTypes.Add(ContentType.XML_CONTENT_HEADER);
+            SupportedMediaTypes.Add(KnownContentTypes.XmlContentType);
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.ApplicationXml);
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.TextXml);
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.ApplicationAnyXmlSyntax);

@@ -8,6 +8,7 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
@@ -16,8 +17,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     {
         private static readonly IDictionary<ResourceFormat, string> ResourceFormatContentType = new Dictionary<ResourceFormat, string>
         {
-            { ResourceFormat.Json, ContentType.JSON_CONTENT_HEADER },
-            { ResourceFormat.Xml, ContentType.XML_CONTENT_HEADER },
+            { ResourceFormat.Json, KnownContentTypes.JsonContentType },
+            { ResourceFormat.Xml, KnownContentTypes.XmlContentType },
         };
 
         internal static string GetClosestClientMediaType(this IEnumerable<TextOutputFormatter> outputFormatters, ResourceFormat resourceFormat, IEnumerable<string> acceptHeaders)
