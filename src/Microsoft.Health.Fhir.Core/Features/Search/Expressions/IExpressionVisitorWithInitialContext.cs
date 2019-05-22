@@ -5,8 +5,8 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
-    public interface IExpression
+    public interface IExpressionVisitorWithInitialContext<TContext, out TOutput> : IExpressionVisitor<TContext, TOutput>
     {
-        TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);
+        TContext InitialContext { get; }
     }
 }

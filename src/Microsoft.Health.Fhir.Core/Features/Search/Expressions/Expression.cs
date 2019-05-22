@@ -233,11 +233,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new CompartmentSearchExpression(compartmentType, compartmentId);
         }
 
-        protected internal abstract void AcceptVisitor(IExpressionVisitor visitor);
-
-        public void AcceptVisitor(object visitor)
-        {
-            AcceptVisitor((IExpressionVisitor)visitor);
-        }
+        public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);
     }
 }
