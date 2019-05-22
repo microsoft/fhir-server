@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.Core
             return ModelInfo.IsKnownResource(name);
         }
 
+        public bool IsKnownCompartmentType(string compartmentType)
+        {
+            return Enum.IsDefined(typeof(CompartmentType), compartmentType);
+        }
+
         public string[] GetResourceTypeNames()
         {
             return Enum.GetNames(typeof(ResourceType));

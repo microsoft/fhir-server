@@ -30,7 +30,6 @@
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Conformance\GetCapabilitiesHandler.cs" Link="Features\Conformance\GetCapabilitiesHandler.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Conformance\IConfiguredConformanceProvider.cs" Link="Features\Conformance\IConfiguredConformanceProvider.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Conformance\IConformanceProvider.cs" Link="Features\Conformance\IConformanceProvider.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Conformance\IProvideCapability.cs" Link="Features\Conformance\IProvideCapability.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Conformance\ISystemConformanceProvider.cs" Link="Features\Conformance\ISystemConformanceProvider.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Conformance\ListedContactPoint.cs" Link="Features\Conformance\ListedContactPoint.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Conformance\SystemConformanceProvider.cs" Link="Features\Conformance\SystemConformanceProvider.cs" />
@@ -82,36 +81,14 @@
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Converters\ResourceReferenceToReferenceSearchValueTypeConverter.cs" Link="Features\Search\Converters\ResourceReferenceToReferenceSearchValueTypeConverter.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Converters\SimpleQuantityToQuantitySearchValueTypeConverter.cs" Link="Features\Search\Converters\SimpleQuantityToQuantitySearchValueTypeConverter.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Converters\UnsignedIntToNumberSearchValueTypeConverter.cs" Link="Features\Search\Converters\UnsignedIntToNumberSearchValueTypeConverter.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\BinaryExpression.cs" Link="Features\Search\Expressions\BinaryExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\BinaryOperator.cs" Link="Features\Search\Expressions\BinaryOperator.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\ChainedExpression.cs" Link="Features\Search\Expressions\ChainedExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\CompartmentSearchExpression.cs" Link="Features\Search\Expressions\CompartmentSearchExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\Expression.cs" Link="Features\Search\Expressions\Expression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\FieldName.cs" Link="Features\Search\Expressions\FieldName.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\IExpressionVisitor.cs" Link="Features\Search\Expressions\IExpressionVisitor.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\IFieldExpression.cs" Link="Features\Search\Expressions\IFieldExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\MissingFieldExpression.cs" Link="Features\Search\Expressions\MissingFieldExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\MissingSearchParameterExpression.cs" Link="Features\Search\Expressions\MissingSearchParameterExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\MultiaryExpression.cs" Link="Features\Search\Expressions\MultiaryExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\MultiaryOperator.cs" Link="Features\Search\Expressions\MultiaryOperator.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\Parsers\ExpressionParser.cs" Link="Features\Search\Expressions\Parsers\ExpressionParser.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\Parsers\IExpressionParser.cs" Link="Features\Search\Expressions\Parsers\IExpressionParser.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\Parsers\ISearchParameterExpressionParser.cs" Link="Features\Search\Expressions\Parsers\ISearchParameterExpressionParser.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\Parsers\SearchParameterExpressionParser.cs" Link="Features\Search\Expressions\Parsers\SearchParameterExpressionParser.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\Parsers\SearchValueExpressionBuilderHelper.cs" Link="Features\Search\Expressions\Parsers\SearchValueExpressionBuilderHelper.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\SearchParameterExpression.cs" Link="Features\Search\Expressions\SearchParameterExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\SearchParameterExpressionBase.cs" Link="Features\Search\Expressions\SearchParameterExpressionBase.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\StringExpression.cs" Link="Features\Search\Expressions\StringExpression.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\Expressions\StringOperator.cs" Link="Features\Search\Expressions\StringOperator.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\InvalidSearchOperationException.cs" Link="Features\Search\InvalidSearchOperationException.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\SearchIndexer.cs" Link="Features\Search\SearchIndexer.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\SearchOperationNotSupportedException.cs" Link="Features\Search\SearchOperationNotSupportedException.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\SearchOptionsFactory.cs" Link="Features\Search\SearchOptionsFactory.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\SearchParameterNames.cs" Link="Features\Search\SearchParameterNames.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\SearchParameterNotSupportedException.cs" Link="Features\Search\SearchParameterNotSupportedException.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\SearchResourceHandler.cs" Link="Features\Search\SearchResourceHandler.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\SearchResourceHistoryHandler.cs" Link="Features\Search\SearchResourceHistoryHandler.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Search\SearchService.cs" Link="Features\Search\SearchService.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Validation\AttributeValidator.cs" Link="Features\Validation\AttributeValidator.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Validation\NarrativeValidator.cs" Link="Features\Validation\NarrativeValidator.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Stu3.Core\Features\Validation\ResourceValidator.cs" Link="Features\Validation\ResourceValidator.cs" />

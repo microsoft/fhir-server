@@ -44,6 +44,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return statement;
         }
 
+        public static ListedCapabilityStatement TryAddRestInteraction(this ListedCapabilityStatement statement, CapabilityStatement.SystemRestfulInteraction interaction)
+        {
+            EnsureArg.IsNotNull(statement, nameof(statement));
+
+            var restComponent = statement.Rest.Single();
+
+            if (restComponent.Interaction == null)
+            {
+                restComponent.Interaction = new List<CapabilityStatement.SystemInteractionComponent>();
+            }
+
+            restComponent.Interaction.Add(new CapabilityStatement.SystemInteractionComponent
+            {
+                Code = interaction,
+            });
+
+            return statement;
+        }
+
         public static ListedCapabilityStatement TryAddSearchParams(this ListedCapabilityStatement statement, ResourceType resourceType, IEnumerable<CapabilityStatement.SearchParamComponent> searchParams)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));

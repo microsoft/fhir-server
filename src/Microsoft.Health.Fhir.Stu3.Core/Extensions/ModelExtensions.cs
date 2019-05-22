@@ -16,11 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     public static class ModelExtensions
     {
 #if !R4
-        static ModelExtensions()
-        {
-            SetModelInfoProvider();
-        }
-
         /// <summary>
         /// This method provides temporary compatibility while STU3/R4 compatibility is added
         /// </summary>

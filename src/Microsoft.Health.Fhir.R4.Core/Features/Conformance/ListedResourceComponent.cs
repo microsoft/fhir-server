@@ -4,13 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using static Hl7.Fhir.Model.CapabilityStatement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
-    public class ListedResourceComponent
+    public class ListedResourceComponent : IListedResourceComponent
     {
         public ListedResourceComponent()
         {
@@ -49,10 +51,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public IList<ResourceVersionPolicy> Versioning { get; set; }
 
+        public IList<ReferenceHandlingPolicy?> ReferencePolicy { get; set; }
+
         public IList<string> SearchRevInclude { get; set; }
 
         public IList<string> SearchInclude { get; set; }
 
-        public IList<ReferenceHandlingPolicy?> ReferencePolicy { get; set; }
+        public void AddResourceVersionPolicy(string policy)
+        {
+            EnsureArg.IsNotEmptyOrWhitespace(policy, nameof(policy));
+
+            var versionPolicy = policy.GetValueByEnumLiteral<ResourceVersionPolicy>();
+
+            Versioning.Add(versionPolicy);
+        }
     }
 }

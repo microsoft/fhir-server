@@ -62,17 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             var interaction = systemInteraction.GetValueByEnumLiteral<SystemRestfulInteraction>();
 
-            var restComponent = Rest.Single();
-
-            if (restComponent.Interaction == null)
-            {
-                restComponent.Interaction = new List<SystemInteractionComponent>();
-            }
-
-            restComponent.Interaction.Add(new SystemInteractionComponent
-            {
-                Code = interaction,
-            });
+            this.TryAddRestInteraction(interaction);
         }
 
         public void BuildRestResourceComponent(string resourceType, Action<IListedResourceComponent> action)

@@ -5,13 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using static Hl7.Fhir.Model.CapabilityStatement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
-    public sealed class ListedCapabilityStatement
+    public sealed class ListedCapabilityStatement : IListedCapabilityStatement
     {
         public Uri Url { get; set; }
 
@@ -40,5 +42,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public IList<ListedRestComponent> Rest { get; set; }
 
         public IList<Code<PublicationStatus>> StatusElement { get; set; }
+
+        public void TryAddRestInteraction(string resourceType, string interaction)
+        {
+            EnsureArg.IsNotNullOrEmpty(interaction, nameof(interaction));
+            EnsureArg.IsTrue(Enum.TryParse<ResourceType>(resourceType, out var resource), nameof(resourceType));
+
+            var restInteraction = interaction.GetValueByEnumLiteral<TypeRestfulInteraction>();
+
+            this.TryAddRestInteraction(resource, restInteraction);
+        }
+
+        public void TryAddRestInteraction(string systemInteraction)
+        {
+            EnsureArg.IsNotNullOrEmpty(systemInteraction, nameof(systemInteraction));
+
+            var interaction = systemInteraction.GetValueByEnumLiteral<SystemRestfulInteraction>();
+
+            this.TryAddRestInteraction(interaction);
+        }
+
+        public void BuildRestResourceComponent(string resourceType, Action<IListedResourceComponent> action)
+        {
+            EnsureArg.IsTrue(Enum.TryParse<ResourceType>(resourceType, out var resource), nameof(resourceType));
+
+            this.BuildRestResourceComponent(resource, action);
+        }
     }
 }
