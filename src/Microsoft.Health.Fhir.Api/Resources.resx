@@ -129,6 +129,16 @@
   <data name="GeneralInternalError" xml:space="preserve">
     <value>There was an error processing your request.</value>
   </data>
+  <data name="InvalidCompoundCode" xml:space="preserve">
+    <value>Invalid compound authorization code.</value>
+  </data>
+  <data name="InvalidLaunchContext" xml:space="preserve">
+    <value>Invalid launch context parameters.</value>
+  </data>
+  <data name="InvalidRedirectUri" xml:space="preserve">
+    <value>Provided value for redirect Uri: {0} is not a valid Uri.</value>
+    <comment>{0} is a parameter passed in for redirection.</comment>
+  </data>
   <data name="MenuAPI" xml:space="preserve">
     <value>API</value>
   </data>
@@ -182,12 +192,24 @@
     <value>The requested "{0}" operation is not supported.</value>
     <comment>{0} is the operation name</comment>
   </data>
+  <data name="UnsupportedParameter" xml:space="preserve">
+    <value>The "{0}" parameter is not supported.</value>
+    <comment>{0} is the parameter name.</comment>
+  </data>
+  <data name="UnsupportedParameterValue" xml:space="preserve">
+    <value>The supplied value for "{0}" paramter is invalid.</value>
+    <comment>{0} is parameter name</comment>
+  </data>
   <data name="UnsupportedResourceType" xml:space="preserve">
     <value>Requested operation does not support resource type: {0}.</value>
     <comment>{0} is the resource type.</comment>
   </data>
   <data name="UrlResourceIdMismatch" xml:space="preserve">
     <value>Id in the URL must match id in the resource.</value>
+  </data>
+  <data name="ValueCannotBeNull" xml:space="preserve">
+    <value>Value cannot be null.  Parameter name: {0}.</value>
+    <comment>Error message for missing query parameter, {0} is the parameter name</comment>
   </data>
   <data name="ViewNotFound" xml:space="preserve">
     <value>View was not found.</value>

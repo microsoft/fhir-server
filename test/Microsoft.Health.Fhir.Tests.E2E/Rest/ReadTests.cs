@@ -5,6 +5,7 @@
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -15,7 +16,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json | Format.Xml)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class ReadTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         public ReadTests(HttpIntegrationTestFixture<Startup> fixture)
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenGettingAResource_GivenAnId_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             FhirResponse<Observation> readResponse = await Client.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id);
 
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenGettingAResource_GivenADeletedId_TheServerShouldReturnAGoneStatus()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             await Client.DeleteAsync(createdResource);
 

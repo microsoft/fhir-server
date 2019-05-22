@@ -56,6 +56,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 CreateTuple("s_2", system3),
                 CreateTuple("c_2", code3),
                 CreateTuple("q_2", quantity),
+                CreateTuple("lq_2", quantity),
+                CreateTuple("hq_2", quantity),
             };
 
             TestAndValidateOutput(
@@ -106,6 +108,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                     CreateTuple("s_1", system3),
                     CreateTuple("c_1", code3),
                     CreateTuple("q_1", quantity),
+                    CreateTuple("lq_1", quantity),
+                    CreateTuple("hq_1", quantity),
                     CreateTuple("n_s_2", normalizedS1),
                 },
                 new[]
@@ -115,6 +119,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                     CreateTuple("s_1", system3),
                     CreateTuple("c_1", code3),
                     CreateTuple("q_1", quantity),
+                    CreateTuple("lq_1", quantity),
+                    CreateTuple("hq_1", quantity),
                     CreateTuple("n_s_2", normalizedS2),
                 },
                 new[]
@@ -124,6 +130,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                     CreateTuple("s_1", system3),
                     CreateTuple("c_1", code3),
                     CreateTuple("q_1", quantity),
+                    CreateTuple("lq_1", quantity),
+                    CreateTuple("hq_1", quantity),
                     CreateTuple("n_s_2", normalizedS1),
                 },
                 new[]
@@ -133,6 +141,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                     CreateTuple("s_1", system3),
                     CreateTuple("c_1", code3),
                     CreateTuple("q_1", quantity),
+                    CreateTuple("lq_1", quantity),
+                    CreateTuple("hq_1", quantity),
                     CreateTuple("n_s_2", normalizedS2),
                 },
             };
@@ -163,7 +173,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         }
 
         [Fact]
-        public void GivenANumberSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        public void GivenANumberSearchValueWithEqualLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const decimal number = 1.25m;
 
@@ -172,11 +182,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             TestAndValidateOutput(
                 "number",
                 value,
-                new[] { CreateTuple("n", number) });
+                new[] { CreateTuple("n", number), CreateTuple("ln", number), CreateTuple("hn", number) });
         }
 
         [Fact]
-        public void GivenAQuantitySearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        public void GivenANumberSearchValueWithUnequalLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        {
+            const decimal low = 1.25m;
+            const decimal high = 2.25m;
+
+            var value = new NumberSearchValue(low, high);
+
+            TestAndValidateOutput(
+                "number",
+                value,
+                new[] { CreateTuple("ln", low), CreateTuple("hn", high) });
+        }
+
+        [Fact]
+        public void GivenAQuantitySearchValueWithEqualLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system = "system";
             const string code = "code";
@@ -192,6 +216,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 CreateTuple(SystemName, system),
                 CreateTuple(CodeName, code),
                 CreateTuple("q", quantity),
+                CreateTuple("lq", quantity),
+                CreateTuple("hq", quantity),
+            };
+
+            TestAndValidateOutput(
+                "quantity",
+                value,
+                expectedValues);
+        }
+
+        [Fact]
+        public void GivenAQuantitySearchValueWithUnequalLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
+        {
+            const string system = "system";
+            const string code = "code";
+            const decimal low = 3.0m;
+            const decimal high = 5.0m;
+
+            var value = new QuantitySearchValue(
+                system,
+                code,
+                low,
+                high);
+
+            var expectedValues = new[]
+            {
+                CreateTuple(SystemName, system),
+                CreateTuple(CodeName, code),
+                CreateTuple("lq", low),
+                CreateTuple("hq", high),
             };
 
             TestAndValidateOutput(
@@ -205,7 +259,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         {
             const string resourceId = "xyz";
 
-            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, ResourceType.Immunization, resourceId);
+            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, ResourceType.Immunization.ToString(), resourceId);
 
             var expectedValues = new[]
             {
@@ -225,7 +279,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             var baseUri = new Uri("https://localhost/stu3/");
             const string resourceId = "123";
 
-            var value = new ReferenceSearchValue(ReferenceKind.Internal, baseUri, ResourceType.Account, resourceId);
+            var value = new ReferenceSearchValue(ReferenceKind.Internal, baseUri, ResourceType.Account.ToString(), resourceId);
 
             var expectedValues = new[]
             {
@@ -361,7 +415,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
         private void TestAndValidateOutput(string parameterName, ISearchValue value, params (string Name, object Value)[][] expectedValues)
         {
-            SearchIndexEntry entry = new SearchIndexEntry(new SearchParameter { Name = parameterName }, value);
+            SearchIndexEntry entry = new SearchIndexEntry(new SearchParameterInfo(parameterName), value);
 
             IReadOnlyList<JObject> generatedObjects = _generator.Generate(entry);
 

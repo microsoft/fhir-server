@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Expression expectedExpression = SetupExpression(searchParameter, value);
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType, key, value);
+            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
             ValidateMultiaryExpression(
                 expression,
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     chainedExpression,
                     sourceResourceType,
                     param1,
-                    targetResourceType,
+                    targetResourceType.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
         }
 
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             .ToArray();
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType, key, value);
+            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
             ValidateMultiaryExpression(
                 expression,
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                             chainedExpression,
                             sourceResourceType,
                             param1,
-                            expected.TargetResourceType,
+                            expected.TargetResourceType.ToString(),
                             actualSearchExpression => Assert.Equal(expected.Expression, actualSearchExpression)));
                 })
                 .ToArray());
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             .ToArray();
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType, key, value);
+            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
             ValidateMultiaryExpression(
                 expression,
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     chainedExpression,
                     sourceResourceType,
                     param1,
-                    ResourceType.Organization,
+                    ResourceType.Organization.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpressions[0], actualSearchExpression)));
         }
 
@@ -169,8 +169,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
 
             // Setup the Organization to not support this search param.
-            _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Organization, param2)
-                .Returns(x => throw new SearchParameterNotSupportedException(x.ArgAt<ResourceType>(0), x.ArgAt<string>(1)));
+            _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Organization.ToString(), param2)
+                .Returns(x => throw new SearchParameterNotSupportedException(x.ArgAt<string>(0), x.ArgAt<string>(1)));
 
             // Setup the Practitioner to support this search param.
             SearchParameter searchParameter = SetupSearchParameter(ResourceType.Practitioner, param2);
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Expression expectedExpression = SetupExpression(searchParameter, value);
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType, key, value);
+            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
             ValidateMultiaryExpression(
                 expression,
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     chainedExpression,
                     sourceResourceType,
                     param1,
-                    ResourceType.Practitioner,
+                    ResourceType.Practitioner.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
         }
 
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Expression expectedExpression = SetupExpression(searchParameter, value);
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType, key, value);
+            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
             ValidateMultiaryExpression(
                  expression,
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                      chainedExpression,
                      sourceResourceType,
                      param1,
-                     firstTargetResourceType,
+                     firstTargetResourceType.ToString(),
                      nestedExpression => ValidateMultiaryExpression(
                          nestedExpression,
                          MultiaryOperator.Or,
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                              nestedChainedExpression,
                              firstTargetResourceType,
                              param2,
-                             secondTargetResourceType,
+                             secondTargetResourceType.ToString(),
                              actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)))));
         }
 
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             _searchParameterExpressionParser.Parse(searchParameter, SearchParameter.SearchModifierCode.Missing, value).Returns(expression);
 
             // Parse the expression.
-            Expression actualExpression = _expressionParser.Parse(resourceType, key, value);
+            Expression actualExpression = _expressionParser.Parse(resourceType.ToString(), key, value);
 
             // The mock requires the modifier to match so if we get the same expression instance
             // then it means we got the modifier correctly.
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupSearchParameter(sourceResourceType, param1);
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType, key, value));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType.ToString(), key, value));
         }
 
         [Fact]
@@ -292,7 +292,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceType);
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType, key, "Error"));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType.ToString(), key, "Error"));
         }
 
         [Fact]
@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceType);
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType, key, "Error"));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType.ToString(), key, "Error"));
         }
 
         [Fact]
@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupSearchParameter(resourceType, "param1");
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(resourceType, "param1:param2:param3", "Error"));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(resourceType.ToString(), "param1:param2:param3", "Error"));
         }
 
         [Fact]
@@ -330,7 +330,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             ResourceType resourceType = ResourceType.Location;
             string invalidParameterName = "...";
 
-            Assert.Throws<SearchParameterNotSupportedException>(() => _expressionParser.Parse(resourceType, invalidParameterName, "value"));
+            Assert.Throws<SearchParameterNotSupportedException>(() => _expressionParser.Parse(resourceType.ToString(), invalidParameterName, "value"));
         }
 
         private SearchParameter SetupSearchParameter(ResourceType resourceType, string paramName)
@@ -341,14 +341,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 Type = SearchParamType.String,
             };
 
-            _searchParameterDefinitionManager.GetSearchParameter(resourceType, paramName).Returns(searchParameter);
+            _searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(searchParameter);
 
             return searchParameter;
         }
 
         private void SetupReferenceSearchParameter(ResourceType resourceType, string paramName, params ResourceType[] targetResourceTypes)
         {
-            _searchParameterDefinitionManager.GetSearchParameter(resourceType, paramName).Returns(
+            _searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(
                 new SearchParameter()
                 {
                     Name = paramName,

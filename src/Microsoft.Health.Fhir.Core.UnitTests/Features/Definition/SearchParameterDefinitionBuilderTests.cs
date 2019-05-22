@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             _builderWithValidEntries.Build();
 
-            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[ResourceType.Account];
+            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[ResourceType.Account.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             _builderWithValidEntries.Build();
 
-            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[resourceType];
+            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[resourceType.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -121,8 +121,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             InvalidDefinitionException ex = Assert.Throws<InvalidDefinitionException>(() => builder.Build());
 
             Assert.Contains(ex.Issues, issue =>
-                issue.Severity == IssueSeverity.Fatal &&
-                issue.Code == IssueType.Invalid &&
+                issue.Severity == IssueSeverity.Fatal.ToString() &&
+                issue.Code == IssueType.Invalid.ToString() &&
                 issue.Diagnostics.StartsWith(expectedIssue));
         }
 

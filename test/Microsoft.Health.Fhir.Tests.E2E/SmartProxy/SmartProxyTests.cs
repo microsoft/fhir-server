@@ -11,6 +11,7 @@ using System.Net;
 using System.Reflection;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Newtonsoft.Json.Linq;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             // TODO: We are accepting insecure certs to make it practical to run on build systems. A valid cert should be on the build system.
             options.AcceptInsecureCertificates = true;
 
-            FhirResponse<Patient> response = await _fixture.FhirClient.CreateAsync(Samples.GetDefaultPatient());
+            FhirResponse<Patient> response = await _fixture.FhirClient.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Patient patient = response.Resource;
 
@@ -121,6 +122,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 // Consent, should only be done if we can find the button
                 try
                 {
+                    // Sleep in case a light box is shown.
+                    Thread.Sleep(TimeSpan.FromMilliseconds(1000));
                     var button = driver.FindElementById("idSIButton9");
                     Advance();
                 }

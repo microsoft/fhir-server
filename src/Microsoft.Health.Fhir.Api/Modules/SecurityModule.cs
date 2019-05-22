@@ -69,12 +69,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 }
                 else
                 {
-                    services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy));
+                    services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy, PolicyNames.ExportPolicy));
                 }
             }
             else
             {
-                services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.FhirPolicy, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy));
+                services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.FhirPolicy, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy, PolicyNames.ExportPolicy));
             }
         }
 

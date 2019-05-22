@@ -5,6 +5,7 @@
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -16,7 +17,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json | Format.Xml)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class VReadTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         public VReadTests(HttpIntegrationTestFixture<Startup> fixture)
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenGettingAResource_GivenAnIdAndVersionId_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             FhirResponse<Observation> vReadResponse = await Client.VReadAsync<Observation>(
                 ResourceType.Observation,
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenGettingAResource_GivenAIdAndNonExistingVersionId_TheServerShouldReturnANotFoundStatus()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
                 () => Client.VReadAsync<Observation>(ResourceType.Observation, createdResource.Id, Guid.NewGuid().ToString()));
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenGettingAResource_GivenADeletedIdAndVersionId_TheServerShouldReturnAGoneStatus()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation());
+            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             FhirResponse deleteResponse = await Client.DeleteAsync(createdResource);
 

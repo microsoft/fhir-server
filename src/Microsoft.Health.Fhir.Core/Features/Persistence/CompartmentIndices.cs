@@ -5,7 +5,7 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -17,32 +17,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
         }
 
-        internal CompartmentIndices(IDictionary<CompartmentType, IReadOnlyCollection<string>> compartmentTypeToResourceIds)
+        internal CompartmentIndices(IDictionary<string, IReadOnlyCollection<string>> compartmentTypeToResourceIds)
         {
             EnsureArg.IsNotNull(compartmentTypeToResourceIds, nameof(compartmentTypeToResourceIds));
             IReadOnlyCollection<string> compartmentEntry = null;
 
-            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.Device, out compartmentEntry))
+            if (compartmentTypeToResourceIds.TryGetValue(KnownCompartmentTypes.Device, out compartmentEntry))
             {
                 DeviceCompartmentEntry = compartmentEntry;
             }
 
-            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.Encounter, out compartmentEntry))
+            if (compartmentTypeToResourceIds.TryGetValue(KnownCompartmentTypes.Encounter, out compartmentEntry))
             {
                 EncounterCompartmentEntry = compartmentEntry;
             }
 
-            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.Patient, out compartmentEntry))
+            if (compartmentTypeToResourceIds.TryGetValue(KnownCompartmentTypes.Patient, out compartmentEntry))
             {
                 PatientCompartmentEntry = compartmentEntry;
             }
 
-            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.Practitioner, out compartmentEntry))
+            if (compartmentTypeToResourceIds.TryGetValue(KnownCompartmentTypes.Practitioner, out compartmentEntry))
             {
                 PractitionerCompartmentEntry = compartmentEntry;
             }
 
-            if (compartmentTypeToResourceIds.TryGetValue(CompartmentType.RelatedPerson, out compartmentEntry))
+            if (compartmentTypeToResourceIds.TryGetValue(KnownCompartmentTypes.RelatedPerson, out compartmentEntry))
             {
                 RelatedPersonCompartmentEntry = compartmentEntry;
             }

@@ -7,42 +7,38 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceDeserializer
     {
-        private readonly IReadOnlyDictionary<ResourceFormat, Func<string, Resource>> _deserializers;
+        private readonly IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> _deserializers;
 
-        public ResourceDeserializer(IReadOnlyDictionary<ResourceFormat, Func<string, Resource>> deserializers)
+        public ResourceDeserializer(IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> deserializers)
         {
             EnsureArg.IsNotNull(deserializers, nameof(deserializers));
 
             _deserializers = deserializers;
         }
 
-        public ResourceDeserializer(params (ResourceFormat Format, Func<string, Resource> Func)[] deserializers)
+        public ResourceDeserializer(params (FhirResourceFormat Format, Func<string, string, DateTimeOffset, ResourceElement> Func)[] deserializers)
         {
             EnsureArg.IsNotNull(deserializers, nameof(deserializers));
 
             _deserializers = deserializers.ToDictionary(x => x.Format, x => x.Func);
         }
 
-        public Resource Deserialize(ResourceWrapper resourceWrapper)
+        public ResourceElement Deserialize(ResourceWrapper resourceWrapper)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
-            Resource resource = DeserializeRaw(resourceWrapper.RawResource);
-
-            resource.VersionId = resourceWrapper.Version;
-            resource.Meta.LastUpdated = resourceWrapper.LastModified;
+            ResourceElement resource = DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
 
             return resource;
         }
 
-        internal Resource DeserializeRaw(RawResource rawResource)
+        internal ResourceElement DeserializeRaw(RawResource rawResource, string version, DateTimeOffset lastModified)
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
@@ -51,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 throw new NotSupportedException();
             }
 
-            return deserializer(rawResource.Data);
+            return deserializer(rawResource.Data, version, lastModified);
         }
     }
 }

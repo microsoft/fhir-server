@@ -3,11 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Tests.Common
 {
@@ -16,6 +18,12 @@ namespace Microsoft.Health.Fhir.Tests.Common
         private static readonly FhirJsonParser JsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
 
         public static ResourceDeserializer ResourceDeserializer => new ResourceDeserializer(
-            (ResourceFormat.Json, str => JsonParser.Parse<Resource>(str)));
+            (FhirResourceFormat.Json, (str, version, lastModified) =>
+                {
+                    var resource = JsonParser.Parse<Resource>(str);
+                    resource.VersionId = version;
+                    resource.Meta.LastUpdated = lastModified;
+                    return resource.ToTypedElement().ToResourceElement();
+                }));
     }
 }

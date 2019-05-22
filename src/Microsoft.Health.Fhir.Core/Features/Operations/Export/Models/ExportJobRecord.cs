@@ -15,18 +15,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord
     {
-        public ExportJobRecord(Uri exportRequestUri)
+        private const string SecretPrefix = "Export-Destination-";
+
+        public ExportJobRecord(Uri exportRequestUri, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
         {
             EnsureArg.IsNotNull(exportRequestUri, nameof(exportRequestUri));
+            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
 
             RequestUri = exportRequestUri;
+            Hash = hash;
+            RequestorClaims = requestorClaims;
 
             // Default values
             SchemaVersion = 1;
-            Status = OperationStatus.Queued;
             Id = Guid.NewGuid().ToString();
-            QueuedTime = DateTimeOffset.Now;
-            LastModifiedTime = DateTimeOffset.Now;
+            Status = OperationStatus.Queued;
+
+            QueuedTime = DateTimeOffset.UtcNow;
+            SecretName = SecretPrefix + Id;
         }
 
         [JsonConstructor]
@@ -36,6 +42,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Request)]
         public Uri RequestUri { get; private set; }
+
+        [JsonProperty(JobRecordProperties.RequestorClaims)]
+        public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
+
+        [JsonProperty(JobRecordProperties.SecretName)]
+        public string SecretName { get; private set; }
 
         [JsonProperty(JobRecordProperties.Id)]
         public string Id { get; private set; }
@@ -57,9 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Status)]
         public OperationStatus Status { get; set; }
-
-        [JsonProperty(JobRecordProperties.LastModified)]
-        public DateTimeOffset LastModifiedTime { get; set; }
 
         [JsonProperty(JobRecordProperties.StartTime)]
         public DateTimeOffset? StartTime { get; set; }

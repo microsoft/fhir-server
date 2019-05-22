@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class RawResource
     {
-        public RawResource(string data, ResourceFormat format)
+        public RawResource(string data, FhirResourceFormat format)
         {
             EnsureArg.IsNotNullOrEmpty(data, nameof(data));
 
@@ -30,6 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         [JsonProperty("format")]
         [JsonConverter(typeof(StringEnumConverter))]
-        public ResourceFormat Format { get; protected set; }
+        public FhirResourceFormat Format { get; protected set; }
     }
 }

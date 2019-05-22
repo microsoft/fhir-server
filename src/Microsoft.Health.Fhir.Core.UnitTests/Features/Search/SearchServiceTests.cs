@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly ResourceRequest _resourceRequest = new ResourceRequest("http://fhir", HttpMethod.Post);
         private readonly string _correlationId;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly Stu3ModelInfoProvider _stu3ModelInfoProvider = new Stu3ModelInfoProvider();
 
         public SearchServiceTests()
         {
@@ -47,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
                 .Returns(x => new SearchOptions());
 
-            _searchService = new TestSearchService(_searchOptionsFactory, _bundleFactory, _fhirDataStore);
+            _searchService = new TestSearchService(_searchOptionsFactory, _bundleFactory, _fhirDataStore, _stu3ModelInfoProvider);
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
 
             _urlResolver.ResolveRouteUrl(Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(SearchUrl);
@@ -59,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenANullSearchOptionsFactory_WhenInitializing_ThenInitializationShouldFail()
         {
-            Assert.Throws<ArgumentNullException>(ParamNameSearchOptionsFactory, () => new TestSearchService(null, _bundleFactory, null));
+            Assert.Throws<ArgumentNullException>(ParamNameSearchOptionsFactory, () => new TestSearchService(null, _bundleFactory, null, _stu3ModelInfoProvider));
         }
 
         [Fact]
@@ -71,10 +73,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _urlResolver.ResolveRouteUrl(unsupportedSearchParams: null, continuationToken: null).Returns(SearchUrl);
 
-            Bundle actual = await _searchService.SearchAsync(resourceType, null);
+            var actual = await _searchService.SearchAsync(resourceType, null);
 
             Assert.NotNull(actual);
-            Assert.Equal(SearchUrl, actual.SelfLink);
+            Assert.Equal(SearchUrl.ToString(), actual.Scalar<string>("Bundle.link.where(relation='self').url"));
             Assert.Equal(_correlationId.ToString(), actual.Id);
         }
 
@@ -85,10 +87,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
 
-            Bundle actual = await _searchService.SearchAsync(resourceType, null);
+            var actual = await _searchService.SearchAsync(resourceType, null);
 
             Assert.NotNull(actual);
-            Assert.Equal(Bundle.BundleType.Searchset, actual.Type);
+            Assert.Equal(Bundle.BundleType.Searchset.ToString().ToLowerInvariant(), actual.Scalar<string>("Bundle.type"));
             Assert.Equal(_correlationId.ToString(), actual.Id);
         }
 
@@ -97,8 +99,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             const string resourceType = "Observation";
 
-            Observation observation1 = new Observation() { Id = "123" };
-            Observation observation2 = new Observation() { Id = "abc" };
+            var observation1 = new Observation() { Id = "123" }.ToResourceElement();
+            var observation2 = new Observation() { Id = "abc" }.ToResourceElement();
 
             ResourceWrapper[] resourceWrappers = new ResourceWrapper[]
             {
@@ -108,17 +110,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchService.SearchImplementation = options => new SearchResult(resourceWrappers, null);
 
-            _urlResolver.ResolveResourceUrl(Arg.Any<Resource>()).Returns(x => new Uri($"{SearchUrl}/{x.ArgAt<Resource>(0).Id}"));
+            _urlResolver.ResolveResourceUrl(Arg.Any<ResourceElement>()).Returns(x => new Uri($"{SearchUrl}/{x.ArgAt<ResourceElement>(0).Id}"));
 
-            Bundle actual = await _searchService.SearchAsync(resourceType, null);
+            var actual = await _searchService.SearchAsync(resourceType, null);
 
             Assert.NotNull(actual);
+            var bundle = actual.ToPoco<Bundle>();
+
             Assert.Collection(
-                actual.Entry,
-                e => ValidateEntry(observation1, e),
-                e => ValidateEntry(observation2, e));
-            Assert.Equal(Bundle.BundleType.Searchset, actual.Type);
-            Assert.Equal(_correlationId.ToString(), actual.Id);
+                bundle.Entry,
+                e => ValidateEntry(observation1.ToPoco<Observation>(), e),
+                e => ValidateEntry(observation2.ToPoco<Observation>(), e));
+            Assert.Equal(Bundle.BundleType.Searchset, bundle.Type);
+            Assert.Equal(_correlationId, actual.Id);
 
             void ValidateEntry(Observation expected, Bundle.EntryComponent actualEntry)
             {
@@ -142,10 +146,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _urlResolver.ResolveRouteUrl(unsupportedSearchParams: null, continuationToken: searchToken).Returns(continuationLink);
 
-            Bundle actual = await _searchService.SearchAsync(resourceType, null);
+            var actual = await _searchService.SearchAsync(resourceType, null);
 
             Assert.NotNull(actual);
-            Assert.Equal(continuationLink, actual.NextLink);
+            Assert.Equal(continuationLink.ToString(), actual.Scalar<string>("Bundle.link.where(relation='next').url"));
             Assert.Equal(_correlationId, actual.Id);
         }
 
@@ -157,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
 
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, CancellationToken.None));
         }
 
         [Fact]
@@ -166,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string resourceType = "Observation";
             const string resourceId = "abc";
 
-            var observation = new Observation { Id = resourceId };
+            var observation = new Observation { Id = resourceId }.ToResourceElement();
 
             var resourceWrapper =
                 new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
@@ -175,15 +179,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
 
-            var bundle = await _searchService.SearchHistoryAsync(resourceType, resourceId, PartialDateTime.Parse("2018"), null, null, null, CancellationToken.None);
+            var bundle = await _searchService.SearchHistoryAsync(resourceType, resourceId, PartialDateTime.Parse("2018"), null, null, null, null, CancellationToken.None);
 
-            Assert.Empty(bundle.Entry);
+            Assert.Empty(bundle.ToPoco<Bundle>().Entry);
         }
 
         private class TestSearchService : SearchService
         {
-            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore)
-                : base(searchOptionsFactory, bundleFactory, fhirDataStore)
+            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
+                : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
             {
                 SearchImplementation = options => null;
             }

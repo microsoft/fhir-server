@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -13,12 +13,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public abstract class SearchParameterExpressionBase : Expression
     {
-        protected SearchParameterExpressionBase(SearchParameter searchParameter)
+        protected SearchParameterExpressionBase(SearchParameterInfo searchParameter)
         {
             Parameter = searchParameter;
             EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
         }
 
-        public SearchParameter Parameter { get; }
+        public SearchParameterInfo Parameter { get; }
     }
 }

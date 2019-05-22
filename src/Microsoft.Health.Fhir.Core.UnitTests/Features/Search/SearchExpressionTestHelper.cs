@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Xunit;
@@ -16,28 +15,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public static class SearchExpressionTestHelper
     {
-        internal static void ValidateSearchParameterExpression(Expression expression, string paramName, Action<Expression> valueValidator)
+        internal static void ValidateSearchParameterExpression(IExpression expression, string paramName, Action<Expression> valueValidator)
         {
             SearchParameterExpression parameterExpression = Assert.IsType<SearchParameterExpression>(expression);
             Assert.Equal(paramName, parameterExpression.Parameter.Name);
             valueValidator(parameterExpression.Expression);
         }
 
-        internal static void ValidateResourceTypeSearchParameterExpression(Expression expression, string typeName)
+        internal static void ValidateResourceTypeSearchParameterExpression(IExpression expression, string typeName)
         {
             ValidateSearchParameterExpression(expression, SearchParameterNames.ResourceType, e => ValidateBinaryExpression(e, FieldName.TokenCode, BinaryOperator.Equal, typeName));
         }
 
         public static void ValidateChainedExpression(
-            Expression expression,
+            IExpression expression,
             ResourceType resourceType,
             string key,
-            ResourceType targetResourceType,
+            string targetResourceType,
             Action<Expression> childExpressionValidator)
         {
             ChainedExpression chainedExpression = Assert.IsType<ChainedExpression>(expression);
 
-            Assert.Equal(resourceType, chainedExpression.ResourceType);
+            Assert.Equal(resourceType.ToString(), chainedExpression.ResourceType);
             Assert.Equal(key, chainedExpression.ParamName);
             Assert.Equal(targetResourceType, chainedExpression.TargetResourceType);
 
@@ -45,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateChainedExpression(
-            Expression expression,
+            IExpression expression,
             Type resourceType,
             string key,
             Type targetResourceType,
@@ -53,15 +52,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             ChainedExpression chainedExpression = Assert.IsType<ChainedExpression>(expression);
 
-            Assert.Equal(resourceType, chainedExpression.ResourceType.ToResourceModelType());
+            Assert.Equal(resourceType.ToString(), chainedExpression.ResourceType);
             Assert.Equal(key, chainedExpression.ParamName);
-            Assert.Equal(targetResourceType, chainedExpression.TargetResourceType.ToResourceModelType());
+            Assert.Equal(targetResourceType.ToString(), chainedExpression.TargetResourceType.ToString());
 
             childExpressionValidator(chainedExpression.Expression);
         }
 
         public static void ValidateMultiaryExpression(
-            Expression expression,
+            IExpression expression,
             MultiaryOperator multiaryOperator,
             params Action<Expression>[] valueValidators)
         {
@@ -74,13 +73,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 valueValidators);
         }
 
-        public static void ValidateEqualsExpression(Expression expression, FieldName expectedFieldName, object expectedValue)
+        public static void ValidateEqualsExpression(IExpression expression, FieldName expectedFieldName, object expectedValue)
         {
             ValidateBinaryExpression(expression, expectedFieldName, BinaryOperator.Equal, expectedValue);
         }
 
         public static void ValidateBinaryExpression(
-            Expression expression,
+            IExpression expression,
             FieldName expectedFieldName,
             BinaryOperator expectedBinaryOperator,
             object expectedValue)
@@ -93,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateStringExpression(
-            Expression expression,
+            IExpression expression,
             FieldName expectedFieldName,
             StringOperator expectedStringOperator,
             string expectedValue,
@@ -108,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateDateTimeBinaryOperatorExpression(
-            Expression expression,
+            IExpression expression,
             FieldName expectedFieldName,
             BinaryOperator expectedExpression,
             DateTimeOffset expectedValue)
@@ -121,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateMissingParamExpression(
-            Expression expression,
+            IExpression expression,
             string expectedParamName,
             bool expectedIsMissing)
         {
@@ -132,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateMissingFieldExpression(
-            Expression expression,
+            IExpression expression,
             FieldName expectedFieldName)
         {
             MissingFieldExpression mfExpression = Assert.IsType<MissingFieldExpression>(expression);
@@ -141,8 +140,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateCompartmentSearchExpression(
-            Expression expression,
-            CompartmentType compartmentType,
+            IExpression expression,
+            string compartmentType,
             string compartmentId)
         {
             CompartmentSearchExpression compartmentSearchExpression = Assert.IsType<CompartmentSearchExpression>(expression);

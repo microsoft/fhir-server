@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     {
         public const string JobRecord = "jobRecord";
 
-        public const string PartitonKey = "partitionKey";
-
         public const string Id = "id";
+
+        public const string SecretName = "secretName";
 
         public const string Hash = "hash";
 
@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TotalNumberOfFailures = "totalNumberOfFailures";
 
         public const string Request = "request";
+
+        public const string RequestorClaims = "requestorClaims";
 
         public const string Progress = "progress";
 

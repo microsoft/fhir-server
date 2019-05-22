@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
             Assert.NotNull(value);
             Assert.Equal(baseUri == null ? null : new Uri(baseUri), value.BaseUri);
-            Assert.Equal(resourceType, value.ResourceType);
+            Assert.Equal(resourceType.ToString(), value.ResourceType ?? string.Empty);
             Assert.Equal(resourceId, value.ResourceId);
         }
     }

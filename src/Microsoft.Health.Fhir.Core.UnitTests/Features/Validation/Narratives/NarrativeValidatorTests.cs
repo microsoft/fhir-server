@@ -8,7 +8,9 @@ using FluentValidation.Internal;
 using FluentValidation.Validators;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 
@@ -27,13 +29,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
         [MemberData(nameof(XssStrings))]
         public void GivenAnInvalidNarrative_WhenProcessingAResource_ThenAValidationMessageIsCreated(string maliciousNarrative)
         {
-            Observation defaultObservation = Samples.GetDefaultObservation();
+            var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
 
             var result = _validator.Validate(
                 new PropertyValidatorContext(
-                    new ValidationContext(defaultObservation),
-                    PropertyRule.Create<Observation, Resource>(x => x),
+                    new ValidationContext(defaultObservation.ToResourceElement()),
+                    PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
                     "Resource"));
 
             Assert.NotEmpty(result);
@@ -43,10 +45,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
         [MemberData(nameof(XssStrings))]
         public void GivenAnInvalidNarrative_WhenProcessingABundle_ThenAValidationMessageIsCreated(string maliciousNarrative)
         {
-            Observation defaultObservation = Samples.GetDefaultObservation();
+            var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
 
-            Patient defaultPatient = Samples.GetDefaultPatient();
+            var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
             defaultPatient.Text.Div = maliciousNarrative;
 
             var bundle = new Bundle();
@@ -55,8 +57,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 
             var result = _validator.Validate(
                 new PropertyValidatorContext(
-                    new ValidationContext(bundle),
-                    PropertyRule.Create<Bundle, Resource>(x => x),
+                    new ValidationContext(bundle.ToResourceElement()),
+                    PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
                     "Resource"));
 
             Assert.NotEmpty(result);

@@ -41,11 +41,20 @@ namespace Microsoft.Health.Extensions.DependencyInjection
         /// </summary>
         /// <typeparam name="T">Type of service to be registered</typeparam>
         /// <returns>The registration builder</returns>
-        public TypeRegistrationBuilder AsService<T>()
-        {
-            Debug.Assert(typeof(T) != _type, $"The \"AsSelf()\" registration should be used instead of \"AsService<{_type.Name}>()\".");
+        public TypeRegistrationBuilder AsService<T>() => AsService(typeof(T));
 
-            RegisterType(typeof(T));
+        /// <summary>
+        /// Creates a service registration for the specified interface
+        /// </summary>
+        /// <param name="serviceType">The service type to be registered</param>
+        /// <returns>The registration builder</returns>
+        public TypeRegistrationBuilder AsService(Type serviceType)
+        {
+            EnsureArg.IsNotNull(serviceType, nameof(serviceType));
+
+            Debug.Assert(serviceType != _type, $"The \"AsSelf()\" registration should be used instead of \"AsService<{_type.Name}>()\".");
+
+            RegisterType(serviceType);
 
             return this;
         }

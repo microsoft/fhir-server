@@ -7,6 +7,7 @@ using System.Globalization;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
@@ -16,9 +17,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         public static FhirResult SetLocationHeader(this FhirResult fhirResult, IUrlResolver urlResolver)
         {
             var resource = fhirResult.Result;
-            if (!string.IsNullOrEmpty(resource.Id) && !string.IsNullOrWhiteSpace(resource.Meta.VersionId))
+
+            if (!string.IsNullOrEmpty(resource.Id) && !string.IsNullOrWhiteSpace(resource.VersionId))
             {
-                var url = urlResolver.ResolveResourceUrl(resource, true);
+                var url = urlResolver.ResolveResourceUrl(fhirResult.Result, true);
 
                 if (url.IsAbsoluteUri)
                 {
@@ -32,9 +34,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         public static FhirResult SetETagHeader(this FhirResult fhirResult)
         {
             var resource = fhirResult.Result;
-            if (resource != null && resource.Meta != null)
+            if (resource != null)
             {
-                return fhirResult.SetETagHeader(WeakETag.FromVersionId(resource.Meta.VersionId));
+                return fhirResult.SetETagHeader(WeakETag.FromVersionId(resource.VersionId));
             }
 
             return fhirResult;
@@ -52,13 +54,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 
         public static FhirResult SetLastModifiedHeader(this FhirResult fhirResult)
         {
-            var resource = fhirResult.Result;
-            if (resource != null)
+            ResourceElement resource = fhirResult.Result;
+
+            var lastUpdated = resource?.LastUpdated;
+            if (lastUpdated != null)
             {
-                if (resource.Meta != null && resource.Meta.LastUpdated.HasValue)
-                {
-                    fhirResult.Headers.Add(HeaderNames.LastModified, resource.Meta.LastUpdated.Value.ToString("r", CultureInfo.InvariantCulture));
-                }
+                fhirResult.Headers.Add(HeaderNames.LastModified, lastUpdated.Value.ToString("r", CultureInfo.InvariantCulture));
             }
 
             return fhirResult;

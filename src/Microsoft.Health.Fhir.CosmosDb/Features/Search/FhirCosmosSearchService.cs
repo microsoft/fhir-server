@@ -13,6 +13,7 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -27,8 +28,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
-            IBundleFactory bundleFactory)
-            : base(searchOptionsFactory, bundleFactory, fhirDataStore)
+            IBundleFactory bundleFactory,
+            IModelInfoProvider modelInfoProvider)
+            : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));

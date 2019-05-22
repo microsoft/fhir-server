@@ -9,6 +9,6 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 {
     public interface ICodeGenerator
     {
-        MemberDeclarationSyntax Generate(string typeName);
+        (MemberDeclarationSyntax, UsingDirectiveSyntax[]) Generate(string typeName);
     }
 }

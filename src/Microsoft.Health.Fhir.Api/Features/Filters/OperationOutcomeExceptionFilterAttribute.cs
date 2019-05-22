@@ -15,8 +15,9 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Exceptions.Operations;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     new OperationOutcome
                     {
                         Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                        Issue = fhirException.Issues.ToList(),
+                        Issue = fhirException.Issues.Select(x => x.ToPoco()).ToList(),
                     }, HttpStatusCode.BadRequest);
 
                 switch (fhirException)

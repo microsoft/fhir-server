@@ -6,9 +6,9 @@
 using System;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -22,12 +22,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (!context.ModelState.IsValid)
             {
                 var validationErrors = context.ModelState
-                    .SelectMany(x => x.Value.Errors.Select(error => new OperationOutcome.IssueComponent
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Error,
-                        Code = OperationOutcome.IssueType.Invalid,
-                        Diagnostics = $"{QuoteField(x.Key)}{error.ErrorMessage}",
-                    })).ToArray();
+                    .SelectMany(x => x.Value.Errors.Select(error => new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Error,
+                        OperationOutcomeConstants.IssueType.Invalid,
+                        $"{QuoteField(x.Key)}{error.ErrorMessage}"))).ToArray();
 
                 throw new ResourceNotValidException(validationErrors);
             }

@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
@@ -47,8 +48,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
             _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             _resourceWrapperFactory
-                .Create(Arg.Any<Resource>(), Arg.Any<bool>())
-                .Returns(x => CreateResourceWrapper(x.ArgAt<Resource>(0), x.ArgAt<bool>(1)));
+                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>())
+                .Returns(x => CreateResourceWrapper(x.ArgAt<ResourceElement>(0), x.ArgAt<bool>(1)));
 
             _conformanceStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
             CapabilityStatementMock.SetupMockResource(_conformanceStatement, ResourceType.Observation, null);
@@ -80,13 +81,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public async Task GivenAFhirMediator_WhenCreatingAResourceWithAnId_ThenTheIdShouldBeIgnoredAndAnIdShouldBeAssigned()
         {
-            var resource = Samples.GetDefaultObservation();
-            resource.Id = "id1";
+            var resource = Samples.GetDefaultObservation()
+                .UpdateId("id1");
+
             var wrapper = CreateResourceWrapper(resource, false);
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(new UpsertOutcome(wrapper, SaveOutcomeType.Created));
 
-            await _mediator.CreateResourceAsync(resource);
+            resource = await _mediator.CreateResourceAsync(resource);
 
             Assert.NotNull(resource.Id);
             Assert.NotEqual("id1", resource.Id);
@@ -95,13 +97,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResourceWithNoId_ThenAnIdShouldBeAssigned()
         {
-            var resource = Samples.GetDefaultObservation();
-            resource.Id = null;
+            var resource = Samples.GetDefaultObservation()
+                .UpdateId(null);
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                 .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
-            await _mediator.UpsertResourceAsync(resource);
+            resource = (await _mediator.UpsertResourceAsync(resource)).Resource;
 
             Assert.NotNull(resource.Id);
         }
@@ -117,9 +119,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
                 _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
-                await _mediator.UpsertResourceAsync(resource);
+                resource = (await _mediator.UpsertResourceAsync(resource)).Resource;
 
-                Assert.Equal(instant, resource.Meta.LastUpdated);
+                Assert.Equal(instant, resource.LastUpdated);
             }
         }
 
@@ -130,10 +132,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             ResourceWrapper CreateWrapper(ResourceWrapper wrapper)
             {
-                var newResource = Samples.GetDefaultObservation();
+                var newResource = Samples.GetDefaultObservation().ToPoco();
                 newResource.Id = wrapper.ResourceId;
                 newResource.VersionId = "version1";
-                return CreateResourceWrapper(newResource, false);
+                return CreateResourceWrapper(newResource.ToResourceElement(), false);
             }
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
@@ -171,10 +173,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             ResourceWrapper CreateWrapper(ResourceWrapper wrapper)
             {
-                var newResource = Samples.GetDefaultObservation();
+                var newResource = Samples.GetDefaultObservation().ToPoco();
                 newResource.Id = wrapper.ResourceId;
                 newResource.VersionId = "version1";
-                return CreateResourceWrapper(newResource, false);
+                return CreateResourceWrapper(newResource.ToResourceElement(), false);
             }
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
@@ -183,7 +185,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var outcome = await _mediator.UpsertResourceAsync(resource, null);
 
             Assert.NotNull(outcome);
-            Assert.Equal(resource.Id, outcome.Resource.Id);
             Assert.Equal("version1", outcome.Resource.VersionId);
         }
 
@@ -198,8 +199,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public async Task GivenAFhirMediator_GettingAnResourceThatIsDeleted_ThenAGoneExceptionIsThrown()
         {
-            var observation = Samples.GetDefaultObservation();
-            observation.Id = "id1";
+            var observation = Samples.GetDefaultObservation()
+                .UpdateId("id1");
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "id1"), Arg.Any<CancellationToken>()).Returns(CreateResourceWrapper(observation, true));
 
@@ -219,44 +220,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public async Task GivenAFhirMediator_WhenDeletingAResourceThatIsAlreadyDeleted_ThenDoNothing()
         {
-            var observation = Samples.GetDefaultObservation();
-            observation.Id = "id1";
-            observation.Meta = new Meta
-            {
-                VersionId = "version1",
-            };
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), null, true, true, Arg.Any<CancellationToken>()).Returns(default(UpsertOutcome));
 
-            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "id1"), Arg.Any<CancellationToken>())
-                .Returns(CreateResourceWrapper(observation, true));
+            var resourceKey = new ResourceKey<Observation>("id1");
+            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, false)).ResourceKey;
 
-            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(new ResourceKey<Observation>("id1"), false)).ResourceKey;
-
-            await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>());
-
-            Assert.Equal(observation.Id, resultKey.Id);
-            Assert.Equal(observation.Meta.VersionId, resultKey.VersionId);
+            Assert.Equal(resourceKey.Id, resultKey.Id);
             Assert.Equal("Observation", resultKey.ResourceType);
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenDeletingAResourceThatDoesNotExist_ThenDoNothing()
-        {
-            var observation = Samples.GetDefaultObservation();
-            observation.Id = "id1";
-            observation.Meta = new Meta
-            {
-                VersionId = "version1",
-            };
-
-            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "id1"), Arg.Any<CancellationToken>()).Returns((ResourceWrapper)null);
-
-            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(new ResourceKey<Observation>("id1"), false)).ResourceKey;
-
-            await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>());
-
-            Assert.Equal(observation.Id, resultKey.Id);
             Assert.Null(resultKey.VersionId);
-            Assert.Equal("Observation", resultKey.ResourceType);
         }
 
         [Fact]
@@ -276,8 +247,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public async Task GivenAFhirMediator_WhenConfiguredWithoutReadHistory_ThenReturnMethodNotAllowedForOldVersionObservation()
         {
-            var observation = Samples.GetDefaultObservation();
-            observation.Id = "readDataObservation";
+            var observation = Samples.GetDefaultObservation()
+                .UpdateId("readDataObservation");
 
             var history = CreateMockResourceWrapper(observation, false);
             history.IsHistory.Returns(true);
@@ -293,15 +264,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public async Task GivenAFhirMediator_WhenConfiguredWithoutReadHistory_ThenReturnObservationForLatestVersion()
         {
-            var observation = Samples.GetDefaultObservation();
-            observation.Id = "readDataObservation";
+            var observation = Samples.GetDefaultObservation()
+                .UpdateId("readDataObservation");
 
             var latest = CreateMockResourceWrapper(observation, false);
             latest.IsHistory.Returns(false);
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataObservation"), Arg.Any<CancellationToken>()).Returns(latest);
 
-            Observation result = await _mediator.GetResourceAsync(new ResourceKey("Observation", "readDataObservation", "latest")) as Observation;
+            var result = await _mediator.GetResourceAsync(new ResourceKey("Observation", "readDataObservation", "latest"));
 
             Assert.NotNull(result);
             Assert.Equal(observation.Id, result.Id);
@@ -310,6 +281,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public async Task GivenAFhirMediator_WhenConfiguredWithReadHistory_ThenReturnsPatientWithOldVersion()
         {
+            var birthDateProp = "Patient.BirthDate";
+            var genderDateProp = "Patient.Gender";
+
             var patient = Samples.GetDefaultPatient();
 
             var history = CreateMockResourceWrapper(patient, false);
@@ -317,16 +291,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataPatient" && x.VersionId == "history"), Arg.Any<CancellationToken>()).Returns(history);
 
-            Patient result = await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "history")) as Patient;
+            var result = await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "history"));
 
             Assert.NotNull(result);
-            Assert.Equal(patient.BirthDate, result.BirthDate);
-            Assert.Equal(patient.Gender, result.Gender);
+            Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
+            Assert.Equal(patient.Scalar<string>(genderDateProp), result.Scalar<string>(genderDateProp));
         }
 
         [Fact]
         public async Task GivenAFhirMediator_WhenConfiguredWithoutReadHistory_ThenReturnsPatientWithLatestVersion()
         {
+            var birthDateProp = "Patient.BirthDate";
+            var genderDateProp = "Patient.Gender";
+
             var patient = Samples.GetDefaultPatient();
 
             var latest = CreateMockResourceWrapper(patient, false);
@@ -334,14 +311,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataPatient"), Arg.Any<CancellationToken>()).Returns(latest);
 
-            Patient result = await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "latest")) as Patient;
+            ResourceElement result = await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "latest"));
 
             Assert.NotNull(result);
-            Assert.Equal(patient.BirthDate, result.BirthDate);
-            Assert.Equal(patient.Gender, result.Gender);
+            Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
+            Assert.Equal(patient.Scalar<string>(genderDateProp), result.Scalar<string>(genderDateProp));
         }
 
-        private ResourceWrapper CreateResourceWrapper(Resource resource, bool isDeleted)
+        private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)
         {
             return new ResourceWrapper(
                 resource,
@@ -353,7 +330,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
                 null);
         }
 
-        private ResourceWrapper CreateMockResourceWrapper(Resource resource, bool isDeleted)
+        private ResourceWrapper CreateMockResourceWrapper(ResourceElement resource, bool isDeleted)
         {
             return Substitute.For<ResourceWrapper>(
                 resource,

@@ -6,6 +6,7 @@
 using System;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using NSubstitute;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             SearchResourceRequest request = new SearchResourceRequest("Patient", null);
 
-            Bundle expectedBundle = new Bundle();
+            var expectedBundle = new Bundle().ToResourceElement();
 
             _searchService.SearchAsync(request.ResourceType, null).Returns(expectedBundle);
 

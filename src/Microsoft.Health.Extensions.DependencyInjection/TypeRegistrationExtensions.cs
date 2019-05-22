@@ -17,11 +17,16 @@ namespace Microsoft.Health.Extensions.DependencyInjection
     {
         public static IEnumerable<TypeRegistration> TypesInSameAssemblyAs<T>(this IServiceCollection serviceCollection)
         {
-            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+            return TypesInSameAssembly(serviceCollection, typeof(T).Assembly);
+        }
 
-            return typeof(T)
-                .Assembly
-                .GetTypes()
+        public static IEnumerable<TypeRegistration> TypesInSameAssembly(this IServiceCollection serviceCollection, params Assembly[] assemblies)
+        {
+            EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+            EnsureArg.IsNotNull(assemblies, nameof(assemblies));
+
+            return assemblies
+                .SelectMany(x => x.GetTypes())
                 .Where(x => x.IsClass && !x.IsAbstract && !x.ContainsGenericParameters)
                 .Select(x => new TypeRegistration(serviceCollection, x))
                 .ToArray();
@@ -35,11 +40,14 @@ namespace Microsoft.Health.Extensions.DependencyInjection
             return new TypeRegistration(serviceCollection, typeof(T), provider => delegateRegistration(provider));
         }
 
-        public static TypeRegistration Add<T>(this IServiceCollection serviceCollection)
+        public static TypeRegistration Add<T>(this IServiceCollection serviceCollection) => serviceCollection.Add(typeof(T));
+
+        public static TypeRegistration Add(this IServiceCollection serviceCollection, Type type)
         {
             EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+            EnsureArg.IsNotNull(type, nameof(type));
 
-            return new TypeRegistration(serviceCollection, typeof(T));
+            return new TypeRegistration(serviceCollection, type);
         }
 
         /// <summary>

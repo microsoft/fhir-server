@@ -9,13 +9,13 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.Sql, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class SchemaTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly HttpClient _client;
@@ -29,12 +29,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
             new List<object[]>
             {
                 new object[] { "_schema/compatibility" },
-                new object[] { "_schema/versions" },
                 new object[] { "_schema/versions/current" },
                 new object[] { "_schema/versions/123/script" },
             };
 
-        [RunLocalOnlyTheory]
+        [Fact]
+        public async Task WhenRequestingAvailable_GivenAServerThatHasSchemas_JsonShouldBeReturned()
+        {
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(_client.BaseAddress, "_schema/versions"),
+            };
+
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var jArrayResponse = JArray.Parse(await response.Content.ReadAsStringAsync());
+
+            Assert.NotEmpty(jArrayResponse);
+
+            JToken firstResult = jArrayResponse.First;
+            string scriptUrl = $"{_client.BaseAddress}_schema/versions/{firstResult["id"]}/script";
+            Assert.Equal(scriptUrl, firstResult["script"]);
+        }
+
+        [Theory]
         [MemberData(nameof(Data))]
         public async Task WhenRequestingSchema_GivenGetMethod_TheServerShouldReturnNotImplemented(string path)
         {
@@ -42,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         }
 
         // Investigate why these return 415 in the test project, but 404 when running in postman
-        [RunLocalOnlyTheory]
+        [Theory]
         [MemberData(nameof(Data))]
         public async Task WhenRequestingSchema_GivenPostMethod_TheServerShouldReturnNotFound(string path)
         {
@@ -50,21 +71,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         }
 
         // Investigate why these return 415 in the test project, but 404 when running in postman
-        [RunLocalOnlyTheory]
+        [Theory]
         [MemberData(nameof(Data))]
         public async Task WhenRequestingSchema_GivenPutMethod_TheServerShouldReturnNotFound(string path)
         {
             await SendAndVerifyStatusCode(HttpMethod.Put, path, HttpStatusCode.UnsupportedMediaType);
         }
 
-        [RunLocalOnlyTheory]
+        [Theory]
         [MemberData(nameof(Data))]
         public async Task WhenRequestingSchema_GivenDeleteMethod_TheServerShouldReturnNotFound(string path)
         {
             await SendAndVerifyStatusCode(HttpMethod.Delete, path, HttpStatusCode.NotFound);
         }
 
-        [RunLocalOnlyFact]
+        [Fact]
         public async Task WhenRequestingScript_GivenNonIntegerVersion_TheServerShouldReturnNotFound()
         {
             await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/abc/script", HttpStatusCode.NotFound);

@@ -8,23 +8,22 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Core.Exceptions.Operations;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
     /// <summary>
-    /// Provides functionalities to resolve URLs.
+    /// Provides functionality to resolve URLs.
     /// </summary>
     public class UrlResolver : IUrlResolver
     {
@@ -86,15 +85,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
-        public Uri ResolveResourceUrl(Resource resource, bool includeVersion = false)
+        public Uri ResolveResourceUrl(ResourceElement resource, bool includeVersion = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             var routeName = RouteNames.ReadResource;
-
-            RouteValueDictionary routeValues = new RouteValueDictionary
+            var routeValues = new RouteValueDictionary
             {
-                { KnownActionParameterNames.ResourceType, resource.ResourceType.ToString() },
+                { KnownActionParameterNames.ResourceType, resource.InstanceType },
                 { KnownActionParameterNames.Id, resource.Id },
             };
 

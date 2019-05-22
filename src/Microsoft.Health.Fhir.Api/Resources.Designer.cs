@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
@@ -93,6 +93,33 @@ namespace Microsoft.Health.Fhir.Api {
         public static string GeneralInternalError {
             get {
                 return ResourceManager.GetString("GeneralInternalError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid compound authorization code..
+        /// </summary>
+        public static string InvalidCompoundCode {
+            get {
+                return ResourceManager.GetString("InvalidCompoundCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid launch context parameters..
+        /// </summary>
+        public static string InvalidLaunchContext {
+            get {
+                return ResourceManager.GetString("InvalidLaunchContext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Provided value for redirect Uri: {0} is not a valid Uri..
+        /// </summary>
+        public static string InvalidRedirectUri {
+            get {
+                return ResourceManager.GetString("InvalidRedirectUri", resourceCulture);
             }
         }
         
@@ -241,6 +268,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &quot;{0}&quot; parameter is not supported..
+        /// </summary>
+        public static string UnsupportedParameter {
+            get {
+                return ResourceManager.GetString("UnsupportedParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The supplied value for &quot;{0}&quot; paramter is invalid..
+        /// </summary>
+        public static string UnsupportedParameterValue {
+            get {
+                return ResourceManager.GetString("UnsupportedParameterValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Requested operation does not support resource type: {0}..
         /// </summary>
         public static string UnsupportedResourceType {
@@ -255,6 +300,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string UrlResourceIdMismatch {
             get {
                 return ResourceManager.GetString("UrlResourceIdMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value cannot be null.  Parameter name: {0}..
+        /// </summary>
+        public static string ValueCannotBeNull {
+            get {
+                return ResourceManager.GetString("ValueCannotBeNull", resourceCulture);
             }
         }
         

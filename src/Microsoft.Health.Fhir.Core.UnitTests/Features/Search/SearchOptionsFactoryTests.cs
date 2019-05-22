@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource, SearchParameterNames.ResourceType).Returns(new SearchParameter { Name = SearchParameterNames.ResourceType });
+            searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType).Returns(new SearchParameter { Name = SearchParameterNames.ResourceType });
 
             _factory = new SearchOptionsFactory(
                 _expressionParser,
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Expression expression = Substitute.For<Expression>();
 
-            _expressionParser.Parse(resourceType, paramName, value).Returns(expression);
+            _expressionParser.Parse(resourceType.ToString(), paramName, value).Returns(expression);
 
             SearchOptions options = CreateSearchOptions(
                 resourceType: resourceType.ToString(),
@@ -112,8 +112,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression expression1 = Substitute.For<Expression>();
             Expression expression2 = Substitute.For<Expression>();
 
-            _expressionParser.Parse(resourceType, paramName1, value1).Returns(expression1);
-            _expressionParser.Parse(resourceType, paramName2, value2).Returns(expression2);
+            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(expression1);
+            _expressionParser.Parse(resourceType.ToString(), paramName2, value2).Returns(expression2);
 
             var queryParameters = new[]
             {
@@ -150,10 +150,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression expression1 = Substitute.For<Expression>();
             Expression expression3 = Substitute.For<Expression>();
 
-            _expressionParser.Parse(resourceType, paramName1, value1).Returns(expression1);
-            _expressionParser.Parse(resourceType, paramName2, value2)
-                .Returns(x => throw new SearchParameterNotSupportedException(x.ArgAt<ResourceType>(0), x.ArgAt<string>(1)));
-            _expressionParser.Parse(resourceType, paramName3, value3).Returns(expression3);
+            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(expression1);
+            _expressionParser.Parse(resourceType.ToString(), paramName2, value2)
+                .Returns(x => throw new SearchParameterNotSupportedException(x.ArgAt<string>(0), x.ArgAt<string>(1)));
+            _expressionParser.Parse(resourceType.ToString(), paramName3, value3).Returns(expression3);
 
             var queryParameters = new[]
             {
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string paramName1 = "address-city";
             const string value1 = "Seattle";
 
-            _expressionParser.Parse(resourceType, paramName1, value1).Returns(
+            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(
                 x => throw new SearchParameterNotSupportedException(typeof(Patient), paramName1));
 
             var queryParameters = new[]
@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 options.Expression,
                 MultiaryOperator.And,
                 e => ValidateResourceTypeSearchParameterExpression(e, resourceType.ToString()),
-                e => ValidateCompartmentSearchExpression(e, compartmentType, compartmentId));
+                e => ValidateCompartmentSearchExpression(e, compartmentType.ToString(), compartmentId));
         }
 
         [Theory]
@@ -282,7 +282,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 compartmentId);
 
             Assert.NotNull(options);
-            ValidateCompartmentSearchExpression(options.Expression, compartmentType, compartmentId);
+            ValidateCompartmentSearchExpression(options.Expression, compartmentType.ToString(), compartmentId);
         }
 
         [Theory]
@@ -302,8 +302,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression expression1 = Substitute.For<Expression>();
             Expression expression2 = Substitute.For<Expression>();
 
-            _expressionParser.Parse(resourceType, paramName1, value1).Returns(expression1);
-            _expressionParser.Parse(resourceType, paramName2, value2).Returns(expression2);
+            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(expression1);
+            _expressionParser.Parse(resourceType.ToString(), paramName2, value2).Returns(expression2);
 
             var queryParameters = new[]
             {
@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 e => ValidateResourceTypeSearchParameterExpression(e, resourceType.ToString()),
                 e => Assert.Equal(expression1, e),
                 e => Assert.Equal(expression2, e),
-                e => ValidateCompartmentSearchExpression(e, compartmentType, compartmentId));
+                e => ValidateCompartmentSearchExpression(e, compartmentType.ToString(), compartmentId));
         }
 
         [Theory]

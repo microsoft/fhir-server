@@ -6,8 +6,8 @@
 using System;
 using System.Diagnostics;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
         /// <param name="paramName">The parameter name.</param>
-        public SearchParameterNotSupportedException(ResourceType resourceType, string paramName)
+        public SearchParameterNotSupportedException(string resourceType, string paramName)
         {
             Debug.Assert(!string.IsNullOrWhiteSpace(paramName), $"{nameof(paramName)} should not be null or whitespace.");
 
@@ -54,12 +54,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private void AddIssue(string diagnostics)
         {
-            Issues.Add(new OperationOutcome.IssueComponent
-            {
-                Severity = OperationOutcome.IssueSeverity.Error,
-                Code = OperationOutcome.IssueType.Forbidden,
-                Diagnostics = diagnostics,
-            });
+            Issues.Add(new OperationOutcomeIssue(
+                OperationOutcomeConstants.IssueSeverity.Error,
+                OperationOutcomeConstants.IssueType.Forbidden,
+                diagnostics));
         }
     }
 }
