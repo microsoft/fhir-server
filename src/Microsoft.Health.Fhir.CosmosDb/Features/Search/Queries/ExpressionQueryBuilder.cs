@@ -88,18 +88,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             if (expression.Parameter.Name == SearchParameterNames.ResourceType)
             {
-                try
-                {
-                    // We do not currently support specifying the system for the _type parameter value.
-                    // We would need to add it to the document, but for now it seems pretty unlikely that it will
-                    // be specified when searching.
-                    _fieldNameOverride = SearchValueConstants.RootResourceTypeName;
-                    expression.Expression.AcceptVisitor(this);
-                }
-                finally
-                {
-                    _fieldNameOverride = null;
-                }
+                // We do not currently support specifying the system for the _type parameter value.
+                // We would need to add it to the document, but for now it seems pretty unlikely that it will
+                // be specified when searching.
+                OverrideFieldName(expression, SearchValueConstants.RootResourceTypeName);
+            }
+            else if (expression.Parameter.Name == SearchParameterNames.LastUpdated)
+            {
+                // For LastUpdate queries, the LastModified property on the root is
+                // more performant than the searchIndices _lastUpdated.st and _lastUpdate.et
+                // we will override the mapping for that
+                OverrideFieldName(expression, SearchValueConstants.LastModified);
             }
             else
             {
@@ -353,6 +352,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .Append(", ")
                 .Append(_queryParameterManager.AddOrGetParameterMapping(value))
                 .AppendLine(")");
+        }
+
+        private void OverrideFieldName(SearchParameterExpression expression, string overrideValue)
+        {
+            try
+            {
+                _fieldNameOverride = overrideValue;
+                expression.Expression.AcceptVisitor(this);
+            }
+            finally
+            {
+                _fieldNameOverride = null;
+            }
         }
     }
 }
