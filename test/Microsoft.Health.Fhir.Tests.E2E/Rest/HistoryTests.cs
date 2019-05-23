@@ -100,13 +100,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
             FhirResponse<Resource> newPatient = Client.CreateAsync(Samples.GetDefaultPatient().ToPoco()).GetAwaiter().GetResult();
 
+            var before = newPatient.Resource.Meta.LastUpdated.Value.AddMilliseconds(100);
             Thread.Sleep(500);
-            var before = DateTime.UtcNow;
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            Thread.Sleep(1000);
             FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString).Result;
 
             Assert.Equal(2, readResponse.Resource.Entry.Count);
@@ -213,28 +212,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith1MinuteApgarScore").ToPoco()));
             newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith20MinuteApgarScore").ToPoco()));
 
-            Thread.Sleep(1000); // Leave a small gap in the timestamp
-            var before = DateTime.UtcNow;
+            var lastAdded = newResources.Last<Resource>();
+            var before = lastAdded.Meta.LastUpdated.Value.AddMilliseconds(500);
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
-            bool historyHas10Entries = false;
 
-            // wait for above values to be represented in history results
-            for (int i = 0; i < 5; i++)
-            {
-                FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
+            FhirResponse<Bundle> readResponse = Client.SearchAsync("_history?_since=" + sinceUriString).Result;
 
-                if (readResponse.Resource.Entry.Count == 10)
-                {
-                    historyHas10Entries = true;
-                    break;
-                }
-
-                Thread.Sleep(2000);
-            }
-
-            Assert.True(historyHas10Entries);
+            Assert.Equal(10, readResponse.Resource.Entry.Count);
 
             Thread.Sleep(500);
 
@@ -320,7 +306,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// <returns>DateIimeOffset set to a good value for _since</returns>
         private DateTimeOffset GetStartTimeForHistoryTest()
         {
-            Thread.Sleep(2000);
+            Thread.Sleep(500);
             var since = DateTime.UtcNow;
 
             for (int i = 0; i < 10; i++)
@@ -333,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     break;
                 }
 
-                Thread.Sleep(2000);
+                Thread.Sleep(1000);
                 since = DateTime.UtcNow;
             }
 

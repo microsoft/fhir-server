@@ -52,5 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         public const string TextName = "t";
 
         public const string UriName = "u";
+
+        public const string LastModified = "lastModified";
     }
 }
