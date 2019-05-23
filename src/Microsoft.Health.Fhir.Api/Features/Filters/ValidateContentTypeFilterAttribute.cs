@@ -6,7 +6,6 @@
 using System;
 using System.Net.Http;
 using EnsureThat;
-using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Primitives;
@@ -44,9 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 if (contextHttpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
                 {
-                    var resourceFormat = ContentType.GetResourceFormatFromContentType(headerValue[0]);
-
-                    if (!await _contentTypeService.IsFormatSupportedAsync(resourceFormat))
+                    if (!await _contentTypeService.IsFormatSupportedAsync(headerValue[0]))
                     {
                         string routeName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
 

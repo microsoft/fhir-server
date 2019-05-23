@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading.Tasks;
-using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
@@ -13,6 +12,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
     {
         Task CheckRequestedContentTypeAsync(HttpContext httpContext);
 
-        Task<bool> IsFormatSupportedAsync(ResourceFormat resourceFormat);
+        Task<bool> IsFormatSupportedAsync(string resourceFormat);
     }
 }

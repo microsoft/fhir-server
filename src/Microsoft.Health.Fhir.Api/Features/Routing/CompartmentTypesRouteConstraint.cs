@@ -3,11 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
@@ -24,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 compartmentTypeObj is string compartmentType &&
                 !string.IsNullOrEmpty(compartmentType))
             {
-                return Enum.IsDefined(typeof(CompartmentType), compartmentType);
+                return ModelInfoProvider.IsKnownCompartmentType(compartmentType);
             }
 
             return false;
