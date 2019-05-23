@@ -4,7 +4,7 @@
     <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+  <PropertyGroup>
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
 
