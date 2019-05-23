@@ -4,13 +4,9 @@
     <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
   </PropertyGroup>
-  <ItemGroup>
-    <None Remove="Features\Definition\compartment.json" />
-    <None Remove="Features\Definition\search-parameters.json" />
-    <None Remove="Features\Conformance\AllCapabilities.json" />
-    <None Remove="Features\Conformance\BaseCapabilities.json" />
-    <None Remove="Features\Conformance\DefaultCapabilities.json" />
-  </ItemGroup>
+  <PropertyGroup>
+    <DefineConstants>Stu3</DefineConstants>
+  </PropertyGroup>
 
   <ItemGroup>
     <AdditionalFiles Include="..\..\stylecop.json" Link="stylecop.json" />

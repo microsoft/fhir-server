@@ -243,15 +243,11 @@
                 "xpathUsage": "normal",
                 "component": [
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/Group-characteristic"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/Group-characteristic",
                         "expression": "code"
                     },
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/Group-value"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/Group-value",
                         "expression": "value"
                     }
                 ]
@@ -293,7 +289,6 @@
                     "AllergyIntolerance",
                     "Procedure",
                     "List",
-                    "ProcedureRequest",
                     "Observation",
                     "DiagnosticReport",
                     "Condition"
@@ -384,15 +379,11 @@
                 "xpathUsage": "normal",
                 "component": [
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/clinical-code"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/clinical-code",
                         "expression": "code"
                     },
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/Observation-value-date"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/Observation-value-date",
                         "expression": "value.as(DateTime) | value.as(Period)"
                     }
                 ]
@@ -437,15 +428,11 @@
                 "xpathUsage": "normal",
                 "component": [
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/Observation-code-value-date"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/Observation-code-value-date",
                         "expression": "value.as(Quantity)"
                     },
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/clinical-code"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/clinical-code",
                         "expression": "code"
                     }
                 ]
@@ -490,15 +477,11 @@
                 "xpathUsage": "normal",
                 "component": [
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/clinical-code"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/clinical-code",
                         "expression": "code"
                     },
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/Resource-id"
-                        },
+                        "definition":  "http://hl7.org/fhir/SearchParameter/Resource-id",
                         "expression": ""
                     }
                 ]
@@ -585,15 +568,11 @@
                 "xpathUsage": "normal",
                 "component": [
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/Observation-related-target"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/Observation-related-target",
                         "expression": "target"
                     },
                     {
-                        "definition": {
-                            "reference": "http://hl7.org/fhir/SearchParameter/Observation-related-type"
-                        },
+                        "definition": "http://hl7.org/fhir/SearchParameter/Observation-related-type",
                         "expression": "type"
                     }
                 ]

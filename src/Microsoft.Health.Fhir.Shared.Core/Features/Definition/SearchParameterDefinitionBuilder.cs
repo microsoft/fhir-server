@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return (resourceType == ResourceType.DomainResource.ToString() && searchParameterName == "_text") ||
                 (resourceType == ResourceType.Resource.ToString() && searchParameterName == "_content") ||
                 (resourceType == ResourceType.Resource.ToString() && searchParameterName == "_query")
-#if !R4
+#if Stu3
                 || (resourceType == ResourceType.DataElement.ToString() && (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty"))
 #endif
                 ;

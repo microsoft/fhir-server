@@ -20,9 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static void SetModelInfoProvider()
         {
-#if !R4
+#if Stu3
             ModelInfoProvider.SetProvider(new Stu3ModelInfoProvider());
-#else
+#elif R4
             ModelInfoProvider.SetProvider(new R4ModelInfoProvider());
 #endif
         }
