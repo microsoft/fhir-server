@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         private readonly Func<Base, SummaryType, string> _serialize;
         private readonly Func<string, Resource> _deserialize;
         private readonly MediaTypeWithQualityHeaderValue _mediaType;
+        private bool _securitySettingsPopulated;
 
         public FhirClient(HttpClient httpClient, ResourceFormat format)
         {
@@ -353,6 +354,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         private async Task GetSecuritySettings(string fhirServerMetadataUrl)
         {
+            if (_securitySettingsPopulated)
+            {
+                return;
+            }
+
             FhirResponse<CapabilityStatement> readResponse = await ReadAsync<CapabilityStatement>(fhirServerMetadataUrl);
             var metadata = readResponse.Resource;
 
@@ -370,6 +376,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
 
             SecuritySettings = (false, null, null);
+
+            _securitySettingsPopulated = true;
         }
     }
 }
