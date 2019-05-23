@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     public static class ExpressionExtensions
     {
-        public static TOutput AcceptVisitor<TContext, TOutput>(this IExpression expression,  IExpressionVisitorWithInitialContext<TContext, TOutput> visitor)
+        public static TOutput AcceptVisitor<TContext, TOutput>(this Expression expression,  IExpressionVisitorWithInitialContext<TContext, TOutput> visitor)
         {
             EnsureArg.IsNotNull(expression, nameof(expression));
             EnsureArg.IsNotNull(visitor, nameof(visitor));

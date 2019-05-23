@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the search expression.
         /// </summary>
-        public IExpression Expression { get; internal set; }
+        public Expression Expression { get; internal set; }
 
         /// <summary>
         /// Gets the list of search parameters that were not used in the search.

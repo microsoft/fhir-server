@@ -15,20 +15,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public static class SearchExpressionTestHelper
     {
-        internal static void ValidateSearchParameterExpression(IExpression expression, string paramName, Action<Expression> valueValidator)
+        internal static void ValidateSearchParameterExpression(Expression expression, string paramName, Action<Expression> valueValidator)
         {
             SearchParameterExpression parameterExpression = Assert.IsType<SearchParameterExpression>(expression);
             Assert.Equal(paramName, parameterExpression.Parameter.Name);
             valueValidator(parameterExpression.Expression);
         }
 
-        internal static void ValidateResourceTypeSearchParameterExpression(IExpression expression, string typeName)
+        internal static void ValidateResourceTypeSearchParameterExpression(Expression expression, string typeName)
         {
             ValidateSearchParameterExpression(expression, SearchParameterNames.ResourceType, e => ValidateBinaryExpression(e, FieldName.TokenCode, BinaryOperator.Equal, typeName));
         }
 
         public static void ValidateChainedExpression(
-            IExpression expression,
+            Expression expression,
             ResourceType resourceType,
             string key,
             string targetResourceType,
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateChainedExpression(
-            IExpression expression,
+            Expression expression,
             Type resourceType,
             string key,
             Type targetResourceType,
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateMultiaryExpression(
-            IExpression expression,
+            Expression expression,
             MultiaryOperator multiaryOperator,
             params Action<Expression>[] valueValidators)
         {
@@ -73,13 +73,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 valueValidators);
         }
 
-        public static void ValidateEqualsExpression(IExpression expression, FieldName expectedFieldName, object expectedValue)
+        public static void ValidateEqualsExpression(Expression expression, FieldName expectedFieldName, object expectedValue)
         {
             ValidateBinaryExpression(expression, expectedFieldName, BinaryOperator.Equal, expectedValue);
         }
 
         public static void ValidateBinaryExpression(
-            IExpression expression,
+            Expression expression,
             FieldName expectedFieldName,
             BinaryOperator expectedBinaryOperator,
             object expectedValue)
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateStringExpression(
-            IExpression expression,
+            Expression expression,
             FieldName expectedFieldName,
             StringOperator expectedStringOperator,
             string expectedValue,
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateDateTimeBinaryOperatorExpression(
-            IExpression expression,
+            Expression expression,
             FieldName expectedFieldName,
             BinaryOperator expectedExpression,
             DateTimeOffset expectedValue)
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateMissingParamExpression(
-            IExpression expression,
+            Expression expression,
             string expectedParamName,
             bool expectedIsMissing)
         {
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateMissingFieldExpression(
-            IExpression expression,
+            Expression expression,
             FieldName expectedFieldName)
         {
             MissingFieldExpression mfExpression = Assert.IsType<MissingFieldExpression>(expression);
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         public static void ValidateCompartmentSearchExpression(
-            IExpression expression,
+            Expression expression,
             string compartmentType,
             string compartmentId)
         {
