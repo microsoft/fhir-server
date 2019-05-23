@@ -346,6 +346,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .AppendLine(")");
         }
 
+        /// <summary>
+        /// Context that is passed through the visit.
+        /// </summary>
         internal struct Context
         {
             public Context(string instanceVariableName, string fieldNameOverride)

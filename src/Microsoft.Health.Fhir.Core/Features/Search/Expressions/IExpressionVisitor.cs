@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// Represents a visitor for expression tree.
     /// </summary>
     /// <typeparam name="TContext">The type of the context parameter passed into each Visit method</typeparam>
-    /// <typeparam name="TOutput">The output type</typeparam>
+    /// <typeparam name="TOutput">The type returned by the Visit methods</typeparam>
     public interface IExpressionVisitor<in TContext, out TOutput>
     {
         /// <summary>
