@@ -112,7 +112,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     combinedMappings.Add(assemblyFixtureMapping.Key, assemblyFixtureMapping.Value);
                 }
 
-                return new XunitTestClassRunner(
+                return new MyRunner(
                         testClass,
                         @class,
                         testCases,
@@ -123,6 +123,21 @@ namespace Microsoft.Health.Extensions.Xunit
                         CancellationTokenSource,
                         combinedMappings)
                     .RunAsync();
+            }
+        }
+
+        private class MyRunner : XunitTestClassRunner
+        {
+            public MyRunner(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource, IDictionary<Type, object> collectionFixtureMappings)
+                : base(testClass, @class, testCases, diagnosticMessageSink, messageBus, testCaseOrderer, aggregator, cancellationTokenSource, collectionFixtureMappings)
+            {
+            }
+
+            protected override void CreateClassFixture(Type fixtureType)
+            {
+                var sw = Stopwatch.StartNew();
+                base.CreateClassFixture(fixtureType);
+                DiagnosticMessageSink.OnMessage(new DiagnosticMessage("Fixture creation {0}", sw.Elapsed));
             }
         }
 
