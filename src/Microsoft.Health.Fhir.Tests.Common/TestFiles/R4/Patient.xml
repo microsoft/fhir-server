@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Patient xmlns="http://hl7.org/fhir">
+  <id value="example"/>
+  <text>
+    <status value="generated"/>
+    <div xmlns="http://www.w3.org/1999/xhtml">
+      <table>
+        <tbody>
+          <tr>
+            <td>Name</td>
+            <td>
+              Peter James
+              <b>Chalmers</b> (&quot;Jim&quot;)
+            </td>
+          </tr>
+          <tr>
+            <td>Address</td>
+            <td>534 Erewhon, Pleasantville, Vic, 3999</td>
+          </tr>
+          <tr>
+            <td>Contacts</td>
+            <td>Home: unknown. Work: (03) 5555 6473</td>
+          </tr>
+          <tr>
+            <td>Id</td>
+            <td>MRN: 12345 (Acme Healthcare)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </text>
+  <!--   MRN assigned by ACME healthcare on 6-May 2001   -->
+  <identifier>
+    <use value="usual"/>
+    <type>
+      <coding>
+        <system value="http://hl7.org/fhir/v2/0203"/>
+        <code value="MR"/>
+      </coding>
+    </type>
+    <system value="urn:oid:1.2.36.146.595.217.0.1"/>
+    <value value="12345"/>
+    <period>
+      <start value="2001-05-06"/>
+    </period>
+    <assigner>
+      <display value="Acme Healthcare"/>
+    </assigner>
+  </identifier>
+  <active value="true"/>
+  <!--   Peter James Chalmers, but called "Jim"   -->
+  <name>
+    <use value="official"/>
+    <family value="Chalmers"/>
+    <given value="Peter"/>
+    <given value="James"/>
+  </name>
+  <name>
+    <use value="usual"/>
+    <given value="Jim"/>
+  </name>
+  <name>
+    <!--  Maiden names apply for anyone whose name changes as a result of marriage - irrespective of gender  -->
+    <use value="maiden"/>
+    <family value="Windsor"/>
+    <given value="Peter"/>
+    <given value="James"/>
+    <period>
+      <end value="2002"/>
+    </period>
+  </name>
+  <telecom>
+    <use value="home"/>
+    <!--   home communication details aren't known   -->
+  </telecom>
+  <telecom>
+    <system value="phone"/>
+    <value value="(03) 5555 6473"/>
+    <use value="work"/>
+    <rank value="1"/>
+  </telecom>
+  <telecom>
+    <system value="phone"/>
+    <value value="(03) 3410 5613"/>
+    <use value="mobile"/>
+    <rank value="2"/>
+  </telecom>
+  <telecom>
+    <system value="phone"/>
+    <value value="(03) 5555 8834"/>
+    <use value="old"/>
+    <period>
+      <end value="2014"/>
+    </period>
+  </telecom>
+  <!--   use FHIR code system for male / female   -->
+  <gender value="male"/>
+  <birthDate value="1974-12-25">
+    <extension url="http://hl7.org/fhir/StructureDefinition/patient-birthTime">
+      <valueDateTime value="1974-12-25T14:35:45-05:00"/>
+    </extension>
+  </birthDate>
+  <deceasedBoolean value="false"/>
+  <address>
+    <use value="home"/>
+    <type value="both"/>
+    <text value="534 Erewhon St PeasantVille, Rainbow, Vic  3999"/>
+    <line value="534 Erewhon St"/>
+    <city value="PleasantVille"/>
+    <district value="Rainbow"/>
+    <state value="Vic"/>
+    <postalCode value="3999"/>
+    <period>
+      <start value="1974-12-25"/>
+    </period>
+  </address>
+  <contact>
+    <relationship>
+      <coding>
+        <system value="http://hl7.org/fhir/v2/0131"/>
+        <code value="N"/>
+      </coding>
+    </relationship>
+    <name>
+      <family value="du March&#xE9;">
+        <!--   the "du" part is a family name prefix (VV in iso 21090)   -->
+        <extension url="http://hl7.org/fhir/StructureDefinition/humanname-own-prefix">
+          <valueString value="VV"/>
+        </extension>
+      </family>
+      <given value="B&#xE9;n&#xE9;dicte"/>
+    </name>
+    <telecom>
+      <system value="phone"/>
+      <value value="+33 (237) 998327"/>
+    </telecom>
+    <address>
+      <use value="home"/>
+      <type value="both"/>
+      <line value="534 Erewhon St"/>
+      <city value="PleasantVille"/>
+      <district value="Rainbow"/>
+      <state value="Vic"/>
+      <postalCode value="3999"/>
+      <period>
+        <start value="1974-12-25"/>
+      </period>
+    </address>
+    <gender value="female"/>
+    <period>
+      <!--   The contact relationship started in 2012   -->
+      <start value="2012"/>
+    </period>
+  </contact>
+  <managingOrganization>
+    <reference value="Organization/1"/>
+  </managingOrganization>
+</Patient>

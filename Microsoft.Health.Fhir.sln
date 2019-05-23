@@ -82,7 +82,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Co
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Core.UnitTests", "src\Microsoft.Health.Fhir.R4.Core.UnitTests\Microsoft.Health.Fhir.R4.Core.UnitTests.csproj", "{D933AC8A-3CE5-4F03-AEE4-9AC0D0274D80}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests", "src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.shproj", "{1495BBA7-07B8-47CA-B2ED-511003B57667}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.Common", "src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.Common.shproj", "{1495BBA7-07B8-47CA-B2ED-511003B57667}"
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Core", "src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.shproj", "{295745E2-4DD3-4AAB-908D-B3DEE976BF0E}"
 EndProject

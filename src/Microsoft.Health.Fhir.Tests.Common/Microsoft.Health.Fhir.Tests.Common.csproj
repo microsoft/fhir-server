@@ -9,6 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="DefinitionFiles\R4\SearchParameters.json" />
+    <None Remove="DefinitionFiles\R4\SearchParametersWithInvalidBase.json" />
+    <None Remove="DefinitionFiles\R4\SearchParametersWithInvalidDefinitions.json" />
+    <None Remove="DefinitionFiles\R4\SearchParametersWithInvalidEntries.json" />
+    <None Remove="DefinitionFiles\R4\SearchParametersWithInvalidType.json" />
+    <None Remove="DefinitionFiles\R4\SearchParametersWithNullEntry.json" />
     <None Remove="DefinitionFiles\SearchParameters.json" />
     <None Remove="DefinitionFiles\SearchParametersWithInvalidBase.json" />
     <None Remove="DefinitionFiles\SearchParametersWithInvalidDefinitions.json" />
@@ -42,6 +48,16 @@
     <None Remove="TestFiles\Patient-f001.json" />
     <None Remove="TestFiles\Patient.json" />
     <None Remove="TestFiles\Patient.xml" />
+    <None Remove="TestFiles\R4\AuthConfigWithInvalidEntries.json" />
+    <None Remove="TestFiles\R4\AuthConfigWithValidRoles.json" />
+    <None Remove="TestFiles\R4\BasicExampleNarrative.json" />
+    <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
+    <None Remove="TestFiles\R4\InvalidCompartmentDefinition.json" />
+    <None Remove="TestFiles\R4\Organization.json" />
+    <None Remove="TestFiles\R4\Patient.json" />
+    <None Remove="TestFiles\R4\Patient.xml" />
+    <None Remove="TestFiles\R4\ValidCompartmentDefinition.json" />
+    <None Remove="TestFiles\R4\Weight.json" />
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
@@ -50,12 +66,28 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="DefinitionFiles\R4\SearchParameters.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidBase.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidDefinitions.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidEntries.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidType.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidType.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidDefinitions.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\R4\AuthConfigWithInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\R4\AuthConfigWithValidRoles.json" />
+    <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
+    <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
+    <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R4\Organization.json" />
+    <EmbeddedResource Include="TestFiles\R4\Patient.json" />
+    <EmbeddedResource Include="TestFiles\R4\Patient.xml" />
+    <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R4\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />
