@@ -45,5 +45,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             return visitor.VisitMultiary(this, context);
         }
+
+        public override string ToString()
+        {
+            return $"({MultiaryOperation} {string.Join(' ', Expressions)})";
+        }
     }
 }

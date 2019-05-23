@@ -35,5 +35,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             return visitor.VisitMissingSearchParameter(this, context);
         }
+
+        public override string ToString()
+        {
+            return $"({(!IsMissing ? "Not" : null)}MissingParam {Parameter.Name})";
+        }
     }
 }

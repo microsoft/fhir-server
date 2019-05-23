@@ -35,5 +35,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             return visitor.VisitMissingField(this, context);
         }
+
+        public override string ToString()
+        {
+            return $"(MissingField {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
+        }
     }
 }

@@ -28,5 +28,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             EnsureArg.IsNotNull(visitor, nameof(visitor));
             return visitor.VisitSearchParameter(this, context);
         }
+
+        public override string ToString()
+        {
+            return $"(Param {Parameter.Name} {Expression})";
+        }
     }
 }

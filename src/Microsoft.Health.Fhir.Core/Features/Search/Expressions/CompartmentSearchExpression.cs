@@ -42,5 +42,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             EnsureArg.IsNotNull(visitor, nameof(visitor));
             return visitor.VisitCompartment(this, context);
         }
+
+        public override string ToString()
+        {
+            return $"(Compartment {CompartmentType} '{CompartmentId}')";
+        }
     }
 }

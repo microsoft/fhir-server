@@ -63,5 +63,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             return visitor.VisitChained(this, context);
         }
+
+        public override string ToString()
+        {
+            return $"(Chain {ParamName}:{TargetResourceType} {Expression})";
+        }
     }
 }

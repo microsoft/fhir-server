@@ -234,5 +234,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);
+
+        /// <inheritdoc />
+        public abstract override string ToString();
     }
 }

@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Globalization;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
@@ -50,6 +52,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             return visitor.VisitBinary(this, context);
+        }
+
+        public override string ToString()
+        {
+            string ValueToString()
+            {
+                switch (Value)
+                {
+                    case string _:
+                        return $"'{Value}'";
+                    case DateTime dt:
+                        return dt.ToString("O");
+                    case IFormattable f:
+                        return f.ToString(null, CultureInfo.InvariantCulture);
+                    default:
+                        return Value?.ToString();
+                }
+            }
+
+            return $"(Field{BinaryOperator} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} {ValueToString()})";
         }
     }
 }

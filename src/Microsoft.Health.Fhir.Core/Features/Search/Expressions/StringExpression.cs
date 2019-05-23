@@ -56,5 +56,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             return visitor.VisitString(this, context);
         }
+
+        public override string ToString()
+        {
+            return $"(String{StringOperator}{(IgnoreCase ? "IgnoreCase" : null)} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} '{Value}')";
+        }
     }
 }
