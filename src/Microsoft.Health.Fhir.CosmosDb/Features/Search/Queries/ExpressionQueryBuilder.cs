@@ -46,7 +46,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             { FieldName.TokenSystem, SearchValueConstants.SystemName },
             { FieldName.TokenText, SearchValueConstants.TextName },
             { FieldName.Uri, SearchValueConstants.UriName },
-            { FieldName.LastModified, SearchValueConstants.LastModified },
         };
 
         private static readonly Dictionary<StringOperator, string> StringOperatorMapping = new Dictionary<StringOperator, string>()
