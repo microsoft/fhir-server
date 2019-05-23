@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                     throw new UnsupportedMediaTypeException(Resources.UnsupportedFormatParameter);
                 }
 
-                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat, acceptHeaders?.Select(x => x.MediaType.Value));
+                string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), acceptHeaders?.Select(x => x.MediaType.Value));
 
                 // Overrides output format type
                 httpContext.Response.ContentType = closestClientMediaType;
@@ -68,9 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 
                     foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
                     {
-                        ResourceFormat resourceFormat = ContentType.GetResourceFormatFromContentType(acceptHeader.MediaType.ToString());
-
-                        isAcceptHeaderValid = await IsFormatSupportedAsync(resourceFormat);
+                        isAcceptHeaderValid = await IsFormatSupportedAsync(acceptHeader.MediaType.ToString());
 
                         if (isAcceptHeaderValid)
                         {
@@ -108,7 +106,14 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             return null;
         }
 
-        public async Task<bool> IsFormatSupportedAsync(ResourceFormat resourceFormat)
+        public async Task<bool> IsFormatSupportedAsync(string contentType)
+        {
+            ResourceFormat resourceFormat = ContentType.GetResourceFormatFromContentType(contentType);
+
+            return await IsFormatSupportedAsync(resourceFormat);
+        }
+
+        private async Task<bool> IsFormatSupportedAsync(ResourceFormat resourceFormat)
         {
             if (_supportedFormats.TryGetValue(resourceFormat, out var isSupported))
             {

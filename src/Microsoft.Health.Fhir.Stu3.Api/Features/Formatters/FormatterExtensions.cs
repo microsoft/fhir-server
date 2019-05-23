@@ -8,6 +8,7 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
@@ -16,24 +17,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     {
         private static readonly IDictionary<ResourceFormat, string> ResourceFormatContentType = new Dictionary<ResourceFormat, string>
         {
-            { ResourceFormat.Json, ContentType.JSON_CONTENT_HEADER },
-            { ResourceFormat.Xml, ContentType.XML_CONTENT_HEADER },
+            { ResourceFormat.Json, KnownContentTypes.JsonContentType },
+            { ResourceFormat.Xml, KnownContentTypes.XmlContentType },
         };
 
-        internal static string GetClosestClientMediaType(this IEnumerable<TextOutputFormatter> outputFormatters, ResourceFormat resourceFormat, IEnumerable<string> acceptHeaders)
+        internal static string GetClosestClientMediaType(this IEnumerable<TextOutputFormatter> outputFormatters, string contentType, IEnumerable<string> acceptHeaders)
         {
             // When overriding the MediaType with the query string parameter
             // some browsers don't display the response when returning "application/fhir+xml".
             // For this reason we try to match a media type from the OutputFormatter with the request Accept header.
 
             string closestClientMediaType = null;
-            string preferred = resourceFormat.ToContentType();
 
             if (outputFormatters != null && acceptHeaders != null)
             {
                 // Gets formatters that can write the desired format
                 var validFormatters = outputFormatters
-                    .Where(x => x.GetSupportedContentTypes(preferred, typeof(Resource)) != null)
+                    .Where(x => x.GetSupportedContentTypes(contentType, typeof(Resource)) != null)
                     .ToArray();
 
                 var acceptHeadersArray = acceptHeaders.ToArray();
@@ -46,10 +46,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     .FirstOrDefault();
             }
 
-            return closestClientMediaType ?? preferred;
+            return closestClientMediaType ?? contentType;
         }
 
-        private static string ToContentType(this ResourceFormat resourceType)
+        internal static string ToContentType(this ResourceFormat resourceType)
         {
             if (ResourceFormatContentType.TryGetValue(resourceType, out string contentType))
             {

@@ -274,7 +274,7 @@
                     "sku": {
                         "name": "Standard",
                         "tier": "Standard",
-                        "capacity": 10
+                        "capacity": 20
                       },
                     "type": "databases"
                 },
