@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an expression.
     /// </summary>
-    public abstract class Expression : IExpression
+    public abstract class Expression
     {
         /// <summary>
         /// Creates a <see cref="SearchParameterExpression"/> that represents a set of ANDed expressions over a search parameter.
@@ -233,11 +233,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new CompartmentSearchExpression(compartmentType, compartmentId);
         }
 
-        protected internal abstract void AcceptVisitor(IExpressionVisitor visitor);
+        public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);
 
-        public void AcceptVisitor(object visitor)
-        {
-            AcceptVisitor((IExpressionVisitor)visitor);
-        }
+        /// <inheritdoc />
+        public abstract override string ToString();
     }
 }

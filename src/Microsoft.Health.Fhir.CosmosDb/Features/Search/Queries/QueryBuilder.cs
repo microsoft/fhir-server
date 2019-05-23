@@ -9,6 +9,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
