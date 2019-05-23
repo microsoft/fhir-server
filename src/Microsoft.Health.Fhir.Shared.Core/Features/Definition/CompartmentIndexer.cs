@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             foreach (var indexEntry in searchIndices)
             {
-                if (indexEntry.Value is ReferenceSearchValue refValue && CompartmentDefinitionManager.ResourceTypeToCompartmentType.TryGetValue(refValue.ResourceType, out CompartmentType compartmentType))
+                if (indexEntry.Value is ReferenceSearchValue refValue && !string.IsNullOrWhiteSpace(refValue.ResourceType) && CompartmentDefinitionManager.ResourceTypeToCompartmentType.TryGetValue(refValue.ResourceType, out CompartmentType compartmentType))
                 {
                     string key = compartmentType.ToString();
 

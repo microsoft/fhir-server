@@ -22,7 +22,7 @@
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.2.2" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="150.18118.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="2.2.0" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.6.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.6.1" />
   </ItemGroup>
 
   <ItemGroup>
