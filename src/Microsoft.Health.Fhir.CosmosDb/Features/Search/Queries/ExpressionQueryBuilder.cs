@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             else if (expression.Parameter.Name == SearchParameterNames.LastUpdated)
             {
                 // For LastUpdate queries, the LastModified property on the root is
-                // mnore performant than the searchIndices _lastUpdated.st and _lastUpdate.et
+                // more performant than the searchIndices _lastUpdated.st and _lastUpdate.et
                 // we will override the mapping for that
                 OverrideFieldName(expression, SearchValueConstants.LastModified);
             }
