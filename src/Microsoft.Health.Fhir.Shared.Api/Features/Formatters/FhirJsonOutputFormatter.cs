@@ -20,7 +20,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    internal class FhirJsonOutputFormatter : TextOutputFormatter
+    public class FhirJsonOutputFormatter : TextOutputFormatter
     {
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly ILogger<FhirJsonOutputFormatter> _logger;

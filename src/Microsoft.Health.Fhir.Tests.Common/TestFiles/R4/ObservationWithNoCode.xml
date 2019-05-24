@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Observation xmlns="http://hl7.org/fhir">
+  <id value="2c46f396-61d2-471f-ba07-15fcb6ae80de"/>
+  <status value="final"/>
+</Observation>

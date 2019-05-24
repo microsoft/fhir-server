@@ -18,7 +18,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    internal class FhirXmlOutputFormatter : TextOutputFormatter
+    public class FhirXmlOutputFormatter : TextOutputFormatter
     {
         private readonly FhirXmlSerializer _fhirXmlSerializer;
         private readonly ILogger<FhirXmlOutputFormatter> _logger;
