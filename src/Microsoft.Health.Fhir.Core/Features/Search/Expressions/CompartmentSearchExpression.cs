@@ -37,10 +37,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         public string CompartmentId { get; }
 
-        protected internal override void AcceptVisitor(IExpressionVisitor visitor)
+        public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));
-            visitor.Visit(this);
+            return visitor.VisitCompartment(this, context);
+        }
+
+        public override string ToString()
+        {
+            return $"(Compartment {CompartmentType} '{CompartmentId}')";
         }
     }
 }
