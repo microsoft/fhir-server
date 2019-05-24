@@ -170,9 +170,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(4, firstSet.Resource.Entry.Count);
 
             sinceUriString = beforeUriString;
-            before = DateTime.UtcNow;
+            before = lastUpdatedTimes.Last().Value.AddMilliseconds(100); // before is exclusive so we add 100 ms to make sure our before value includes the changes
             beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
-            Thread.Sleep(500);
+            Thread.Sleep(500); // wait 500 milliseconds to make sure that the value passed to the server for _before is not a time in the future
             var secondSet = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
 
             Assert.Equal(3, secondSet.Resource.Entry.Count);
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // There is no remote FHIR server. Skip test
             if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TestEnvironmentUrl")))
             {
-                return;
+               return;
             }
 
             var since = GetStartTimeForHistoryTest();
@@ -212,8 +212,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith1MinuteApgarScore").ToPoco()));
             newResources.Add(await Client.CreateAsync(Samples.GetJsonSample("ObservationWith20MinuteApgarScore").ToPoco()));
 
-            var lastAdded = newResources.Last<Resource>();
-            var before = lastAdded.Meta.LastUpdated.Value.AddMilliseconds(500);
+            var lastUpdatedTimes = newResources.Select(e => e.Meta.LastUpdated).OrderBy(d => d.Value);
+            var before = lastUpdatedTimes.Last().Value.AddMilliseconds(100);
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
