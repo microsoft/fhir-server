@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
     {
         public static Assembly Core => typeof(Clock).Assembly;
 
-        public static Assembly CoreR4 => typeof(R4ModelInfoProvider).Assembly;
+        public static Assembly CoreVersionSpecific => typeof(R4ModelInfoProvider).Assembly;
     }
 }

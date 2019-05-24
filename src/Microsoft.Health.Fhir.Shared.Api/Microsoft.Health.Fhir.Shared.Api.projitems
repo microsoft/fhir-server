@@ -29,8 +29,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\SummaryTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FhirModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\PersistenceModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
   </ItemGroup>
 </Project>
