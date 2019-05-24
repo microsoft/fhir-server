@@ -16,7 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    internal class FormatterConfiguration : IPostConfigureOptions<MvcOptions>, IProvideCapability
+    public class FormatterConfiguration : IPostConfigureOptions<MvcOptions>, IProvideCapability
     {
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly IConfiguredConformanceProvider _configuredConformanceProvider;

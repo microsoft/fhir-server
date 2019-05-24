@@ -3,9 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Resources;
-using System.Runtime.CompilerServices;
+using System.Reflection;
+using Microsoft.Health.Fhir.Core;
 
-[assembly: NeutralResourcesLanguage("en-us")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Api.UnitTests")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api.UnitTests")]
+namespace Microsoft.Health.Fhir.Api.Modules
+{
+    public static class KnownAssemblies
+    {
+        public static Assembly Core => typeof(Clock).Assembly;
+
+        public static Assembly CoreR4 => typeof(R4ModelInfoProvider).Assembly;
+    }
+}

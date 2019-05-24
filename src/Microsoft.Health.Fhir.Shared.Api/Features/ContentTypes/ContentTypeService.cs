@@ -24,7 +24,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 {
-    internal class ContentTypeService : IContentTypeService
+    public class ContentTypeService : IContentTypeService
     {
         private readonly IConformanceProvider _conformanceProvider;
         private readonly ICollection<TextOutputFormatter> _outputFormatters;
