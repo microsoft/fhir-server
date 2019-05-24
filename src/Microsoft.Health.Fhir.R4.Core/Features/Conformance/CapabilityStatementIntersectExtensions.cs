@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Experimental = system.Experimental,
                 Publisher = system.Publisher,
                 Software = system.Software,
-                FhirVersion = system.FhirVersion,
+                FhirVersion = system.FhirVersion.GetValueByEnumLiteral<FHIRVersion>(),
                 Contact = new List<ContactDetail> { new ContactDetail { Telecom = system.Telecom?.Select(x => new ContactPoint(x.System, x.Use, x.Value)).ToList() } },
 
                 // Intersections with user configured values
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 var rest = new CapabilityStatement.RestComponent
                 {
                     Mode = systemRest.Mode.IntersectEnum(configuredRest.Mode, issues, "Rest.Mode"),
-                    Documentation = systemRest.Documentation,
+                    Documentation = new Markdown(systemRest.Documentation),
                     Security = systemRest.Security,
                     Interaction = systemRest.Interaction?.IntersectList(configuredRest.Interaction, x => x.Code, issues, $"Rest.Interaction"),
                     SearchParam = systemRest.SearchParam?.IntersectList(configuredRest.SearchParam, x => x.Name, issues, $"Rest.SearchParam"),
