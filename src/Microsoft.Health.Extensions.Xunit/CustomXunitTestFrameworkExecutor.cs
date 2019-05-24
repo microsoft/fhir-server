@@ -94,17 +94,14 @@ namespace Microsoft.Health.Extensions.Xunit
                 EnsureArg.IsNotNull(@class, nameof(@class));
                 EnsureArg.IsNotNull(testCases, nameof(testCases));
 
-                if (!(testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments))
-                {
-                    return base.RunTestClassAsync(testClass, @class, testCases);
-                }
-
-                // this is a test class that needs special logic for instantiating its fixture.
-
                 var combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
-                foreach (var variant in classWithFixtureArguments.FixtureArguments)
+                if (testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments)
                 {
-                    combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
+                    // this is a test class that needs special logic for instantiating its fixture.
+                    foreach (var variant in classWithFixtureArguments.FixtureArguments)
+                    {
+                        combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
+                    }
                 }
 
                 foreach (var assemblyFixtureMapping in _assemblyFixtureMappings)
