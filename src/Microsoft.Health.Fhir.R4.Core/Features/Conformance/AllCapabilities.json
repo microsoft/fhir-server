@@ -23,130 +23,17 @@
     "format": [ "application/fhir+xml", "application/fhir+json" ],
     "rest": [
         {
-            "extension": [
-                {
-                    "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-websocket",
-                    "valueString": "http://test.fhir.org/r4/websockets"
-                },
-                {
-                    "extension": [
-                        {
-                            "url": "name",
-                            "valueString": "Fetch Patient Alerts"
-                        },
-                        {
-                            "url": "activity",
-                            "valueString": "patient-view"
-                        },
-                        {
-                            "url": "preFetchOptional",
-                            "valueString": "Patient/{{Patient.id}}"
-                        }
-                    ],
-                    "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/cds-activity"
-                },
-                {
-                    "extension": [
-                        {
-                            "url": "name",
-                            "valueString": "Get Terminology Information"
-                        },
-                        {
-                            "url": "activity",
-                            "valueString": "code-view"
-                        }
-                    ],
-                    "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/cds-activity"
-                },
-                {
-                    "extension": [
-                        {
-                            "url": "name",
-                            "valueString": "Get identifier Information"
-                        },
-                        {
-                            "url": "activity",
-                            "valueString": "identifier-view"
-                        }
-                    ],
-                    "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/cds-activity"
-                }
-            ],
+            "extension": [],
             "mode": "server",
             "security": {
-                "extension": [
-                    {
-                        "extension": [
-                            {
-                                "url": "register",
-                                "valueUri": "http://test.fhir.org/r4/auth/register"
-                            },
-                            {
-                                "url": "authorize",
-                                "valueUri": "http://test.fhir.org/r4/auth/auth"
-                            },
-                            {
-                                "url": "token",
-                                "valueUri": "http://test.fhir.org/r4/auth/token"
-                            },
-                            {
-                                "url": "manage",
-                                "valueUri": "http://test.fhir.org/r4/auth/manage"
-                            }
-                        ],
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris"
-                    },
-                    {
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/capabilities",
-                        "valueString": "launch-standalone"
-                    },
-                    {
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/capabilities",
-                        "valueString": "launch-ehr"
-                    },
-                    {
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/capabilities",
-                        "valueString": "client-public"
-                    },
-                    {
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/capabilities",
-                        "valueString": "client-confidential-symmetric"
-                    },
-                    {
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/capabilities",
-                        "valueString": "sso-openid-connect"
-                    },
-                    {
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/capabilities",
-                        "valueString": "permission-offline"
-                    },
-                    {
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/capabilities",
-                        "valueString": "permission-patient"
-                    },
-                    {
-                        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/capabilities",
-                        "valueString": "permission-user"
-                    }
-                ],
-                "cors": true,
-                "service": [
-                    {
-                        "coding": [
-                            {
-                                "system": "http://hl7.org/fhir/restful-security-service",
-                                "code": "SMART-on-FHIR",
-                                "display": "SMART-on-FHIR"
-                            }
-                        ]
-                    }
-                ],
-                "description": "This server implements OAuth2 for login using the Smart App Launch profile"
+                "extension": [],
+                "cors": false,
+                "service": []
             },
             "resource": [
                 {
                     "type": "Account",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/account",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/account",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -316,7 +203,7 @@
                 },
                 {
                     "type": "ActivityDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/activitydefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/activitydefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -570,7 +457,7 @@
                 },
                 {
                     "type": "AdverseEvent",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/adverseevent",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/adverseevent",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -764,7 +651,7 @@
                 },
                 {
                     "type": "AllergyIntolerance",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/allergyintolerance",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/allergyintolerance",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -982,7 +869,7 @@
                 },
                 {
                     "type": "Appointment",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/appointment",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/appointment",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -1206,7 +1093,7 @@
                 },
                 {
                     "type": "AppointmentResponse",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/appointmentresponse",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/appointmentresponse",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -1370,7 +1257,7 @@
                 },
                 {
                     "type": "AuditEvent",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/auditevent",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/auditevent",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -1598,7 +1485,7 @@
                 },
                 {
                     "type": "Basic",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/basic",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/basic",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -1756,7 +1643,7 @@
                 },
                 {
                     "type": "Binary",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/binary",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/binary",
                     "interaction": [
                         { "code": "read" },
                         { "code": "update" },
@@ -1871,7 +1758,7 @@
                 },
                 {
                     "type": "BiologicallyDerivedProduct",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/biologicallyderivedproduct",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/biologicallyderivedproduct",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -1993,7 +1880,7 @@
                 },
                 {
                     "type": "BodyStructure",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/bodystructure",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/bodystructure",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -2139,7 +2026,7 @@
                 },
                 {
                     "type": "Bundle",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/bundle",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/bundle",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -2285,7 +2172,7 @@
                 },
                 {
                     "type": "CapabilityStatement",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/capabilitystatement",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/capabilitystatement",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -2545,7 +2432,7 @@
                 },
                 {
                     "type": "CarePlan",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/careplan",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/careplan",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -2787,7 +2674,7 @@
                 },
                 {
                     "type": "CareTeam",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/careteam",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/careteam",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -2957,7 +2844,7 @@
                 },
                 {
                     "type": "CatalogEntry",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/catalogentry",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/catalogentry",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -3079,7 +2966,7 @@
                 },
                 {
                     "type": "ChargeItem",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/chargeitem",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/chargeitem",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -3303,7 +3190,7 @@
                 },
                 {
                     "type": "ChargeItemDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/chargeitemdefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/chargeitemdefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -3515,7 +3402,7 @@
                 },
                 {
                     "type": "Claim",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/claim",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/claim",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -3739,7 +3626,7 @@
                 },
                 {
                     "type": "ClaimResponse",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/claimresponse",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/claimresponse",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -3927,7 +3814,7 @@
                 },
                 {
                     "type": "ClinicalImpression",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/clinicalimpression",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/clinicalimpression",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -4127,7 +4014,7 @@
                 },
                 {
                     "type": "CodeSystem",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/codesystem",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/codesystem",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -4369,7 +4256,7 @@
                 },
                 {
                     "type": "Communication",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/communication",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/communication",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -4581,7 +4468,7 @@
                 },
                 {
                     "type": "CommunicationRequest",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/communicationrequest",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/communicationrequest",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -4799,7 +4686,7 @@
                 },
                 {
                     "type": "CompartmentDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/compartmentdefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/compartmentdefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -5005,7 +4892,7 @@
                 },
                 {
                     "type": "Composition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/composition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/composition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -5235,7 +5122,7 @@
                 },
                 {
                     "type": "ConceptMap",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/conceptmap",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/conceptmap",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -5513,7 +5400,7 @@
                 },
                 {
                     "type": "Condition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/condition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/condition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -5767,7 +5654,7 @@
                 },
                 {
                     "type": "Consent",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/consent",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/consent",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -5979,7 +5866,7 @@
                 },
                 {
                     "type": "Contract",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/contract",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/contract",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -6161,7 +6048,7 @@
                 },
                 {
                     "type": "Coverage",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/coverage",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/coverage",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -6349,7 +6236,7 @@
                 },
                 {
                     "type": "CoverageEligibilityRequest",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/coverageeligibilityrequest",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/coverageeligibilityrequest",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -6513,7 +6400,7 @@
                 },
                 {
                     "type": "CoverageEligibilityResponse",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/coverageeligibilityresponse",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/coverageeligibilityresponse",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -6689,7 +6576,7 @@
                 },
                 {
                     "type": "DetectedIssue",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/detectedissue",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/detectedissue",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -6847,7 +6734,7 @@
                 },
                 {
                     "type": "Device",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/device",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/device",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -7047,7 +6934,7 @@
                 },
                 {
                     "type": "DeviceDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/devicedefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/devicedefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -7187,7 +7074,7 @@
                 },
                 {
                     "type": "DeviceMetric",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/devicemetric",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/devicemetric",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -7339,7 +7226,7 @@
                 },
                 {
                     "type": "DeviceRequest",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/devicerequest",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/devicerequest",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -7569,7 +7456,7 @@
                 },
                 {
                     "type": "DeviceUseStatement",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/deviceusestatement",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/deviceusestatement",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -7715,7 +7602,7 @@
                 },
                 {
                     "type": "DiagnosticReport",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/diagnosticreport",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/diagnosticreport",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -7939,7 +7826,7 @@
                 },
                 {
                     "type": "DocumentManifest",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/documentmanifest",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/documentmanifest",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -8139,7 +8026,7 @@
                 },
                 {
                     "type": "DocumentReference",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/documentreference",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/documentreference",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -8411,7 +8298,7 @@
                 },
                 {
                     "type": "EffectEvidenceSynthesis",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/effectevidencesynthesis",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/effectevidencesynthesis",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -8629,7 +8516,7 @@
                 },
                 {
                     "type": "Encounter",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/encounter",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/encounter",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -8889,7 +8776,7 @@
                 },
                 {
                     "type": "Endpoint",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/endpoint",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/endpoint",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -9047,7 +8934,7 @@
                 },
                 {
                     "type": "EnrollmentRequest",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/enrollmentrequest",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/enrollmentrequest",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -9193,7 +9080,7 @@
                 },
                 {
                     "type": "EnrollmentResponse",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/enrollmentresponse",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/enrollmentresponse",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -9333,7 +9220,7 @@
                 },
                 {
                     "type": "EpisodeOfCare",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/episodeofcare",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/episodeofcare",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -9509,7 +9396,7 @@
                 },
                 {
                     "type": "EventDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/eventdefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/eventdefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -9763,7 +9650,7 @@
                 },
                 {
                     "type": "Evidence",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/evidence",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/evidence",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -10017,7 +9904,7 @@
                 },
                 {
                     "type": "EvidenceVariable",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/evidencevariable",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/evidencevariable",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -10271,7 +10158,7 @@
                 },
                 {
                     "type": "ExampleScenario",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/examplescenario",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/examplescenario",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -10471,7 +10358,7 @@
                 },
                 {
                     "type": "ExplanationOfBenefit",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/explanationofbenefit",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/explanationofbenefit",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -10695,7 +10582,7 @@
                 },
                 {
                     "type": "FamilyMemberHistory",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/familymemberhistory",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/familymemberhistory",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -10877,7 +10764,7 @@
                 },
                 {
                     "type": "Flag",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/flag",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/flag",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -11035,7 +10922,7 @@
                 },
                 {
                     "type": "Goal",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/goal",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/goal",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -11205,7 +11092,7 @@
                 },
                 {
                     "type": "GraphDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/graphdefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/graphdefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -11411,7 +11298,7 @@
                 },
                 {
                     "type": "Group",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/group",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/group",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -11593,7 +11480,7 @@
                 },
                 {
                     "type": "GuidanceResponse",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/guidanceresponse",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/guidanceresponse",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -11739,7 +11626,7 @@
                 },
                 {
                     "type": "HealthcareService",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/healthcareservice",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/healthcareservice",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -11933,7 +11820,7 @@
                 },
                 {
                     "type": "ImagingStudy",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/imagingstudy",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/imagingstudy",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -12157,7 +12044,7 @@
                 },
                 {
                     "type": "Immunization",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/immunization",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/immunization",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -12375,7 +12262,7 @@
                 },
                 {
                     "type": "ImmunizationEvaluation",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/immunizationevaluation",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/immunizationevaluation",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -12539,7 +12426,7 @@
                 },
                 {
                     "type": "ImmunizationRecommendation",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/immunizationrecommendation",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/immunizationrecommendation",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -12709,7 +12596,7 @@
                 },
                 {
                     "type": "ImplementationGuide",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/implementationguide",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/implementationguide",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -12939,7 +12826,7 @@
                 },
                 {
                     "type": "InsurancePlan",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/insuranceplan",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/insuranceplan",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -13145,7 +13032,7 @@
                 },
                 {
                     "type": "Invoice",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/invoice",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/invoice",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -13345,7 +13232,7 @@
                 },
                 {
                     "type": "Library",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/library",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/library",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -13611,7 +13498,7 @@
                 },
                 {
                     "type": "Linkage",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/linkage",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/linkage",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -13751,7 +13638,7 @@
                 },
                 {
                     "type": "List",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/list",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/list",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -13945,7 +13832,7 @@
                 },
                 {
                     "type": "Location",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/location",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/location",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -14156,7 +14043,7 @@
                 },
                 {
                     "type": "Measure",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/measure",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/measure",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -14410,7 +14297,7 @@
                 },
                 {
                     "type": "MeasureReport",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/measurereport",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/measurereport",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -14586,7 +14473,7 @@
                 },
                 {
                     "type": "Media",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/media",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/media",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -14786,7 +14673,7 @@
                 },
                 {
                     "type": "Medication",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medication",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medication",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -14962,7 +14849,7 @@
                 },
                 {
                     "type": "MedicationAdministration",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicationadministration",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicationadministration",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -15162,7 +15049,7 @@
                 },
                 {
                     "type": "MedicationDispense",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicationdispense",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicationdispense",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -15374,7 +15261,7 @@
                 },
                 {
                     "type": "MedicationKnowledge",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicationknowledge",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicationknowledge",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -15574,7 +15461,7 @@
                 },
                 {
                     "type": "MedicationRequest",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicationrequest",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicationrequest",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -15792,7 +15679,7 @@
                 },
                 {
                     "type": "MedicationStatement",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicationstatement",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicationstatement",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -15980,7 +15867,7 @@
                 },
                 {
                     "type": "MedicinalProduct",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproduct",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproduct",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -16120,7 +16007,7 @@
                 },
                 {
                     "type": "MedicinalProductAuthorization",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductauthorization",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductauthorization",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -16272,7 +16159,7 @@
                 },
                 {
                     "type": "MedicinalProductContraindication",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductcontraindication",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductcontraindication",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -16400,7 +16287,7 @@
                 },
                 {
                     "type": "MedicinalProductIndication",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductindication",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductindication",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -16528,7 +16415,7 @@
                 },
                 {
                     "type": "MedicinalProductIngredient",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductingredient",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductingredient",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -16650,7 +16537,7 @@
                 },
                 {
                     "type": "MedicinalProductInteraction",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductinteraction",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductinteraction",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -16778,7 +16665,7 @@
                 },
                 {
                     "type": "MedicinalProductManufactured",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductmanufactured",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductmanufactured",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -16900,7 +16787,7 @@
                 },
                 {
                     "type": "MedicinalProductPackaged",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductpackaged",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductpackaged",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -17034,7 +16921,7 @@
                 },
                 {
                     "type": "MedicinalProductPharmaceutical",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductpharmaceutical",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductpharmaceutical",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -17174,7 +17061,7 @@
                 },
                 {
                     "type": "MedicinalProductUndesirableEffect",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/medicinalproductundesirableeffect",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/medicinalproductundesirableeffect",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -17302,7 +17189,7 @@
                 },
                 {
                     "type": "MessageDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/messagedefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/messagedefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -17538,7 +17425,7 @@
                 },
                 {
                     "type": "MolecularSequence",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/molecularsequence",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/molecularsequence",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -17738,7 +17625,7 @@
                 },
                 {
                     "type": "NamingSystem",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/namingsystem",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/namingsystem",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -17974,7 +17861,7 @@
                 },
                 {
                     "type": "NutritionOrder",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/nutritionorder",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/nutritionorder",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -18168,7 +18055,7 @@
                 },
                 {
                     "type": "Observation",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/observation",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/observation",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -18548,7 +18435,7 @@
                 },
                 {
                     "type": "ObservationDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/observationdefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/observationdefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -18670,7 +18557,7 @@
                 },
                 {
                     "type": "OperationDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/operationdefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/operationdefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -18924,7 +18811,7 @@
                 },
                 {
                     "type": "OperationOutcome",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/operationoutcome",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/operationoutcome",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -19046,7 +18933,7 @@
                 },
                 {
                     "type": "Organization",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/organization",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/organization",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -19246,7 +19133,7 @@
                 },
                 {
                     "type": "OrganizationAffiliation",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/organizationaffiliation",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/organizationaffiliation",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -19452,11 +19339,11 @@
                 },
                 {
                     "type": "Parameters",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/parameters"
+                    "profile": "http://hl7.org/fhir/StructureDefinition/parameters"
                 },
                 {
                     "type": "Patient",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/patient",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/patient",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -19758,7 +19645,7 @@
                 },
                 {
                     "type": "PaymentNotice",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/paymentnotice",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/paymentnotice",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -19922,7 +19809,7 @@
                 },
                 {
                     "type": "PaymentReconciliation",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/paymentreconciliation",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/paymentreconciliation",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -20092,7 +19979,7 @@
                 },
                 {
                     "type": "Person",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/person",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/person",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -20328,7 +20215,7 @@
                 },
                 {
                     "type": "PlanDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/plandefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/plandefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -20594,7 +20481,7 @@
                 },
                 {
                     "type": "Practitioner",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/practitioner",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/practitioner",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -20818,7 +20705,7 @@
                 },
                 {
                     "type": "PractitionerRole",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/practitionerrole",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/practitionerrole",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -21018,7 +20905,7 @@
                 },
                 {
                     "type": "Procedure",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/procedure",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/procedure",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -21236,7 +21123,7 @@
                 },
                 {
                     "type": "Provenance",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/provenance",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/provenance",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -21418,7 +21305,7 @@
                 },
                 {
                     "type": "Questionnaire",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/questionnaire",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/questionnaire",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -21654,7 +21541,7 @@
                 },
                 {
                     "type": "QuestionnaireResponse",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/questionnaireresponse",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/questionnaireresponse",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -21848,7 +21735,7 @@
                 },
                 {
                     "type": "RelatedPerson",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/relatedperson",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/relatedperson",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -22072,7 +21959,7 @@
                 },
                 {
                     "type": "RequestGroup",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/requestgroup",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/requestgroup",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -22278,7 +22165,7 @@
                 },
                 {
                     "type": "ResearchDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/researchdefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/researchdefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -22532,7 +22419,7 @@
                 },
                 {
                     "type": "ResearchElementDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/researchelementdefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/researchelementdefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -22786,7 +22673,7 @@
                 },
                 {
                     "type": "ResearchStudy",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/researchstudy",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/researchstudy",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -22986,7 +22873,7 @@
                 },
                 {
                     "type": "ResearchSubject",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/researchsubject",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/researchsubject",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -23144,7 +23031,7 @@
                 },
                 {
                     "type": "RiskAssessment",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/riskassessment",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/riskassessment",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -23326,7 +23213,7 @@
                 },
                 {
                     "type": "RiskEvidenceSynthesis",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/riskevidencesynthesis",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/riskevidencesynthesis",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -23544,7 +23431,7 @@
                 },
                 {
                     "type": "Schedule",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/schedule",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/schedule",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -23708,7 +23595,7 @@
                 },
                 {
                     "type": "SearchParameter",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/searchparameter",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/searchparameter",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -23944,7 +23831,7 @@
                 },
                 {
                     "type": "ServiceRequest",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/servicerequest",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/servicerequest",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -24192,7 +24079,7 @@
                 },
                 {
                     "type": "Slot",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/slot",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/slot",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -24362,7 +24249,7 @@
                 },
                 {
                     "type": "Specimen",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/specimen",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/specimen",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -24556,7 +24443,7 @@
                 },
                 {
                     "type": "SpecimenDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/specimendefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/specimendefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -24696,7 +24583,7 @@
                 },
                 {
                     "type": "StructureDefinition",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/structuredefinition",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/structuredefinition",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -24974,7 +24861,7 @@
                 },
                 {
                     "type": "StructureMap",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/structuremap",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/structuremap",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -25186,7 +25073,7 @@
                 },
                 {
                     "type": "Subscription",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/subscription",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/subscription",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -25344,7 +25231,7 @@
                 },
                 {
                     "type": "Substance",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/substance",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/substance",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -25514,7 +25401,7 @@
                 },
                 {
                     "type": "SubstanceNucleicAcid",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/substancenucleicacid",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/substancenucleicacid",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -25636,7 +25523,7 @@
                 },
                 {
                     "type": "SubstancePolymer",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/substancepolymer",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/substancepolymer",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -25758,7 +25645,7 @@
                 },
                 {
                     "type": "SubstanceProtein",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/substanceprotein",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/substanceprotein",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -25880,7 +25767,7 @@
                 },
                 {
                     "type": "SubstanceReferenceInformation",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/substancereferenceinformation",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/substancereferenceinformation",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -26002,7 +25889,7 @@
                 },
                 {
                     "type": "SubstanceSourceMaterial",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/substancesourcematerial",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/substancesourcematerial",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -26124,7 +26011,7 @@
                 },
                 {
                     "type": "SubstanceSpecification",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/substancespecification",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/substancespecification",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -26252,7 +26139,7 @@
                 },
                 {
                     "type": "SupplyDelivery",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/supplydelivery",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/supplydelivery",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -26404,7 +26291,7 @@
                 },
                 {
                     "type": "SupplyRequest",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/supplyrequest",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/supplyrequest",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -26568,7 +26455,7 @@
                 },
                 {
                     "type": "Task",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/task",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/task",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -26804,7 +26691,7 @@
                 },
                 {
                     "type": "TerminologyCapabilities",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/terminologycapabilities",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/terminologycapabilities",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -27010,7 +26897,7 @@
                 },
                 {
                     "type": "TestReport",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/testreport",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/testreport",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -27168,7 +27055,7 @@
                 },
                 {
                     "type": "TestScript",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/testscript",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/testscript",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -27386,7 +27273,7 @@
                 },
                 {
                     "type": "ValueSet",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/valueset",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/valueset",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -27616,7 +27503,7 @@
                 },
                 {
                     "type": "VerificationResult",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/verificationresult",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/verificationresult",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -27744,7 +27631,7 @@
                 },
                 {
                     "type": "VisionPrescription",
-                    "profile": "http://test.fhir.org/r4/StructureDefinition/visionprescription",
+                    "profile": "http://hl7.org/fhir/StructureDefinition/visionprescription",
                     "interaction": [
                         { "code": "read" },
                         { "code": "search-type" },
@@ -27933,7 +27820,7 @@
                 },
                 {
                     "name": "document",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-document"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-document"
                 },
                 {
                     "name": "export",
@@ -27953,47 +27840,47 @@
                 },
                 {
                     "name": "qa-edit",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-qa-edit"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-qa-edit"
                 },
                 {
                     "name": "jwt",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-jwt"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-jwt"
                 },
                 {
                     "name": "codegen",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-codegen"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-codegen"
                 },
                 {
                     "name": "qa-post",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-qa-post"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-qa-post"
                 },
                 {
                     "name": "questionnaire",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-questionnaire"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-questionnaire"
                 },
                 {
                     "name": "versions",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-versions"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-versions"
                 },
                 {
                     "name": "process",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-process"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-process"
                 },
                 {
                     "name": "snapshot",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-snapshot"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-snapshot"
                 },
                 {
                     "name": "generate-template",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-generate-template"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-generate-template"
                 },
                 {
                     "name": "generate-narrative",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-generate-narrative"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-generate-narrative"
                 },
                 {
                     "name": "suggest-keywords",
-                    "definition": "http://test.fhir.org/r4/OperationDefinition/fso-suggest-keywords"
+                    "definition": "http://hl7.org/fhir/OperationDefinition/fso-suggest-keywords"
                 },
                 {
                     "name": "meta",
