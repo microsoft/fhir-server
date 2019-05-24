@@ -133,6 +133,14 @@ namespace Microsoft.Health.Extensions.Xunit
             {
             }
 
+            protected override async Task<RunSummary> RunTestMethodsAsync()
+            {
+                DiagnosticMessageSink.OnMessage(new DiagnosticMessage("Begin RunTestMethodsAsync"));
+                RunSummary summary = await base.RunTestMethodsAsync();
+                DiagnosticMessageSink.OnMessage(new DiagnosticMessage("End RunTestMethodsAsync"));
+                return summary;
+            }
+
             protected override async Task AfterTestClassStartingAsync()
             {
                 var sw = Stopwatch.StartNew();
