@@ -18,7 +18,7 @@ using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public class FhirXmlInputFormatter : TextInputFormatter
+    internal class FhirXmlInputFormatter : TextInputFormatter
     {
         private readonly FhirXmlParser _parser;
 
