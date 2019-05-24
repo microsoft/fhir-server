@@ -167,7 +167,7 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 var sw = Stopwatch.StartNew();
                 RunSummary summary = await base.RunTestCaseAsync(testCase);
-                _diagnosticMessageSink.OnMessage(new DiagnosticMessage("\tTest case {0}: {1}", testCase, sw.Elapsed.TotalSeconds));
+                _diagnosticMessageSink.OnMessage(new DiagnosticMessage("\tTest case {0}: {1}", testCase.DisplayName, sw.Elapsed.TotalSeconds));
                 return summary;
             }
         }
