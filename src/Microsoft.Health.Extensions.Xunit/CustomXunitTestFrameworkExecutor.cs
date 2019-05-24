@@ -133,11 +133,42 @@ namespace Microsoft.Health.Extensions.Xunit
             {
             }
 
-            protected override void CreateClassFixture(Type fixtureType)
+            protected override async Task AfterTestClassStartingAsync()
             {
                 var sw = Stopwatch.StartNew();
-                base.CreateClassFixture(fixtureType);
-                DiagnosticMessageSink.OnMessage(new DiagnosticMessage("Fixture creation {0}", sw.Elapsed));
+                await base.AfterTestClassStartingAsync();
+                DiagnosticMessageSink.OnMessage(new DiagnosticMessage("Class {0} Starting: {1}", TestClass.Class.Name, sw.Elapsed.TotalSeconds));
+            }
+
+            protected override async Task BeforeTestClassFinishedAsync()
+            {
+                var sw = Stopwatch.StartNew();
+                await base.BeforeTestClassFinishedAsync();
+                DiagnosticMessageSink.OnMessage(new DiagnosticMessage("Class {0} Finishing: {1}", TestClass.Class.Name, sw.Elapsed.TotalSeconds));
+            }
+
+            protected override Task<RunSummary> RunTestMethodAsync(ITestMethod testMethod, IReflectionMethodInfo method, IEnumerable<IXunitTestCase> testCases, object[] constructorArguments)
+            {
+                return new MyTestMethodRunner(testMethod, Class, method, testCases, DiagnosticMessageSink, MessageBus, new ExceptionAggregator(Aggregator), CancellationTokenSource, constructorArguments).RunAsync();
+            }
+        }
+
+        private class MyTestMethodRunner : XunitTestMethodRunner
+        {
+            private readonly IMessageSink _diagnosticMessageSink;
+
+            public MyTestMethodRunner(ITestMethod testMethod, IReflectionTypeInfo @class, IReflectionMethodInfo method, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource, object[] constructorArguments)
+                : base(testMethod, @class, method, testCases, diagnosticMessageSink, messageBus, aggregator, cancellationTokenSource, constructorArguments)
+            {
+                _diagnosticMessageSink = diagnosticMessageSink;
+            }
+
+            protected override async Task<RunSummary> RunTestCaseAsync(IXunitTestCase testCase)
+            {
+                var sw = Stopwatch.StartNew();
+                RunSummary summary = await base.RunTestCaseAsync(testCase);
+                _diagnosticMessageSink.OnMessage(new DiagnosticMessage("\tTest case {0}: {1}", testCase, sw.Elapsed.TotalSeconds));
+                return summary;
             }
         }
 
