@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         SearchRevInclude = systemComponent.SearchRevInclude.IntersectList(configuredComponent.SearchRevInclude, x => x, issues, $"Rest.Resource['{systemComponent.Type}'].SearchRevInclude").ToList(),
                         Interaction = systemComponent.Interaction.IntersectList(configuredComponent.Interaction, x => x.Code, issues, $"Rest.Resource['{systemComponent.Type}'].Interaction"),
                         ReferencePolicy = systemComponent.ReferencePolicy.IntersectList(configuredComponent.ReferencePolicy, x => x, issues, $"Rest.Resource['{systemComponent.Type}'].ReferencePolicy"),
-                        SearchParam = systemComponent.SearchParam.IntersectList(configuredComponent.SearchParam, x => string.Concat(x.Name, x.Type), issues, $"Rest.Resource['{systemComponent.Type}'].SearchParam"),
+                        SearchParam = systemComponent.SearchParam.IntersectList(configuredComponent.SearchParam, x => string.Concat(x.Name, x.Type), x => string.Concat(x.Name, x.Type, x.Definition), issues, $"Rest.Resource['{systemComponent.Type}'].SearchParam"),
 
                         // Listed Enumerations intersections
                         Versioning = systemComponent.Versioning.IntersectEnum(configuredComponent.Versioning, issues, $"Rest.Resource['{systemComponent.Type}'].Versioning"),

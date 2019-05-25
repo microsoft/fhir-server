@@ -59,6 +59,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
         public static List<TElement> IntersectList<TElement, TProperty>(this IEnumerable<TElement> supported, IEnumerable<TElement> configured, Func<TElement, TProperty> selector, IList<string> issues, string fieldName)
         {
+            return IntersectList(supported, configured, selector, selector, issues, fieldName);
+        }
+
+        public static List<TElement> IntersectList<TElement, TProperty>(this IEnumerable<TElement> supported, IEnumerable<TElement> configured, Func<TElement, TProperty> selector, Func<TElement, TProperty> selectorDistinct, IList<string> issues, string fieldName)
+        {
             EnsureArg.IsNotNull(supported, nameof(supported));
             EnsureArg.IsNotNull(configured, nameof(configured));
             EnsureArg.IsNotNull(selector, nameof(selector));
@@ -71,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 issues.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.InvalidListConfigSetting, fieldName));
             }
 
-            if (config.Select(selector).GroupBy(x => x).Any(x => x.Count() > 1))
+            if (config.Select(selectorDistinct).GroupBy(x => x).Any(x => x.Count() > 1))
             {
                 issues.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.InvalidListConfigDuplicateItem, fieldName));
             }
