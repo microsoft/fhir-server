@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [Fact(Skip="Temporarily disabled")]
         public async Task WhenGettingSystemHistory_GivenAQueryThatReturnsMoreThan10Results_TheServerShouldBatchTheResponse()
         {
             // The batch test does not work reliably on local Cosmos DB Emulator
