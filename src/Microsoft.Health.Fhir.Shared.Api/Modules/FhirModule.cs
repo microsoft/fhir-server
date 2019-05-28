@@ -158,16 +158,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<IProvideCapability>();
 
-            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreR4)
+            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
                 .AssignableTo<IProvideCapability>()
                 .Transient()
                 .AsService<IProvideCapability>();
 
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
 
-            var r4ModelInfoProvider = new R4ModelInfoProvider();
-            services.Add(_ => r4ModelInfoProvider).Singleton().AsSelf().AsImplementedInterfaces();
-            ModelInfoProvider.SetProvider(r4ModelInfoProvider);
+            ModelExtensions.SetModelInfoProvider();
+            services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();
 
             // Register a factory to resolve a scope that returns all components that provide capabilities
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
