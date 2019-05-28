@@ -21,6 +21,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
     /// </summary>
     internal class DelegatingInterfaceImplementationGenerator : ICodeGenerator
     {
+        internal const string DeclaringTypeKind = "DeclaringType";
         private readonly SyntaxTokenList _typeModifiers;
         private readonly SyntaxTokenList _constructorModifiers;
         private readonly Type[] _interfacesToImplement;
@@ -79,24 +80,41 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
 
                 foreach (var propertyInfo in interfaceType.GetProperties().OrderBy(p => p.Name, StringComparer.Ordinal))
                 {
-                    var propertyDeclarationSyntax = PropertyDeclaration(propertyInfo.PropertyType.ToTypeSyntax(), propertyInfo.Name)
-                        .WithExplicitInterfaceSpecifier(explicitInterfaceSpecifier)
-                        .AddAttributeLists(ExcludeFromCodeCoverageAttributeSyntax);
+                    ParameterInfo[] indexParameters = propertyInfo.GetIndexParameters();
+                    MethodInfo getter = propertyInfo.GetGetMethod();
+                    MethodInfo setter = propertyInfo.GetSetMethod();
 
-                    if (propertyInfo.GetGetMethod() != null)
+                    BasePropertyDeclarationSyntax propertyDeclarationSyntax = (indexParameters.Length == 0
+                            ? (BasePropertyDeclarationSyntax)PropertyDeclaration(propertyInfo.PropertyType.ToTypeSyntax(), propertyInfo.Name)
+                            : IndexerDeclaration(propertyInfo.PropertyType.ToTypeSyntax())
+                                .AddParameterListParameters(indexParameters.Select(p => Parameter(Identifier(p.Name)).WithType(p.ParameterType.ToTypeSyntax())).ToArray()))
+                        .WithExplicitInterfaceSpecifier(explicitInterfaceSpecifier)
+                        .AddAttributeLists(ExcludeFromCodeCoverageAttributeSyntax)
+                        .WithAdditionalAnnotations(new SyntaxAnnotation(DeclaringTypeKind, (getter?.GetBaseDefinition() ?? setter?.GetBaseDefinition())?.DeclaringType.FullName));
+
+                    if (getter != null)
                     {
                         propertyDeclarationSyntax = propertyDeclarationSyntax.AddAccessorListAccessors(
-                            AccessorDeclaration(SyntaxKind.GetAccessorDeclaration, Block(ReturnStatement(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, FieldName, IdentifierName(propertyInfo.Name))))));
+                            AccessorDeclaration(
+                                SyntaxKind.GetAccessorDeclaration,
+                                Block(ReturnStatement(
+                                    indexParameters.Length == 0
+                                        ? (ExpressionSyntax)MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, FieldName, IdentifierName(propertyInfo.Name))
+                                        : ElementAccessExpression(FieldName).AddArgumentListArguments(indexParameters.Select(p => Argument(IdentifierName(p.Name))).ToArray())))));
                     }
 
-                    if (propertyInfo.GetSetMethod() != null)
+                    if (setter != null)
                     {
+                        ExpressionSyntax assignmentTarget = indexParameters.Length == 0
+                            ? (ExpressionSyntax)MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, typedFieldName, IdentifierName(propertyInfo.Name))
+                            : ElementAccessExpression(FieldName).AddArgumentListArguments(indexParameters.Select(p => Argument(IdentifierName(p.Name))).ToArray());
+
                         propertyDeclarationSyntax = propertyDeclarationSyntax.AddAccessorListAccessors(
                             AccessorDeclaration(
                                 SyntaxKind.SetAccessorDeclaration,
                                 Block(ExpressionStatement(AssignmentExpression(
                                     SyntaxKind.SimpleAssignmentExpression,
-                                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, typedFieldName, IdentifierName(propertyInfo.Name)),
+                                    assignmentTarget,
                                     IdentifierName("value"))))));
                     }
 
@@ -120,7 +138,8 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                                         .WithModifiers(p.IsDefined(typeof(ParamArrayAttribute), false) ? TokenList(Token(SyntaxKind.ParamsKeyword)) : TokenList()))
                                 .ToArray())
                         .AddAttributeLists(ExcludeFromCodeCoverageAttributeSyntax)
-                        .WithBody(Block());
+                        .WithBody(Block())
+                        .WithAdditionalAnnotations(new SyntaxAnnotation(DeclaringTypeKind, methodInfo.GetBaseDefinition().DeclaringType.FullName));
 
                     if (methodInfo.IsGenericMethod)
                     {

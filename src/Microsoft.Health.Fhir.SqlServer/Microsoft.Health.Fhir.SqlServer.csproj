@@ -17,6 +17,13 @@
     </Generated>
   </ItemGroup>
 
+    <ItemGroup>
+    <Generated Include="IndentedStringBuilder.Generated.cs">
+      <Generator>IndentedStringBuilderGenerator</Generator>
+      <Namespace>Microsoft.Health.Fhir.SqlServer</Namespace>
+    </Generated>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="8.1.1" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.2.2" />
