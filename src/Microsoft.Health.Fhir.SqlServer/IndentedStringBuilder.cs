@@ -16,7 +16,8 @@ namespace Microsoft.Health.Fhir.SqlServer
     /// </summary>
     internal partial class IndentedStringBuilder
     {
-        private const string IndentString = "    ";
+        private const char IndentChar = ' ';
+        private const int CharCountPerIndent = 4;
 
         private bool _indentPending;
         private int _indentLevel;
@@ -37,11 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer
         {
             if (_indentPending)
             {
-                for (int i = 0; i < _indentLevel; i++)
-                {
-                    _inner.Append(IndentString);
-                }
-
+                _inner.Append(IndentChar, IndentLevel * CharCountPerIndent);
                 _indentPending = false;
             }
         }
