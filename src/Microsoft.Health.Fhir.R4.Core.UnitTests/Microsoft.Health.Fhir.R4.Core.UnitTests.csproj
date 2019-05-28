@@ -17,8 +17,7 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.R4.Core\Microsoft.Health.Fhir.R4.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup><!--<Compile Include="..\Microsoft.Health.Fhir.Core.UnitTests\**\*.cs" />-->
-  
+  <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
   </ItemGroup>
 

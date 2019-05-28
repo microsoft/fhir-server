@@ -1,16 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
-    <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
-
-  <ItemGroup>
-    <AdditionalFiles Include="..\..\stylecop.json" Link="stylecop.json" />
-  </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Features\Conformance\AllCapabilities.json" />

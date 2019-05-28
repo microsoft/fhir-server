@@ -7,7 +7,7 @@ using Hl7.Fhir.Serialization;
 
 namespace Microsoft.Health.Fhir.Core.Features
 {
-    internal class DefaultParserSettings
+    public static class DefaultParserSettings
     {
         public static readonly ParserSettings Settings = new ParserSettings { PermissiveParsing = true };
     }

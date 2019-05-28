@@ -13,7 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
-using Expression=Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
 {
