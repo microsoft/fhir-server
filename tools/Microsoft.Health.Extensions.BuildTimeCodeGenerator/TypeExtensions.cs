@@ -42,6 +42,11 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                                 SyntaxFactory.OmittedArraySizeExpression()))));
             }
 
+            if (t.IsPointer)
+            {
+                return SyntaxFactory.PointerType(t.GetElementType().ToTypeSyntax(useGlobalAlias));
+            }
+
             TypeSyntax qualification = t.IsNested
                 ? t.DeclaringType.ToTypeSyntax(useGlobalAlias)
                 : t.Namespace.Split('.')
