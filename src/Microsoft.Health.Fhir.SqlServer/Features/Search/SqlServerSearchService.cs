@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
         }
 
-        protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+        protected override Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             Expression searchExpression = searchOptions.Expression;
 
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
                     // TODO: respect order by when implemented
-                    BinaryExpression tokenExpression = Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token);
+                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token));
                     searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
                 }
                 else

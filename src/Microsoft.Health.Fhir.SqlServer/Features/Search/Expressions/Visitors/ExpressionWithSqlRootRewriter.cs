@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 : SqlRootExpression.WithNormalizedPredicates(new TableExpression(expression));
         }
 
-        private bool IsResourceLevelPredicate(Expression expression)
+        private static bool IsResourceLevelPredicate(Expression expression)
         {
             switch (expression)
             {
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
         }
 
-        private bool IsResourceLevelPredicate(SearchParameterInfo searchParameterInfo)
+        private static bool IsResourceLevelPredicate(SearchParameterInfo searchParameterInfo)
         {
             switch (searchParameterInfo.Name)
             {

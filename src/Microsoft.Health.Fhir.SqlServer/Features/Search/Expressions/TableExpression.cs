@@ -8,7 +8,7 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Search
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
     internal class TableExpression : Expression
     {
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override string ToString()
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
     }
 }

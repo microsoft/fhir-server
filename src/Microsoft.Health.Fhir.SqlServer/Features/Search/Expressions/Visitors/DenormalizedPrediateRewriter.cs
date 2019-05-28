@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
@@ -26,12 +27,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 Expression currentExpression = expression.DenormalizedPredicates[i];
 
-                if (currentExpression is BinaryExpression binaryExpression)
+                if (currentExpression is SearchParameterExpression searchParameterExpression)
                 {
-                    switch (binaryExpression.FieldName)
+                    switch (searchParameterExpression.Parameter.Name)
                     {
-                        case SqlFieldName.ResourceSurrogateId:
-                        case SqlFieldName.ResourceTypeId:
+                        case SqlSearchParameters.ResourceSurrogateIdParameterName:
+                        case SearchParameterNames.ResourceType:
                             extractedDemormalizedExpression = extractedDemormalizedExpression == null ? currentExpression : Expression.And(extractedDemormalizedExpression, currentExpression);
                             if (newDenormalizedPredicates == null)
                             {

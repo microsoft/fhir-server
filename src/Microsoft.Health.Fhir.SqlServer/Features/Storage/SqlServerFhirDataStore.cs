@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         switch (e.Number)
                         {
                             case SqlErrorCodes.NotFound:
-                                throw new MethodNotAllowedException(Resources.ResourceCreationNotAllowed);
+                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             case SqlErrorCodes.PreconditionFailed:
                                 throw new ResourceConflictException(weakETag);
                             default:
