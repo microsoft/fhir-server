@@ -1,0 +1,181 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using EnsureThat;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+
+namespace Microsoft.Health.Fhir.Core.Features.Search
+{
+    public class SearchOptionsFactory : ISearchOptionsFactory
+    {
+        private readonly IExpressionParser _expressionParser;
+        private readonly ILogger _logger;
+        private readonly SearchParameter _resourceTypeSearchParameter;
+
+        public SearchOptionsFactory(
+            IExpressionParser expressionParser,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ILogger<SearchOptionsFactory> logger)
+        {
+            EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
+            _expressionParser = expressionParser;
+            _logger = logger;
+
+            _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+        }
+
+        public SearchOptions Create(IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
+            return Create(null, queryParameters);
+        }
+
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
+            return Create(null, null, resourceType, queryParameters);
+        }
+
+        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
+            var options = new SearchOptions();
+
+            string continuationToken = null;
+
+            var searchParams = new SearchParams();
+            var unsupportedSearchParameters = new List<Tuple<string, string>>();
+
+            // Extract the continuation token, filter out the other known query parameters that's not search related.
+            foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
+            {
+                if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
+                {
+                    if (continuationToken != null)
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
+                    }
+
+                    continuationToken = query.Item2;
+                }
+                else if (query.Item1 == KnownQueryParameterNames.Format)
+                {
+                    // TODO: We need to handle format parameter.
+                }
+                else if (string.IsNullOrWhiteSpace(query.Item2))
+                {
+                    // Query parameter with empty value is not supported.
+                    unsupportedSearchParameters.Add(query);
+                }
+                else
+                {
+                    // Parse the search parameters.
+                    try
+                    {
+                        searchParams.Add(query.Item1, query.Item2);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogInformation(ex, "Failed to parse the query parameter. Skipping.");
+
+                        // There was a problem parsing the parameter. Add it to list of unsupported parameters.
+                        unsupportedSearchParameters.Add(query);
+                    }
+                }
+            }
+
+            options.ContinuationToken = continuationToken;
+
+            // Check the item count.
+            if (searchParams.Count != null)
+            {
+                options.MaxItemCount = searchParams.Count.Value;
+            }
+
+            // Check to see if only the count should be returned
+            options.CountOnly = searchParams.Summary == SummaryType.Count;
+
+            // If the resource type is not specified, then the common
+            // search parameters should be used.
+            ResourceType parsedResourceType = ResourceType.DomainResource;
+
+            if (!string.IsNullOrWhiteSpace(resourceType) &&
+                !Enum.TryParse(resourceType, out parsedResourceType))
+            {
+                throw new ResourceNotSupportedException(resourceType);
+            }
+
+            var searchExpressions = new List<Expression>();
+
+            if (!string.IsNullOrWhiteSpace(resourceType))
+            {
+                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter.ToInfo(), Expression.Equals(FieldName.TokenCode, null, resourceType)));
+            }
+
+            searchExpressions.AddRange(searchParams.Parameters.Select(
+                    q =>
+                    {
+                        try
+                        {
+                            return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2);
+                        }
+                        catch (SearchParameterNotSupportedException)
+                        {
+                            unsupportedSearchParameters.Add(q);
+
+                            return null;
+                        }
+                    })
+                .Where(item => item != null));
+
+            if (!string.IsNullOrWhiteSpace(compartmentType))
+            {
+                if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
+                {
+                    if (string.IsNullOrWhiteSpace(compartmentId))
+                    {
+                        throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
+                    }
+
+                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId));
+                }
+                else
+                {
+                    throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+                }
+            }
+
+            if (searchExpressions.Count == 1)
+            {
+                options.Expression = searchExpressions[0];
+            }
+            else if (searchExpressions.Count > 1)
+            {
+                options.Expression = Expression.And(searchExpressions.ToArray());
+            }
+
+            if (unsupportedSearchParameters.Any())
+            {
+                // TODO: Client can specify whether exception should be raised or not when it encounters unknown search parameters.
+                // For now, we will ignore any unknown search parameters.
+            }
+
+            options.UnsupportedSearchParams = unsupportedSearchParameters;
+
+            return options;
+        }
+    }
+}

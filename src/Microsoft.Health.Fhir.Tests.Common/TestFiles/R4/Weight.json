@@ -1,0 +1,58 @@
+﻿{
+    "resourceType": "Observation",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p></div>"
+    },
+    "status": "final",
+    "category": [
+        {
+            "coding": [
+                {
+                    "system": "http://hl7.org/fhir/observation-category",
+                    "code": "vital-signs",
+                    "display": "Vital Signs"
+                }
+            ]
+        }
+    ],
+    "code": {
+        "coding": [
+            {
+                "system": "http://loinc.org",
+                "code": "29463-7",
+                "display": "Body Weight"
+            },
+            {
+                "system": "http://loinc.org",
+                "code": "3141-9",
+                "display": "Body weight Measured"
+            },
+            {
+                "system": "http://snomed.info/sct",
+                "code": "27113001",
+                "display": "Body weight"
+            },
+            {
+                "system": "http://acme.org/devices/clinical-codes",
+                "code": "body-weight",
+                "display": "Body Weight"
+            },
+            {
+                "system": "http://healthvault.com/vocabularies/vital-statistics",
+                "code": "Wgt",
+                "display": "Body Weight"
+            }
+        ]
+    },
+    "subject": {
+        "reference": "Patient/example"
+    },
+    "effectiveDateTime": "2016-03-28",
+    "valueQuantity": {
+        "value": 67,
+        "unit": "kg",
+        "system": "http://unitsofmeasure.org",
+        "code": "kg"
+    }
+}

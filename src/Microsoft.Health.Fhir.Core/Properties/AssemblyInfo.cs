@@ -8,6 +8,8 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Core")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Core")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Core.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Core.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.SqlServer")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Api")]

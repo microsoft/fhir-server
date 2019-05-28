@@ -22,8 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         string Publisher { get; set; }
 
-        string FhirVersion { get; set; }
-
         IList<string> Format { get; }
 
         void TryAddRestInteraction(string resourceType, string interaction);

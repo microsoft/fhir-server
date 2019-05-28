@@ -4,13 +4,9 @@
     <CodeAnalysisRuleSet>..\..\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
   </PropertyGroup>
-  <ItemGroup>
-    <None Remove="Features\Definition\compartment.json" />
-    <None Remove="Features\Definition\search-parameters.json" />
-    <None Remove="Features\Conformance\AllCapabilities.json" />
-    <None Remove="Features\Conformance\BaseCapabilities.json" />
-    <None Remove="Features\Conformance\DefaultCapabilities.json" />
-  </ItemGroup>
+  <PropertyGroup>
+    <DefineConstants>Stu3</DefineConstants>
+  </PropertyGroup>
 
   <ItemGroup>
     <AdditionalFiles Include="..\..\stylecop.json" Link="stylecop.json" />
@@ -42,6 +38,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
   </ItemGroup>
+
+  <Import Project="..\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems" Label="Shared" />
 
 </Project>
