@@ -18,8 +18,8 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     FhirClient = new Stu3.FhirClient(HttpClient, _format);
                     break;
                 case FhirVersion.R4:
-
+                    FhirClient = new R4.FhirClient(HttpClient, _format);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

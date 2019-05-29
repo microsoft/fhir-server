@@ -3,20 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
+namespace Microsoft.Health.Fhir.Tests.Common
 {
-    public class FhirException : Exception
+    public class FhirResponse
     {
-        private readonly FhirResponse<OperationOutcome> _response;
+        private readonly HttpResponseMessage _response;
 
-        public FhirException(FhirResponse<OperationOutcome> response)
+        public FhirResponse(HttpResponseMessage response)
         {
             _response = response;
         }
@@ -25,13 +22,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public HttpResponseHeaders Headers => _response.Headers;
 
-        public FhirResponse<OperationOutcome> Response => _response;
-
         public HttpContent Content => _response.Content;
-
-        public OperationOutcome OperationOutcome => _response.Resource;
-
-        public override string Message
-            => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault().Diagnostics}";
     }
 }

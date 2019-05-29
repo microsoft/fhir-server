@@ -90,7 +90,29 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             var poco = resource.ToPoco();
+
+            if (poco.Meta == null)
+            {
+                poco.Meta = new Meta();
+            }
+
             poco.Meta.LastUpdated = lastUpdated;
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateText(this ResourceElement resource, string text)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<DomainResource>();
+
+            if (poco.Text == null)
+            {
+                poco.Text = new Narrative();
+            }
+
+            poco.Text.Status = Narrative.NarrativeStatus.Generated;
+            poco.Text.Div = $"<div>{text}</div>";
             return poco.ToResourceElement();
         }
 

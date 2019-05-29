@@ -9,13 +9,6 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Tests.E2E.Shared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirException.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirResponse.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirResponse{T}.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\ICustomFhirClient.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\TestApplication.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\TestApplications.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\TestUser.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\TestUsers.cs" />
+    <Folder Include="$(MSBuildThisFileDirectory)Common\" />
   </ItemGroup>
 </Project>

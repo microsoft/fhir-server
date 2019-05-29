@@ -6,6 +6,7 @@
 using System;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -14,7 +15,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All, FhirVersion.All)]
     public class UpdateTests : IClassFixture<HttpIntegrationTestFixture>
     {
         public UpdateTests(HttpIntegrationTestFixture fixture)
@@ -28,85 +29,83 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenUpdatingAnExistingResource_GivenTheResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            ResourceElement createdResource = await Client.CreateAsync(Client.GetDefaultObservation());
 
-            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource);
+            FhirResponse<ResourceElement> updateResponse = await Client.UpdateAsync(createdResource);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
 
-            Observation updatedResource = updateResponse.Resource;
+            ResourceElement updatedResource = updateResponse.Resource;
 
             Assert.NotNull(updatedResource);
             Assert.Equal(createdResource.Id, updatedResource.Id);
-            Assert.NotEqual(createdResource.Meta.VersionId, updatedResource.Meta.VersionId);
-            Assert.NotEqual(createdResource.Meta.LastUpdated, updatedResource.Meta.LastUpdated);
+            Assert.NotEqual(createdResource.VersionId, updatedResource.VersionId);
+            Assert.NotEqual(createdResource.LastUpdated, updatedResource.LastUpdated);
 
-            Assert.Contains(updatedResource.Meta.VersionId, updateResponse.Headers.ETag.Tag);
-            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
+            Assert.Contains(updatedResource.VersionId, updateResponse.Headers.ETag.Tag);
+            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.LastUpdated, updateResponse.Content.Headers.LastModified);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenUpdatingANewResource_GivenTheResource_TheServerShouldReturnTheNewResourceSuccessfully()
         {
-            var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
-            resourceToCreate.Id = Guid.NewGuid().ToString();
+            var resourceToCreate = Client.GetDefaultObservation();
+            resourceToCreate = Client.UpdateId(resourceToCreate, Guid.NewGuid().ToString());
 
-            FhirResponse<Observation> createResponse = await Client.UpdateAsync(resourceToCreate);
+            FhirResponse<ResourceElement> createResponse = await Client.UpdateAsync(resourceToCreate);
 
             Assert.Equal(System.Net.HttpStatusCode.Created, createResponse.StatusCode);
 
-            Observation createdResource = createResponse.Resource;
+            ResourceElement createdResource = createResponse.Resource;
 
             Assert.NotNull(createdResource);
             Assert.Equal(resourceToCreate.Id, createdResource.Id);
-            Assert.NotNull(createdResource.Meta.VersionId);
-            Assert.NotNull(createdResource.Meta.LastUpdated);
+            Assert.NotNull(createdResource.VersionId);
+            Assert.NotNull(createdResource.LastUpdated);
             Assert.NotNull(createResponse.Headers.ETag);
             Assert.NotNull(createResponse.Headers.Location);
             Assert.NotNull(createResponse.Content.Headers.LastModified);
 
-            Assert.Contains(createdResource.Meta.VersionId, createResponse.Headers.ETag.Tag);
+            Assert.Contains(createdResource.VersionId, createResponse.Headers.ETag.Tag);
             TestHelper.AssertLocationHeaderIsCorrect(Client, createdResource, createResponse.Headers.Location);
-            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createdResource.Meta.LastUpdated, createResponse.Content.Headers.LastModified);
+            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createdResource.LastUpdated, createResponse.Content.Headers.LastModified);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenUpdatingANewResource_GivenTheResourceWithMetaSet_TheServerShouldReturnTheNewResourceSuccessfully()
         {
-            var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
-            resourceToCreate.Id = Guid.NewGuid().ToString();
-            resourceToCreate.Meta = new Meta
-            {
-                VersionId = Guid.NewGuid().ToString(),
-                LastUpdated = DateTimeOffset.UtcNow.AddMilliseconds(-1),
-            };
+            var resourceToCreate = Client.GetDefaultObservation();
 
-            FhirResponse<Observation> createResponse = await Client.UpdateAsync(resourceToCreate);
+            resourceToCreate = Client.UpdateId(resourceToCreate, Guid.NewGuid().ToString());
+            resourceToCreate = Client.UpdateVersion(resourceToCreate, Guid.NewGuid().ToString());
+            resourceToCreate = Client.UpdateLastUpdated(resourceToCreate, DateTimeOffset.UtcNow.AddMilliseconds(-1));
+
+            FhirResponse<ResourceElement> createResponse = await Client.UpdateAsync(resourceToCreate);
 
             Assert.Equal(System.Net.HttpStatusCode.Created, createResponse.StatusCode);
 
-            Observation createdResource = createResponse.Resource;
+            ResourceElement createdResource = createResponse.Resource;
 
             Assert.NotNull(createdResource);
             Assert.Equal(resourceToCreate.Id, createdResource.Id);
-            Assert.NotEqual(resourceToCreate.Meta.VersionId, createdResource.Meta.VersionId);
-            Assert.NotEqual(resourceToCreate.Meta.LastUpdated, createdResource.Meta.LastUpdated);
+            Assert.NotEqual(resourceToCreate.VersionId, createdResource.VersionId);
+            Assert.NotEqual(resourceToCreate.LastUpdated, createdResource.LastUpdated);
             Assert.NotNull(createResponse.Headers.ETag);
             Assert.NotNull(createResponse.Headers.Location);
             Assert.NotNull(createResponse.Content.Headers.LastModified);
 
-            Assert.Contains(createdResource.Meta.VersionId, createResponse.Headers.ETag.Tag);
+            Assert.Contains(createdResource.VersionId, createResponse.Headers.ETag.Tag);
             TestHelper.AssertLocationHeaderIsCorrect(Client, createdResource, createResponse.Headers.Location);
-            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createdResource.Meta.LastUpdated, createResponse.Content.Headers.LastModified);
+            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createdResource.LastUpdated, createResponse.Content.Headers.LastModified);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenUpdatingAResource_GivenAMismatchedId_TheServerShouldReturnABadRequestResponse()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            ResourceElement createdResource = await Client.CreateAsync(Client.GetDefaultObservation());
 
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
                 () => Client.UpdateAsync($"Observation/{Guid.NewGuid()}", createdResource));
@@ -118,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenUpdatingAResource_GivenAResourceWithNoId_TheServerShouldReturnABadRequestResponse()
         {
-            var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
+            var resourceToCreate = Client.GetDefaultObservation();
 
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
                 () => Client.UpdateAsync($"Observation/{Guid.NewGuid()}", resourceToCreate));
@@ -130,28 +129,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenUpdatingAResource_GivenAnETagHeader_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            ResourceElement createdResource = await Client.CreateAsync(Client.GetDefaultObservation());
 
-            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource);
+            FhirResponse<ResourceElement> updateResponse = await Client.UpdateAsync(createdResource);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
 
-            Observation updatedResource = updateResponse.Resource;
+            ResourceElement updatedResource = updateResponse.Resource;
 
             Assert.NotNull(updatedResource);
             Assert.Equal(createdResource.Id, updatedResource.Id);
-            Assert.NotEqual(createdResource.Meta.VersionId, updatedResource.Meta.VersionId);
-            Assert.NotEqual(createdResource.Meta.LastUpdated, updatedResource.Meta.LastUpdated);
+            Assert.NotEqual(createdResource.VersionId, updatedResource.VersionId);
+            Assert.NotEqual(createdResource.LastUpdated, updatedResource.LastUpdated);
 
-            Assert.Contains(updatedResource.Meta.VersionId, updateResponse.Headers.ETag.Tag);
-            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
+            Assert.Contains(updatedResource.VersionId, updateResponse.Headers.ETag.Tag);
+            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.LastUpdated, updateResponse.Content.Headers.LastModified);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenUpdatingAResource_GivenAnIncorrectETagHeader_TheServerShouldReturnAConflictResponse()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            ResourceElement createdResource = await Client.CreateAsync(Client.GetDefaultObservation());
 
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.UpdateAsync(createdResource, Guid.NewGuid().ToString()));
 

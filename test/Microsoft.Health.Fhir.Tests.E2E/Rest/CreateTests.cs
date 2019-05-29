@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -10,13 +11,12 @@ using System.Net.Http;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All, FhirVersion.All)]
     public class CreateTests : IClassFixture<HttpIntegrationTestFixture>
     {
         public CreateTests(HttpIntegrationTestFixture fixture)
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenAResource_TheServerShouldRespondSuccessfully()
         {
-            FhirResponse<ResourceElement> response = await Client.CreateAsync(Samples.GetDefaultObservation());
+            FhirResponse<ResourceElement> response = await Client.CreateAsync(Client.GetDefaultObservation());
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.NotNull(response.Headers.ETag);
@@ -45,55 +45,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal($@"W/""{observation.VersionId}""", response.Headers.ETag.ToString());
 
-            ////TestHelper.AssertLocationHeaderIsCorrect(Client, observation, response.Headers.Location);
+            TestHelper.AssertLocationHeaderIsCorrect(Client, observation, response.Headers.Location);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(observation.LastUpdated, response.Content.Headers.LastModified);
 
-            ////DotNetAttributeValidation.Validate(observation, true);
+            Client.Validate(observation);
         }
 
-        ////[Fact]
-        ////[Trait(Traits.Priority, Priority.One)]
-        ////public async Task WhenPostingToHttp_GivenAResourceWithIdAndMeta_TheServerShouldRespondSuccessfullyWithUpdatedContents()
-        ////{
-        ////    Observation originalResource = Samples.GetDefaultObservation().ToPoco<Observation>();
-        ////    originalResource.Id = Guid.NewGuid().ToString();
-        ////    originalResource.Meta = new Meta
-        ////    {
-        ////        VersionId = Guid.NewGuid().ToString(),
-        ////        LastUpdated = DateTimeOffset.UtcNow,
-        ////    };
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenPostingToHttp_GivenAResourceWithIdAndMeta_TheServerShouldRespondSuccessfullyWithUpdatedContents()
+        {
+            ResourceElement originalResource = Client.GetDefaultObservation();
 
-        ////    FhirResponse<Observation> response = await Client.CreateAsync(originalResource);
+            originalResource = Client.UpdateId(originalResource, Guid.NewGuid().ToString());
+            originalResource = Client.UpdateVersion(originalResource, Guid.NewGuid().ToString());
+            originalResource = Client.UpdateLastUpdated(originalResource, DateTimeOffset.UtcNow);
 
-        ////    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        ////    Assert.NotNull(response.Headers.ETag);
-        ////    Assert.NotNull(response.Headers.Location);
-        ////    Assert.NotNull(response.Content.Headers.LastModified);
+            FhirResponse<ResourceElement> response = await Client.CreateAsync(originalResource);
 
-        ////    Observation observation = response.Resource;
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.NotNull(response.Headers.ETag);
+            Assert.NotNull(response.Headers.Location);
+            Assert.NotNull(response.Content.Headers.LastModified);
 
-        ////    Assert.NotNull(observation.Id);
-        ////    Assert.NotNull(observation.Meta.VersionId);
-        ////    Assert.NotNull(observation.Meta.LastUpdated);
+            ResourceElement observation = response.Resource;
 
-        ////    Assert.NotEqual(originalResource.Id, observation.Id);
-        ////    Assert.NotEqual(originalResource.Meta.LastUpdated, observation.Meta.LastUpdated);
-        ////    Assert.NotEqual(originalResource.Meta.VersionId, observation.Meta.VersionId);
+            Assert.NotNull(observation.Id);
+            Assert.NotNull(observation.VersionId);
+            Assert.NotNull(observation.LastUpdated);
 
-        ////    TestHelper.AssertLocationHeaderIsCorrect(Client, observation, response.Headers.Location);
-        ////    TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(observation.Meta.LastUpdated, response.Content.Headers.LastModified);
+            Assert.NotEqual(originalResource.Id, observation.Id);
+            Assert.NotEqual(originalResource.LastUpdated, observation.LastUpdated);
+            Assert.NotEqual(originalResource.VersionId, observation.VersionId);
 
-        ////    DotNetAttributeValidation.Validate(observation, true);
-        ////}
+            TestHelper.AssertLocationHeaderIsCorrect(Client, observation, response.Headers.Location);
+            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(observation.LastUpdated, response.Content.Headers.LastModified);
 
-        ////[Fact]
-        ////[Trait(Traits.Priority, Priority.One)]
-        ////public async Task WhenPostingToHttp_GivenAnUnsupportedResourceType_TheServerShouldRespondWithANotFoundResponse()
-        ////{
-        ////    FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync("NotObservation", Samples.GetDefaultObservation().ToPoco<Observation>()));
+            Client.Validate(observation);
+        }
 
-        ////    Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
-        ////}
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenPostingToHttp_GivenAnUnsupportedResourceType_TheServerShouldRespondWithANotFoundResponse()
+        {
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync("NotObservation", Client.GetDefaultObservation()));
+
+            Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
+        }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -113,81 +111,75 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, result.StatusCode);
         }
 
-        ////[Fact]
-        ////[Trait(Traits.Priority, Priority.One)]
-        ////public async Task WhenPostingToHttp_GivenAnInvalidResource_TheServerShouldRespondWithBadRequestResponse()
-        ////{
-        ////    // An empty observation is invalid because it is missing fields that have a minimum cardinality of 1
-        ////    FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(new Observation()));
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenPostingToHttp_GivenAnInvalidResource_TheServerShouldRespondWithBadRequestResponse()
+        {
+            // An empty observation is invalid because it is missing fields that have a minimum cardinality of 1
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(Client.GetEmptyObservation()));
 
-        ////    Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
-        ////}
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
 
-        ////[Theory]
-        ////[MemberData(nameof(AllXssStrings))]
-        ////[Trait(Traits.Priority, Priority.One)]
-        ////public async Task WhenPostingToHttpWithMaliciousUrl_GivenAResource_TheServerShouldHandleRequest(string code)
-        ////{
-        ////    FhirResponse<Observation> response = await Client.CreateAsync($"Observation?{code}", Samples.GetDefaultObservation().ToPoco<Observation>());
+        [Theory]
+        [MemberData(nameof(AllXssStrings))]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenPostingToHttpWithMaliciousUrl_GivenAResource_TheServerShouldHandleRequest(string code)
+        {
+            FhirResponse<ResourceElement> response = await Client.CreateAsync($"Observation?{code}", Client.GetDefaultObservation());
 
-        ////    // Status should always be created in these tests
-        ////    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        ////    Assert.NotNull(response.Headers.ETag);
-        ////    Assert.NotNull(response.Headers.Location);
-        ////    Assert.NotNull(response.Content.Headers.LastModified);
-        ////}
+            // Status should always be created in these tests
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.NotNull(response.Headers.ETag);
+            Assert.NotNull(response.Headers.Location);
+            Assert.NotNull(response.Content.Headers.LastModified);
+        }
 
-        ////[Fact]
-        ////[Trait(Traits.Priority, Priority.One)]
-        ////public async Task WhenPostingToHttpWithMaliciousId_GivenAResource_TheServerShouldThrowBadRequestOrNotFound()
-        ////{
-        ////    var observation = Samples.GetDefaultObservation()
-        ////        .UpdateId("' SELECT name FROM syscolumns WHERE id = (SELECT id FROM sysobjects WHERE name = tablename')--")
-        ////        .ToPoco<Observation>();
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenPostingToHttpWithMaliciousId_GivenAResource_TheServerShouldThrowBadRequestOrNotFound()
+        {
+            ResourceElement observation = Client.GetDefaultObservation();
 
-        ////    var exception = await Assert.ThrowsAsync<FhirException>(async () => await Client.UpdateAsync(observation));
+            observation = Client.UpdateId(observation, "' SELECT name FROM syscolumns WHERE id = (SELECT id FROM sysobjects WHERE name = tablename')--");
 
-        ////    Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-        ////}
+            var exception = await Assert.ThrowsAsync<FhirException>(async () => await Client.UpdateAsync(observation));
 
-        ////[Theory]
-        ////[MemberData(nameof(HandledXssStrings))]
-        ////[Trait(Traits.Priority, Priority.One)]
-        ////public async Task WhenPostingToHttpWithMaliciousNarrative_GivenAResource_TheServerShouldHandleRequest(string code)
-        ////{
-        ////    var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
-        ////    observation.Text = new Narrative
-        ////    {
-        ////        Status = Narrative.NarrativeStatus.Generated,
-        ////        Div = $"<div>{code}</div>",
-        ////    };
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+        }
 
-        ////    FhirResponse<Observation> response = await Client.CreateAsync(observation);
+        [Theory]
+        [MemberData(nameof(HandledXssStrings))]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenPostingToHttpWithMaliciousNarrative_GivenAResource_TheServerShouldHandleRequest(string code)
+        {
+            var observation = Client.GetDefaultObservation();
 
-        ////    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        ////    Assert.NotNull(response.Headers.ETag);
-        ////    Assert.NotNull(response.Headers.Location);
-        ////    Assert.NotNull(response.Content.Headers.LastModified);
-        ////}
+            observation = Client.UpdateText(observation, code);
 
-        ////[Theory]
-        ////[MemberData(nameof(BadRequestXssStrings))]
-        ////[Trait(Traits.Priority, Priority.One)]
-        ////public async Task WhenPostingToHttpWithMaliciousNarrative_GivenAResource_TheServerShouldBlockRequest(string code)
-        ////{
-        ////    var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
-        ////    observation.Text = new Narrative
-        ////    {
-        ////        Status = Narrative.NarrativeStatus.Generated,
-        ////        Div = $"<div>{code}</div>",
-        ////    };
+            FhirResponse<ResourceElement> response = await Client.CreateAsync(observation);
 
-        ////    // Xml can't even serialize these broken fragments
-        ////    if (Client.Format != ResourceFormat.Xml)
-        ////    {
-        ////        await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(observation));
-        ////    }
-        ////}
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.NotNull(response.Headers.ETag);
+            Assert.NotNull(response.Headers.Location);
+            Assert.NotNull(response.Content.Headers.LastModified);
+        }
+
+        [Theory]
+        [MemberData(nameof(BadRequestXssStrings))]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenPostingToHttpWithMaliciousNarrative_GivenAResource_TheServerShouldBlockRequest(string code)
+        {
+            var observation = Client.GetDefaultObservation();
+
+            observation = Client.UpdateText(observation, code);
+
+            // Xml can't even serialize these broken fragments
+            if (Client.Format != Format.Xml)
+            {
+                await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(observation));
+            }
+        }
 
         /// <summary>
         /// Malicious Url Data Source

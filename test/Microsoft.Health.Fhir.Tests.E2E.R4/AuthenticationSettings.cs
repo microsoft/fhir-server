@@ -3,23 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Fhir.Web;
 using static Microsoft.Health.Fhir.Tests.Common.EnvironmentVariables;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
-    public class TestApplication
+    /// <summary>
+    /// Authentication Settings
+    /// </summary>
+    public static class AuthenticationSettings
     {
-        public TestApplication(string id)
-        {
-            Id = id;
-        }
+        public static string Scope => GetEnvironmentVariableWithDefault("Scope", DevelopmentIdentityProviderConfiguration.Audience);
 
-        private string Id { get; }
-
-        public string ClientId => GetEnvironmentVariableWithDefault($"app_{Id}_id", Id);
-
-        public string ClientSecret => GetEnvironmentVariableWithDefault($"app_{Id}_secret", Id);
-
-        public string GrantType => GetEnvironmentVariableWithDefault($"app_{Id}_grant_type", "client_credentials");
+        public static string Resource => GetEnvironmentVariableWithDefault("Resource", DevelopmentIdentityProviderConfiguration.Audience);
     }
 }

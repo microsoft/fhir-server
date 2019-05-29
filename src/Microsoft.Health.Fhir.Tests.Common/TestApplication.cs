@@ -5,21 +5,21 @@
 
 using static Microsoft.Health.Fhir.Tests.Common.EnvironmentVariables;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
+namespace Microsoft.Health.Fhir.Tests.Common
 {
-    public class TestUser
+    public class TestApplication
     {
-        public TestUser(string id)
+        public TestApplication(string id)
         {
             Id = id;
         }
 
         private string Id { get; }
 
-        public string UserId => GetEnvironmentVariableWithDefault($"user_{Id}_id", Id);
+        public string ClientId => GetEnvironmentVariableWithDefault($"app_{Id}_id", Id);
 
-        public string Password => GetEnvironmentVariableWithDefault($"user_{Id}_secret", Id);
+        public string ClientSecret => GetEnvironmentVariableWithDefault($"app_{Id}_secret", Id);
 
-        public string GrantType => "password";
+        public string GrantType => GetEnvironmentVariableWithDefault($"app_{Id}_grant_type", "client_credentials");
     }
 }

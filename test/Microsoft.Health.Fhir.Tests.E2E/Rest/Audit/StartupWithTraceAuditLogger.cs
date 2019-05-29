@@ -7,11 +7,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Fhir.Api.Features.Audit;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
-    public class StartupWithTraceAuditLogger : Startup
+    extern alias WebStu3;
+
+    public class StartupWithTraceAuditLogger : WebStu3::Microsoft.Health.Fhir.Web.Startup
     {
         public StartupWithTraceAuditLogger(IConfiguration configuration)
             : base(configuration)

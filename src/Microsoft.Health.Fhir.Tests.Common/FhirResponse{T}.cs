@@ -5,7 +5,7 @@
 
 using System.Net.Http;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
+namespace Microsoft.Health.Fhir.Tests.Common
 {
     public class FhirResponse<T> : FhirResponse
     {

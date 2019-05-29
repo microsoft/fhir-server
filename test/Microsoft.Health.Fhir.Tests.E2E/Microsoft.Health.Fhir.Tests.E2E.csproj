@@ -21,6 +21,8 @@
     <PackageReference Include="selenium.chrome.webdriver" Version="74.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.2.3" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,6 +41,7 @@
       <Aliases>WebStu3</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.E2E.R4\Microsoft.Health.Fhir.Tests.E2E.R4.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.E2E.Stu3\Microsoft.Health.Fhir.Tests.E2E.Stu3.csproj" />
   </ItemGroup>
 
@@ -48,7 +51,6 @@
     </None>
   </ItemGroup>
 
-  <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="Microsoft.AspNetCore.Mvc.Testing.targets" />
 
   <Target Name="VerifyExactSdkVersion" BeforeTargets="Build">

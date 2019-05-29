@@ -13,7 +13,12 @@ namespace Microsoft.Health.Fhir.Tests.Common
     {
         public static string GetStringContent(string embeddedResourceSubNamespace, string fileName, string extension)
         {
-            string resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{ModelInfoProvider.Version}.{fileName}.{extension}";
+            return GetStringContent(embeddedResourceSubNamespace, fileName, extension, ModelInfoProvider.Version.ToString());
+        }
+
+        public static string GetStringContent(string embeddedResourceSubNamespace, string fileName, string extension, string fhirVersion)
+        {
+            string resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{fhirVersion}.{fileName}.{extension}";
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
             {
                 using (var reader = new StreamReader(stream))

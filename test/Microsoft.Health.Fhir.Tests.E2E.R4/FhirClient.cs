@@ -28,7 +28,7 @@ using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json.Linq;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
+namespace Microsoft.Health.Fhir.Tests.E2E.R4
 {
     public class FhirClient : ICustomFhirClient
     {
@@ -397,7 +397,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
 
         public ResourceElement GetDefaultObservation()
         {
-            var json = EmbeddedResourceManager.GetStringContent("TestFiles", "Weight", "json", "Stu3");
+            var json = EmbeddedResourceManager.GetStringContent("TestFiles", "Weight", "json", "R4");
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
             return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
         }
