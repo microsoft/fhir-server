@@ -81,6 +81,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _resourceTypeToId[resourceTypeName];
         }
 
+        public string GetResourceTypeName(short resourceTypeId)
+        {
+            ThrowIfNotInitialized();
+            return _resourceTypeIdToTypeName[resourceTypeId];
+        }
+
         public byte GetClaimTypeId(string claimTypeName)
         {
             ThrowIfNotInitialized();

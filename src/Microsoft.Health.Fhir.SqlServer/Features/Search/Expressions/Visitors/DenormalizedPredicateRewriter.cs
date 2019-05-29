@@ -11,8 +11,10 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    internal class DenormalizedPrediateRewriter : ExpressionRewriterWithDefaultInitialContext<object>, ISqlExpressionVisitor<object, Expression>
+    internal class DenormalizedPredicateRewriter : ExpressionRewriterWithDefaultInitialContext<object>, ISqlExpressionVisitor<object, Expression>
     {
+        public static readonly DenormalizedPredicateRewriter Instance = new DenormalizedPredicateRewriter();
+
         public Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
             if (expression.NormalizedPredicates.Count == 0 || expression.DenormalizedPredicates.Count == 0)

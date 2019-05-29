@@ -90,6 +90,72 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 reader.Read(column5, 5));
         }
 
+        public static (T0, T1, T2, T3, T4, T5, T6) ReadRow<T0, T1, T2, T3, T4, T5, T6>(
+            this SqlDataReader reader,
+            Column<T0> column0,
+            Column<T1> column1,
+            Column<T2> column2,
+            Column<T3> column3,
+            Column<T4> column4,
+            Column<T5> column5,
+            Column<T6> column6)
+        {
+            return (
+                reader.Read(column0, 0),
+                reader.Read(column1, 1),
+                reader.Read(column2, 2),
+                reader.Read(column3, 3),
+                reader.Read(column4, 4),
+                reader.Read(column5, 5),
+                reader.Read(column6, 6));
+        }
+
+        public static (T0, T1, T2, T3, T4, T5, T6, T7) ReadRow<T0, T1, T2, T3, T4, T5, T6, T7>(
+            this SqlDataReader reader,
+            Column<T0> column0,
+            Column<T1> column1,
+            Column<T2> column2,
+            Column<T3> column3,
+            Column<T4> column4,
+            Column<T5> column5,
+            Column<T6> column6,
+            Column<T7> column7)
+        {
+            return (
+                reader.Read(column0, 0),
+                reader.Read(column1, 1),
+                reader.Read(column2, 2),
+                reader.Read(column3, 3),
+                reader.Read(column4, 4),
+                reader.Read(column5, 5),
+                reader.Read(column6, 6),
+                reader.Read(column7, 7));
+        }
+
+        public static (T0, T1, T2, T3, T4, T5, T6, T7, T8) ReadRow<T0, T1, T2, T3, T4, T5, T6, T7, T8>(
+            this SqlDataReader reader,
+            Column<T0> column0,
+            Column<T1> column1,
+            Column<T2> column2,
+            Column<T3> column3,
+            Column<T4> column4,
+            Column<T5> column5,
+            Column<T6> column6,
+            Column<T7> column7,
+            Column<T8> column8)
+        {
+            return (
+                reader.Read(column0, 0),
+                reader.Read(column1, 1),
+                reader.Read(column2, 2),
+                reader.Read(column3, 3),
+                reader.Read(column4, 4),
+                reader.Read(column5, 5),
+                reader.Read(column6, 6),
+                reader.Read(column7, 7),
+                reader.Read(column8, 8));
+        }
+
         public static T Read<T>(this SqlDataReader reader, Column<T> column, int ordinal)
         {
             return column.Read(reader, ordinal);
