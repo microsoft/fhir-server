@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "Microsoft.Health.Fhir.Web - CosmosDb": {
+    "Microsoft.Health.Fhir.Web Stu3 - CosmosDb": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {
@@ -10,7 +10,7 @@
       },
       "applicationUrl": "https://localhost:44348/"
     },
-    "Microsoft.Health.Fhir.Web - SqlServer": {
+    "Microsoft.Health.Fhir.Web Stu3 - SqlServer": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {

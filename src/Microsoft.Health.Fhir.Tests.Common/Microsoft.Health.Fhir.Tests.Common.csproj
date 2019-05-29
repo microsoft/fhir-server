@@ -53,6 +53,10 @@
     <None Remove="TestFiles\R4\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\R4\InvalidCompartmentDefinition.json" />
+    <None Remove="TestFiles\R4\ObservationWithInvalidStatus.json" />
+    <None Remove="TestFiles\R4\ObservationWithInvalidStatus.xml" />
+    <None Remove="TestFiles\R4\ObservationWithNoCode.json" />
+    <None Remove="TestFiles\R4\ObservationWithNoCode.xml" />
     <None Remove="TestFiles\R4\Organization.json" />
     <None Remove="TestFiles\R4\Patient.json" />
     <None Remove="TestFiles\R4\Patient.xml" />
@@ -83,6 +87,10 @@
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R4\ObservationWithInvalidStatus.json" />
+    <EmbeddedResource Include="TestFiles\R4\ObservationWithInvalidStatus.xml" />
+    <EmbeddedResource Include="TestFiles\R4\ObservationWithNoCode.json" />
+    <EmbeddedResource Include="TestFiles\R4\ObservationWithNoCode.xml" />
     <EmbeddedResource Include="TestFiles\R4\Organization.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient.xml" />

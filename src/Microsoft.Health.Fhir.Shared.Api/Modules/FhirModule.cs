@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Security;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -159,16 +158,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<IProvideCapability>();
 
-            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreStu3)
+            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
                 .AssignableTo<IProvideCapability>()
                 .Transient()
                 .AsService<IProvideCapability>();
 
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
 
-            var stu3ModelFactory = new Stu3ModelInfoProvider();
-            services.Add(_ => stu3ModelFactory).Singleton().AsSelf().AsImplementedInterfaces();
-            ModelInfoProvider.SetProvider(stu3ModelFactory);
+            ModelExtensions.SetModelInfoProvider();
+            services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();
 
             // Register a factory to resolve a scope that returns all components that provide capabilities
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();

@@ -6,5 +6,5 @@
 using System.Resources;
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Api.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api.UnitTests")]
 [assembly: NeutralResourcesLanguage("en-us")]
