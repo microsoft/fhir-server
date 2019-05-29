@@ -3,10 +3,18 @@ steps:
   # Package web
   
   - task: DotNetCoreCLI@2
-    displayName: 'dotnet publish web'
+    displayName: 'dotnet publish Stu3 web'
     inputs:
       command: publish
-      projects: '**/Microsoft.Health.Fhir.Web.csproj'
+      projects: '**/Microsoft.Health.Fhir.Stu3.Web.csproj'
+      arguments: '--runtime win10-x64 --output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildnumber)'
+      publishWebProjects: false
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish R4 web'
+    inputs:
+      command: publish
+      projects: '**/Microsoft.Health.Fhir.R4.Web.csproj'
       arguments: '--runtime win10-x64 --output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildnumber)'
       publishWebProjects: false
 

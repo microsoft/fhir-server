@@ -121,6 +121,14 @@
             "metadata": {
                 "description": "The type of the solution"
             }
+        },
+        "fhirVersion": {
+            "type": "string",
+            "defaultValue": "Stu3",
+            "allowedValues": [
+                "Stu3",
+                "R4"
+            ]
         }
     },
     "variables": {
@@ -145,7 +153,8 @@
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
-            "DataStore": "CosmosDb"
+            "DataStore": "CosmosDb",
+            "PROJECT": "[concat('src/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web/Microsoft.Health.Fhir.', parameters('fhirVersion'), '.Web.csproj')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]"
     },

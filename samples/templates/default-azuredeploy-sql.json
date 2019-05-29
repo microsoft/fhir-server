@@ -118,6 +118,14 @@
             "metadata": {
                 "description": "The password for the sql admin user if using SQL server."
             }
+        },
+        "fhirVersion": {
+            "type": "string",
+            "defaultValue": "Stu3",
+            "allowedValues": [
+                "Stu3",
+                "R4"
+            ]
         }
     },
     "variables": {
@@ -143,7 +151,8 @@
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
             "SqlServer:Initialize": "true",
-            "DataStore": "SqlServer"
+            "DataStore": "SqlServer",
+            "PROJECT": "[concat('src/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web/Microsoft.Health.Fhir.', parameters('fhirVersion'), '.Web.csproj')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]"
