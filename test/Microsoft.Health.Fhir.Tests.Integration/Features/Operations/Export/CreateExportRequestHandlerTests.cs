@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
@@ -152,6 +153,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             Assert.NotNull(newResponse);
             Assert.NotEqual(response.JobId, newResponse.JobId);
+        }
+
+        [Fact]
+        public async Task GivenDestinationTypeOrDestinationConnectionSettings_WhenCreatingAnExportJob_ThenItShouldBeRemovedFromRequestUri()
+        {
+            const string baseUrl = "http://localhost/$export?_count=100";
+
+            var requestUri = new Uri($"{baseUrl}&_destinationType=type&_destinationConnectionSettings=settings");
+
+            var request = new CreateExportRequest(requestUri, DestinationType, ConnectionString);
+
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(response.JobId, CancellationToken.None);
+
+            Assert.Equal(new Uri(baseUrl), outcome.JobRecord.RequestUri);
         }
 
         private class MockClaimsExtractor : IClaimsExtractor
