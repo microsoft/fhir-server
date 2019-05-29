@@ -4,12 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net.Http;
-using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public class FhirResponse<T> : FhirResponse
-        where T : Resource
     {
         public FhirResponse(HttpResponseMessage response, T resource)
             : base(response)

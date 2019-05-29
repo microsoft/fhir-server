@@ -12,14 +12,13 @@ using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Web;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public class ExportTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class ExportTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly HttpClient _client;
         private const string PreferHeaderName = "Prefer";
@@ -27,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private const string DestinationConnectionQueryParamName = "_destinationConnectionSettings";
         private const string SupportedDestinationType = "AzureBlockBlob";
 
-        public ExportTests(HttpIntegrationTestFixture<Startup> fixture)
+        public ExportTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.HttpClient;
         }

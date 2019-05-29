@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="IdentityServer4" Version="2.4.0" />
+    <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.6.1" />
+    <PackageReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.2.0-preview3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.AzureKeyVault" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.9.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
+
+</Project>

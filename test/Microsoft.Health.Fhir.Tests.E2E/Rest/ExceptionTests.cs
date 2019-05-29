@@ -19,11 +19,11 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class ExceptionTests : IClassFixture<HttpIntegrationTestFixture<ExceptionTests.StartupWithThrowingMiddleware>>
+    public class ExceptionTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private readonly HttpIntegrationTestFixture<StartupWithThrowingMiddleware> _fixture;
+        private readonly HttpIntegrationTestFixture _fixture;
 
-        public ExceptionTests(HttpIntegrationTestFixture<StartupWithThrowingMiddleware> fixture)
+        public ExceptionTests(HttpIntegrationTestFixture fixture)
         {
             _fixture = fixture;
             Client = fixture.FhirClient;

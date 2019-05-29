@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 using HttpMethod = System.Net.Http.HttpMethod;
@@ -19,12 +18,12 @@ using HttpMethod = System.Net.Http.HttpMethod;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Cors)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class CorsTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json, FhirVersion.All)]
+    public class CorsTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly ICustomFhirClient _client;
 
-        public CorsTests(HttpIntegrationTestFixture<Startup> fixture)
+        public CorsTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.FhirClient;
         }

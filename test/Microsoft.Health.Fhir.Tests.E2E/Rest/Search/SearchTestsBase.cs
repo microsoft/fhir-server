@@ -9,13 +9,12 @@ using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public abstract class SearchTestsBase<TFixture> : IClassFixture<TFixture>
-        where TFixture : HttpIntegrationTestFixture<Startup>
+        where TFixture : HttpIntegrationTestFixture
     {
         protected SearchTestsBase(TFixture fixture)
         {

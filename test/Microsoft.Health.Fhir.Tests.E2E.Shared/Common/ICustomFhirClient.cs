@@ -24,8 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         Task RunAsClientApplication(TestApplication clientApplication);
 
-        Task<FhirResponse<T>> CreateAsync<T>(T resource)
-            where T : Resource;
+        Task<FhirResponse<T>> CreateAsync<T>(T resource);
 
         Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource)
             where T : Resource;

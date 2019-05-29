@@ -7,11 +7,10 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class StringSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class StringSearchTestFixture : HttpIntegrationTestFixture
     {
         public StringSearchTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
             : base(dataStore, format, fhirVersion)

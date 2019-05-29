@@ -20,8 +20,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.0.1" />
     <PackageReference Include="selenium.chrome.webdriver" Version="74.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
-    <PackageReference Include="xunit" Version="2.4.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.2.3" />
   </ItemGroup>
 
@@ -29,12 +27,17 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.R4.Web\Microsoft.Health.Fhir.R4.Web.csproj">
+      <Aliases>WebR4</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.Api\Microsoft.Health.Fhir.SqlServer.Api.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Api\Microsoft.Health.Fhir.Stu3.Api.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Core\Microsoft.Health.Fhir.Stu3.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
-    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj">
+      <Aliases>WebStu3</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.E2E.Stu3\Microsoft.Health.Fhir.Tests.E2E.Stu3.csproj" />
   </ItemGroup>

@@ -17,6 +17,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json.Linq;
@@ -37,13 +38,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
         private readonly Func<string, Resource> _deserialize;
         private readonly MediaTypeWithQualityHeaderValue _mediaType;
 
-        public FhirClient(HttpClient httpClient, ResourceFormat format)
+        public FhirClient(HttpClient httpClient, Format format)
         {
             HttpClient = httpClient;
-            _format = format;
 
-            if (format == ResourceFormat.Json)
+            if (format == Tests.Common.FixtureParameters.Format.Json)
             {
+                _format = ResourceFormat.Json;
                 var jsonSerializer = new FhirJsonSerializer();
 
                 _serializer = jsonSerializer;
@@ -56,8 +57,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
 
                 _contentType = ContentType.JSON_CONTENT_HEADER;
             }
-            else if (format == ResourceFormat.Xml)
+            else if (format == Tests.Common.FixtureParameters.Format.Xml)
             {
+                _format = ResourceFormat.Xml;
                 var xmlSerializer = new FhirXmlSerializer();
 
                 _serializer = xmlSerializer;

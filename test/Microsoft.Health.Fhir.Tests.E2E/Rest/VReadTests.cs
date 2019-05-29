@@ -10,16 +10,15 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class VReadTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class VReadTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        public VReadTests(HttpIntegrationTestFixture<Startup> fixture)
+        public VReadTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
         }

@@ -11,7 +11,6 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -27,12 +26,14 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    extern alias WebStu3;
+    extern alias WebR4;
+
     /// <summary>
     /// A test fixture which hosts the target web project in an in-memory server.
     /// Code adapted from https://docs.microsoft.com/en-us/aspnet/core/mvc/controllers/testing#integration-testing
     /// </summary>
-    /// <typeparam name="TStartup">The target web project startup</typeparam>
-    public class HttpIntegrationTestFixture<TStartup> : IDisposable
+    public class HttpIntegrationTestFixture : IDisposable
     {
         private readonly DataStore _dataStore;
         private readonly Format _format;
@@ -91,23 +92,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             HttpClient = CreateHttpClient();
 
-            ResourceFormat resourceFormat;
-            switch (_format)
-            {
-                case Format.Json:
-                    resourceFormat = ResourceFormat.Json;
-                    break;
-                case Format.Xml:
-                    resourceFormat = ResourceFormat.Xml;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-
             switch (_fhirVersion)
             {
                 case FhirVersion.Stu3:
-                    FhirClient = new Stu3.FhirClient(HttpClient, resourceFormat);
+                    FhirClient = new Stu3.FhirClient(HttpClient, _format);
                     break;
                 case FhirVersion.R4:
 
@@ -135,7 +123,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void StartInMemoryServer(string targetProjectParentDirectory, DataStore dataStore)
         {
-            var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
+            Type startup;
+            switch (_fhirVersion)
+            {
+                case FhirVersion.Stu3:
+                    startup = typeof(WebStu3::Microsoft.Health.Fhir.Web.Startup);
+                    break;
+                case FhirVersion.R4:
+                    startup = typeof(WebR4::Microsoft.Health.Fhir.Web.Startup);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            var contentRoot = GetProjectPath(targetProjectParentDirectory, startup);
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
             var exportPath = Path.GetFullPath("exporttestconfiguration.json");
             var dataStoreConfiguration = new Dictionary<string, string> { { "DataStore", dataStore.ToString() } };
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     configurationBuilder.AddJsonFile(exportPath);
                     configurationBuilder.AddInMemoryCollection(dataStoreConfiguration);
                 })
-                .UseStartup(typeof(TStartup))
+                .UseStartup(startup)
                 .ConfigureServices(serviceCollection =>
                 {
                     // ensure that HttpClients

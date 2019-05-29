@@ -9,17 +9,16 @@ using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
-    public class SmartProxyBadRequestTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class SmartProxyBadRequestTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly ICustomFhirClient _client;
 
-        public SmartProxyBadRequestTests(HttpIntegrationTestFixture<Startup> fixture)
+        public SmartProxyBadRequestTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.FhirClient;
         }

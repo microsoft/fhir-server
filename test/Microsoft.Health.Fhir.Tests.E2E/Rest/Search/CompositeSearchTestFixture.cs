@@ -9,11 +9,10 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class CompositeSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class CompositeSearchTestFixture : HttpIntegrationTestFixture
     {
         private static readonly string[] TestFileNames = new string[]
         {

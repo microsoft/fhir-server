@@ -13,16 +13,15 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
-    public class DeleteTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class DeleteTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        public DeleteTests(HttpIntegrationTestFixture<Startup> fixture)
+        public DeleteTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
         }

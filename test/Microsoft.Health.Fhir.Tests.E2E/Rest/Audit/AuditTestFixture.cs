@@ -9,7 +9,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
-    public class AuditTestFixture : HttpIntegrationTestFixture<StartupWithTraceAuditLogger>
+    public class AuditTestFixture : HttpIntegrationTestFixture
     {
         private TraceAuditLogger _auditLogger;
 

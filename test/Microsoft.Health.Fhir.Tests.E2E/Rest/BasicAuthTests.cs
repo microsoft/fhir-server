@@ -13,7 +13,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -24,7 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// </summary>
     [Trait(Traits.Category, Categories.Authorization)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
         private const string UnauthorizedMessage = "Unauthorized: Authentication failed.";
@@ -35,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 { "_destinationConnectionSettings", "connectionString" },
             };
 
-        public BasicAuthTests(HttpIntegrationTestFixture<Startup> fixture)
+        public BasicAuthTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
         }
