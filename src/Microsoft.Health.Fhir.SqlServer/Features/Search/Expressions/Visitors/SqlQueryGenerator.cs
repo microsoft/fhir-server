@@ -7,7 +7,6 @@ using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
@@ -15,18 +14,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     internal class SqlQueryGenerator : ISqlExpressionVisitor<object, object>
     {
-        private readonly IndentedStringBuilder _sb;
-        private readonly SqlQueryParameterManager _parameters;
         private int _tableExpressionCounter;
 
-        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters)
+        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
+            EnsureArg.IsNotNull(model, nameof(model));
 
-            _sb = sb;
-            _parameters = parameters;
+            StringBuilder = sb;
+            Parameters = parameters;
+            Model = model;
         }
+
+        public IndentedStringBuilder StringBuilder { get; }
+
+        public SqlQueryParameterManager Parameters { get; }
+
+        public SqlServerFhirModel Model { get; }
 
         public object VisitSqlRoot(SqlRootExpression expression, object context)
         {
@@ -37,15 +42,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (expression.NormalizedPredicates.Count > 0)
             {
-                _sb.Append(";WITH ");
+                StringBuilder.Append(";WITH ");
 
-                _sb.AppendDelimited($",{Environment.NewLine}", expression.DenormalizedPredicates, (sb, tableExpression) =>
+                StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.DenormalizedPredicates, (sb, tableExpression) =>
                 {
                     sb.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
                     using (sb.Indent())
                     {
-                        // do stuff
+                        tableExpression.AcceptVisitor(this, context);
                     }
 
                     sb.AppendLine(")");
@@ -54,11 +59,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (searchOptions.CountOnly)
             {
-                _sb.AppendLine("SELECT COUNT_BIG(*)");
+                StringBuilder.AppendLine("SELECT COUNT_BIG(*)");
             }
             else
             {
-                _sb.Append("SELECT TOP ").Append(searchOptions.MaxItemCount).Append(' ')
+                StringBuilder.Append("SELECT TOP ").Append(searchOptions.MaxItemCount).Append(' ')
                     .Append("r.").Append(V1.Resource.ResourceTypeId).Append(", ")
                     .Append("r.").Append(V1.Resource.ResourceId).Append(", ")
                     .Append("r.").Append(V1.Resource.Version).Append(", ")
@@ -70,28 +75,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     .Append("r.").AppendLine(V1.Resource.RawResource);
             }
 
-            _sb.Append("FROM ").Append(V1.Resource).AppendLine(" r");
+            StringBuilder.Append("FROM ").Append(V1.Resource).AppendLine(" r");
 
-            using (_sb.DelimitWhereClause())
+            using (var delimitedClause = StringBuilder.DelimitWhereClause())
             {
                 if (expression.NormalizedPredicates.Count > 0)
                 {
-                    _sb.BeginDelimitedElement();
-                    _sb.Append("r.").Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT DISTINCT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter)).Append(")");
+                    delimitedClause.BeginDelimitedElement();
+                    StringBuilder.Append("r.").Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT DISTINCT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter)).Append(")");
                 }
 
                 foreach (var denormalizedPredicate in expression.DenormalizedPredicates)
                 {
-                    _sb.BeginDelimitedElement();
+                    delimitedClause.BeginDelimitedElement();
                     denormalizedPredicate.AcceptVisitor(this, context);
                 }
 
-                _sb.BeginDelimitedElement().Append(V1.Resource.IsHistory).Append(" = 0");
+                delimitedClause.BeginDelimitedElement().Append(V1.Resource.IsHistory).Append(" = 0");
             }
 
             if (!searchOptions.CountOnly)
             {
-                _sb.AppendLine("ORDER BY r.").Append(V1.Resource.ResourceId).Append("ASC");
+                StringBuilder.Append("ORDER BY r.").Append(V1.Resource.ResourceId).Append(" ASC");
             }
 
             return null;
@@ -104,95 +109,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public object VisitTable(TableExpression tableExpression, object context)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public object VisitSearchParameter(SearchParameterExpression expression, object context)
         {
-            return expression.Expression.AcceptVisitor(this, expression.Parameter);
+            expression.AcceptVisitor(GetSearchParameterQueryGenerator(expression), this);
+            return null;
         }
 
         public object VisitBinary(BinaryExpression expression, object context)
         {
-            var searchParameterInfo = (SearchParameterInfo)context;
-
-            Column column = FieldNameToColumn(expression);
-            _sb.Append(column)
-                .Append(expression.ComponentIndex)
-                .Append(' ');
-
-            switch (expression.BinaryOperator)
-            {
-                case BinaryOperator.Equal:
-                    _sb.Append("=");
-                    break;
-                case BinaryOperator.GreaterThan:
-                    _sb.Append(">");
-                    break;
-                case BinaryOperator.GreaterThanOrEqual:
-                    _sb.Append(">=");
-                    break;
-                case BinaryOperator.LessThan:
-                    _sb.Append("<");
-                    break;
-                case BinaryOperator.LessThanOrEqual:
-                    _sb.Append("<=");
-                    break;
-                case BinaryOperator.NotEqual:
-                    _sb.Append("<>");
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(expression.BinaryOperator.ToString());
-            }
-
-            _sb.Append(' ').Append(_parameters.AddParameter(column, expression.Value).ParameterName);
-
-            return null;
+            throw new NotImplementedException();
         }
 
-        private static Column FieldNameToColumn(BinaryExpression expression)
+        public object VisitString(StringExpression expression, object context)
         {
-            switch (expression.FieldName)
-            {
-                case FieldName.DateTimeStart:
-                    return V1.DateTimeSearchParam.StartDateTime;
-                case FieldName.DateTimeEnd:
-                    return V1.DateTimeSearchParam.EndDateTime;
-                case FieldName.Number:
-                    return V1.NumberSearchParam.SingleValue; // TODO: low/high
-                case FieldName.ParamName:
-                    goto default;
-                case FieldName.QuantityCode:
-                    return V1.QuantitySearchParam.QuantityCodeId;
-                case FieldName.QuantitySystem:
-                    return V1.QuantitySearchParam.SystemId;
-                case FieldName.Quantity:
-                    return V1.QuantitySearchParam.SingleValue; // TODO: low/high
-                case FieldName.ReferenceBaseUri:
-                    return V1.ReferenceSearchParam.BaseUri;
-                case FieldName.ReferenceResourceType:
-                    return V1.ReferenceSearchParam.ReferenceResourceTypeId;
-                case FieldName.ReferenceResourceId:
-                    return V1.ReferenceSearchParam.ReferenceResourceId;
-                case FieldName.String:
-                    return V1.StringSearchParam.Text; // // TODO: overflow
-                case FieldName.TokenCode:
-                    return V1.TokenSearchParam.Code;
-                case FieldName.TokenSystem:
-                    return V1.TokenSearchParam.SystemId;
-                case FieldName.TokenText:
-                    return V1.TokenText.Text;
-                case FieldName.Uri:
-                    return V1.UriSearchParam.Uri;
-                case SqlFieldName.ResourceSurrogateId:
-                    return V1.Resource.ResourceSurrogateId;
-                case SqlFieldName.ResourceTypeId:
-                    return V1.Resource.ResourceTypeId;
-                case SqlFieldName.LastUpdated:
-                    return V1.Resource.LastUpdated;
-                default:
-                    throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
-            }
+            throw new NotImplementedException();
         }
 
         public object VisitChained(ChainedExpression expression, object context)
@@ -212,17 +145,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public object VisitMultiary(MultiaryExpression expression, object context)
         {
-            throw new System.NotImplementedException();
-        }
+            if (expression.MultiaryOperation == MultiaryOperator.Or)
+            {
+                StringBuilder.Append('(');
+            }
 
-        public object VisitString(StringExpression expression, object context)
-        {
-            throw new System.NotImplementedException();
+            StringBuilder.AppendDelimited(
+                expression.MultiaryOperation == MultiaryOperator.And ? " AND " : " OR ",
+                expression.Expressions,
+                (sb, childExpr) => childExpr.AcceptVisitor(this, context));
+
+            if (expression.MultiaryOperation == MultiaryOperator.Or)
+            {
+                StringBuilder.AppendLine(")");
+            }
+
+            return context;
         }
 
         public object VisitCompartment(CompartmentSearchExpression expression, object context)
         {
             throw new System.NotImplementedException();
+        }
+
+        private SearchParameterQueryGenerator GetSearchParameterQueryGenerator(SearchParameterExpressionBase searchParameter)
+        {
+            switch (searchParameter.Parameter.Name)
+            {
+                case SearchParameterNames.Id:
+                    return new ResourceIdParameterQueryGenerator();
+                case SearchParameterNames.ResourceType:
+                    return new ResourceTypeIdParameterQueryGenerator();
+                case SqlSearchParameters.ResourceSurrogateIdParameterName:
+                    return new ResourceSurrogateIdParameterQueryGenerator();
+                default:
+                    throw new NotSupportedException(searchParameter.Parameter.Name);
+            }
         }
     }
 }

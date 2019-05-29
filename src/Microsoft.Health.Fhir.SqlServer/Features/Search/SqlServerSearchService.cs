@@ -9,7 +9,6 @@ using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -78,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 using (SqlCommand sqlCommand = connection.CreateCommand())
                 {
                     var stringBuilder = new IndentedStringBuilder(new StringBuilder());
-                    var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters));
+                    var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model);
 
                     expression.AcceptVisitor(queryGenerator, searchOptions);
 
@@ -124,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null));
                         }
 
-                        return new SearchResult(resources, lastSurrogateId?.ToString());
+                        return new SearchResult(resources, lastSurrogateId?.ToString(CultureInfo.InvariantCulture));
                     }
                 }
             }

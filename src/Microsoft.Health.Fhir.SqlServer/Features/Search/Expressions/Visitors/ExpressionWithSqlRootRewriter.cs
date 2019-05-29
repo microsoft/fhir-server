@@ -53,7 +53,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 SqlRootExpression.WithDenormalizedPredicates(expression.Expressions);
             }
 
-            return new SqlRootExpression(joinedCriteria, resourceLevelCriteria);
+            return new SqlRootExpression(
+                joinedCriteria ?? (IReadOnlyList<TableExpression>)Array.Empty<TableExpression>(),
+                resourceLevelCriteria ?? expression.Expressions);
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, int context) => ConvertNonMultiary(expression);
@@ -93,6 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 case SearchParameterNames.Id:
                 case SearchParameterNames.LastUpdated:
                 case SearchParameterNames.ResourceType:
+                case SqlSearchParameters.ResourceSurrogateIdParameterName:
                     return true;
                 default:
                     return false;

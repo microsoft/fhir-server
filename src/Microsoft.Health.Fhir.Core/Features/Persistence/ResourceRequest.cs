@@ -19,7 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public ResourceRequest(Uri url, string method)
         {
-            EnsureArg.IsNotNull(url, nameof(url));
             EnsureArg.IsNotNullOrEmpty(method, nameof(method));
 
             Url = url;
@@ -27,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         public ResourceRequest(string url, HttpMethod method)
-            : this(new Uri(url), method.ToString())
+            : this(url == null ? null : new Uri(url), method.ToString())
         {
         }
 

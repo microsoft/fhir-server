@@ -23,25 +23,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitMultiary(MultiaryExpression expression, object context)
         {
-            var visitedExpression = (MultiaryExpression)base.VisitMultiary(expression, context);
-            if (visitedExpression.Expressions.Count == 1)
+            expression = (MultiaryExpression)base.VisitMultiary(expression, context);
+            if (expression.Expressions.Count == 1)
             {
-                return visitedExpression.Expressions[0];
+                return expression.Expressions[0];
             }
 
             List<Expression> newExpressions = null;
 
-            for (var i = 0; i < visitedExpression.Expressions.Count; i++)
+            for (var i = 0; i < expression.Expressions.Count; i++)
             {
                 Expression childExpression = expression.Expressions[i];
-                if (childExpression is MultiaryExpression childMultiary && childMultiary.MultiaryOperation == visitedExpression.MultiaryOperation)
+                if (childExpression is MultiaryExpression childMultiary && childMultiary.MultiaryOperation == expression.MultiaryOperation)
                 {
                     if (newExpressions == null)
                     {
                         newExpressions = new List<Expression>();
                         for (var j = 0; j < i; j++)
                         {
-                            newExpressions.Add(expression.Expressions[i]);
+                            newExpressions.Add(expression.Expressions[j]);
                         }
                     }
 
@@ -55,10 +55,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (newExpressions == null)
             {
-                return visitedExpression;
+                return expression;
             }
 
-            return new MultiaryExpression(visitedExpression.MultiaryOperation, newExpressions);
+            return new MultiaryExpression(expression.MultiaryOperation, newExpressions);
         }
     }
 }

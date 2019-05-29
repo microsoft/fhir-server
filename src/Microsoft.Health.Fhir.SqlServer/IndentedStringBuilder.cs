@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.SqlServer
 
         private bool _indentPending;
         private int _indentLevel;
-        private readonly Stack<DelimitedScope> _delimitedScopes = new Stack<DelimitedScope>();
 
         internal int IndentLevel
         {
@@ -64,21 +63,37 @@ namespace Microsoft.Health.Fhir.SqlServer
             return this;
         }
 
-        internal DelimitedScope Delimit(Action<IndentedStringBuilder> applyPrefix, Action<IndentedStringBuilder> applyDelimiter, Action<IndentedStringBuilder> applyPostfix)
+        /// <summary>
+        /// Similar to <see cref="StringBuilder.AppendJoin{T}(string,IEnumerable{T})"/>, but without needing to build up intermediate strings.
+        /// </summary>
+        /// <typeparam name="T">The element type</typeparam>
+        /// <param name="applyDelimiter">An action called to append a delimiter between elements</param>
+        /// <param name="items">The input enumerable</param>
+        /// <param name="writer">A function that is invoked for each element in <paramref name="items"/></param>
+        /// <returns>This instance</returns>
+        internal IndentedStringBuilder AppendDelimited<T>(Action<IndentedStringBuilder> applyDelimiter, IEnumerable<T> items, Action<IndentedStringBuilder, T> writer)
         {
-            var delimitedScope = new DelimitedScope(this, applyPrefix, applyDelimiter, applyPostfix);
-            _delimitedScopes.Push(delimitedScope);
-            return delimitedScope;
-        }
-
-        internal IndentedStringBuilder BeginDelimitedElement()
-        {
-            if (_delimitedScopes.TryPop(out var scope))
+            bool first = true;
+            foreach (T item in items)
             {
-                scope.BeginDelimited();
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    applyDelimiter(this);
+                }
+
+                writer(this, item);
             }
 
-            throw new InvalidOperationException("Delimited scope stack is empty");
+            return this;
+        }
+
+        internal DelimitedScope Delimit(Action<IndentedStringBuilder> applyPrefix, Action<IndentedStringBuilder> applyDelimiter, Action<IndentedStringBuilder> applyPostfix)
+        {
+            return new DelimitedScope(this, applyPrefix, applyDelimiter, applyPostfix);
         }
 
         private void AppendIndent()
@@ -123,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer
                 _started = false;
             }
 
-            public void BeginDelimited()
+            public IndentedStringBuilder BeginDelimitedElement()
             {
                 if (!_started)
                 {
@@ -134,6 +149,8 @@ namespace Microsoft.Health.Fhir.SqlServer
                 {
                     _applyDelimiter?.Invoke(_sb);
                 }
+
+                return _sb;
             }
 
             public void Dispose()

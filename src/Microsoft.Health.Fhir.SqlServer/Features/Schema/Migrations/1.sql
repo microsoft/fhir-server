@@ -176,7 +176,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
 CREATE TABLE dbo.Resource
 (
     ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) NOT NULL,
+    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version int NOT NULL,
     IsHistory bit NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
@@ -267,7 +267,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
 CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE
 (
     CompartmentTypeId tinyint NOT NULL,
-    ReferenceResourceId varchar(64) NOT NULL
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.CompartmentAssignment
@@ -275,7 +275,7 @@ CREATE TABLE dbo.CompartmentAssignment
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     CompartmentTypeId tinyint NOT NULL,
-    ReferenceResourceId varchar(64) NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -309,9 +309,9 @@ GO
 CREATE TYPE dbo.ReferenceSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
-    BaseUri varchar(128) NULL,
+    BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId smallint NOT NULL,
-    ReferenceResourceId varchar(64) NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL
 )
 
@@ -320,9 +320,9 @@ CREATE TABLE dbo.ReferenceSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    BaseUri varchar(128) NULL,
+    BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId smallint NOT NULL,
-    ReferenceResourceId varchar(64) NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
@@ -783,9 +783,9 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    BaseUri1 varchar(128) NULL,
+    BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId1 smallint NOT NULL,
-    ReferenceResourceId1 varchar(64) NOT NULL,
+    ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
     Code2 varchar(128) NOT NULL,

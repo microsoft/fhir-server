@@ -12,8 +12,8 @@ namespace Microsoft.Health.Fhir.SqlServer
             return indentedStringBuilder.Delimit(
                 sb =>
                 {
-                    sb.IndentLevel++;
                     sb.Append("WHERE ");
+                    sb.IndentLevel++;
                 },
                 sb =>
                 {
@@ -22,8 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer
                 },
                 sb =>
                 {
-                    sb.AppendLine();
                     sb.IndentLevel--;
+                    sb.AppendLine();
                 });
         }
     }
