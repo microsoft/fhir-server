@@ -8,9 +8,9 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected TFixture Fixture { get; }
 
-        protected FhirClient Client => Fixture.FhirClient;
+        protected ICustomFhirClient Client => Fixture.FhirClient;
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, params Resource[] expectedResources)
         {

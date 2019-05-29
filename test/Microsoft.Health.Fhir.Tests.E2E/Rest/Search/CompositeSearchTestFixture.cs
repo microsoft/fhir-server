@@ -26,8 +26,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             "ObservationWithBloodPressure",
         };
 
-        public CompositeSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public CompositeSearchTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : base(dataStore, format, fhirVersion)
         {
             var resultDictionary = new Dictionary<string, Observation>(TestFileNames.Length);
 

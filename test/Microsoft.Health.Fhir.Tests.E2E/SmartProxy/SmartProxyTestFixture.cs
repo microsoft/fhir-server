@@ -10,7 +10,7 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
+using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Stu3.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
         public HttpClient HttpClient { get; }
 
-        public FhirClient FhirClient { get; }
+        public ICustomFhirClient FhirClient { get; }
 
         public void Dispose()
         {

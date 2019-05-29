@@ -13,8 +13,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public class QuantitySearchTestFixture : HttpIntegrationTestFixture<Startup>
     {
-        public QuantitySearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public QuantitySearchTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : base(dataStore, format, fhirVersion)
         {
             // Prepare the resources used for number search tests.
             FhirClient.DeleteAllResources(ResourceType.Observation).Wait();

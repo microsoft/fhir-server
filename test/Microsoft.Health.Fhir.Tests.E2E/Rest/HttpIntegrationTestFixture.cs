@@ -20,10 +20,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -36,18 +36,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private readonly DataStore _dataStore;
         private readonly Format _format;
+        private readonly FhirVersion _fhirVersion;
         private string _environmentUrl;
         private HttpMessageHandler _messageHandler;
 
-        public HttpIntegrationTestFixture(DataStore dataStore, Format format)
-            : this(Path.Combine("src"), dataStore, format)
+        public HttpIntegrationTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : this(Path.Combine("src"), dataStore, format, fhirVersion)
         {
         }
 
-        protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format)
+        protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format, FhirVersion fhirVersion)
         {
             _dataStore = dataStore;
             _format = format;
+            _fhirVersion = fhirVersion;
 
             SetUpEnvironmentVariables();
 
@@ -89,13 +91,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             HttpClient = CreateHttpClient();
 
+            ResourceFormat resourceFormat;
             switch (_format)
             {
                 case Format.Json:
-                    FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
+                    resourceFormat = ResourceFormat.Json;
                     break;
                 case Format.Xml:
-                    FhirClient = new FhirClient(HttpClient, ResourceFormat.Xml);
+                    resourceFormat = ResourceFormat.Xml;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            switch (_fhirVersion)
+            {
+                case FhirVersion.Stu3:
+                    FhirClient = new Stu3.FhirClient(HttpClient, resourceFormat);
+                    break;
+                case FhirVersion.R4:
+
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -106,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public HttpClient HttpClient { get; }
 
-        public FhirClient FhirClient { get; }
+        public ICustomFhirClient FhirClient { get; }
 
         protected TestServer Server { get; private set; }
 

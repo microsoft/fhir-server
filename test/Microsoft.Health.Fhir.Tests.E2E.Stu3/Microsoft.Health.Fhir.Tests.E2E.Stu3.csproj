@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Api\Microsoft.Health.Fhir.Stu3.Api.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Core\Microsoft.Health.Fhir.Stu3.Core.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Common\" />
+  </ItemGroup>
+
+  <Import Project="..\Microsoft.Health.Fhir.Tests.E2E.Shared\Microsoft.Health.Fhir.Tests.E2E.Shared.projitems" Label="Shared" />
+</Project>

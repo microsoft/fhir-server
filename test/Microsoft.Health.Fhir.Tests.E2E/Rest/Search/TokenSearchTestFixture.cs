@@ -14,8 +14,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public class TokenSearchTestFixture : HttpIntegrationTestFixture<Startup>
     {
-        public TokenSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public TokenSearchTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : base(dataStore, format, fhirVersion)
         {
             // Prepare the resources used for number search tests.
             FhirClient.DeleteAllResources(ResourceType.Observation).Wait();

@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
     public class SmartProxyBadRequestTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
-        private readonly FhirClient _client;
+        private readonly ICustomFhirClient _client;
 
         public SmartProxyBadRequestTests(HttpIntegrationTestFixture<Startup> fixture)
         {

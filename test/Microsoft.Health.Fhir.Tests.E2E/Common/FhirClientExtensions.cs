@@ -13,12 +13,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public static class FhirClientExtensions
     {
-        public static async Task DeleteAllResources(this FhirClient client, ResourceType resourceType)
+        public static async Task DeleteAllResources(this ICustomFhirClient client, ResourceType resourceType)
         {
             await DeleteAllResources(client, resourceType, null);
         }
 
-        public static async Task DeleteAllResources(this FhirClient client, ResourceType resourceType, string searchUrl)
+        public static async Task DeleteAllResources(this ICustomFhirClient client, ResourceType resourceType, string searchUrl)
         {
             while (true)
             {
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
         }
 
-        public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, int count)
+        public static async Task<TResource[]> CreateResourcesAsync<TResource>(this ICustomFhirClient client, int count)
            where TResource : Resource, new()
         {
             TResource[] resources = new TResource[count];
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return resources;
         }
 
-        public static async Task<TResource> CreateResourcesAsync<TResource>(this FhirClient client, Func<TResource> resourceFactory)
+        public static async Task<TResource> CreateResourcesAsync<TResource>(this ICustomFhirClient client, Func<TResource> resourceFactory)
             where TResource : Resource
         {
             TResource resource = resourceFactory();
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return await client.CreateAsync(resource);
         }
 
-        public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, params Action<TResource>[] resourceCustomizer)
+        public static async Task<TResource[]> CreateResourcesAsync<TResource>(this ICustomFhirClient client, params Action<TResource>[] resourceCustomizer)
             where TResource : Resource, new()
         {
             TResource[] resources = new TResource[resourceCustomizer.Length];

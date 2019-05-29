@@ -14,8 +14,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     public class CompartmentTestFixture : HttpIntegrationTestFixture<Startup>, IAsyncLifetime
     {
-        public CompartmentTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public CompartmentTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : base(dataStore, format, fhirVersion)
         {
         }
 

@@ -3,10 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Resources;
-using System.Runtime.CompilerServices;
+using System;
 
-[assembly: NeutralResourcesLanguage("en-us")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Api.UnitTests")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api.UnitTests")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.E2E.Stu3")]
+namespace Microsoft.Health.Fhir.Tests.Common.FixtureParameters
+{
+    [Flags]
+    public enum FhirVersion
+    {
+        Stu3 = 1,
+
+        R4 = 2,
+
+        All = Stu3 | R4,
+    }
+}

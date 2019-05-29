@@ -13,8 +13,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public class StringSearchTestFixture : HttpIntegrationTestFixture<Startup>
     {
-        public StringSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public StringSearchTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : base(dataStore, format, fhirVersion)
         {
             // Prepare the resources used for string search tests.
             FhirClient.DeleteAllResources(ResourceType.Patient).Wait();

@@ -17,13 +17,14 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json.Linq;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
+namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
 {
-    public class FhirClient
+    public class FhirClient : ICustomFhirClient
     {
         private readonly ResourceFormat _format;
         private readonly Dictionary<string, string> _bearerTokens = new Dictionary<string, string>();
@@ -261,12 +262,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return contentLocation.First();
         }
 
-        private StringContent CreateStringContent(Resource resource)
+        public StringContent CreateStringContent(Resource resource)
         {
             return new StringContent(_serialize(resource, SummaryType.False), Encoding.UTF8, _contentType);
         }
 
-        private async Task EnsureSuccessStatusCodeAsync(HttpResponseMessage response)
+        public async Task EnsureSuccessStatusCodeAsync(HttpResponseMessage response)
         {
             if (!response.IsSuccessStatusCode)
             {
@@ -276,7 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
         }
 
-        private async Task<FhirResponse<T>> CreateResponseAsync<T>(HttpResponseMessage response)
+        public async Task<FhirResponse<T>> CreateResponseAsync<T>(HttpResponseMessage response)
             where T : Resource
         {
             string content = await response.Content.ReadAsStringAsync();
@@ -286,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
+        public async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
         {
             await GetSecuritySettings("metadata");
 
@@ -300,11 +301,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                     _bearerTokens[tokenKey] = bearerToken;
                 }
 
-                HttpClient.SetBearerToken(bearerToken);
+                HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+                // TODO: Fix this
+                ////HttpClient.SetBearerToken(bearerToken);
             }
         }
 
-        private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
+        public async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
         {
             if (clientApplication.Equals(TestApplications.InvalidClient))
             {
@@ -322,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return bearerToken;
         }
 
-        private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)
+        public List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)
         {
             string scope = clientApplication == TestApplications.WrongAudienceClient ? clientApplication.ClientId : AuthenticationSettings.Scope;
             string resource = clientApplication == TestApplications.WrongAudienceClient ? clientApplication.ClientId : AuthenticationSettings.Resource;
@@ -337,7 +341,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             };
         }
 
-        private List<KeyValuePair<string, string>> GetUserSecuritySettings(TestApplication clientApplication, TestUser user)
+        public List<KeyValuePair<string, string>> GetUserSecuritySettings(TestApplication clientApplication, TestUser user)
         {
             return new List<KeyValuePair<string, string>>
             {
@@ -351,7 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             };
         }
 
-        private async Task GetSecuritySettings(string fhirServerMetadataUrl)
+        public async Task GetSecuritySettings(string fhirServerMetadataUrl)
         {
             FhirResponse<CapabilityStatement> readResponse = await ReadAsync<CapabilityStatement>(fhirServerMetadataUrl);
             var metadata = readResponse.Resource;

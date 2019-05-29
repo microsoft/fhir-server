@@ -13,8 +13,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     {
         private TraceAuditLogger _auditLogger;
 
-        public AuditTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public AuditTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : base(dataStore, format, fhirVersion)
         {
         }
 

@@ -17,7 +17,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
+using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Stu3.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         private const string ExpectedClaimKey = "appid";
 
         private readonly AuditTestFixture _fixture;
-        private readonly FhirClient _client;
+        private readonly ICustomFhirClient _client;
 
         private readonly TraceAuditLogger _auditLogger;
 

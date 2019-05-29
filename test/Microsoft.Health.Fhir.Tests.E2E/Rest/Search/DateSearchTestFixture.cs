@@ -14,8 +14,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public class DateSearchTestFixture : HttpIntegrationTestFixture<Startup>
     {
-        public DateSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public DateSearchTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : base(dataStore, format, fhirVersion)
         {
             // Creates a unique code for searches
             Coding = new Coding

@@ -9,7 +9,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Tests.E2E.Crucible.Client;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
+using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Stu3.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
