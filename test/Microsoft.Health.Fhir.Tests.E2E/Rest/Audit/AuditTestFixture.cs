@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
@@ -14,7 +16,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         private TraceAuditLogger _auditLogger;
 
         public AuditTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
-            : base(dataStore, format, fhirVersion)
+            : base(dataStore, format, fhirVersion, GetStartupOverrideType(fhirVersion))
         {
         }
 
@@ -28,6 +30,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 }
 
                 return _auditLogger;
+            }
+        }
+
+        private static Type GetStartupOverrideType(FhirVersion fhirVersion)
+        {
+            switch (fhirVersion)
+            {
+                case FhirVersion.Stu3:
+                    return typeof(StartupWithTraceAuditLoggerStu3);
+                case FhirVersion.R4:
+                    return typeof(StartupWithTraceAuditLoggerR4);
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
     }

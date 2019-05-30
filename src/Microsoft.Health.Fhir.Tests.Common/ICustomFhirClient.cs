@@ -34,8 +34,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         Task<FhirResponse<T>> ReadAsync<T>(string resourceType, string resourceId)
             where T : ResourceElement;
 
-        ////Task<FhirResponse<T>> ReadAsync<T>(string uri)
-        ////    where T : Resource;
+        Task<FhirResponse<T>> ReadAsync<T>(string uri)
+            where T : ResourceElement;
 
         Task<FhirResponse<T>> VReadAsync<T>(string resourceType, string resourceId, string versionId)
             where T : ResourceElement;
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         Task<FhirResponse<ResourceElement>> SearchAsync(string url);
 
-        ////Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, params (string key, string value)[] body);
+        Task<FhirResponse<ResourceElement>> SearchPostAsync(string resourceType, params (string key, string value)[] body);
 
         Task<string> ExportAsync(Dictionary<string, string> queryParams);
 
@@ -84,6 +84,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         ResourceElement GetDefaultObservation();
 
+        ResourceElement GetDefaultPatient();
+
+        ResourceElement GetDefaultOrganization();
+
         ResourceElement GetEmptyObservation();
 
         void Validate(ResourceElement resourceElement);
@@ -95,5 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         ResourceElement UpdateLastUpdated(ResourceElement resourceElement, DateTimeOffset lastUpdated);
 
         ResourceElement UpdateText(ResourceElement resourceElement, string text);
+
+        ResourceElement UpdatePatientFamilyName(ResourceElement resourceElement, string familyName);
     }
 }

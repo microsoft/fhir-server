@@ -10,7 +10,7 @@ using System.Linq;
 using System.Net;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
+namespace Microsoft.Health.Fhir.Tests.Common
 {
     public class TraceAuditLogger : IAuditLogger
     {

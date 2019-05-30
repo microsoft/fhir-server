@@ -41,12 +41,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private string _environmentUrl;
         private HttpMessageHandler _messageHandler;
 
-        public HttpIntegrationTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
-            : this(Path.Combine("src"), dataStore, format, fhirVersion)
+        public HttpIntegrationTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion, Type inProcessStartupOverride = null)
+            : this(Path.Combine("src"), dataStore, format, fhirVersion, inProcessStartupOverride)
         {
         }
 
-        protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format, FhirVersion fhirVersion)
+        protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format, FhirVersion fhirVersion, Type inProcessStartupOverride = null)
         {
             _dataStore = dataStore;
             _format = format;
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 environmentUrl = "http://localhost/";
 
-                StartInMemoryServer(targetProjectParentDirectory, dataStore);
+                StartInMemoryServer(targetProjectParentDirectory, dataStore, inProcessStartupOverride);
 
                 _messageHandler = Server.CreateHandler();
                 IsUsingInProcTestServer = true;
@@ -121,19 +121,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public HttpClient CreateHttpClient()
             => new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
-        private void StartInMemoryServer(string targetProjectParentDirectory, DataStore dataStore)
+        private void StartInMemoryServer(string targetProjectParentDirectory, DataStore dataStore, Type inProcessStartupOverride = null)
         {
-            Type startup;
-            switch (_fhirVersion)
+            Type startup = inProcessStartupOverride;
+
+            if (startup == null)
             {
-                case FhirVersion.Stu3:
-                    startup = typeof(WebStu3::Microsoft.Health.Fhir.Web.Startup);
-                    break;
-                case FhirVersion.R4:
-                    startup = typeof(WebR4::Microsoft.Health.Fhir.Web.Startup);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                switch (_fhirVersion)
+                {
+                    case FhirVersion.Stu3:
+                        startup = typeof(WebStu3::Microsoft.Health.Fhir.Web.Startup);
+                        break;
+                    case FhirVersion.R4:
+                        startup = typeof(WebR4::Microsoft.Health.Fhir.Web.Startup);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
             }
 
             var contentRoot = GetProjectPath(targetProjectParentDirectory, startup);

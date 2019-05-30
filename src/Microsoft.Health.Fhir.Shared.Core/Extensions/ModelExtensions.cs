@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
@@ -113,6 +114,21 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             poco.Text.Status = Narrative.NarrativeStatus.Generated;
             poco.Text.Div = $"<div>{text}</div>";
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdatePatientFamilyName(this ResourceElement resource, string familyName)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Patient>();
+
+            if (poco.Name == null)
+            {
+                poco.Name = new List<HumanName>();
+            }
+
+            poco.Name.Add(new HumanName() { Family = familyName });
             return poco.ToResourceElement();
         }
 

@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.R4
             return await CreateResourceElementResponseAsync<ResourceElement>(response);
         }
 
-        public async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, params (string key, string value)[] body)
+        public async Task<FhirResponse<ResourceElement>> SearchPostAsync(string resourceType, params (string key, string value)[] body)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}_search")
             {
@@ -249,7 +249,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.R4
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResponseAsync<Bundle>(response);
+            return await CreateResourceElementResponseAsync<ResourceElement>(response);
         }
 
         public async Task<string> ExportAsync(Dictionary<string, string> queryParams)
@@ -403,6 +403,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.R4
             return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
         }
 
+        public ResourceElement GetDefaultPatient()
+        {
+            var json = EmbeddedResourceManager.GetStringContent("TestFiles", "Patient", "json", "R4");
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
+        }
+
+        public ResourceElement GetDefaultOrganization()
+        {
+            var json = EmbeddedResourceManager.GetStringContent("TestFiles", "Organization", "json", "R4");
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
+        }
+
         public ResourceElement GetEmptyObservation()
         {
             return new Observation().ToTypedElement().ToResourceElement();
@@ -431,6 +445,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.R4
         public ResourceElement UpdateText(ResourceElement resourceElement, string text)
         {
             return resourceElement.UpdateText(text);
+        }
+
+        public ResourceElement UpdatePatientFamilyName(ResourceElement resourceElement, string familyName)
+        {
+            return resourceElement.UpdatePatientFamilyName(familyName);
         }
     }
 }
