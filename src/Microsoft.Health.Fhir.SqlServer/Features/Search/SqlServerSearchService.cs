@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlServerFhirModel _model;
         private readonly SqlRootRewriter _sqlRootRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
+        private readonly ILogger<SqlServerSearchService> _logger;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -38,14 +40,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             IModelInfoProvider modelInfoProvider,
             SqlServerFhirModel model,
             SqlRootRewriter sqlRootRewriter,
-            SqlServerDataStoreConfiguration configuration)
+            SqlServerDataStoreConfiguration configuration,
+            ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
         {
             EnsureArg.IsNotNull(sqlRootRewriter, nameof(sqlRootRewriter));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
             _sqlRootRewriter = sqlRootRewriter;
             _configuration = configuration;
+            _logger = logger;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -83,11 +88,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 using (SqlCommand sqlCommand = connection.CreateCommand())
                 {
                     var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+                    stringBuilder.AppendLine("SET STATISTICS IO ON;");
+                    stringBuilder.AppendLine("SET STATISTICS TIME ON;");
+                    stringBuilder.AppendLine();
+
+                    connection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL MESSAGE: {args.Message}");
+
                     var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model);
 
                     expression.AcceptVisitor(queryGenerator, searchOptions);
 
                     sqlCommand.CommandText = stringBuilder.ToString();
+
+                    var sb = new StringBuilder();
+                    foreach (SqlParameter p in sqlCommand.Parameters)
+                    {
+                        sb.Append("DECLARE ").Append(p).Append(" ").Append(p.SqlDbType).Append(p.Value is string ? $"({p.Size})" : null).Append(" = ").AppendLine(p.Value is string ? $"'{p.Value}'" : p.Value.ToString());
+                    }
+
+                    sb.AppendLine();
+
+                    sb.AppendLine(sqlCommand.CommandText);
+
+                    _logger.LogInformation(sb.ToString());
 
                     using (var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken))
                     {
@@ -128,6 +151,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null,
                                 null));
                         }
+
+                        await reader.NextResultAsync(cancellationToken);
 
                         return new SearchResult(resources, lastSurrogateId?.ToString(CultureInfo.InvariantCulture));
                     }

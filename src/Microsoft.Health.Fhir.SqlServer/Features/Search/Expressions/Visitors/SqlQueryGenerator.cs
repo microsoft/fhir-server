@@ -108,7 +108,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public object VisitTable(TableExpression tableExpression, object context)
         {
-            StringBuilder.Append("SELECT ").Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
+            StringBuilder.Append("SELECT ");
+
+            if (_tableExpressionCounter == 1)
+            {
+                StringBuilder.Append("TOP ").Append(((SearchOptions)context).MaxItemCount).Append(" ");
+            }
+
+            StringBuilder.Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
                 .Append("FROM ").AppendLine(tableExpression.TableHandler.Table);
 
             using (var delimited = StringBuilder.DelimitWhereClause())

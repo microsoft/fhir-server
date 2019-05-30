@@ -148,9 +148,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        protected void VisitSimpleBinary(BinaryOperator binaryOperator, SqlQueryGenerator context, Column column, object value)
+        protected void VisitSimpleBinary(BinaryOperator binaryOperator, SqlQueryGenerator context, Column column, int? componentIndex, object value)
         {
-            context.StringBuilder.Append(column);
+            context.StringBuilder.Append(column).Append(componentIndex + 1);
 
             VisitBinaryOperator(binaryOperator, context.StringBuilder);
 
@@ -159,9 +159,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected void VisitSimpleString(StringExpression expression, SqlQueryGenerator context, StringColumn column, string value)
         {
-            context.StringBuilder.Append(column);
+            context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1);
 
             VisitStringOperator(expression.StringOperator, context, column, value);
+        }
+
+        protected static SqlQueryGenerator VisitMissingFieldImpl(MissingFieldExpression expression, SqlQueryGenerator context, FieldName expectedFieldName, Column column)
+        {
+            if (expression.FieldName != expectedFieldName)
+            {
+                throw new InvalidOperationException($"Unexpected missing field {expression.FieldName}");
+            }
+
+            context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1).Append(" IS NULL");
+            return context;
         }
     }
 
@@ -179,7 +190,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
         {
-            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceTypeId, context.Model.GetResourceTypeId((string)expression.Value));
+            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceTypeId, expression.ComponentIndex, context.Model.GetResourceTypeId((string)expression.Value));
             return context;
         }
     }
@@ -188,7 +199,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
         {
-            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceSurrogateId, expression.Value);
+            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceSurrogateId, expression.ComponentIndex, expression.Value);
             return context;
         }
     }
