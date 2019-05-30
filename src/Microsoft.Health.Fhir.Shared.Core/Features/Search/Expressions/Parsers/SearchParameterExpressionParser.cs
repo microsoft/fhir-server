@@ -11,9 +11,9 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.SearchParameter;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
@@ -55,11 +55,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         }
 
         public Expression Parse(
-            SearchParameter searchParameter,
+            SearchParameterInfo searchParameter,
             SearchModifierCode? modifier,
             string value)
         {
             EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
+
             Debug.Assert(
                 modifier == null || Enum.IsDefined(typeof(SearchModifierCode), modifier.Value),
                 "Invalid modifier.");
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     throw new InvalidSearchOperationException(Core.Resources.InvalidValueTypeForMissingModifier);
                 }
 
-                return Expression.MissingSearchParameter(searchParameter.ToInfo(), isMissing);
+                return Expression.MissingSearchParameter(searchParameter, isMissing);
             }
 
             if (modifier == SearchModifierCode.Text)
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 // We have to handle :text modifier specially because if :text modifier is supplied for token search param,
                 // then we want to search the display text using the specified text, and therefore
                 // we don't want to actually parse the specified text into token.
-                if (searchParameter.Type != SearchParamType.Token)
+                if (searchParameter.Type != SearchParamType.Token.ToString())
                 {
                     throw new InvalidSearchOperationException(
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             else
             {
                 // Build the expression for based on the search value.
-                if (searchParameter.Type == SearchParamType.Composite)
+                if (searchParameter.Type == SearchParamType.Composite.ToString())
                 {
                     if (modifier != null)
                     {
@@ -115,12 +116,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                     var compositeExpressions = new Expression[compositeValueParts.Count];
 
+                    var searchParameterComponentInfos = searchParameter.Component.ToList();
+
                     for (int i = 0; i < compositeValueParts.Count; i++)
                     {
-                        ComponentComponent component = searchParameter.Component[i];
+                        var component = searchParameterComponentInfos[i];
 
                         // Find the corresponding search parameter info.
-                        SearchParameter componentSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.GetComponentDefinitionUri());
+                        SearchParameterInfo componentSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
 
                         string componentValue = compositeValueParts[i];
 
@@ -143,11 +146,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
             }
 
-            return Expression.SearchParameter(searchParameter.ToInfo(), outputExpression);
+            return Expression.SearchParameter(searchParameter, outputExpression);
         }
 
         private Expression Build(
-            SearchParameter searchParameter,
+            SearchParameterInfo searchParameter,
             SearchModifierCode? modifier,
             int? componentIndex,
             string value)
@@ -157,9 +160,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             // By default, the comparator is equal.
             SearchComparator comparator = SearchComparator.Eq;
 
-            if (searchParameter.Type == SearchParamType.Date ||
-                searchParameter.Type == SearchParamType.Number ||
-                searchParameter.Type == SearchParamType.Quantity)
+            if (searchParameter.Type == SearchParamType.Date.ToString() ||
+                searchParameter.Type == SearchParamType.Number.ToString() ||
+                searchParameter.Type == SearchParamType.Quantity.ToString())
             {
                 // If the search parameter type supports comparator, parse the comparator (if present).
                 Tuple<string, SearchComparator> matchedComparator = SearchParamComparators.FirstOrDefault(
@@ -173,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             // Parse the value.
-            Func<string, ISearchValue> parser = _parserDictionary[searchParameter.Type.Value];
+            Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type)];
 
             // Build the expression.
             var helper = new SearchValueExpressionBuilderHelper();

@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.SearchParameter;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             PathSegment currentPath = paths[currentIndex];
 
             // Check to see if the search parameter is supported for this type or not.
-            SearchParameter searchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, currentPath.Path);
+            SearchParameterInfo searchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, currentPath.Path);
 
             if (currentIndex != paths.Length - 1)
             {
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
         }
 
-        private Expression ParseChainedExpression(string resourceType, SearchParameter searchParameter, PathSegment[] paths, int currentIndex, string value)
+        private Expression ParseChainedExpression(string resourceType, SearchParameterInfo searchParameter, PathSegment[] paths, int currentIndex, string value)
         {
             Debug.Assert(
                 currentIndex >= 0 && currentIndex < paths.Length,
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             // We have more paths after this so this is a chained expression.
             // Since this is chained expression, the expression must be a reference type.
-            if (searchParameter.Type != SearchParamType.Reference)
+            if (searchParameter.Type != SearchParamType.Reference.ToString())
             {
                 // The search parameter is not a reference type, which is not allowed.
                 throw new InvalidSearchOperationException(Core.Resources.ChainedParameterMustBeReferenceSearchParamType);
@@ -127,8 +128,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             // If the scoped target resource type is specified, we will scope to that; otherwise, all target resource types are considered.
-            ChainedExpression[] chainedExpressions = searchParameter.Target
-                .Where(targetType => targetType != null && (scopedTargetResourceType ?? targetType) == targetType)
+            ChainedExpression[] chainedExpressions = searchParameter.TargetResourceTypes
+                .Where(targetType => targetType != null && (scopedTargetResourceType?.ToString() ?? targetType) == targetType)
                 .Select(targetType =>
                 {
                     try
@@ -136,9 +137,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         return Expression.Chained(
                             resourceType,
                             currentPath,
-                            targetType.Value.ToString(),
+                            targetType,
                             Parse(
-                                targetType.Value.ToString(),
+                                targetType,
                                 paths,
                                 currentIndex + 1,
                                 value));
@@ -162,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return Expression.Or(chainedExpressions);
         }
 
-        private Expression ParseSearchValueExpression(SearchParameter searchParameter, string modifier, string value)
+        private Expression ParseSearchValueExpression(SearchParameterInfo searchParameter, string modifier, string value)
         {
             SearchModifierCode? parsedModifier = ParseSearchParamModifier();
 

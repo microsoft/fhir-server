@@ -10,10 +10,10 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly IExpressionParser _expressionParser;
         private readonly ILogger _logger;
-        private readonly SearchParameter _resourceTypeSearchParameter;
+        private readonly SearchParameterInfo _resourceTypeSearchParameter;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (!string.IsNullOrWhiteSpace(resourceType))
             {
-                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter.ToInfo(), Expression.Equals(FieldName.TokenCode, null, resourceType)));
+                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, resourceType)));
             }
 
             searchExpressions.AddRange(searchParams.Parameters.Select(

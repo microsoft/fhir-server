@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             Assert.Equal(
                 bundle.Entry.Select(entry => entry.FullUrl),
-                _builderWithValidEntries.UriDictionary.Values.Select(value => value.Url));
+                _builderWithValidEntries.UriDictionary.Values.Select(value => value.Url.ToString()));
         }
 
         [Fact]
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             _builderWithValidEntries.Build();
 
-            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[ResourceType.Account.ToString()];
+            IDictionary<string, SearchParameterInfo> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[ResourceType.Account.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             _builderWithValidEntries.Build();
 
-            IDictionary<string, SearchParameter> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[resourceType.ToString()];
+            IDictionary<string, SearchParameterInfo> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[resourceType.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -127,17 +127,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         private void ValidateSearchParameters(
-            IDictionary<string, SearchParameter> searchParametersDictionary,
+            IDictionary<string, SearchParameterInfo> searchParametersDictionary,
             params (string, SearchParamType, string)[] expectedEntries)
         {
             Assert.Equal(expectedEntries.Length, searchParametersDictionary.Count);
 
             foreach ((string name, SearchParamType searchParameterType, string expression) in expectedEntries)
             {
-                Assert.True(searchParametersDictionary.TryGetValue(name, out SearchParameter searchParameter));
+                Assert.True(searchParametersDictionary.TryGetValue(name, out SearchParameterInfo searchParameter));
 
                 Assert.Equal(name, searchParameter.Name);
-                Assert.Equal(searchParameterType, searchParameter.Type);
+                Assert.Equal(searchParameterType.ToString(), searchParameter.Type);
                 Assert.Equal(expression, searchParameter.Expression);
             }
         }

@@ -15,12 +15,16 @@ namespace Microsoft.Health.Fhir.Core.Models
             string name,
             Uri url,
             string searchParamType,
-            ICollection<SearchParameterComponentInfo> components)
+            IReadOnlyList<SearchParameterComponentInfo> components,
+            string expression,
+            IReadOnlyCollection<string> targetResourceTypes)
             : this(name)
         {
             Url = url;
             Type = searchParamType;
             Component = components;
+            Expression = expression;
+            TargetResourceTypes = targetResourceTypes;
         }
 
         public SearchParameterInfo(string name)
@@ -34,10 +38,14 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public string Code { get; }
 
+        public string Expression { get; }
+
+        public IReadOnlyCollection<string> TargetResourceTypes { get; } = Array.Empty<string>();
+
         public Uri Url { get; }
 
         public string Type { get; }
 
-        public ICollection<SearchParameterComponentInfo> Component { get; }
+        public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
     }
 }

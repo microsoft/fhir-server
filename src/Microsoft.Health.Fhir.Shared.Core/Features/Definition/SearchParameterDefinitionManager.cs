@@ -12,6 +12,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
@@ -22,8 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     {
         private readonly FhirJsonParser _fhirJsonParser;
 
-        private IDictionary<string, IDictionary<string, SearchParameter>> _typeLookup;
-        private IDictionary<Uri, SearchParameter> _urlLookup;
+        private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
+        private IDictionary<Uri, SearchParameterInfo> _urlLookup;
 
         public SearchParameterDefinitionManager(FhirJsonParser fhirJsonParser)
         {
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _fhirJsonParser = fhirJsonParser;
         }
 
-        public IEnumerable<SearchParameter> AllSearchParameters => _urlLookup.Values;
+        public IEnumerable<SearchParameterInfo> AllSearchParameters => _urlLookup.Values;
 
         public void Start()
         {
@@ -48,12 +49,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _typeLookup = builder.ResourceTypeDictionary;
             _urlLookup = builder.UriDictionary;
 
-            List<string> list = _urlLookup.Values.Where(p => p.Type == SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => _urlLookup[c.GetComponentDefinitionUri()].Type))).Distinct().ToList();
+            List<string> list = _urlLookup.Values.Where(p => p.Type == SearchParamType.Composite.ToString()).Select(p => string.Join("|", p.Component.Select(c => _urlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
         }
 
-        public IEnumerable<SearchParameter> GetSearchParameters(string resourceType)
+        public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
-            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameter> value))
+            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> value))
             {
                 return value.Values;
             }
@@ -61,18 +62,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new ResourceNotSupportedException(resourceType);
         }
 
-        public bool TryGetSearchParameter(string resourceType, string name, out SearchParameter searchParameter)
+        public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
         {
             searchParameter = null;
 
-            return _typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameter> searchParameters) &&
+            return _typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> searchParameters) &&
                 searchParameters.TryGetValue(name, out searchParameter);
         }
 
-        public SearchParameter GetSearchParameter(string resourceType, string name)
+        public SearchParameterInfo GetSearchParameter(string resourceType, string name)
         {
-            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameter> lookup) &&
-                lookup.TryGetValue(name, out SearchParameter searchParameter))
+            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> lookup) &&
+                lookup.TryGetValue(name, out SearchParameterInfo searchParameter))
             {
                 return searchParameter;
             }
@@ -80,9 +81,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(resourceType, name);
         }
 
-        public SearchParameter GetSearchParameter(Uri definitionUri)
+        public SearchParameterInfo GetSearchParameter(Uri definitionUri)
         {
-            if (_urlLookup.TryGetValue(definitionUri, out SearchParameter value))
+            if (_urlLookup.TryGetValue(definitionUri, out SearchParameterInfo value))
             {
                 return value;
             }
@@ -94,18 +95,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
 
-            foreach (KeyValuePair<string, IDictionary<string, SearchParameter>> entry in _typeLookup)
+            foreach (KeyValuePair<string, IDictionary<string, SearchParameterInfo>> entry in _typeLookup)
             {
-                IEnumerable<CapabilityStatement.SearchParamComponent> searchParameters = entry.Value.Select(
+                var searchParameters = entry.Value.Select(
                         searchParameter => new CapabilityStatement.SearchParamComponent
                         {
                             Name = searchParameter.Key,
-                            Type = searchParameter.Value.Type,
+                            Type = Enum.Parse<SearchParamType>(searchParameter.Value.Type),
                         });
 
-                var resourceType = Enum.Parse<ResourceType>(entry.Key);
-
                 var capabilityStatement = (ListedCapabilityStatement)statement;
+
+                var resourceType = Enum.Parse<ResourceType>(entry.Key);
 
                 capabilityStatement.TryAddSearchParams(resourceType, searchParameters);
                 capabilityStatement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.SearchType);

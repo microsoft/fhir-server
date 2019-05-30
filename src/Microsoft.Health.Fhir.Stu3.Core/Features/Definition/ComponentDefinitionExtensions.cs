@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     {
         public static Uri GetComponentDefinitionUri(this SearchParameter.ComponentComponent component)
         {
-            return component.Definition.Url;
+            return component?.Definition?.Url;
         }
 
         public static ResourceReference GetComponentDefinition(this ResourceReference component)

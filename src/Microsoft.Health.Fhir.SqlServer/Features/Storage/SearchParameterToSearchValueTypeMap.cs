@@ -8,7 +8,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -79,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return typeof(UriSearchValue);
                 case SearchParamType.Composite:
                     return typeof(Tuple).Assembly.GetType($"{typeof(ValueTuple).FullName}`{searchParameter.Component.Count}", throwOnError: true)
-                        .MakeGenericType(searchParameter.Component.Select(c => GetSearchValueType(_searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl).ToInfo())).ToArray());
+                        .MakeGenericType(searchParameter.Component.Select(c => GetSearchValueType(_searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl))).ToArray());
                 default:
                     throw new ArgumentOutOfRangeException(searchParameter.Code);
             }

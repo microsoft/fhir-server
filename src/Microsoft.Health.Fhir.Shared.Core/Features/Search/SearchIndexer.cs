@@ -9,16 +9,15 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
-using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -64,9 +63,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var context = new FhirEvaluationContext(poco);
 
-            IEnumerable<SearchParameter> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
+            IEnumerable<SearchParameterInfo> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
 
-            foreach (SearchParameter searchParameter in searchParameters)
+            foreach (SearchParameterInfo searchParameter in searchParameters)
             {
                 if (searchParameter.Name == SearchParameterNames.ResourceType)
                 {
@@ -75,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                if (searchParameter.Type == SearchParamType.Composite)
+                if (searchParameter.Type == SearchParamType.Composite.ToString())
                 {
                     entries.AddRange(ProcessCompositeSearchParameter(searchParameter, poco, context));
                 }
@@ -88,11 +87,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return entries;
         }
 
-        private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameter searchParameter, Base resource, FhirEvaluationContext context)
+        private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, Base resource, FhirEvaluationContext context)
         {
-            Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");
+            Debug.Assert(searchParameter?.Type == SearchParamType.Composite.ToString(), "The search parameter must be composite.");
 
-            SearchParameterInfo compositeSearchParameterInfo = searchParameter.ToInfo();
+            SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
             IEnumerable<Base> rootObjects = resource.Select(searchParameter.Expression, context);
 
@@ -106,15 +105,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // For each object extracted from the expression, we will need to evaluate each component.
                 for (int i = 0; i < numberOfComponents; i++)
                 {
-                    SearchParameter.ComponentComponent component = searchParameter.Component[i];
+                    SearchParameterComponentInfo component = searchParameter.Component[i];
 
                     // First find the type of the component.
-                    SearchParameter componentSearchParameterDefinition = _searchParameterDefinitionManager.GetSearchParameter(component.GetComponentDefinitionUri());
+                    SearchParameterInfo componentSearchParameterDefinition = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
 
                     IReadOnlyList<ISearchValue> extractedComponentValues = ExtractSearchValues(
-                        componentSearchParameterDefinition.Url,
-                        componentSearchParameterDefinition.Type.Value,
-                        componentSearchParameterDefinition.Target,
+                        componentSearchParameterDefinition.Url.ToString(),
+                        componentSearchParameterDefinition.Type,
+                        componentSearchParameterDefinition.TargetResourceTypes,
                         rootObject,
                         component.Expression,
                         context);
@@ -143,16 +142,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
-        private IEnumerable<SearchIndexEntry> ProcessNonCompositeSearchParameter(SearchParameter searchParameter, Base resource, FhirEvaluationContext context)
+        private IEnumerable<SearchIndexEntry> ProcessNonCompositeSearchParameter(SearchParameterInfo searchParameter, Base resource, FhirEvaluationContext context)
         {
-            Debug.Assert(searchParameter?.Type != SearchParamType.Composite, "The search parameter must be non-composite.");
+            Debug.Assert(searchParameter?.Type != SearchParamType.Composite.ToString(), "The search parameter must be non-composite.");
 
-            SearchParameterInfo searchParameterInfo = searchParameter.ToInfo();
+            SearchParameterInfo searchParameterInfo = searchParameter;
 
             foreach (ISearchValue searchValue in ExtractSearchValues(
-                searchParameter.Url,
-                searchParameter.Type.Value,
-                searchParameter.Target,
+                searchParameter.Url.ToString(),
+                searchParameter.Type,
+                searchParameter.TargetResourceTypes,
                 resource,
                 searchParameter.Expression,
                 context))
@@ -163,13 +162,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private IReadOnlyList<ISearchValue> ExtractSearchValues(
             string searchParameterDefinitionUrl,
-            SearchParamType searchParameterType,
-            IEnumerable<ResourceType?> allowedReferenceResourceTypes,
+            string searchParameterType,
+            IEnumerable<string> allowedReferenceResourceTypes,
             Base element,
             string fhirPathExpression,
             FhirEvaluationContext context)
         {
-            Debug.Assert(searchParameterType != SearchParamType.Composite, "The search parameter must be non-composite.");
+            Debug.Assert(searchParameterType != SearchParamType.Composite.ToString(), "The search parameter must be non-composite.");
 
             var results = new List<ISearchValue>();
 
@@ -192,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             Debug.Assert(extractedValues != null, "The extracted values should not be null.");
 
             // If there is target set, then filter the extracted values to only those types.
-            if (searchParameterType == SearchParamType.Reference &&
+            if (searchParameterType == SearchParamType.Reference.ToString() &&
                 allowedReferenceResourceTypes != null &&
                 allowedReferenceResourceTypes.Any())
             {
@@ -238,7 +237,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        private static Type GetSearchValueTypeForSearchParamType(SearchParamType searchParamType)
+        private static Type GetSearchValueTypeForSearchParamType(string searchParamType)
         {
             switch (searchParamType)
             {
@@ -246,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     return typeof(NumberSearchValue);
                 case SearchParamType.Date:
                     return typeof(DateTimeSearchValue);
-                case SearchParamType.String:
+                case SearchParamType.Str:
                     return typeof(StringSearchValue);
                 case SearchParamType.Token:
                     return typeof(TokenSearchValue);
