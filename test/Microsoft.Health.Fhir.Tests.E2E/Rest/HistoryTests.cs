@@ -92,7 +92,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains("Changed by E2E test", obsHistory.Comment);
         }
 
-        [Fact(Skip ="History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        // [Fact(Skip ="History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        [Fact]
         public void WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithModifications_TheServerShouldOnlyCorrectResources()
         {
             var since = GetStartTimeForHistoryTest();
@@ -137,7 +138,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact(Skip = "History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        // [Fact(Skip = "History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        [Fact]
         public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeCloseToLastModifiedTime_TheServerShouldNotMissRecords()
         {
             var since = GetStartTimeForHistoryTest();
@@ -188,16 +190,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact(Skip = "History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        // [Fact(Skip = "History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        [Fact]
         public async Task WhenGettingSystemHistory_GivenAQueryThatReturnsMoreThan10Results_TheServerShouldBatchTheResponse()
         {
             // The batch test does not work reliably on local Cosmos DB Emulator
             // Skip the test if this is local
             // There is no remote FHIR server. Skip test
-            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TestEnvironmentUrl")))
-            {
-                return;
-            }
+            // if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TestEnvironmentUrl")))
+           // {
+            //    return;
+            // }
 
             var since = GetStartTimeForHistoryTest();
 
