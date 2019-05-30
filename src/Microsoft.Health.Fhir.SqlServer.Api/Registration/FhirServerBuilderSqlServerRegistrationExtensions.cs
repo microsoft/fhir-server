@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
@@ -16,6 +15,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -87,6 +87,14 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
 
             AddSqlServerTableRowParameterGenerators(services);
+
+            services.Add<NormalizedTableHandlerFactory>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<SqlRootRewriter>()
+                .Singleton()
+                .AsSelf();
 
             return fhirServerBuilder;
         }

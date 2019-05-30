@@ -12,6 +12,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -24,9 +25,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    public class SqlServerSearchService : SearchService
+    internal class SqlServerSearchService : SearchService
     {
         private readonly SqlServerFhirModel _model;
+        private readonly SqlRootRewriter _sqlRootRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
 
         public SqlServerSearchService(
@@ -35,10 +37,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             IFhirDataStore fhirDataStore,
             IModelInfoProvider modelInfoProvider,
             SqlServerFhirModel model,
+            SqlRootRewriter sqlRootRewriter,
             SqlServerDataStoreConfiguration configuration)
             : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
         {
+            EnsureArg.IsNotNull(sqlRootRewriter, nameof(sqlRootRewriter));
+
             _model = model;
+            _sqlRootRewriter = sqlRootRewriter;
             _configuration = configuration;
         }
 
@@ -65,7 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             var expression = (SqlRootExpression)searchExpression
                                  ?.AcceptVisitor(FlatteningRewriter.Instance)
-                                 ?.AcceptVisitor(ExpressionWithSqlRootRewriter.Instance)
+                                 ?.AcceptVisitor(_sqlRootRewriter)
                              ?? SqlRootExpression.WithDenormalizedPredicates();
 
             expression = (SqlRootExpression)expression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);

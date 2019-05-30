@@ -6,11 +6,8 @@
 using System;
 using System.Data.SqlClient;
 using System.Text.RegularExpressions;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -19,8 +16,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         private static readonly Regex LikeEscapingRegex = new Regex("[%!\\[\\]_]", RegexOptions.Compiled);
 
-        public SqlQueryGenerator VisitSearchParameter(SearchParameterExpression expression, SqlQueryGenerator context)
+        public virtual SqlQueryGenerator VisitSearchParameter(SearchParameterExpression expression, SqlQueryGenerator context)
         {
+            short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
+            SmallIntColumn searchParamIdColumn = V1.SearchParam.SearchParamId;
+
+            context.StringBuilder
+                .Append(searchParamIdColumn)
+                .Append(" = ")
+                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
+                .Append("AND ");
+
             return expression.Expression.AcceptVisitor(this, context);
         }
 
@@ -29,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             throw new System.NotImplementedException();
         }
 
-        public SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
+        public virtual SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
         {
             throw new System.NotSupportedException();
         }
@@ -47,14 +53,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             context.StringBuilder.AppendDelimited(
-                expression.MultiaryOperation == MultiaryOperator.And ? " AND " : " OR ",
+                sb => sb.AppendLine().Append(expression.MultiaryOperation == MultiaryOperator.And ? "AND " : "OR "),
                 expression.Expressions,
                 (sb, childExpr) => childExpr.AcceptVisitor(this, context));
 
             if (expression.MultiaryOperation == MultiaryOperator.Or)
             {
-                context.StringBuilder.AppendLine(")");
+                context.StringBuilder.Append(")");
             }
+
+            context.StringBuilder.AppendLine();
 
             return context;
         }
@@ -69,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             throw new System.NotSupportedException();
         }
 
-        public SqlQueryGenerator VisitCompartment(CompartmentSearchExpression expression, SqlQueryGenerator context)
+        public virtual SqlQueryGenerator VisitCompartment(CompartmentSearchExpression expression, SqlQueryGenerator context)
         {
             throw new System.NotSupportedException();
         }
@@ -140,11 +148,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        protected void VisitSimpleBinary(BinaryExpression expression, SqlQueryGenerator context, Column column, object value)
+        protected void VisitSimpleBinary(BinaryOperator binaryOperator, SqlQueryGenerator context, Column column, object value)
         {
             context.StringBuilder.Append(column);
 
-            VisitBinaryOperator(expression.BinaryOperator, context.StringBuilder);
+            VisitBinaryOperator(binaryOperator, context.StringBuilder);
 
             context.StringBuilder.Append(context.Parameters.AddParameter(column, value).ParameterName);
         }
@@ -155,86 +163,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             VisitStringOperator(expression.StringOperator, context, column, value);
         }
-
-        private static Column GetColumn(SearchParameterInfo searchParameterInfo, FieldName expressionFieldName)
-        {
-            switch (searchParameterInfo.Name)
-            {
-                case SearchParameterNames.Id:
-                    return V1.Resource.ResourceId;
-                case SearchParameterNames.LastUpdated:
-                    return V1.Resource.LastUpdated;
-                case SearchParameterNames.ResourceType:
-                    return V1.Resource.ResourceTypeId;
-                case SqlSearchParameters.ResourceSurrogateIdParameterName:
-                    return V1.Resource.ResourceSurrogateId;
-            }
-
-            switch (expressionFieldName)
-            {
-                case FieldName.DateTimeStart:
-                    return V1.DateTimeSearchParam.StartDateTime;
-                case FieldName.DateTimeEnd:
-                    return V1.DateTimeSearchParam.EndDateTime;
-                case FieldName.Number:
-                    return V1.NumberSearchParam.SingleValue; // TODO: low/high
-                case FieldName.ParamName:
-                    goto default;
-                case FieldName.QuantityCode:
-                    return V1.QuantitySearchParam.QuantityCodeId;
-                case FieldName.QuantitySystem:
-                    return V1.QuantitySearchParam.SystemId;
-                case FieldName.Quantity:
-                    return V1.QuantitySearchParam.SingleValue; // TODO: low/high
-                case FieldName.ReferenceBaseUri:
-                    return V1.ReferenceSearchParam.BaseUri;
-                case FieldName.ReferenceResourceType:
-                    return V1.ReferenceSearchParam.ReferenceResourceTypeId;
-                case FieldName.ReferenceResourceId:
-                    return V1.ReferenceSearchParam.ReferenceResourceId;
-                case FieldName.String:
-                    return V1.StringSearchParam.Text; // // TODO: overflow
-                case FieldName.TokenCode:
-                    return V1.TokenSearchParam.Code;
-                case FieldName.TokenSystem:
-                    return V1.TokenSearchParam.SystemId;
-                case FieldName.TokenText:
-                    return V1.TokenText.Text;
-                case FieldName.Uri:
-                    return V1.UriSearchParam.Uri;
-                case SqlFieldName.ResourceSurrogateId:
-                    return V1.Resource.ResourceSurrogateId;
-                case SqlFieldName.ResourceTypeId:
-                    return V1.Resource.ResourceTypeId;
-                case SqlFieldName.LastUpdated:
-                    return V1.Resource.LastUpdated;
-                default:
-                    throw new ArgumentOutOfRangeException(expressionFieldName.ToString());
-            }
-        }
     }
 
 #pragma warning disable SA1402 // File may only contain a single type
 
-    internal class ResourceTypeIdParameterQueryGenerator : SearchParameterQueryGenerator
+    internal class DenormalizedSearchParameterQueryGenerator : SearchParameterQueryGenerator
+    {
+        public override SqlQueryGenerator VisitSearchParameter(SearchParameterExpression expression, SqlQueryGenerator context)
+        {
+            return expression.Expression.AcceptVisitor(this, context);
+        }
+    }
+
+    internal class ResourceTypeIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
     {
         public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
         {
-            VisitSimpleBinary(expression, context, V1.Resource.ResourceTypeId, context.Model.GetResourceTypeId((string)expression.Value));
+            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceTypeId, context.Model.GetResourceTypeId((string)expression.Value));
             return context;
         }
     }
 
-    internal class ResourceSurrogateIdParameterQueryGenerator : SearchParameterQueryGenerator
+    internal class ResourceSurrogateIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
     {
         public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
         {
-            VisitSimpleBinary(expression, context, V1.Resource.ResourceSurrogateId, expression.Value);
+            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceSurrogateId, expression.Value);
             return context;
         }
     }
 
-    internal class ResourceIdParameterQueryGenerator : SearchParameterQueryGenerator
+    internal class ResourceIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
     {
         public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
         {

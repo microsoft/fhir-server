@@ -7,13 +7,15 @@ using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.NormalizedTableHandlers;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
     internal class TableExpression : Expression
     {
-        public TableExpression(Expression normalizedPredicate, Expression denormalizedPredicate = null)
+        public TableExpression(NormalizedTableHandler tableHandler, Expression normalizedPredicate, Expression denormalizedPredicate = null)
         {
+            EnsureArg.IsNotNull(tableHandler, nameof(tableHandler));
             EnsureArg.IsNotNull(normalizedPredicate, nameof(normalizedPredicate));
             switch (normalizedPredicate)
             {
@@ -25,9 +27,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
                     throw new ArgumentOutOfRangeException(nameof(normalizedPredicate));
             }
 
+            TableHandler = tableHandler;
             NormalizedPredicate = normalizedPredicate;
             DenormalizedPredicate = denormalizedPredicate;
         }
+
+        public NormalizedTableHandler TableHandler { get; }
 
         public Expression NormalizedPredicate { get; }
 
@@ -45,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            throw new NotImplementedException();
+            return $"(Table {TableHandler.Table} Normalized:{NormalizedPredicate} Denormalized:{DenormalizedPredicate})";
         }
     }
 }

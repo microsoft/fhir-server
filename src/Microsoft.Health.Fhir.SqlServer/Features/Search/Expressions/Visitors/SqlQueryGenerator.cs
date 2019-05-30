@@ -42,9 +42,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (expression.NormalizedPredicates.Count > 0)
             {
-                StringBuilder.Append(";WITH ");
+                StringBuilder.Append("WITH ");
 
-                StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.DenormalizedPredicates, (sb, tableExpression) =>
+                StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.NormalizedPredicates, (sb, tableExpression) =>
                 {
                     sb.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
@@ -53,8 +53,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         tableExpression.AcceptVisitor(this, context);
                     }
 
-                    sb.AppendLine(")");
+                    sb.Append(")");
                 });
+
+                StringBuilder.AppendLine();
             }
 
             if (searchOptions.CountOnly)
@@ -102,45 +104,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return null;
         }
 
-        private string TableExpressionName(int id)
-        {
-            return "cte" + id;
-        }
+        private string TableExpressionName(int id) => "cte" + id;
 
         public object VisitTable(TableExpression tableExpression, object context)
         {
-            throw new NotImplementedException();
+            StringBuilder.Append("SELECT ").Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
+                .Append("FROM ").AppendLine(tableExpression.TableHandler.Table);
+
+            using (var delimited = StringBuilder.DelimitWhereClause())
+            {
+                delimited.BeginDelimitedElement();
+                StringBuilder.Append("IsHistory = 0");
+
+                if (_tableExpressionCounter > 1)
+                {
+                    delimited.BeginDelimitedElement();
+                    StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT DISTINCT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(")");
+                }
+
+                if (tableExpression.DenormalizedPredicate != null)
+                {
+                    delimited.BeginDelimitedElement();
+                    tableExpression.DenormalizedPredicate?.AcceptVisitor(this, context);
+                }
+
+                if (tableExpression.NormalizedPredicate != null)
+                {
+                    delimited.BeginDelimitedElement();
+                    tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.TableHandler, this);
+                }
+            }
+
+            return null;
         }
 
         public object VisitSearchParameter(SearchParameterExpression expression, object context)
         {
             expression.AcceptVisitor(GetSearchParameterQueryGenerator(expression), this);
             return null;
-        }
-
-        public object VisitBinary(BinaryExpression expression, object context)
-        {
-            throw new NotImplementedException();
-        }
-
-        public object VisitString(StringExpression expression, object context)
-        {
-            throw new NotImplementedException();
-        }
-
-        public object VisitChained(ChainedExpression expression, object context)
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public object VisitMissingField(MissingFieldExpression expression, object context)
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public object VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
-        {
-            throw new System.NotImplementedException();
         }
 
         public object VisitMultiary(MultiaryExpression expression, object context)
@@ -163,11 +164,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return context;
         }
 
-        public object VisitCompartment(CompartmentSearchExpression expression, object context)
-        {
-            throw new System.NotImplementedException();
-        }
-
         private SearchParameterQueryGenerator GetSearchParameterQueryGenerator(SearchParameterExpressionBase searchParameter)
         {
             switch (searchParameter.Parameter.Name)
@@ -182,5 +178,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     throw new NotSupportedException(searchParameter.Parameter.Name);
             }
         }
+
+        public object VisitCompartment(CompartmentSearchExpression expression, object context) => throw new NotImplementedException();
+
+        public object VisitBinary(BinaryExpression expression, object context) => throw new NotImplementedException();
+
+        public object VisitString(StringExpression expression, object context) => throw new NotImplementedException();
+
+        public object VisitChained(ChainedExpression expression, object context) => throw new NotImplementedException();
+
+        public object VisitMissingField(MissingFieldExpression expression, object context) => throw new NotImplementedException();
+
+        public object VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context) => throw new NotImplementedException();
     }
 }

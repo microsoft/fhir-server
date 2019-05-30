@@ -5,15 +5,21 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Search;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.NormalizedTableHandlers;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    internal class ExpressionWithSqlRootRewriter : ExpressionRewriterWithDefaultInitialContext<int>
+    internal class SqlRootRewriter : ExpressionRewriterWithDefaultInitialContext<int>
     {
-        public static readonly ExpressionWithSqlRootRewriter Instance = new ExpressionWithSqlRootRewriter();
+        private readonly NormalizedTableHandlerFactory _normalizedTableHandlerFactory;
+
+        public SqlRootRewriter(NormalizedTableHandlerFactory normalizedTableHandlerFactory)
+        {
+            EnsureArg.IsNotNull(normalizedTableHandlerFactory, nameof(normalizedTableHandlerFactory));
+            _normalizedTableHandlerFactory = normalizedTableHandlerFactory;
+        }
 
         public override Expression VisitMultiary(MultiaryExpression expression, int context)
         {
@@ -28,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             for (var i = 0; i < expression.Expressions.Count; i++)
             {
                 Expression childExpression = expression.Expressions[i];
-                if (!IsResourceLevelPredicate(childExpression))
+                if (TryGetNormalizedTableHandler(childExpression, out var tableHandler))
                 {
                     if (joinedCriteria == null)
                     {
@@ -40,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         }
                     }
 
-                    joinedCriteria.Add(new TableExpression(childExpression));
+                    joinedCriteria.Add(new TableExpression(tableHandler, childExpression));
                 }
                 else
                 {
@@ -68,38 +74,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private Expression ConvertNonMultiary(Expression expression)
         {
-            return IsResourceLevelPredicate(expression)
-                ? SqlRootExpression.WithDenormalizedPredicates(expression)
-                : SqlRootExpression.WithNormalizedPredicates(new TableExpression(expression));
+            return TryGetNormalizedTableHandler(expression, out var tableHandler)
+                ? SqlRootExpression.WithNormalizedPredicates(new TableExpression(tableHandler, expression))
+                : SqlRootExpression.WithDenormalizedPredicates(expression);
         }
 
-        private static bool IsResourceLevelPredicate(Expression expression)
+        private bool TryGetNormalizedTableHandler(Expression expression, out NormalizedTableHandler tableHandler)
         {
-            switch (expression)
-            {
-                case SearchParameterExpressionBase parameterExpression:
-                    return IsResourceLevelPredicate(parameterExpression.Parameter);
-                case CompartmentSearchExpression _:
-                    return false;
-                case ChainedExpression _:
-                    throw new NotSupportedException();
-                default:
-                    throw new InvalidOperationException($"Unexpected expression {expression}");
-            }
-        }
-
-        private static bool IsResourceLevelPredicate(SearchParameterInfo searchParameterInfo)
-        {
-            switch (searchParameterInfo.Name)
-            {
-                case SearchParameterNames.Id:
-                case SearchParameterNames.LastUpdated:
-                case SearchParameterNames.ResourceType:
-                case SqlSearchParameters.ResourceSurrogateIdParameterName:
-                    return true;
-                default:
-                    return false;
-            }
+            tableHandler = expression.AcceptVisitor(_normalizedTableHandlerFactory);
+            return tableHandler != null;
         }
     }
 }
