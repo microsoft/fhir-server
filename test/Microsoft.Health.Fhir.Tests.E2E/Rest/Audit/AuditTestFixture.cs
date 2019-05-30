@@ -5,6 +5,7 @@
 
 using System;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         private TraceAuditLogger _auditLogger;
 
         public AuditTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
-            : base(dataStore, format, fhirVersion, GetStartupOverrideType(fhirVersion))
+            : base(dataStore, format, fhirVersion)
         {
         }
 
@@ -26,24 +27,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             {
                 if (_auditLogger == null)
                 {
-                    _auditLogger = (TraceAuditLogger)Server?.Host.Services.GetRequiredService<IAuditLogger>();
+                    _auditLogger = Server?.Host.Services.GetRequiredService<TraceAuditLogger>();
                 }
 
                 return _auditLogger;
             }
         }
 
-        private static Type GetStartupOverrideType(FhirVersion fhirVersion)
+        internal override Action<IServiceCollection> ConfigureServices => (services) =>
         {
-            switch (fhirVersion)
-            {
-                case FhirVersion.Stu3:
-                    return typeof(StartupWithTraceAuditLoggerStu3);
-                case FhirVersion.R4:
-                    return typeof(StartupWithTraceAuditLoggerR4);
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
+            services.Add<TraceAuditLogger>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IAuditLogger>();
+        };
     }
 }

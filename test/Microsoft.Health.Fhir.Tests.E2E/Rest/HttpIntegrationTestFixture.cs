@@ -41,12 +41,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private string _environmentUrl;
         private HttpMessageHandler _messageHandler;
 
-        public HttpIntegrationTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion, Type inProcessStartupOverride = null)
-            : this(Path.Combine("src"), dataStore, format, fhirVersion, inProcessStartupOverride)
+        public HttpIntegrationTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
+            : this(Path.Combine("src"), dataStore, format, fhirVersion)
         {
         }
 
-        protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format, FhirVersion fhirVersion, Type inProcessStartupOverride = null)
+        protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format, FhirVersion fhirVersion)
         {
             _dataStore = dataStore;
             _format = format;
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 environmentUrl = "http://localhost/";
 
-                StartInMemoryServer(targetProjectParentDirectory, dataStore, inProcessStartupOverride);
+                StartInMemoryServer(targetProjectParentDirectory, dataStore);
 
                 _messageHandler = Server.CreateHandler();
                 IsUsingInProcTestServer = true;
@@ -113,6 +113,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected TestServer Server { get; private set; }
 
+        internal virtual Action<IServiceCollection> ConfigureServices => (services) => { };
+
         public string GenerateFullUrl(string relativeUrl)
         {
             return $"{_environmentUrl}{relativeUrl}";
@@ -121,23 +123,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public HttpClient CreateHttpClient()
             => new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
-        private void StartInMemoryServer(string targetProjectParentDirectory, DataStore dataStore, Type inProcessStartupOverride = null)
+        private void StartInMemoryServer(string targetProjectParentDirectory, DataStore dataStore)
         {
-            Type startup = inProcessStartupOverride;
-
-            if (startup == null)
+            Type startup;
+            switch (_fhirVersion)
             {
-                switch (_fhirVersion)
-                {
-                    case FhirVersion.Stu3:
-                        startup = typeof(WebStu3::Microsoft.Health.Fhir.Web.Startup);
-                        break;
-                    case FhirVersion.R4:
-                        startup = typeof(WebR4::Microsoft.Health.Fhir.Web.Startup);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
+                case FhirVersion.Stu3:
+                    startup = typeof(WebStu3::Microsoft.Health.Fhir.Web.Startup);
+                    break;
+                case FhirVersion.R4:
+                    startup = typeof(WebR4::Microsoft.Health.Fhir.Web.Startup);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
 
             var contentRoot = GetProjectPath(targetProjectParentDirectory, startup);
@@ -162,6 +160,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UseStartup(startup)
                 .ConfigureServices(serviceCollection =>
                 {
+                    ConfigureServices.Invoke(serviceCollection);
+
                     // ensure that HttpClients
                     // use a message handler for the test server
                     serviceCollection
