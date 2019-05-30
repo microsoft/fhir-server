@@ -125,14 +125,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
             return await CreateResourceElementResponseAsync<T>(response);
         }
 
-        public Task<FhirResponse<T>> ReadAsync<T>(ResourceType resourceType, string resourceId)
-            where T : Resource
+        public Task<FhirResponse<T>> ReadAsync<T>(string resourceType, string resourceId)
+            where T : ResourceElement
         {
             return ReadAsync<T>($"{resourceType}/{resourceId}");
         }
 
         public async Task<FhirResponse<T>> ReadAsync<T>(string uri)
-            where T : Resource
+            where T : ResourceElement
         {
             var message = new HttpRequestMessage(HttpMethod.Get, uri);
             message.Headers.Accept.Add(_mediaType);
@@ -141,11 +141,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResponseAsync<T>(response);
+            return await CreateResourceElementResponseAsync<T>(response);
         }
 
-        public Task<FhirResponse<T>> VReadAsync<T>(ResourceType resourceType, string resourceId, string versionId)
-            where T : Resource
+        public Task<FhirResponse<T>> VReadAsync<T>(string resourceType, string resourceId, string versionId)
+            where T : ResourceElement
         {
             return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}");
         }
@@ -180,9 +180,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
         }
 
         public Task<FhirResponse> DeleteAsync<T>(T resource)
-            where T : Resource
+            where T : ResourceElement
         {
-            return DeleteAsync($"{resource.ResourceType}/{resource.Id}");
+            return DeleteAsync($"{resource.InstanceType}/{resource.Id}");
         }
 
         public async Task<FhirResponse> DeleteAsync(string uri)
@@ -198,12 +198,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
         }
 
         public Task<FhirResponse> HardDeleteAsync<T>(T resource)
-            where T : Resource
+            where T : ResourceElement
         {
-            return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true");
+            return DeleteAsync($"{resource.InstanceType}/{resource.Id}?hardDelete=true");
         }
 
-        public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null)
+        public Task<FhirResponse<ResourceElement>> SearchAsync(ResourceType resourceType, string query = null, int? count = null)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
             return SearchAsync(sb.ToString());
         }
 
-        public async Task<FhirResponse<Bundle>> SearchAsync(string url)
+        public async Task<FhirResponse<ResourceElement>> SearchAsync(string url)
         {
             var message = new HttpRequestMessage(HttpMethod.Get, url);
             message.Headers.Accept.Add(_mediaType);
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResponseAsync<Bundle>(response);
+            return await CreateResourceElementResponseAsync<ResourceElement>(response);
         }
 
         public async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, params (string key, string value)[] body)
@@ -376,8 +376,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
 
         public async Task GetSecuritySettings(string fhirServerMetadataUrl)
         {
-            FhirResponse<CapabilityStatement> readResponse = await ReadAsync<CapabilityStatement>(fhirServerMetadataUrl);
-            var metadata = readResponse.Resource;
+            FhirResponse<ResourceElement> readResponse = await ReadAsync<ResourceElement>(fhirServerMetadataUrl);
+
+            var metadata = readResponse.Resource.ToPoco<CapabilityStatement>();
 
             foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))
             {

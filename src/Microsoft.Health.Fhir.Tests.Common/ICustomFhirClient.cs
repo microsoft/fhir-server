@@ -31,14 +31,14 @@ namespace Microsoft.Health.Fhir.Tests.Common
         Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource)
             where T : ResourceElement;
 
-        ////Task<FhirResponse<T>> ReadAsync<T>(ResourceType resourceType, string resourceId)
-        ////    where T : Resource;
+        Task<FhirResponse<T>> ReadAsync<T>(string resourceType, string resourceId)
+            where T : ResourceElement;
 
         ////Task<FhirResponse<T>> ReadAsync<T>(string uri)
         ////    where T : Resource;
 
-        ////Task<FhirResponse<T>> VReadAsync<T>(ResourceType resourceType, string resourceId, string versionId)
-        ////    where T : Resource;
+        Task<FhirResponse<T>> VReadAsync<T>(string resourceType, string resourceId, string versionId)
+            where T : ResourceElement;
 
         Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null)
             where T : ResourceElement;
@@ -46,17 +46,17 @@ namespace Microsoft.Health.Fhir.Tests.Common
         Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)
             where T : ResourceElement;
 
-        ////Task<FhirResponse> DeleteAsync<T>(T resource)
-        ////    where T : Resource;
+        Task<FhirResponse> DeleteAsync<T>(T resource)
+            where T : ResourceElement;
 
         ////Task<FhirResponse> DeleteAsync(string uri);
 
-        ////Task<FhirResponse> HardDeleteAsync<T>(T resource)
-        ////    where T : Resource;
+        Task<FhirResponse> HardDeleteAsync<T>(T resource)
+            where T : ResourceElement;
 
         ////Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null);
 
-        ////Task<FhirResponse<Bundle>> SearchAsync(string url);
+        Task<FhirResponse<ResourceElement>> SearchAsync(string url);
 
         ////Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, params (string key, string value)[] body);
 
