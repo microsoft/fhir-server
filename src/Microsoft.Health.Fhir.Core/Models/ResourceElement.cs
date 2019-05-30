@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
@@ -61,6 +63,18 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             object scalar = Instance.Scalar(fhirPath, _context.Value);
             return (T)scalar;
+        }
+
+        public bool IsDomainResource()
+        {
+            var nonDomainTypes = new List<string>
+            {
+                "Bundle",
+                "Parameters",
+                "Binary",
+            };
+
+            return !nonDomainTypes.Contains(InstanceType, StringComparer.OrdinalIgnoreCase);
         }
     }
 }

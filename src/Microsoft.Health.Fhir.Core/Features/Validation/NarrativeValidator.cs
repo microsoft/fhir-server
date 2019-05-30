@@ -8,8 +8,7 @@ using System.Linq;
 using EnsureThat;
 using FluentValidation.Results;
 using FluentValidation.Validators;
-using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
@@ -31,19 +30,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
             if (context.PropertyValue is ResourceElement resourceElement)
             {
-                var poco = resourceElement.ToPoco();
-
-                if (poco is DomainResource resource)
+                if (resourceElement.IsDomainResource())
                 {
-                    foreach (ValidationFailure validationFailure in ValidateResource(resource))
+                    foreach (ValidationFailure validationFailure in ValidateResource(resourceElement))
                     {
                         yield return validationFailure;
                     }
                 }
-
-                if (poco is Bundle bundle)
+                else if (resourceElement.InstanceType.Equals("Bundle", System.StringComparison.OrdinalIgnoreCase))
                 {
-                    var domainResources = bundle.Entry.Select(x => x.Resource).OfType<DomainResource>();
+                    var domainResources = resourceElement.Instance.Select("Bundle.entry.resource")
+                        .Select(e => new ResourceElement(e)).Where(r => r.IsDomainResource());
 
                     foreach (ValidationFailure validationFailure in domainResources.SelectMany(ValidateResource))
                     {
@@ -53,28 +50,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             }
         }
 
-        private IEnumerable<ValidationFailure> ValidateResource(DomainResource domainResource)
+        private IEnumerable<ValidationFailure> ValidateResource(ResourceElement domainResource)
         {
             EnsureArg.IsNotNull(domainResource, nameof(domainResource));
 
-            if (string.IsNullOrEmpty(domainResource.Text?.Div))
+            string propertyName = "text.div";
+
+            var xhtml = domainResource.Scalar<string>(propertyName);
+            if (string.IsNullOrEmpty(xhtml))
             {
                 yield break;
             }
 
-            var errors = _narrativeHtmlSanitizer.Validate(domainResource.Text.Div);
-            string propertyName = $"{domainResource.TypeName}.Text.Div";
+            var errors = _narrativeHtmlSanitizer.Validate(xhtml);
+            var fullPropertyName = domainResource.InstanceType + "." + propertyName;
 
             foreach (var error in errors)
             {
                 yield return new FhirValidationFailure(
-                    propertyName,
+                    fullPropertyName,
                     error,
                     new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueType.Structure,
                         OperationOutcomeConstants.IssueSeverity.Error,
                         error,
-                        location: new[] { propertyName }));
+                        location: new[] { fullPropertyName }));
             }
         }
     }
