@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -16,7 +15,7 @@ using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Compartment
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
 {
     public class SearchCompartmentHandlerTests
     {

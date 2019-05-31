@@ -3,185 +3,148 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-////using System;
-////using System.Collections.Generic;
-////using System.Net.Http;
-////using System.Threading;
-////using System.Threading.Tasks;
-////using Hl7.Fhir.Serialization;
-////using Microsoft.Health.Fhir.Core.Features.Context;
-////using Microsoft.Health.Fhir.Core.Features.Persistence;
-////using Microsoft.Health.Fhir.Core.Features.Routing;
-////using Microsoft.Health.Fhir.Core.Features.Search;
-////using Microsoft.Health.Fhir.Core.Models;
-////using NSubstitute;
-////using Xunit;
-////using Task = System.Threading.Tasks.Task;
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
+using NSubstitute;
+using Xunit;
+using Task = System.Threading.Tasks.Task;
 
-////namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
-////{
-////    public class SearchServiceTests
-////    {
-////        private static readonly Uri SearchUrl = new Uri("http://test");
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
+{
+    public class SearchServiceTests
+    {
+        private static readonly Uri SearchUrl = new Uri("http://test");
 
-////        private readonly ISearchOptionsFactory _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
+        private readonly ISearchOptionsFactory _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
+        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
 
-////        private readonly TestSearchService _searchService;
-////        private readonly RawResourceFactory _rawResourceFactory;
-////        private readonly ResourceRequest _resourceRequest = new ResourceRequest("http://fhir", HttpMethod.Post);
-////        private readonly string _correlationId;
-////        private readonly IFhirDataStore _fhirDataStore;
+        private readonly TestSearchService _searchService;
+        private readonly RawResourceFactory _rawResourceFactory;
+        private readonly ResourceRequest _resourceRequest = new ResourceRequest("http://fhir", HttpMethod.Post);
 
-////        public SearchServiceTests()
-////        {
-////            _fhirDataStore = Substitute.For<IFhirDataStore>();
+        private readonly IReadOnlyList<Tuple<string, string>> _queryParameters = new Tuple<string, string>[0];
+        private readonly IReadOnlyList<Tuple<string, string>> _unsupportedQueryParameters = new Tuple<string, string>[0];
 
-////            _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
-////                .Returns(x => new SearchOptions());
+        public SearchServiceTests()
+        {
+            _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
+                .Returns(x => new SearchOptions());
 
-////            _searchService = new TestSearchService(_searchOptionsFactory, _fhirDataStore, ModelInfoProvider.Instance);
-////            _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
-////        }
+            _searchService = new TestSearchService(_searchOptionsFactory, _fhirDataStore, ModelInfoProvider.Instance);
+            _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+        }
 
-////        [Fact]
-////        public async Task GivenAnySearching_WhenSearched_ThenSelfLinkShouldBeReturned()
-////        {
-////            const string resourceType = "Patient";
+        [Fact]
+        public async Task GivenSearching_WhenSearched_ThenCorrectOptionIsUsedAndCorrectSearchResultsReturned()
+        {
+            const string resourceType = "Patient";
 
-////            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null, null);
+            var expectedSearchOptions = new SearchOptions();
 
-////            SearchResult actual = await _searchService.SearchAsync(resourceType, null, CancellationToken.None);
+            _searchOptionsFactory.Create(resourceType, _queryParameters).Returns(expectedSearchOptions);
 
-////            Assert.NotNull(actual);
-////        }
+            var expectedSearchResult = new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, null);
 
-////        [Fact]
-////        public async Task GivenNoMatch_WhenSearching_ThenSearchReturnsEmptyBundle()
-////        {
-////            const string resourceType = "Patient";
+            _searchService.SearchImplementation = options =>
+            {
+                Assert.Same(expectedSearchOptions, options);
 
-////            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
+                return expectedSearchResult;
+            };
 
-////            var actual = await _searchService.SearchAsync(resourceType, null);
+            SearchResult actual = await _searchService.SearchAsync(resourceType, _queryParameters, CancellationToken.None);
 
-////            Assert.NotNull(actual);
-////            Assert.Equal(Bundle.BundleType.Searchset.ToString().ToLowerInvariant(), actual.Scalar<string>("Bundle.type"));
-////            Assert.Equal(_correlationId.ToString(), actual.Id);
-////        }
+            Assert.Same(expectedSearchResult, actual);
+        }
 
-////        [Fact]
-////        public async Task GivenMatches_WhenSearching_ThenSearchReturnsBundleWithResults()
-////        {
-////            const string resourceType = "Observation";
+        [Fact]
+        public async Task GivenCompartmentSearching_WhenSearched_ThenCorrectOptionIsUsedAndCorrectSearchResultsReturned()
+        {
+            const string compartmentType = "Patient";
+            const string compartmentId = "123";
+            const string resourceType = "Observation";
 
-////            var observation1 = new Observation() { Id = "123" }.ToResourceElement();
-////            var observation2 = new Observation() { Id = "abc" }.ToResourceElement();
+            var expectedSearchOptions = new SearchOptions();
 
-////            ResourceWrapper[] resourceWrappers = new ResourceWrapper[]
-////            {
-////                new ResourceWrapper(observation1, _rawResourceFactory.Create(observation1), _resourceRequest, false, null, null, null),
-////                new ResourceWrapper(observation2, _rawResourceFactory.Create(observation2), _resourceRequest, false, null, null, null),
-////            };
+            _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, _queryParameters).Returns(expectedSearchOptions);
 
-////            _searchService.SearchImplementation = options => new SearchResult(resourceWrappers, null);
+            var expectedSearchResult = new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, null);
 
-////            _urlResolver.ResolveResourceUrl(Arg.Any<ResourceElement>()).Returns(x => new Uri($"{SearchUrl}/{x.ArgAt<ResourceElement>(0).Id}"));
+            _searchService.SearchImplementation = options =>
+            {
+                Assert.Same(expectedSearchOptions, options);
 
-////            var actual = await _searchService.SearchAsync(resourceType, null);
+                return expectedSearchResult;
+            };
 
-////            Assert.NotNull(actual);
-////            var bundle = actual.ToPoco<Bundle>();
+            SearchResult actual = await _searchService.SearchCompartmentAsync(compartmentType, compartmentId, resourceType, _queryParameters, CancellationToken.None);
 
-////            Assert.Collection(
-////                bundle.Entry,
-////                e => ValidateEntry(observation1.ToPoco<Observation>(), e),
-////                e => ValidateEntry(observation2.ToPoco<Observation>(), e));
-////            Assert.Equal(Bundle.BundleType.Searchset, bundle.Type);
-////            Assert.Equal(_correlationId, actual.Id);
+            Assert.Same(expectedSearchResult, actual);
+        }
 
-////            void ValidateEntry(Observation expected, Bundle.EntryComponent actualEntry)
-////            {
-////                Assert.NotNull(actualEntry);
-////                Assert.NotNull(actualEntry.Resource);
-////                Assert.Equal(expected.Id, actualEntry.Resource.Id);
-////                Assert.Equal($"{SearchUrl}/{expected.Id}", actualEntry.FullUrl);
-////                Assert.NotNull(actualEntry.Search);
-////                Assert.Equal(Bundle.SearchEntryMode.Match, actualEntry.Search.Mode);
-////            }
-////        }
+        [Fact]
+        public async Task GivenAMissingResourceId_WhenSearchingHistory_ThenAResourceNotFoundExceptionIsThrown()
+        {
+            const string resourceType = "Observation";
+            const string resourceId = "abc";
 
-////        [Fact]
-////        public async Task GivenMoreMatchesAvailable_WhenSearching_ThenSearchReturnsBundleWithNextLink()
-////        {
-////            const string resourceType = "Observation";
-////            const string searchToken = "abc";
-////            Uri continuationLink = new Uri($"http://{searchToken}");
+            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, null);
 
-////            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], searchToken);
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, CancellationToken.None));
+        }
 
-////            _urlResolver.ResolveRouteUrl(unsupportedSearchParams: null, continuationToken: searchToken).Returns(continuationLink);
+        [Fact]
+        public async Task GivenResourceId_WhenSearchingHistoryWithSinceButNoResults_ThenBundleIsReturned()
+        {
+            const string resourceType = "Observation";
+            const string resourceId = "abc";
 
-////            var actual = await _searchService.SearchAsync(resourceType, null);
+            var observation = new Observation { Id = resourceId }.ToResourceElement();
 
-////            Assert.NotNull(actual);
-////            Assert.Equal(continuationLink.ToString(), actual.Scalar<string>("Bundle.link.where(relation='next').url"));
-////            Assert.Equal(_correlationId, actual.Id);
-////        }
+            var resourceWrapper =
+                new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
+            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, null);
 
-////        [Fact]
-////        public async Task GivenAMissingResourceId_WhenSearchingHistory_ThenAResourceNotFoundExceptionIsThrown()
-////        {
-////            const string resourceType = "Observation";
-////            const string resourceId = "abc";
+            _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
 
-////            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
+            SearchResult searchResult = await _searchService.SearchHistoryAsync(resourceType, resourceId, PartialDateTime.Parse("2018"), null, null, null, null, CancellationToken.None);
 
-////            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, CancellationToken.None));
-////        }
+            Assert.Empty(searchResult.Results);
+        }
 
-////        [Fact]
-////        public async Task GivenResourceId_WhenSearchingHistoryWithSinceButNoResults_ThenBundleIsReturned()
-////        {
-////            const string resourceType = "Observation";
-////            const string resourceId = "abc";
+        private class TestSearchService : SearchService
+        {
+            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
+                : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
+            {
+                SearchImplementation = options => null;
+            }
 
-////            var observation = new Observation { Id = resourceId }.ToResourceElement();
+            public Func<SearchOptions, SearchResult> SearchImplementation { get; set; }
 
-////            var resourceWrapper =
-////                new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
-////            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], null);
-////            _urlResolver.ResolveRouteUrl(Arg.Any<IEnumerable<Tuple<string, string>>>()).Returns(new Uri("http://narwhal"));
+            protected override Task<SearchResult> SearchInternalAsync(
+                SearchOptions searchOptions,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(SearchImplementation(searchOptions));
+            }
 
-////            _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
-
-////            var bundle = await _searchService.SearchHistoryAsync(resourceType, resourceId, PartialDateTime.Parse("2018"), null, null, null, null, CancellationToken.None);
-
-////            Assert.Empty(bundle.ToPoco<Bundle>().Entry);
-////        }
-
-////        private class TestSearchService : SearchService
-////        {
-////            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
-////                : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
-////            {
-////                SearchImplementation = options => null;
-////            }
-
-////            public Func<SearchOptions, SearchResult> SearchImplementation { get; set; }
-
-////            protected override Task<SearchResult> SearchInternalAsync(
-////                SearchOptions searchOptions,
-////                CancellationToken cancellationToken)
-////            {
-////                return Task.FromResult(SearchImplementation(searchOptions));
-////            }
-
-////            protected override Task<SearchResult> SearchHistoryInternalAsync(
-////                SearchOptions searchOptions,
-////                CancellationToken cancellationToken)
-////            {
-////                return Task.FromResult(SearchImplementation(searchOptions));
-////            }
-////        }
-////    }
-////}
+            protected override Task<SearchResult> SearchHistoryInternalAsync(
+                SearchOptions searchOptions,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(SearchImplementation(searchOptions));
+            }
+        }
+    }
+}
