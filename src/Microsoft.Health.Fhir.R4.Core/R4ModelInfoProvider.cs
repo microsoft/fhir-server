@@ -36,6 +36,11 @@ namespace Microsoft.Health.Fhir.Core
             return Enum.GetNames(typeof(ResourceType));
         }
 
+        public string[] GetCompartmentTypeNames()
+        {
+            return Enum.GetNames(typeof(CompartmentType));
+        }
+
         public Type GetTypeForFhirType(string resourceType)
         {
             return ModelInfo.GetTypeForFhirType(resourceType);

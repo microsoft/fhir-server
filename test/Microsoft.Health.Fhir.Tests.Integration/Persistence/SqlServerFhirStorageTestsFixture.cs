@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -51,8 +52,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new[]
             {
-                new SearchParameter { Id = SearchParameterNames.Id, Url = SearchParameterNames.IdUri.ToString() },
-                new SearchParameter { Id = SearchParameterNames.LastUpdated, Url = SearchParameterNames.LastUpdatedUri.ToString() },
+                new SearchParameter { Name = SearchParameterNames.Id, Url = SearchParameterNames.IdUri.ToString() }.ToInfo(),
+                new SearchParameter { Name = SearchParameterNames.LastUpdated, Url = SearchParameterNames.LastUpdatedUri.ToString() }.ToInfo(),
             });
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };

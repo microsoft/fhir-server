@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         string[] GetResourceTypeNames();
 
+        string[] GetCompartmentTypeNames();
+
         Type GetTypeForFhirType(string resourceType);
 
         EvaluationContext GetEvaluationContext(ITypedElement element);

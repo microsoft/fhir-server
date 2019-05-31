@@ -102,7 +102,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 searchParam.Name,
                 string.IsNullOrEmpty(searchParam.Url) ? null : new Uri(searchParam.Url),
                 searchParam.Type?.ToString(),
-                searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri())).ToArray());
+                searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri(), x.Expression)).ToArray(),
+                searchParam.Expression,
+                searchParam.Target?.Select(x => x?.ToString()).ToArray());
+        }
+
+        public static ValueSets.SearchParamType ToValueSet(this SearchParamType searchParam)
+        {
+            return Enum.Parse<ValueSets.SearchParamType>(searchParam.ToString());
         }
     }
 }
