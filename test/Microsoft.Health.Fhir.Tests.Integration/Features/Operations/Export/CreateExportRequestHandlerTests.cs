@@ -158,9 +158,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [Fact]
         public async Task GivenDestinationTypeOrDestinationConnectionSettings_WhenCreatingAnExportJob_ThenItShouldBeRemovedFromRequestUri()
         {
-            const string baseUrl = "http://localhost/$export?_count=100";
+            const string baseUrlFormat = "http://localhost/$export?_count=100{0}&_another=123";
 
-            var requestUri = new Uri($"{baseUrl}&_destinationType=type&_destinationConnectionSettings=settings");
+            var requestUri = new Uri(string.Format(baseUrlFormat, "&_destinationType=type&_destinationConnectionSettings=settings"));
 
             var request = new CreateExportRequest(requestUri, DestinationType, ConnectionString);
 
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(response.JobId, CancellationToken.None);
 
-            Assert.Equal(new Uri(baseUrl), outcome.JobRecord.RequestUri);
+            Assert.Equal(new Uri(string.Format(baseUrlFormat, string.Empty)), outcome.JobRecord.RequestUri);
         }
 
         private class MockClaimsExtractor : IClaimsExtractor
