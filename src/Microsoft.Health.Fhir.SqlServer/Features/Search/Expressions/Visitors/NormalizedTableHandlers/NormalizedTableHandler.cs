@@ -5,6 +5,7 @@
 
 using System;
 using System.Diagnostics;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -49,13 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
 
         public override SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
         {
-            if (expression.FieldName != FieldName.TokenSystem)
-            {
-                throw new InvalidOperationException($"Unexpected missing field {expression.FieldName}");
-            }
-
-            context.StringBuilder.Append(V1.TokenSearchParam.SystemId).Append(" IS NULL");
-            return context;
+            return VisitMissingFieldImpl(expression, context, FieldName.TokenSystem, V1.TokenSearchParam.SystemId);
         }
 
         public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
@@ -90,9 +85,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         }
     }
 
-    internal class DateNormalizedTableHandler : NormalizedTableHandler
+    internal class DateTimeNormalizedTableHandler : NormalizedTableHandler
     {
-        public static readonly DateNormalizedTableHandler Instance = new DateNormalizedTableHandler();
+        public static readonly DateTimeNormalizedTableHandler Instance = new DateTimeNormalizedTableHandler();
 
         public override Table Table => V1.DateTimeSearchParam;
 
@@ -111,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            return VisitSimpleBinary(expression.BinaryOperator, context, column, expression.ComponentIndex, expression.Value);
+            return VisitSimpleBinary(expression.BinaryOperator, context, column, expression.ComponentIndex, ((DateTimeOffset)expression.Value).UtcDateTime);
         }
     }
 
@@ -210,34 +205,100 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
 
     internal abstract class CompositeNormalizedTableHandler : NormalizedTableHandler
     {
+        private readonly NormalizedTableHandler[] _componentHandlers;
+
+        protected CompositeNormalizedTableHandler(params NormalizedTableHandler[] componentHandlers)
+        {
+            EnsureArg.IsNotNull(componentHandlers, nameof(componentHandlers));
+            _componentHandlers = componentHandlers;
+        }
+
         public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
         {
-            return expression.AcceptVisitor(GetComponentHandler((int)expression.ComponentIndex), context);
+            return expression.AcceptVisitor(_componentHandlers[(int)expression.ComponentIndex], context);
         }
 
         public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
         {
-            return expression.AcceptVisitor(GetComponentHandler((int)expression.ComponentIndex), context);
+            return expression.AcceptVisitor(_componentHandlers[(int)expression.ComponentIndex], context);
         }
 
         public override SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
         {
-            return expression.AcceptVisitor(GetComponentHandler((int)expression.ComponentIndex), context);
+            return expression.AcceptVisitor(_componentHandlers[(int)expression.ComponentIndex], context);
         }
-
-        protected abstract NormalizedTableHandler GetComponentHandler(int componentIndex);
     }
 
     internal class TokenQuantityCompositeNormalizedTableHandler : CompositeNormalizedTableHandler
     {
         public static readonly TokenQuantityCompositeNormalizedTableHandler Instance = new TokenQuantityCompositeNormalizedTableHandler();
 
-        public override Table Table => V1.TokenQuantityCompositeSearchParam;
-
-        protected override NormalizedTableHandler GetComponentHandler(int componentIndex)
+        public TokenQuantityCompositeNormalizedTableHandler()
+            : base(TokenNormalizedTableHandler.Instance, QuantityNormalizedTableHandler.Instance)
         {
-            return componentIndex == 0 ? (NormalizedTableHandler)TokenNormalizedTableHandler.Instance : QuantityNormalizedTableHandler.Instance;
         }
+
+        public override Table Table => V1.TokenQuantityCompositeSearchParam;
+    }
+
+    internal class ReferenceTokenCompositeNormalizedTableHandler : CompositeNormalizedTableHandler
+    {
+        public static readonly ReferenceTokenCompositeNormalizedTableHandler Instance = new ReferenceTokenCompositeNormalizedTableHandler();
+
+        public ReferenceTokenCompositeNormalizedTableHandler()
+            : base(ReferenceNormalizedTableHandler.Instance, TokenNormalizedTableHandler.Instance)
+        {
+        }
+
+        public override Table Table => V1.ReferenceTokenCompositeSearchParam;
+    }
+
+    internal class TokenTokenCompositeNormalizedTableHandler : CompositeNormalizedTableHandler
+    {
+        public static readonly TokenTokenCompositeNormalizedTableHandler Instance = new TokenTokenCompositeNormalizedTableHandler();
+
+        public TokenTokenCompositeNormalizedTableHandler()
+            : base(TokenNormalizedTableHandler.Instance, TokenNormalizedTableHandler.Instance)
+        {
+        }
+
+        public override Table Table => V1.TokenTokenCompositeSearchParam;
+    }
+
+    internal class TokenDateTimeCompositeNormalizedTableHandler : CompositeNormalizedTableHandler
+    {
+        public static readonly TokenDateTimeCompositeNormalizedTableHandler Instance = new TokenDateTimeCompositeNormalizedTableHandler();
+
+        public TokenDateTimeCompositeNormalizedTableHandler()
+            : base(TokenNormalizedTableHandler.Instance, DateTimeNormalizedTableHandler.Instance)
+        {
+        }
+
+        public override Table Table => V1.TokenDateTimeCompositeSearchParam;
+    }
+
+    internal class TokenStringCompositeNormalizedTableHandler : CompositeNormalizedTableHandler
+    {
+        public static readonly TokenStringCompositeNormalizedTableHandler Instance = new TokenStringCompositeNormalizedTableHandler();
+
+        public TokenStringCompositeNormalizedTableHandler()
+            : base(TokenNormalizedTableHandler.Instance, StringNormalizedTableHandler.Instance)
+        {
+        }
+
+        public override Table Table => V1.TokenStringCompositeSearchParam;
+    }
+
+    internal class TokenNumberNumberNormalizedTableHandler : CompositeNormalizedTableHandler
+    {
+        public static readonly TokenNumberNumberNormalizedTableHandler Instance = new TokenNumberNumberNormalizedTableHandler();
+
+        public TokenNumberNumberNormalizedTableHandler()
+            : base(TokenNormalizedTableHandler.Instance, NumberNormalizedTableHandler.Instance, NumberNormalizedTableHandler.Instance)
+        {
+        }
+
+        public override Table Table => V1.TokenStringCompositeSearchParam;
     }
 
 #pragma warning restore SA1402 // File may only contain a single type

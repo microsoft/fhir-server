@@ -40,9 +40,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             throw new System.NotSupportedException();
         }
 
-        public SqlQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, SqlQueryGenerator context)
+        public virtual SqlQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, SqlQueryGenerator context)
         {
-            throw new System.NotImplementedException();
+            short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
+            SmallIntColumn searchParamIdColumn = V1.SearchParam.SearchParamId;
+
+            context.StringBuilder
+                .Append(searchParamIdColumn)
+                .Append(" = ")
+                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName);
+
+            return context;
         }
 
         public SqlQueryGenerator VisitMultiary(MultiaryExpression expression, SqlQueryGenerator context)
@@ -188,14 +196,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             return expression.Expression.AcceptVisitor(this, context);
         }
+
+        public override SqlQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, SqlQueryGenerator context)
+        {
+            context.StringBuilder.Append(expression.IsMissing ? " 1 = 0 " : " 1 = 1 ");
+            return context;
+        }
     }
 
     internal class ResourceTypeIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
     {
-        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
         {
-            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceTypeId, expression.ComponentIndex, context.Model.GetResourceTypeId((string)expression.Value));
-            return context;
+            return VisitSimpleBinary(BinaryOperator.Equal, context, V1.Resource.ResourceTypeId, expression.ComponentIndex, context.Model.GetResourceTypeIdOrInvalidIfNotRecognized(expression.Value));
         }
     }
 

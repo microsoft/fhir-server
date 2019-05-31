@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (!string.IsNullOrWhiteSpace(resourceType))
             {
-                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, resourceType)));
+                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
             searchExpressions.AddRange(searchParams.Parameters.Select(

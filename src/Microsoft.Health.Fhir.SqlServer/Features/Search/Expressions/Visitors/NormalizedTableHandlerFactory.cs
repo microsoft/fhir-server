@@ -45,9 +45,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private NormalizedTableHandler VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
         {
+            switch (searchParameterInfo.Name)
+            {
+                case SearchParameterNames.Id:
+                case SearchParameterNames.LastUpdated:
+                case SearchParameterNames.ResourceType:
+                case SqlSearchParameters.ResourceSurrogateIdParameterName:
+                    return null;
+            }
+
             if (childExpression != null)
             {
-                if (searchParameterInfo.Name == SearchParamType.Token)
+                if (searchParameterInfo.Type == SearchParamType.Token)
                 {
                     // could be Token or TokenText
                     return childExpression.AcceptVisitor(this, context);
@@ -64,21 +73,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             NormalizedTableHandler NormalizedTableHandler(SearchParameterInfo param)
             {
-                switch (param.Name)
-                {
-                    case SearchParameterNames.Id:
-                    case SearchParameterNames.LastUpdated:
-                    case SearchParameterNames.ResourceType:
-                    case SqlSearchParameters.ResourceSurrogateIdParameterName:
-                        return null;
-                }
-
                 switch (param.Type)
                 {
                     case SearchParamType.Token:
                         return TokenNormalizedTableHandler.Instance;
                     case SearchParamType.Date:
-                        return DateNormalizedTableHandler.Instance;
+                        return DateTimeNormalizedTableHandler.Instance;
                     case SearchParamType.Number:
                         return NumberNormalizedTableHandler.Instance;
                     case SearchParamType.Quantity:
@@ -94,6 +94,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, QuantitySearchValue>))
                         {
                             return TokenQuantityCompositeNormalizedTableHandler.Instance;
+                        }
+
+                        if (searchValueType == typeof(ValueTuple<ReferenceSearchValue, TokenSearchValue>))
+                        {
+                            return ReferenceTokenCompositeNormalizedTableHandler.Instance;
+                        }
+
+                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, TokenSearchValue>))
+                        {
+                            return TokenTokenCompositeNormalizedTableHandler.Instance;
+                        }
+
+                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, DateTimeSearchValue>))
+                        {
+                            return TokenDateTimeCompositeNormalizedTableHandler.Instance;
+                        }
+
+                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, StringSearchValue>))
+                        {
+                            return TokenStringCompositeNormalizedTableHandler.Instance;
+                        }
+
+                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, NumberSearchValue, NumberSearchValue>))
+                        {
+                            return TokenNumberNumberNormalizedTableHandler.Instance;
                         }
 
                         throw new InvalidOperationException($"Unexpected composite search parameter {param.Url}");

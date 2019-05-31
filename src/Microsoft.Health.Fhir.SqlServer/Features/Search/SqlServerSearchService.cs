@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
                     // TODO: respect order by when implemented
-                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token));
+                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, Expression.GreaterThanOrEqual(SqlFieldName.ResourceSurrogateId, null, token));
                     searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
                 }
                 else
@@ -112,10 +113,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     _logger.LogInformation(sb.ToString());
 
-                    using (var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken))
+                    using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
-                        List<ResourceWrapper> resources = new List<ResourceWrapper>(searchOptions.MaxItemCount);
-                        long? lastSurrogateId = null;
+                        if (searchOptions.CountOnly)
+                        {
+                            await reader.ReadAsync(cancellationToken);
+                            return new SearchResult(Array.Empty<ResourceWrapper>(), null) { TotalCount = reader.GetInt32(0) };
+                        }
+
+                        var resources = new List<ResourceWrapper>(searchOptions.MaxItemCount);
+                        long? newContinuationId = null;
+
                         while (await reader.ReadAsync(cancellationToken))
                         {
                             (short resourceTypeId, string resourceId, int version, bool isHistory, bool isDeleted, long resourceSurrogateId, DateTime lastUpdated, string requestMethod, Stream rawResourceStream) = reader.ReadRow(
@@ -129,7 +137,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 V1.Resource.RequestMethod,
                                 V1.Resource.RawResource);
 
-                            lastSurrogateId = resourceSurrogateId;
+                            if (resources.Count == searchOptions.MaxItemCount)
+                            {
+                                newContinuationId = resourceSurrogateId;
+                                break;
+                            }
+
                             string rawResource;
 
                             using (rawResourceStream)
@@ -154,7 +167,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         await reader.NextResultAsync(cancellationToken);
 
-                        return new SearchResult(resources, lastSurrogateId?.ToString(CultureInfo.InvariantCulture));
+                        return new SearchResult(resources, newContinuationId?.ToString(CultureInfo.InvariantCulture));
                     }
                 }
             }
