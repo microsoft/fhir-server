@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _claimsExtractor.Extract().Returns(Claims);
 
-            _auditHelper = new AuditHelper(_actionDescriptorCollectionProvider, _fhirRequestContextAccessor, _claimsExtractor, new List<IAuditLogger> { _auditLogger }, NullLogger<AuditHelper>.Instance);
+            _auditHelper = new AuditHelper(_actionDescriptorCollectionProvider, _fhirRequestContextAccessor, _claimsExtractor, _auditLogger, NullLogger<AuditHelper>.Instance);
 
             ((IStartable)_auditHelper).Start();
         }

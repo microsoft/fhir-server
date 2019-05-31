@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _correlationId = Guid.NewGuid().ToString();
             _fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(_correlationId);
 
-            _filter = new SmartOnFhirAuditLoggingFilterAttribute(Action, new List<IAuditLogger> { _auditLogger }, _fhirRequestContextAccessor);
+            _filter = new SmartOnFhirAuditLoggingFilterAttribute(Action, _auditLogger, _fhirRequestContextAccessor);
             _auditLogger.LogAudit(Arg.Any<AuditAction>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Uri>(), Arg.Any<HttpStatusCode?>(), Arg.Any<string>(), Arg.Do<IReadOnlyCollection<KeyValuePair<string, string>>>(c => _loggedClaims = c));
 
             var passedValues = new Dictionary<string, StringValues>

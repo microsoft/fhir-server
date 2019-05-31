@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
@@ -61,6 +62,11 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             object scalar = Instance.Scalar(fhirPath, _context.Value);
             return (T)scalar;
+        }
+
+        public IEnumerable<ITypedElement> Select(string fhirPath)
+        {
+            return Instance.Select(fhirPath, _context.Value);
         }
     }
 }

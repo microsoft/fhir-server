@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         private readonly IActionDescriptorCollectionProvider _actionDescriptorCollectionProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IClaimsExtractor _claimsExtractor;
-        private readonly List<IAuditLogger> _auditLogger;
+        private readonly IAuditLogger _auditLogger;
         private readonly ILogger<AuditHelper> _logger;
 
         private IReadOnlyDictionary<(string ControllerName, string ActionName), Attribute> _attributeDictionary;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             IActionDescriptorCollectionProvider actionDescriptorCollectionProvider,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IClaimsExtractor claimsExtractor,
-            IEnumerable<IAuditLogger> auditLogger,
+            IAuditLogger auditLogger,
             ILogger<AuditHelper> logger)
         {
             EnsureArg.IsNotNull(actionDescriptorCollectionProvider, nameof(actionDescriptorCollectionProvider));
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             _actionDescriptorCollectionProvider = actionDescriptorCollectionProvider;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _claimsExtractor = claimsExtractor;
-            _auditLogger = auditLogger.ToList();
+            _auditLogger = auditLogger;
             _logger = logger;
         }
 
@@ -117,14 +117,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             {
                 IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-                _auditLogger.ForEach(a => a.LogAudit(
+                _auditLogger.LogAudit(
                     auditAction,
                     action: auditEventTypeAttribute.AuditEventType,
                     resourceType: resourceType,
                     requestUri: fhirRequestContext.Uri,
                     statusCode: statusCode,
                     correlationId: fhirRequestContext.CorrelationId,
-                    claims: _claimsExtractor.Extract()));
+                    claims: _claimsExtractor.Extract());
             }
         }
     }

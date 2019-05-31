@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public ResourceElement OperationOutcome => _response.Resource;
 
-        ////public override string Message
-        ////    => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault().Diagnostics}";
+        public override string Message
+            => $"{StatusCode}: {OperationOutcome.Scalar<string>("Resource.issue.first().diagnostics")}";
     }
 }

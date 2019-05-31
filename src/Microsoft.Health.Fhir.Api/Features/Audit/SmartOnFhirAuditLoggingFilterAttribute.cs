@@ -19,18 +19,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     internal class SmartOnFhirAuditLoggingFilterAttribute : ActionFilterAttribute
     {
         private const string ClientId = "client_id";
-        private readonly List<IAuditLogger> _auditLogger;
+        private readonly IAuditLogger _auditLogger;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly string _action;
 
-        public SmartOnFhirAuditLoggingFilterAttribute(string action, IEnumerable<IAuditLogger> auditLoggers, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public SmartOnFhirAuditLoggingFilterAttribute(string action, IAuditLogger auditLogger, IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNullOrWhiteSpace(action, nameof(action));
-            EnsureArg.IsNotNull(auditLoggers, nameof(auditLoggers));
+            EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _action = action;
-            _auditLogger = auditLoggers.ToList();
+            _auditLogger = auditLogger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
@@ -38,14 +38,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            _auditLogger.ForEach(a => a.LogAudit(
+            _auditLogger.LogAudit(
                 AuditAction.Executing,
                 _action,
                 null,
                 _fhirRequestContextAccessor.FhirRequestContext.Uri,
                 null,
                 _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                GetClientIdFromQueryStringOrForm(context)));
+                GetClientIdFromQueryStringOrForm(context));
 
             base.OnActionExecuting(context);
         }
@@ -54,14 +54,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            _auditLogger.ForEach(a => a.LogAudit(
+            _auditLogger.LogAudit(
                 AuditAction.Executed,
                 _action,
                 null,
                 _fhirRequestContextAccessor.FhirRequestContext.Uri,
                 (HttpStatusCode)context.HttpContext.Response.StatusCode,
                 _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                GetClientIdFromQueryStringOrForm(context)));
+                GetClientIdFromQueryStringOrForm(context));
 
             base.OnResultExecuted(context);
         }

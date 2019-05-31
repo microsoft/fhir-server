@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +46,16 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public virtual void Configure(IApplicationBuilder app)
         {
+            IEnumerable<ITestMiddleware> testMiddleware = app.ApplicationServices.GetServices<ITestMiddleware>();
+
+            if (testMiddleware != null)
+            {
+                foreach (ITestMiddleware middleware in testMiddleware)
+                {
+                    app.UseMiddleware(middleware.GetType());
+                }
+            }
+
             app.UseFhirServer();
 
             app.UseDevelopmentIdentityProvider();

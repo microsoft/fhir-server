@@ -5,7 +5,7 @@
 
 using System;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -27,19 +27,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             {
                 if (_auditLogger == null)
                 {
-                    _auditLogger = Server?.Host.Services.GetRequiredService<TraceAuditLogger>();
+                    _auditLogger = (TraceAuditLogger)Server?.Host.Services.GetRequiredService<IAuditLogger>();
                 }
 
                 return _auditLogger;
             }
         }
 
-        internal override Action<IServiceCollection> ConfigureServices => (services) =>
+        internal override Action<IServiceCollection> ConfigureTestServices => (services) =>
         {
-            services.Add<TraceAuditLogger>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IAuditLogger>();
+            services.Replace(new ServiceDescriptor(typeof(IAuditLogger), typeof(TraceAuditLogger), ServiceLifetime.Singleton));
         };
     }
 }
