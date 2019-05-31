@@ -1,0 +1,14 @@
+parameters:
+  csproj: '**/*Web.csproj'
+
+steps:
+
+  # Package web
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish ${{parameters.csproj}}'
+    inputs:
+      command: publish
+      projects: '${{parameters.csproj}}'
+      arguments: '--runtime win10-x64 --output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildnumber)'
+      publishWebProjects: false
