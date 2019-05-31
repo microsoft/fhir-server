@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return typeof(NumberSearchValue);
                 case SearchParamType.Date:
                     return typeof(DateTimeSearchValue);
-                case SearchParamType.Str:
+                case SearchParamType.String:
                     return typeof(StringSearchValue);
                 case SearchParamType.Token:
                     return typeof(TokenSearchValue);

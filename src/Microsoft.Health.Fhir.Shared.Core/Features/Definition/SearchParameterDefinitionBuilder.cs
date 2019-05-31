@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                             continue;
                         }
 
-                        if (componentSearchParameter.Type == SearchParamType.Composite.ToString())
+                        if (componentSearchParameter.Type == SearchParamType.Composite.ToValueSet())
                         {
                             AddIssue(
                                 Core.Resources.SearchParameterDefinitionComponentReferenceCannotBeComposite,

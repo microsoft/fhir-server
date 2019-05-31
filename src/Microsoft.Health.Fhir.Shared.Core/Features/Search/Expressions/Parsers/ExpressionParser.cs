@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             // We have more paths after this so this is a chained expression.
             // Since this is chained expression, the expression must be a reference type.
-            if (searchParameter.Type != SearchParamType.Reference.ToString())
+            if (searchParameter.Type != ValueSets.SearchParamType.Reference)
             {
                 // The search parameter is not a reference type, which is not allowed.
                 throw new InvalidSearchOperationException(Core.Resources.ChainedParameterMustBeReferenceSearchParamType);

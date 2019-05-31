@@ -106,5 +106,10 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 searchParam.Expression,
                 searchParam.Target?.Select(x => x?.ToString()).ToArray());
         }
+
+        public static ValueSets.SearchParamType ToValueSet(this SearchParamType searchParam)
+        {
+            return Enum.Parse<ValueSets.SearchParamType>(searchParam.ToString());
+        }
     }
 }

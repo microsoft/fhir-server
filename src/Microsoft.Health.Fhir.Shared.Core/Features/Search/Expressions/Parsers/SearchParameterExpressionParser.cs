@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 // We have to handle :text modifier specially because if :text modifier is supplied for token search param,
                 // then we want to search the display text using the specified text, and therefore
                 // we don't want to actually parse the specified text into token.
-                if (searchParameter.Type != SearchParamType.Token.ToString())
+                if (searchParameter.Type != ValueSets.SearchParamType.Token)
                 {
                     throw new InvalidSearchOperationException(
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             else
             {
                 // Build the expression for based on the search value.
-                if (searchParameter.Type == SearchParamType.Composite.ToString())
+                if (searchParameter.Type == ValueSets.SearchParamType.Composite)
                 {
                     if (modifier != null)
                     {
@@ -160,9 +160,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             // By default, the comparator is equal.
             SearchComparator comparator = SearchComparator.Eq;
 
-            if (searchParameter.Type == SearchParamType.Date.ToString() ||
-                searchParameter.Type == SearchParamType.Number.ToString() ||
-                searchParameter.Type == SearchParamType.Quantity.ToString())
+            if (searchParameter.Type == ValueSets.SearchParamType.Date ||
+                searchParameter.Type == ValueSets.SearchParamType.Number ||
+                searchParameter.Type == ValueSets.SearchParamType.Quantity)
             {
                 // If the search parameter type supports comparator, parse the comparator (if present).
                 Tuple<string, SearchComparator> matchedComparator = SearchParamComparators.FirstOrDefault(
@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             // Parse the value.
-            Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type)];
+            Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type?.ToString())];
 
             // Build the expression.
             var helper = new SearchValueExpressionBuilderHelper();

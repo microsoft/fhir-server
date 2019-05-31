@@ -8,6 +8,7 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 Assert.True(searchParametersDictionary.TryGetValue(name, out SearchParameterInfo searchParameter));
 
                 Assert.Equal(name, searchParameter.Name);
-                Assert.Equal(searchParameterType.ToString(), searchParameter.Type);
+                Assert.Equal(searchParameterType.ToValueSet(), searchParameter.Type);
                 Assert.Equal(expression, searchParameter.Expression);
             }
         }
