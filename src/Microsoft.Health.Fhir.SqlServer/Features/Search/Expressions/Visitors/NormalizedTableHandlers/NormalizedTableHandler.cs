@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
             switch (expression.FieldName)
             {
                 case FieldName.TokenSystem:
-                    VisitSimpleBinary(BinaryOperator.Equal, context, V1.TokenSearchParam.SystemId, context.Model.GetSystem(expression.Value));
+                    VisitSimpleBinary(BinaryOperator.Equal, context, V1.TokenSearchParam.SystemId, expression.ComponentIndex, context.Model.GetSystem(expression.Value));
                     break;
                 case FieldName.TokenCode:
                     VisitSimpleString(expression, context, V1.TokenSearchParam.Code, expression.Value);
@@ -83,6 +83,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         public static readonly TokenTextNormalizedTableHandler Instance = new TokenTextNormalizedTableHandler();
 
         public override Table Table => V1.TokenText;
+
+        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        {
+            return VisitSimpleString(expression, context, V1.TokenText.Text, expression.Value);
+        }
     }
 
     internal class DateNormalizedTableHandler : NormalizedTableHandler
@@ -90,6 +95,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         public static readonly DateNormalizedTableHandler Instance = new DateNormalizedTableHandler();
 
         public override Table Table => V1.DateTimeSearchParam;
+
+        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        {
+            DateTime2Column column;
+            switch (expression.FieldName)
+            {
+                case FieldName.DateTimeStart:
+                    column = V1.DateTimeSearchParam.StartDateTime;
+                    break;
+                case FieldName.DateTimeEnd:
+                    column = V1.DateTimeSearchParam.EndDateTime;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
+            }
+
+            return VisitSimpleBinary(expression.BinaryOperator, context, column, expression.ComponentIndex, expression.Value);
+        }
     }
 
     internal class NumberNormalizedTableHandler : NormalizedTableHandler
@@ -97,6 +120,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         public static readonly NumberNormalizedTableHandler Instance = new NumberNormalizedTableHandler();
 
         public override Table Table => V1.NumberSearchParam;
+
+        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        {
+            var column = V1.NumberSearchParam.SingleValue;
+            context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
+            return VisitSimpleBinary(expression.BinaryOperator, context, column, expression.ComponentIndex, expression.Value);
+        }
     }
 
     internal class QuantityNormalizedTableHandler : NormalizedTableHandler
@@ -104,6 +134,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         public static readonly QuantityNormalizedTableHandler Instance = new QuantityNormalizedTableHandler();
 
         public override Table Table => V1.QuantitySearchParam;
+
+        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        {
+            var column = V1.QuantitySearchParam.SingleValue;
+            context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
+            return VisitSimpleBinary(expression.BinaryOperator, context, column, expression.ComponentIndex, expression.Value);
+        }
+
+        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        {
+            switch (expression.FieldName)
+            {
+                case FieldName.QuantityCode:
+                    return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.QuantityCodeId, expression.ComponentIndex, context.Model.GetQuantityCode(expression.Value));
+                case FieldName.QuantitySystem:
+                    return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.SystemId, expression.ComponentIndex, context.Model.GetSystem(expression.Value));
+                default:
+                    throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
+            }
+        }
     }
 
     internal class ReferenceNormalizedTableHandler : NormalizedTableHandler
@@ -111,6 +161,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         public static readonly ReferenceNormalizedTableHandler Instance = new ReferenceNormalizedTableHandler();
 
         public override Table Table => V1.ReferenceSearchParam;
+
+        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        {
+            switch (expression.FieldName)
+            {
+                case FieldName.ReferenceBaseUri:
+                    return VisitSimpleString(expression, context, V1.ReferenceSearchParam.BaseUri, expression.Value);
+                case FieldName.ReferenceResourceType:
+                    return VisitSimpleBinary(BinaryOperator.Equal, context, V1.ReferenceSearchParam.ReferenceResourceTypeId, expression.ComponentIndex, context.Model.GetResourceTypeId(expression.Value));
+                case FieldName.ReferenceResourceId:
+                    return VisitSimpleString(expression, context, V1.ReferenceSearchParam.ReferenceResourceId, expression.Value);
+                default:
+                    throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
+            }
+        }
+
+        public override SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
+        {
+            return VisitMissingFieldImpl(expression, context, FieldName.ReferenceBaseUri, V1.ReferenceSearchParam.BaseUri);
+        }
     }
 
     internal class StringNormalizedTableHandler : NormalizedTableHandler
@@ -118,6 +188,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         public static readonly StringNormalizedTableHandler Instance = new StringNormalizedTableHandler();
 
         public override Table Table => V1.StringSearchParam;
+
+        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        {
+            context.StringBuilder.Append(V1.StringSearchParam.TextOverflow).Append(expression.ComponentIndex + 1).Append(" IS NULL AND ");
+            return VisitSimpleString(expression, context, V1.StringSearchParam.Text, expression.Value);
+        }
     }
 
     internal class UriNormalizedTableHandler : NormalizedTableHandler
@@ -125,6 +201,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         public static readonly UriNormalizedTableHandler Instance = new UriNormalizedTableHandler();
 
         public override Table Table => V1.UriSearchParam;
+
+        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        {
+            return VisitSimpleString(expression, context, V1.UriSearchParam.Uri, expression.Value);
+        }
     }
 
 #pragma warning restore SA1402 // File may only contain a single type

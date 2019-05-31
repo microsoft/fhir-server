@@ -148,20 +148,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        protected void VisitSimpleBinary(BinaryOperator binaryOperator, SqlQueryGenerator context, Column column, int? componentIndex, object value)
+        protected SqlQueryGenerator VisitSimpleBinary(BinaryOperator binaryOperator, SqlQueryGenerator context, Column column, int? componentIndex, object value)
         {
             context.StringBuilder.Append(column).Append(componentIndex + 1);
 
             VisitBinaryOperator(binaryOperator, context.StringBuilder);
 
             context.StringBuilder.Append(context.Parameters.AddParameter(column, value).ParameterName);
+
+            return context;
         }
 
-        protected void VisitSimpleString(StringExpression expression, SqlQueryGenerator context, StringColumn column, string value)
+        protected SqlQueryGenerator VisitSimpleString(StringExpression expression, SqlQueryGenerator context, StringColumn column, string value)
         {
             context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1);
 
             VisitStringOperator(expression.StringOperator, context, column, value);
+
+            return context;
         }
 
         protected static SqlQueryGenerator VisitMissingFieldImpl(MissingFieldExpression expression, SqlQueryGenerator context, FieldName expectedFieldName, Column column)

@@ -131,6 +131,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 throw new ServiceUnavailableException();
             }
 
+            var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
+
+            _logger.LogInformation("Initializing {Server} {Database}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog);
+
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
                 await connection.OpenAsync();
