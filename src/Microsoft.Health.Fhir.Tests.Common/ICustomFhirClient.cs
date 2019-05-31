@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
@@ -49,12 +50,12 @@ namespace Microsoft.Health.Fhir.Tests.Common
         Task<FhirResponse> DeleteAsync<T>(T resource)
             where T : ResourceElement;
 
-        ////Task<FhirResponse> DeleteAsync(string uri);
+        Task<FhirResponse> DeleteAsync(string uri);
 
         Task<FhirResponse> HardDeleteAsync<T>(T resource)
             where T : ResourceElement;
 
-        ////Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null);
+        Task<FhirResponse<ResourceElement>> SearchAsync(string resourceType, string query = null, int? count = null);
 
         Task<FhirResponse<ResourceElement>> SearchAsync(string url);
 
@@ -101,5 +102,19 @@ namespace Microsoft.Health.Fhir.Tests.Common
         ResourceElement UpdateText(ResourceElement resourceElement, string text);
 
         ResourceElement UpdatePatientFamilyName(ResourceElement resourceElement, string familyName);
+
+        ResourceElement UpdatePatientAddressCity(ResourceElement resourceElement, string city);
+
+        ResourceElement UpdatePatientGender(ResourceElement resourceElement, string gender);
+
+        ResourceElement UpdateObservationStatus(ResourceElement resourceElement, string status);
+
+        ResourceElement AddObservationCoding(ResourceElement resourceElement, string system, string code);
+
+        ResourceElement AddMetaTag(ResourceElement resourceElement, string system, string code);
+
+        bool Compare(ResourceElement expected, ITypedElement actual);
+
+        bool Compare(ResourceElement expected, ResourceElement actual);
     }
 }

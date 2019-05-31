@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.R4
             return DeleteAsync($"{resource.InstanceType}/{resource.Id}?hardDelete=true");
         }
 
-        public Task<FhirResponse<ResourceElement>> SearchAsync(ResourceType resourceType, string query = null, int? count = null)
+        public Task<FhirResponse<ResourceElement>> SearchAsync(string resourceType, string query = null, int? count = null)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -450,6 +450,47 @@ namespace Microsoft.Health.Fhir.Tests.E2E.R4
         public ResourceElement UpdatePatientFamilyName(ResourceElement resourceElement, string familyName)
         {
             return resourceElement.UpdatePatientFamilyName(familyName);
+        }
+
+        public ResourceElement UpdatePatientAddressCity(ResourceElement resourceElement, string city)
+        {
+            return resourceElement.UpdatePatientAddressCity(city);
+        }
+
+        public ResourceElement UpdatePatientGender(ResourceElement resourceElement, string gender)
+        {
+            return resourceElement.UpdatePatientGender(gender);
+        }
+
+        public ResourceElement UpdateObservationStatus(ResourceElement resourceElement, string status)
+        {
+            return resourceElement.UpdateObservationStatus(status);
+        }
+
+        public ResourceElement AddObservationCoding(ResourceElement resourceElement, string system, string code)
+        {
+            return resourceElement.AddObservationCoding(system, code);
+        }
+
+        public ResourceElement AddMetaTag(ResourceElement resourceElement, string system, string code)
+        {
+            return resourceElement.AddMetaTag(system, code);
+        }
+
+        public bool Compare(ResourceElement expected, ITypedElement actual)
+        {
+            var expectedResource = expected.ToPoco();
+            var actualResource = actual.ToPoco();
+
+            return expectedResource.IsExactly(actualResource);
+        }
+
+        public bool Compare(ResourceElement expected, ResourceElement actual)
+        {
+            var expectedResource = expected.ToPoco();
+            var actualResource = actual.ToPoco();
+
+            return expectedResource.IsExactly(actualResource);
         }
     }
 }

@@ -132,6 +132,92 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return poco.ToResourceElement();
         }
 
+        public static ResourceElement UpdatePatientAddressCity(this ResourceElement resource, string city)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Patient>();
+
+            if (poco.Address == null)
+            {
+                poco.Address = new List<Address>();
+            }
+
+            poco.Address.Add(new Address() { City = city });
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdatePatientGender(this ResourceElement resource, string gender)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Patient>();
+
+            if (string.IsNullOrWhiteSpace(gender))
+            {
+                poco.Gender = null;
+            }
+            else
+            {
+                poco.Gender = gender.GetValueByEnumLiteral<AdministrativeGender>();
+            }
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateObservationStatus(this ResourceElement resource, string status)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Observation>();
+
+            poco.Status = status.GetValueByEnumLiteral<ObservationStatus>();
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement AddObservationCoding(this ResourceElement resource, string system, string code)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Observation>();
+
+            if (poco?.Code == null)
+            {
+                poco.Code = new CodeableConcept();
+            }
+
+            if (poco.Code.Coding == null)
+            {
+                poco.Code.Coding = new List<Coding>();
+            }
+
+            poco.Code.Coding.Add(new Coding(system, code));
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement AddMetaTag(this ResourceElement resource, string system, string code)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco();
+
+            if (poco?.Meta == null)
+            {
+                poco.Meta = new Meta();
+            }
+
+            if (poco.Meta.Tag == null)
+            {
+                poco.Meta.Tag = new List<Coding>();
+            }
+
+            poco.Meta.Tag.Add(new Coding(system, code));
+
+            return poco.ToResourceElement();
+        }
+
         public static SearchParameterInfo ToInfo(this SearchParameter searchParam)
         {
             EnsureArg.IsNotNull(searchParam, nameof(searchParam));

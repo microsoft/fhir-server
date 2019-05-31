@@ -9,71 +9,80 @@
 ////using Hl7.Fhir.Model;
 ////using Task = System.Threading.Tasks.Task;
 
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
+using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
+
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public static class FhirClientExtensions
     {
-        ////public static async Task DeleteAllResources(this ICustomFhirClient client, ResourceType resourceType)
-        ////{
-        ////    await DeleteAllResources(client, resourceType, null);
-        ////}
+        public static async Task DeleteAllResources(this ICustomFhirClient client, string resourceType)
+        {
+            await DeleteAllResources(client, resourceType, null);
+        }
 
-        ////public static async Task DeleteAllResources(this ICustomFhirClient client, ResourceType resourceType, string searchUrl)
-        ////{
-        ////    while (true)
-        ////    {
-        ////        Bundle bundle = await client.SearchAsync(resourceType, searchUrl, count: 100);
+        public static async Task DeleteAllResources(this ICustomFhirClient client, string resourceType, string searchUrl)
+        {
+            while (true)
+            {
+                ResourceElement bundle = await client.SearchAsync(resourceType, searchUrl, count: 100);
 
-        ////        if (!bundle.Entry.Any())
-        ////        {
-        ////            break;
-        ////        }
+                var bundleEntries = bundle.Select("Resource.entry").ToList();
+                if (!bundleEntries.Any())
+                {
+                    break;
+                }
 
-        ////        foreach (Bundle.EntryComponent entry in bundle.Entry)
-        ////        {
-        ////            await client.DeleteAsync(entry.FullUrl);
-        ////        }
-        ////    }
-        ////}
+                foreach (ITypedElement entry in bundleEntries)
+                {
+                    await client.DeleteAsync(entry.Scalar("fullUrl").ToString());
+                }
+            }
+        }
 
-        ////public static async Task<TResource[]> CreateResourcesAsync<TResource>(this ICustomFhirClient client, int count)
-        ////   where TResource : Resource, new()
-        ////{
-        ////    TResource[] resources = new TResource[count];
+        public static async Task<ResourceElement[]> CreateResourcesAsync(this ICustomFhirClient client, Func<ResourceElement> baseResourceGetter, int count)
+        {
+            var resources = new ResourceElement[count];
 
-        ////    for (int i = 0; i < resources.Length; i++)
-        ////    {
-        ////        TResource resource = new TResource();
+            for (int i = 0; i < resources.Length; i++)
+            {
+                var resource = baseResourceGetter.Invoke();
 
-        ////        resources[i] = await client.CreateAsync(resource);
-        ////    }
+                var createResponse = await client.CreateAsync(resource);
+                resources[i] = createResponse.Resource;
+            }
 
-        ////    return resources;
-        ////}
+            return resources;
+        }
 
-        ////public static async Task<TResource> CreateResourcesAsync<TResource>(this ICustomFhirClient client, Func<TResource> resourceFactory)
-        ////    where TResource : Resource
-        ////{
-        ////    TResource resource = resourceFactory();
+        public static async Task<TResource> CreateResourcesAsync<TResource>(this ICustomFhirClient client, Func<TResource> resourceFactory)
+            where TResource : ResourceElement
+        {
+            TResource resource = resourceFactory();
 
-        ////    return await client.CreateAsync(resource);
-        ////}
+            return await client.CreateAsync(resource);
+        }
 
-        ////public static async Task<TResource[]> CreateResourcesAsync<TResource>(this ICustomFhirClient client, params Action<TResource>[] resourceCustomizer)
-        ////    where TResource : Resource, new()
-        ////{
-        ////    TResource[] resources = new TResource[resourceCustomizer.Length];
+        public static async Task<ResourceElement[]> CreateResourcesAsync(this ICustomFhirClient client, Func<ResourceElement> baseResourceGetter, params Func<ResourceElement, ResourceElement>[] resourceCustomizer)
+        {
+            var resources = new ResourceElement[resourceCustomizer.Length];
 
-        ////    for (int i = 0; i < resources.Length; i++)
-        ////    {
-        ////        TResource resource = new TResource();
+            for (int i = 0; i < resources.Length; i++)
+            {
+                var resource = baseResourceGetter.Invoke();
 
-        ////        resourceCustomizer[i](resource);
+                resource = resourceCustomizer[i](resource);
 
-        ////        resources[i] = await client.CreateAsync(resource);
-        ////    }
+                var resourceResponse = await client.CreateAsync(resource);
+                resources[i] = resourceResponse.Resource;
+            }
 
-        ////    return resources;
-        ////}
+            return resources;
+        }
     }
 }
