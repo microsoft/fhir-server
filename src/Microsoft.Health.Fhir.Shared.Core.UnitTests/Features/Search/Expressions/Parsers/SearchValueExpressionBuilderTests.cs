@@ -812,7 +812,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Uri),
                 null,
                 input,
-                e => ValidateBinaryExpression(e, FieldName.Uri, BinaryOperator.Equal, input));
+                e => ValidateStringExpression(e, FieldName.Uri, StringOperator.Equals, input, false));
         }
 
         [Fact]

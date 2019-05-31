@@ -9,8 +9,10 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.NormalizedTableHandlers;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
@@ -18,12 +20,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     internal class NormalizedTableHandlerFactory : IExpressionVisitorWithInitialContext<object, NormalizedTableHandler>
     {
         private ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SearchParameterToSearchValueTypeMap _searchParameterToSearchValueTypeMap;
         private readonly ConcurrentDictionary<Uri, NormalizedTableHandler> _cache = new ConcurrentDictionary<Uri, NormalizedTableHandler>();
 
-        public NormalizedTableHandlerFactory(ISearchParameterDefinitionManager searchParameterDefinitionManager)
+        public NormalizedTableHandlerFactory(ISearchParameterDefinitionManager searchParameterDefinitionManager, SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterToSearchValueTypeMap, nameof(searchParameterToSearchValueTypeMap));
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterToSearchValueTypeMap = searchParameterToSearchValueTypeMap;
         }
 
         public object InitialContext => null;
@@ -85,7 +90,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     case SearchParamType.Uri:
                         return UriNormalizedTableHandler.Instance;
                     case SearchParamType.Composite:
-                        throw new NotImplementedException();
+                        Type searchValueType = _searchParameterToSearchValueTypeMap.GetSearchValueType(param);
+                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, QuantitySearchValue>))
+                        {
+                            return TokenQuantityCompositeNormalizedTableHandler.Instance;
+                        }
+
+                        throw new InvalidOperationException($"Unexpected composite search parameter {param.Url}");
+
                     default:
                         throw new InvalidOperationException($"Unexpected search parameter type {param.Type}");
                 }

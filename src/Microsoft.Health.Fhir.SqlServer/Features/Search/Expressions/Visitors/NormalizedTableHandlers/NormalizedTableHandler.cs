@@ -208,5 +208,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.N
         }
     }
 
+    internal abstract class CompositeNormalizedTableHandler : NormalizedTableHandler
+    {
+        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        {
+            return expression.AcceptVisitor(GetComponentHandler((int)expression.ComponentIndex), context);
+        }
+
+        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        {
+            return expression.AcceptVisitor(GetComponentHandler((int)expression.ComponentIndex), context);
+        }
+
+        public override SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
+        {
+            return expression.AcceptVisitor(GetComponentHandler((int)expression.ComponentIndex), context);
+        }
+
+        protected abstract NormalizedTableHandler GetComponentHandler(int componentIndex);
+    }
+
+    internal class TokenQuantityCompositeNormalizedTableHandler : CompositeNormalizedTableHandler
+    {
+        public static readonly TokenQuantityCompositeNormalizedTableHandler Instance = new TokenQuantityCompositeNormalizedTableHandler();
+
+        public override Table Table => V1.TokenQuantityCompositeSearchParam;
+
+        protected override NormalizedTableHandler GetComponentHandler(int componentIndex)
+        {
+            return componentIndex == 0 ? (NormalizedTableHandler)TokenNormalizedTableHandler.Instance : QuantityNormalizedTableHandler.Instance;
+        }
+    }
+
 #pragma warning restore SA1402 // File may only contain a single type
 }

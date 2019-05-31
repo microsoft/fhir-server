@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     var sb = new StringBuilder();
                     foreach (SqlParameter p in sqlCommand.Parameters)
                     {
-                        sb.Append("DECLARE ").Append(p).Append(" ").Append(p.SqlDbType).Append(p.Value is string ? $"({p.Size})" : null).Append(" = ").AppendLine(p.Value is string ? $"'{p.Value}'" : p.Value.ToString());
+                        sb.Append("DECLARE ").Append(p).Append(" ").Append(p.SqlDbType).Append(p.Value is string ? $"({p.Size})" : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null).Append(" = ").AppendLine(p.Value is string ? $"'{p.Value}'" : p.Value.ToString());
                     }
 
                     sb.AppendLine();
