@@ -218,6 +218,28 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return poco.ToResourceElement();
         }
 
+        public static ResourceElement UpdateValueSetStatus(this ResourceElement resource, string status)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<ValueSet>();
+
+            poco.Status = status.GetValueByEnumLiteral<PublicationStatus>();
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateValueSetUrl(this ResourceElement resource, string url)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<ValueSet>();
+
+            poco.Url = url;
+
+            return poco.ToResourceElement();
+        }
+
         public static SearchParameterInfo ToInfo(this SearchParameter searchParam)
         {
             EnsureArg.IsNotNull(searchParam, nameof(searchParam));

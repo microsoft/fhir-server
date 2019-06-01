@@ -91,6 +91,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         ResourceElement GetEmptyObservation();
 
+        ResourceElement GetEmptyValueSet();
+
         ResourceElement GetJsonSample(string fileName);
 
         void Validate(ResourceElement resourceElement);
@@ -110,6 +112,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
         ResourceElement UpdatePatientGender(ResourceElement resourceElement, string gender);
 
         ResourceElement UpdateObservationStatus(ResourceElement resourceElement, string status);
+
+        ResourceElement UpdateValueSetStatus(ResourceElement resourceElement, string status);
+
+        ResourceElement UpdateValueSetUrl(ResourceElement resourceElement, string url);
 
         ResourceElement AddObservationCoding(ResourceElement resourceElement, string system, string code);
 

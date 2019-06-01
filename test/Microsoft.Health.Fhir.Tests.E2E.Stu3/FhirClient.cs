@@ -413,7 +413,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
 
         public ResourceElement GetEmptyObservation()
         {
-            return new Observation().ToTypedElement().ToResourceElement();
+            return new Observation().ToResourceElement();
+        }
+
+        public ResourceElement GetEmptyValueSet()
+        {
+            return new ValueSet().ToResourceElement();
         }
 
         /// <summary>
@@ -424,7 +429,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
         {
             var json = EmbeddedResourceManager.GetStringContent("TestFiles", fileName, "json", "Stu3");
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
+            return parser.Parse<Resource>(json).ToResourceElement();
         }
 
         public void Validate(ResourceElement resourceElement)
@@ -480,6 +485,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
         public ResourceElement AddMetaTag(ResourceElement resourceElement, string system, string code)
         {
             return resourceElement.AddMetaTag(system, code);
+        }
+
+        public ResourceElement UpdateValueSetStatus(ResourceElement resourceElement, string status)
+        {
+            return resourceElement.UpdateValueSetStatus(status);
+        }
+
+        public ResourceElement UpdateValueSetUrl(ResourceElement resourceElement, string url)
+        {
+            return resourceElement.UpdateValueSetUrl(url);
         }
 
         public bool Compare(ResourceElement expected, ITypedElement actual)
