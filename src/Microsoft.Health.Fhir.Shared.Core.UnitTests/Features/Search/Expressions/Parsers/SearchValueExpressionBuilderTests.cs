@@ -714,7 +714,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Token),
                 SearchModifierCode.Text,
                 input,
-                e => ValidateStringExpression(e, FieldName.TokenText, StringOperator.Contains, input, true));
+                e => ValidateStringExpression(e, FieldName.TokenText, StringOperator.StartsWith, input, true));
         }
 
         [Theory]

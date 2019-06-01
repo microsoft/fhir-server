@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer
 
         private bool _indentPending;
         private int _indentLevel;
+        private readonly List<bool> _delimitedScopes = new List<bool>();
 
         internal int IndentLevel
         {
@@ -121,13 +122,13 @@ namespace Microsoft.Health.Fhir.SqlServer
             }
         }
 
-        internal struct DelimitedScope : IDisposable
+        internal readonly struct DelimitedScope : IDisposable
         {
             private readonly IndentedStringBuilder _sb;
             private readonly Action<IndentedStringBuilder> _applyPrefix;
             private readonly Action<IndentedStringBuilder> _applyDelimiter;
             private readonly Action<IndentedStringBuilder> _applyPostfix;
-            private bool _started;
+            private readonly int _index;
 
             public DelimitedScope(IndentedStringBuilder sb, Action<IndentedStringBuilder> applyPrefix, Action<IndentedStringBuilder> applyDelimiter, Action<IndentedStringBuilder> applyPostfix)
             {
@@ -135,15 +136,22 @@ namespace Microsoft.Health.Fhir.SqlServer
                 _applyPrefix = applyPrefix;
                 _applyDelimiter = applyDelimiter;
                 _applyPostfix = applyPostfix;
-                _started = false;
+
+                _index = _sb._delimitedScopes.Count;
+                _sb._delimitedScopes.Add(false);
             }
+
+            private bool IsStarted => _sb._delimitedScopes[_index];
+
+            // Readonly structs cannot have property setters, so this method
+            private void SetIsStarted(bool value) => _sb._delimitedScopes[_index] = value;
 
             public IndentedStringBuilder BeginDelimitedElement()
             {
-                if (!_started)
+                if (!IsStarted)
                 {
                     _applyPrefix?.Invoke(_sb);
-                    _started = true;
+                    SetIsStarted(true);
                 }
                 else
                 {
@@ -155,10 +163,17 @@ namespace Microsoft.Health.Fhir.SqlServer
 
             public void Dispose()
             {
-                if (_started)
+                if (IsStarted)
                 {
                     _applyPostfix?.Invoke(_sb);
                 }
+
+                if (_sb._delimitedScopes.Count != (_index + 1))
+                {
+                    throw new InvalidOperationException("Delimited scope being disposed is not at the top of the stack.");
+                }
+
+                _sb._delimitedScopes.RemoveAt(_index);
             }
         }
     }

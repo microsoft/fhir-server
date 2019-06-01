@@ -108,7 +108,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     Argument(
                         LiteralExpression(parameter.Value == null ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)));
 
-                arguments.AddRange(GetDataTypeSpecificConstructorArguments(parameter.DataType));
+                arguments.AddRange(GetDataTypeSpecificConstructorArguments(parameter.DataType, null));
             }
             else
             {

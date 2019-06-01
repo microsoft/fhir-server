@@ -14,6 +14,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal abstract class SearchParameterQueryGenerator : IExpressionVisitor<SqlQueryGenerator, SqlQueryGenerator>
     {
+        private const string DefaultCaseInsensitiveCollation = "Latin1_General_100_CI_AI_SC";
+        private const string DefaultCaseSensitiveCollation = "Latin1_General_100_CS_AS";
         private static readonly Regex LikeEscapingRegex = new Regex("[%!\\[\\]_]", RegexOptions.Compiled);
 
         public virtual SqlQueryGenerator VisitSearchParameter(SearchParameterExpression expression, SqlQueryGenerator context)
@@ -95,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return LikeEscapingRegex.Replace(value, "!$0");
         }
 
-        protected static void VisitStringOperator(StringOperator stringOperator, SqlQueryGenerator context, StringColumn column, string value)
+        protected static void VisitStringOperator(StringOperator stringOperator, SqlQueryGenerator context, StringColumn column, string value, bool ignoreCase)
         {
             switch (stringOperator)
             {
@@ -126,6 +128,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(stringOperator.ToString());
+            }
+
+            if (column.IsAcentSensitive == null || column.IsCaseSensitive == null ||
+                column.IsAcentSensitive == ignoreCase ||
+                column.IsCaseSensitive == ignoreCase)
+            {
+                context.StringBuilder.Append(" COLLATE ").Append(ignoreCase ? DefaultCaseInsensitiveCollation : DefaultCaseSensitiveCollation);
             }
         }
 
@@ -171,7 +180,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1);
 
-            VisitStringOperator(expression.StringOperator, context, column, value);
+            VisitStringOperator(expression.StringOperator, context, column, value, expression.IgnoreCase);
 
             return context;
         }

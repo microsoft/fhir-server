@@ -54,7 +54,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _logger = logger;
         }
 
-        protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+        protected override Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+        {
+            return SearchImpl(searchOptions, false, cancellationToken);
+        }
+
+        protected override Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+        {
+            return SearchImpl(searchOptions, true, cancellationToken);
+        }
+
+        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, CancellationToken cancellationToken)
         {
             await _model.EnsureInitialized();
 
@@ -95,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     connection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL MESSAGE: {args.Message}");
 
-                    var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model);
+                    var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch);
 
                     expression.AcceptVisitor(queryGenerator, searchOptions);
 
@@ -171,11 +181,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
                 }
             }
-        }
-
-        protected override Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
-        {
-            throw new System.NotImplementedException();
         }
     }
 }

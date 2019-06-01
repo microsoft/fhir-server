@@ -14,10 +14,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     internal class SqlQueryGenerator : ISqlExpressionVisitor<object, object>
     {
+        private readonly bool _isHistorySearch;
         private int _tableExpressionCounter;
         private int _totalTableExpressions;
 
-        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model)
+        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -26,6 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             StringBuilder = sb;
             Parameters = parameters;
             Model = model;
+            _isHistorySearch = isHistorySearch;
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -96,8 +98,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     denormalizedPredicate.AcceptVisitor(this, context);
                 }
 
-                delimitedClause.BeginDelimitedElement().Append(V1.Resource.IsHistory).Append(" = 0");
-                delimitedClause.BeginDelimitedElement().Append(V1.Resource.IsDeleted).Append(" = 0");
+                AppendHistoryClause(delimitedClause);
+                AppendDeletedClause(delimitedClause);
             }
 
             if (!searchOptions.CountOnly)
@@ -137,8 +139,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         StringBuilder.Append("SELECT ").AppendLine(V1.Resource.ResourceSurrogateId).Append("FROM ").AppendLine(V1.Resource);
                         using (var delimited = StringBuilder.DelimitWhereClause())
                         {
-                            delimited.BeginDelimitedElement().Append(V1.Resource.IsHistory).Append(" = 0");
-                            delimited.BeginDelimitedElement().Append(V1.Resource.IsDeleted).Append(" = 0");
+                            AppendHistoryClause(delimited);
+                            AppendDeletedClause(delimited);
                             if (tableExpression.DenormalizedPredicate != null)
                             {
                                 delimited.BeginDelimitedElement();
@@ -166,7 +168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         .Append("FROM ").AppendLine(tableExpression.TableHandler.Table);
                     using (var delimited = StringBuilder.DelimitWhereClause())
                     {
-                        delimited.BeginDelimitedElement().Append(V1.Resource.IsHistory).Append(" = 0");
+                        AppendHistoryClause(delimited);
 
                         if (tableExpression.DenormalizedPredicate != null)
                         {
@@ -192,8 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 using (var delimited = StringBuilder.DelimitWhereClause())
                 {
-                    delimited.BeginDelimitedElement();
-                    StringBuilder.Append("IsHistory = 0");
+                    AppendHistoryClause(delimited);
 
                     if (_tableExpressionCounter > 1)
                     {
@@ -221,6 +222,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             return null;
+        }
+
+        private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited)
+        {
+            if (!_isHistorySearch)
+            {
+                delimited.BeginDelimitedElement().Append(V1.Resource.IsDeleted).Append(" = 0");
+            }
+        }
+
+        private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited)
+        {
+            if (!_isHistorySearch)
+            {
+                delimited.BeginDelimitedElement().Append(V1.Resource.IsHistory).Append(" = 0");
+            }
         }
 
         public object VisitSearchParameter(SearchParameterExpression expression, object context)
