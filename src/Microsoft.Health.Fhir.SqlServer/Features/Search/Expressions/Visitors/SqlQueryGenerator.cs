@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 if (expression.NormalizedPredicates.Count > 0)
                 {
                     delimitedClause.BeginDelimitedElement();
-                    StringBuilder.Append("r.").Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT DISTINCT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter)).Append(")");
+                    StringBuilder.Append("r.").Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter)).Append(")");
                 }
 
                 foreach (var denormalizedPredicate in expression.DenormalizedPredicates)
@@ -114,18 +114,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             var searchOptions = (SearchOptions)context;
 
+            StringBuilder.Append("SELECT DISTINCT ");
+
+            bool withTopClause = _tableExpressionCounter == _totalTableExpressions && !searchOptions.CountOnly;
+
+            if (withTopClause)
+            {
+                StringBuilder.Append("TOP ").Append(searchOptions.MaxItemCount + 1).Append(" ");
+            }
+
+            StringBuilder.Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
+                .Append("FROM ");
+
             if (tableExpression.NormalizedPredicate is MissingSearchParameterExpression missing && missing.IsMissing)
             {
-                StringBuilder.Append("SELECT ");
-
-                if (_tableExpressionCounter == _totalTableExpressions && !searchOptions.CountOnly)
-                {
-                    StringBuilder.Append("TOP ").Append(searchOptions.MaxItemCount + 1).Append(" ");
-                }
-
-                StringBuilder.Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1");
-                StringBuilder.Append("FROM ");
-
                 if (_tableExpressionCounter == 1)
                 {
                     StringBuilder.AppendLine().AppendLine("(");
@@ -155,7 +157,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 // give an alias to the derived table or cte
                 StringBuilder.AppendLine(" t");
 
-                StringBuilder.AppendLine("WHERE t.").Append(V1.Resource.ResourceSurrogateId).AppendLine(" NOT IN");
+                StringBuilder.Append("WHERE t.").Append(V1.Resource.ResourceSurrogateId).AppendLine(" NOT IN");
                 StringBuilder.AppendLine("(");
 
                 using (StringBuilder.Indent())
@@ -178,18 +180,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
 
                 StringBuilder.AppendLine(")");
+
+                if (withTopClause)
+                {
+                    StringBuilder.Append("ORDER BY t.").Append(V1.Resource.ResourceSurrogateId).AppendLine(" ASC");
+                }
             }
             else
             {
-                StringBuilder.Append("SELECT ");
-
-                if (_tableExpressionCounter == _totalTableExpressions && !searchOptions.CountOnly)
-                {
-                    StringBuilder.Append("TOP ").Append(searchOptions.MaxItemCount + 1).Append(" ");
-                }
-
-                StringBuilder.Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
-                    .Append("FROM ").AppendLine(tableExpression.TableHandler.Table);
+                StringBuilder.AppendLine(tableExpression.TableHandler.Table);
 
                 using (var delimited = StringBuilder.DelimitWhereClause())
                 {
@@ -199,7 +198,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     if (_tableExpressionCounter > 1)
                     {
                         delimited.BeginDelimitedElement();
-                        StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT DISTINCT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(")");
+                        StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(")");
                     }
 
                     if (tableExpression.DenormalizedPredicate != null)
@@ -213,6 +212,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         delimited.BeginDelimitedElement();
                         tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.TableHandler, this);
                     }
+                }
+
+                if (withTopClause)
+                {
+                    StringBuilder.Append("ORDER BY ").Append(V1.Resource.ResourceSurrogateId).AppendLine(" ASC");
                 }
             }
 
