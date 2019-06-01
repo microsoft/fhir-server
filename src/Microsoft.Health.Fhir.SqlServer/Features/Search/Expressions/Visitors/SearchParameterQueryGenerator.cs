@@ -239,5 +239,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return context;
         }
     }
+
+    internal class LastUpdatedParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
+    {
+        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        {
+            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.LastUpdated, expression.ComponentIndex, ((DateTimeOffset)expression.Value).UtcDateTime);
+            return context;
+        }
+    }
 #pragma warning restore SA1402 // File may only contain a single type
 }

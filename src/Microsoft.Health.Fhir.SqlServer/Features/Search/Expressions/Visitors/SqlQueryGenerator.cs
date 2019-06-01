@@ -278,6 +278,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 case SearchParameterNames.Id:
                     return new ResourceIdParameterQueryGenerator();
+                case SearchParameterNames.LastUpdated:
+                    return new LastUpdatedParameterQueryGenerator();
                 case SearchParameterNames.ResourceType:
                     return new ResourceTypeIdParameterQueryGenerator();
                 case SqlSearchParameters.ResourceSurrogateIdParameterName:
