@@ -11,11 +11,11 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    internal class SqlRootRewriter : ExpressionRewriterWithDefaultInitialContext<int>
+    internal class ExpressionToSqlExpressionRewriter : ExpressionRewriterWithDefaultInitialContext<int>
     {
         private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
 
-        public SqlRootRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
+        public ExpressionToSqlExpressionRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
         {
             EnsureArg.IsNotNull(normalizedSearchParameterQueryGeneratorFactory, nameof(normalizedSearchParameterQueryGeneratorFactory));
             _normalizedSearchParameterQueryGeneratorFactory = normalizedSearchParameterQueryGeneratorFactory;

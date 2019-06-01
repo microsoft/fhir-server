@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal class SqlServerSearchService : SearchService
     {
         private readonly SqlServerFhirModel _model;
-        private readonly SqlRootRewriter _sqlRootRewriter;
+        private readonly ExpressionToSqlExpressionRewriter _expressionToSqlExpressionRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
 
@@ -41,16 +41,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             IFhirDataStore fhirDataStore,
             IModelInfoProvider modelInfoProvider,
             SqlServerFhirModel model,
-            SqlRootRewriter sqlRootRewriter,
+            ExpressionToSqlExpressionRewriter expressionToSqlExpressionRewriter,
             SqlServerDataStoreConfiguration configuration,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
         {
-            EnsureArg.IsNotNull(sqlRootRewriter, nameof(sqlRootRewriter));
+            EnsureArg.IsNotNull(expressionToSqlExpressionRewriter, nameof(expressionToSqlExpressionRewriter));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
-            _sqlRootRewriter = sqlRootRewriter;
+            _expressionToSqlExpressionRewriter = expressionToSqlExpressionRewriter;
             _configuration = configuration;
             _logger = logger;
         }
@@ -88,7 +88,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             var expression = (SqlRootExpression)searchExpression
                                  ?.AcceptVisitor(FlatteningRewriter.Instance)
-                                 ?.AcceptVisitor(_sqlRootRewriter)
+                                 ?.AcceptVisitor(_expressionToSqlExpressionRewriter)
+                             ?.AcceptVisitor(NormalizedPredicateReorderer.Instance)
                              ?? SqlRootExpression.WithDenormalizedPredicates();
 
             expression = (SqlRootExpression)expression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);

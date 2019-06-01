@@ -67,19 +67,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
-        private IReadOnlyList<Expression> VisitArray(IReadOnlyList<Expression> inputArray, TContext context)
+        protected IReadOnlyList<TExpression> VisitArray<TExpression>(IReadOnlyList<TExpression> inputArray, TContext context)
+            where TExpression : Expression
         {
-            Expression[] outputArray = null;
+            TExpression[] outputArray = null;
 
             for (var index = 0; index < inputArray.Count; index++)
             {
                 var argument = inputArray[index];
-                var rewrittenArgument = argument.AcceptVisitor(this, context);
+                var rewrittenArgument = (TExpression)argument.AcceptVisitor(this, context);
                 if (!ReferenceEquals(rewrittenArgument, argument))
                 {
                     if (outputArray == null)
                     {
-                        outputArray = new Expression[inputArray.Count];
+                        outputArray = new TExpression[inputArray.Count];
                         for (int i = 0; i < inputArray.Count; i++)
                         {
                             outputArray[i] = inputArray[i];

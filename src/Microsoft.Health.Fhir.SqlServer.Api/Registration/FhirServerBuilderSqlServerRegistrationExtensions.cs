@@ -92,7 +92,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<SqlRootRewriter>()
+            services.Add<ExpressionToSqlExpressionRewriter>()
                 .Singleton()
                 .AsSelf();
 
