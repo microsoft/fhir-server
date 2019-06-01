@@ -28,6 +28,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     extern alias WebStu3;
     extern alias WebR4;
+    extern alias E2EStu3;
+    extern alias E2ER4;
 
     /// <summary>
     /// A test fixture which hosts the target web project in an in-memory server.
@@ -95,10 +97,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             switch (_fhirVersion)
             {
                 case FhirVersion.Stu3:
-                    FhirClient = new Stu3.FhirClient(HttpClient, _format);
+                    FhirClient = new E2EStu3::Microsoft.Health.Fhir.Tests.E2E.FhirClient(HttpClient, _format, _fhirVersion);
                     break;
                 case FhirVersion.R4:
-                    FhirClient = new R4.FhirClient(HttpClient, _format);
+                    FhirClient = new E2ER4::Microsoft.Health.Fhir.Tests.E2E.FhirClient(HttpClient, _format, _fhirVersion);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

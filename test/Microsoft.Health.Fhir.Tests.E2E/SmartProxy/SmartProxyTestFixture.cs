@@ -10,10 +10,12 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Stu3.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
+    extern alias E2EStu3;
+    extern alias E2ER4;
+
     public class SmartProxyTestFixture : IDisposable
     {
         public SmartProxyTestFixture()
@@ -43,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
                 HttpClient = new HttpClient { BaseAddress = new Uri(environmentUrl), };
 
-                FhirClient = new FhirClient(HttpClient, Format.Json);
+                FhirClient = new E2EStu3::Microsoft.Health.Fhir.Tests.E2E.FhirClient(HttpClient, Format.Json, FhirVersion.Stu3);
             }
         }
 

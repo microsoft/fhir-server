@@ -28,11 +28,12 @@ using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json.Linq;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
+namespace Microsoft.Health.Fhir.Tests.E2E
 {
     public class FhirClient : ICustomFhirClient
     {
         private readonly Format _format;
+        private readonly FhirVersion _fhirVersion;
         private readonly Dictionary<string, string> _bearerTokens = new Dictionary<string, string>();
         private readonly string _contentType;
 
@@ -43,11 +44,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
         private readonly Func<string, Resource> _deserialize;
         private readonly MediaTypeWithQualityHeaderValue _mediaType;
 
-        public FhirClient(HttpClient httpClient, Format format)
+        public FhirClient(HttpClient httpClient, Format format, FhirVersion fhirVersion)
         {
             HttpClient = httpClient;
 
             _format = format;
+            _fhirVersion = fhirVersion;
 
             if (format == Tests.Common.FixtureParameters.Format.Json)
             {
@@ -427,7 +429,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Stu3
         /// <param name="fileName">The JSON filename, omit the extension</param>
         public ResourceElement GetJsonSample(string fileName)
         {
-            var json = EmbeddedResourceManager.GetStringContent("TestFiles", fileName, "json", "Stu3");
+            var json = EmbeddedResourceManager.GetStringContent("TestFiles", fileName, "json", _fhirVersion.ToString());
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
             return parser.Parse<Resource>(json).ToResourceElement();
         }

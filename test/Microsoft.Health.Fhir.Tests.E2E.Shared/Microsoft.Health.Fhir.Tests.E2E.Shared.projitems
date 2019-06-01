@@ -9,6 +9,6 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Tests.E2E.Shared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="$(MSBuildThisFileDirectory)Common\" />
+    <Compile Include="$(MSBuildThisFileDirectory)FhirClient.cs" />
   </ItemGroup>
 </Project>
