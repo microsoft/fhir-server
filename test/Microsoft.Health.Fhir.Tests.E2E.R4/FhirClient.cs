@@ -398,28 +398,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.R4
 
         public ResourceElement GetDefaultObservation()
         {
-            var json = EmbeddedResourceManager.GetStringContent("TestFiles", "Weight", "json", "R4");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
+            return GetJsonSample("Weight");
         }
 
         public ResourceElement GetDefaultPatient()
         {
-            var json = EmbeddedResourceManager.GetStringContent("TestFiles", "Patient", "json", "R4");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
+            return GetJsonSample("Patient");
         }
 
         public ResourceElement GetDefaultOrganization()
         {
-            var json = EmbeddedResourceManager.GetStringContent("TestFiles", "Organization", "json", "R4");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
+            return GetJsonSample("Organization");
         }
 
         public ResourceElement GetEmptyObservation()
         {
             return new Observation().ToTypedElement().ToResourceElement();
+        }
+
+        /// <summary>
+        /// Gets back a resource from a json sample file.
+        /// </summary>
+        /// <param name="fileName">The JSON filename, omit the extension</param>
+        public ResourceElement GetJsonSample(string fileName)
+        {
+            var json = EmbeddedResourceManager.GetStringContent("TestFiles", fileName, "json", "R4");
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            return parser.Parse<Resource>(json).ToTypedElement().ToResourceElement();
         }
 
         public void Validate(ResourceElement resourceElement)

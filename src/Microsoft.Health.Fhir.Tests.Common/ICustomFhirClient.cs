@@ -91,6 +91,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         ResourceElement GetEmptyObservation();
 
+        ResourceElement GetJsonSample(string fileName);
+
         void Validate(ResourceElement resourceElement);
 
         ResourceElement UpdateId(ResourceElement resourceElement, string id);

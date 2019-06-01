@@ -170,7 +170,7 @@
     <value>Deleting a specific record version is not supported.</value>
   </data>
   <data name="HistoryParameterBeforeCannotBeFuture" xml:space="preserve">
-    <value>Parameter {0} cannot a be a value in the future.</value>
+    <value>Parameter {0} cannot be a value in the future.</value>
   </data>
   <data name="IdRequirements" xml:space="preserve">
     <value>Id must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z'), numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.)</value>
