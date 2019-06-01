@@ -7,18 +7,18 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.NormalizedTableHandlers;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     internal class SqlRootRewriter : ExpressionRewriterWithDefaultInitialContext<int>
     {
-        private readonly NormalizedTableHandlerFactory _normalizedTableHandlerFactory;
+        private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
 
-        public SqlRootRewriter(NormalizedTableHandlerFactory normalizedTableHandlerFactory)
+        public SqlRootRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
         {
-            EnsureArg.IsNotNull(normalizedTableHandlerFactory, nameof(normalizedTableHandlerFactory));
-            _normalizedTableHandlerFactory = normalizedTableHandlerFactory;
+            EnsureArg.IsNotNull(normalizedSearchParameterQueryGeneratorFactory, nameof(normalizedSearchParameterQueryGeneratorFactory));
+            _normalizedSearchParameterQueryGeneratorFactory = normalizedSearchParameterQueryGeneratorFactory;
         }
 
         public override Expression VisitMultiary(MultiaryExpression expression, int context)
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             for (var i = 0; i < expression.Expressions.Count; i++)
             {
                 Expression childExpression = expression.Expressions[i];
-                if (TryGetNormalizedTableHandler(childExpression, out var tableHandler))
+                if (TryGetNormalizedGenerator(childExpression, out var normalizedGenerator))
                 {
                     if (joinedCriteria == null)
                     {
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         }
                     }
 
-                    joinedCriteria.Add(new TableExpression(tableHandler, childExpression));
+                    joinedCriteria.Add(new TableExpression(normalizedGenerator, childExpression));
                 }
                 else
                 {
@@ -74,15 +74,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private Expression ConvertNonMultiary(Expression expression)
         {
-            return TryGetNormalizedTableHandler(expression, out var tableHandler)
-                ? SqlRootExpression.WithNormalizedPredicates(new TableExpression(tableHandler, expression))
+            return TryGetNormalizedGenerator(expression, out var generator)
+                ? SqlRootExpression.WithNormalizedPredicates(new TableExpression(generator, expression))
                 : SqlRootExpression.WithDenormalizedPredicates(expression);
         }
 
-        private bool TryGetNormalizedTableHandler(Expression expression, out NormalizedTableHandler tableHandler)
+        private bool TryGetNormalizedGenerator(Expression expression, out NormalizedSearchParameterQueryGenerator normalizedGenerator)
         {
-            tableHandler = expression.AcceptVisitor(_normalizedTableHandlerFactory);
-            return tableHandler != null;
+            normalizedGenerator = expression.AcceptVisitor(_normalizedSearchParameterQueryGeneratorFactory);
+            return normalizedGenerator != null;
         }
     }
 }

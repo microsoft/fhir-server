@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -136,11 +137,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         while (await reader.ReadAsync(cancellationToken))
                         {
-                            (short resourceTypeId, string resourceId, int version, bool isHistory, bool isDeleted, long resourceSurrogateId, DateTime lastUpdated, string requestMethod, Stream rawResourceStream) = reader.ReadRow(
+                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, DateTime lastUpdated, string requestMethod, Stream rawResourceStream) = reader.ReadRow(
                                 V1.Resource.ResourceTypeId,
                                 V1.Resource.ResourceId,
                                 V1.Resource.Version,
-                                V1.Resource.IsHistory,
                                 V1.Resource.IsDeleted,
                                 V1.Resource.ResourceSurrogateId,
                                 V1.Resource.LastUpdated,

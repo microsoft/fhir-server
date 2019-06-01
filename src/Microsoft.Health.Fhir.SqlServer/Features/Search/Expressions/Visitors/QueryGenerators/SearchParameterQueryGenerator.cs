@@ -8,14 +8,14 @@ using System.Data.SqlClient;
 using System.Text.RegularExpressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Search
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
     internal abstract class SearchParameterQueryGenerator : IExpressionVisitor<SqlQueryGenerator, SqlQueryGenerator>
     {
         private const string DefaultCaseInsensitiveCollation = "Latin1_General_100_CI_AI_SC";
         private const string DefaultCaseSensitiveCollation = "Latin1_General_100_CS_AS";
+
         private static readonly Regex LikeEscapingRegex = new Regex("[%!\\[\\]_]", RegexOptions.Compiled);
 
         public virtual SqlQueryGenerator VisitSearchParameter(SearchParameterExpression expression, SqlQueryGenerator context)
@@ -30,16 +30,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .Append("AND ");
 
             return expression.Expression.AcceptVisitor(this, context);
-        }
-
-        public virtual SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public virtual SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
-        {
-            throw new System.NotSupportedException();
         }
 
         public virtual SqlQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, SqlQueryGenerator context)
@@ -75,21 +65,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             context.StringBuilder.AppendLine();
 
             return context;
-        }
-
-        public virtual SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public SqlQueryGenerator VisitChained(ChainedExpression expression, SqlQueryGenerator context)
-        {
-            throw new System.NotSupportedException();
-        }
-
-        public virtual SqlQueryGenerator VisitCompartment(CompartmentSearchExpression expression, SqlQueryGenerator context)
-        {
-            throw new System.NotSupportedException();
         }
 
         private static string EscapeValueForLike(string value)
@@ -195,58 +170,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1).Append(" IS NULL");
             return context;
         }
-    }
 
-#pragma warning disable SA1402 // File may only contain a single type
-
-    internal class DenormalizedSearchParameterQueryGenerator : SearchParameterQueryGenerator
-    {
-        public override SqlQueryGenerator VisitSearchParameter(SearchParameterExpression expression, SqlQueryGenerator context)
+        public virtual SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
         {
-            return expression.Expression.AcceptVisitor(this, context);
+            throw new System.NotImplementedException();
         }
 
-        public override SqlQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, SqlQueryGenerator context)
+        public virtual SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
         {
-            context.StringBuilder.Append(expression.IsMissing ? " 1 = 0 " : " 1 = 1 ");
-            return context;
+            throw new System.NotSupportedException();
+        }
+
+        public virtual SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        {
+            throw new System.NotSupportedException();
+        }
+
+        public SqlQueryGenerator VisitChained(ChainedExpression expression, SqlQueryGenerator context)
+        {
+            throw new System.NotSupportedException();
+        }
+
+        public virtual SqlQueryGenerator VisitCompartment(CompartmentSearchExpression expression, SqlQueryGenerator context)
+        {
+            throw new System.NotSupportedException();
         }
     }
-
-    internal class ResourceTypeIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
-    {
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
-        {
-            return VisitSimpleBinary(BinaryOperator.Equal, context, V1.Resource.ResourceTypeId, expression.ComponentIndex, context.Model.GetResourceTypeIdOrInvalidIfNotRecognized(expression.Value));
-        }
-    }
-
-    internal class ResourceSurrogateIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
-    {
-        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
-        {
-            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceSurrogateId, expression.ComponentIndex, expression.Value);
-            return context;
-        }
-    }
-
-    internal class ResourceIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
-    {
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
-        {
-            VisitSimpleString(expression, context, V1.Resource.ResourceId, expression.Value);
-
-            return context;
-        }
-    }
-
-    internal class LastUpdatedParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
-    {
-        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
-        {
-            VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.LastUpdated, expression.ComponentIndex, ((DateTimeOffset)expression.Value).UtcDateTime);
-            return context;
-        }
-    }
-#pragma warning restore SA1402 // File may only contain a single type
 }

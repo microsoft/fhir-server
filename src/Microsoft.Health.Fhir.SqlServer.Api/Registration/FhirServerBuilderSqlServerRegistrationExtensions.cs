@@ -88,7 +88,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             AddSqlServerTableRowParameterGenerators(services);
 
-            services.Add<NormalizedTableHandlerFactory>()
+            services.Add<NormalizedSearchParameterQueryGeneratorFactory>()
                 .Singleton()
                 .AsSelf();
 

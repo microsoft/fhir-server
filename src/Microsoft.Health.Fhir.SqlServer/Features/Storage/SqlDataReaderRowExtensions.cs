@@ -4,8 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Data.SqlClient;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
     /// Extensions on <see cref="SqlDataReader"/> for reading an entire data row based on

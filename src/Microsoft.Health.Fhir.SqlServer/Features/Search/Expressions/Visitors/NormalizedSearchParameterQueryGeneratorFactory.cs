@@ -6,44 +6,40 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.NormalizedTableHandlers;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    internal class NormalizedTableHandlerFactory : IExpressionVisitorWithInitialContext<object, NormalizedTableHandler>
+    internal class NormalizedSearchParameterQueryGeneratorFactory : IExpressionVisitorWithInitialContext<object, NormalizedSearchParameterQueryGenerator>
     {
-        private ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterToSearchValueTypeMap;
-        private readonly ConcurrentDictionary<Uri, NormalizedTableHandler> _cache = new ConcurrentDictionary<Uri, NormalizedTableHandler>();
+        private readonly ConcurrentDictionary<Uri, NormalizedSearchParameterQueryGenerator> _cache = new ConcurrentDictionary<Uri, NormalizedSearchParameterQueryGenerator>();
 
-        public NormalizedTableHandlerFactory(ISearchParameterDefinitionManager searchParameterDefinitionManager, SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap)
+        public NormalizedSearchParameterQueryGeneratorFactory(SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterToSearchValueTypeMap, nameof(searchParameterToSearchValueTypeMap));
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterToSearchValueTypeMap = searchParameterToSearchValueTypeMap;
         }
 
         public object InitialContext => null;
 
-        public NormalizedTableHandler VisitSearchParameter(SearchParameterExpression expression, object context)
+        public NormalizedSearchParameterQueryGenerator VisitSearchParameter(SearchParameterExpression expression, object context)
         {
             return VisitSearchParameterExpressionBase(expression.Parameter, expression.Expression, context);
         }
 
-        public NormalizedTableHandler VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
+        public NormalizedSearchParameterQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
         {
             return VisitSearchParameterExpressionBase(expression.Parameter, null, context);
         }
 
-        private NormalizedTableHandler VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
+        private NormalizedSearchParameterQueryGenerator VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
         {
             switch (searchParameterInfo.Name)
             {
@@ -51,6 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 case SearchParameterNames.LastUpdated:
                 case SearchParameterNames.ResourceType:
                 case SqlSearchParameters.ResourceSurrogateIdParameterName:
+                    // these are all denormalized
                     return null;
             }
 
@@ -63,62 +60,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            if (!_cache.TryGetValue(searchParameterInfo.Url, out var handler))
+            if (!_cache.TryGetValue(searchParameterInfo.Url, out var generator))
             {
-                handler = NormalizedTableHandler(searchParameterInfo);
-                _cache.TryAdd(searchParameterInfo.Url, handler);
+                generator = GetGenerator(searchParameterInfo);
+                _cache.TryAdd(searchParameterInfo.Url, generator);
             }
 
-            return handler;
+            return generator;
 
-            NormalizedTableHandler NormalizedTableHandler(SearchParameterInfo param)
+            NormalizedSearchParameterQueryGenerator GetGenerator(SearchParameterInfo param)
             {
                 switch (param.Type)
                 {
                     case SearchParamType.Token:
-                        return TokenNormalizedTableHandler.Instance;
+                        return TokenSearchParameterQueryGenerator.Instance;
                     case SearchParamType.Date:
-                        return DateTimeNormalizedTableHandler.Instance;
+                        return DateTimeSearchParameterQueryGenerator.Instance;
                     case SearchParamType.Number:
-                        return NumberNormalizedTableHandler.Instance;
+                        return NumberSearchParameterQueryGenerator.Instance;
                     case SearchParamType.Quantity:
-                        return QuantityNormalizedTableHandler.Instance;
+                        return QuantitySearchParameterQueryGenerator.Instance;
                     case SearchParamType.Reference:
-                        return ReferenceNormalizedTableHandler.Instance;
+                        return ReferenceSearchParameterQueryGenerator.Instance;
                     case SearchParamType.Str:
-                        return StringNormalizedTableHandler.Instance;
+                        return StringSearchParameterQueryGenerator.Instance;
                     case SearchParamType.Uri:
-                        return UriNormalizedTableHandler.Instance;
+                        return UriSearchParameterQueryGenerator.Instance;
                     case SearchParamType.Composite:
                         Type searchValueType = _searchParameterToSearchValueTypeMap.GetSearchValueType(param);
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, QuantitySearchValue>))
                         {
-                            return TokenQuantityCompositeNormalizedTableHandler.Instance;
+                            return TokenQuantityCompositeSearchParameterQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<ReferenceSearchValue, TokenSearchValue>))
                         {
-                            return ReferenceTokenCompositeNormalizedTableHandler.Instance;
+                            return ReferenceTokenCompositeSearchParameterQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, TokenSearchValue>))
                         {
-                            return TokenTokenCompositeNormalizedTableHandler.Instance;
+                            return TokenTokenCompositeSearchParameterQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, DateTimeSearchValue>))
                         {
-                            return TokenDateTimeCompositeNormalizedTableHandler.Instance;
+                            return TokenDateTimeCompositeSearchParameterQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, StringSearchValue>))
                         {
-                            return TokenStringCompositeNormalizedTableHandler.Instance;
+                            return TokenStringCompositeSearchParameterQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, NumberSearchValue, NumberSearchValue>))
                         {
-                            return TokenNumberNumberNormalizedTableHandler.Instance;
+                            return TokenNumberNumberSearchParameterQueryGenerator.Instance;
                         }
 
                         throw new InvalidOperationException($"Unexpected composite search parameter {param.Url}");
@@ -129,22 +126,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
         }
 
-        public NormalizedTableHandler VisitBinary(BinaryExpression expression, object context)
+        public NormalizedSearchParameterQueryGenerator VisitBinary(BinaryExpression expression, object context)
         {
             throw new InvalidOperationException("Should not get here");
         }
 
-        public NormalizedTableHandler VisitChained(ChainedExpression expression, object context)
+        public NormalizedSearchParameterQueryGenerator VisitChained(ChainedExpression expression, object context)
         {
             throw new System.NotImplementedException();
         }
 
-        public NormalizedTableHandler VisitMissingField(MissingFieldExpression expression, object context)
+        public NormalizedSearchParameterQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)
         {
-            return TokenNormalizedTableHandler.Instance;
+            return TokenSearchParameterQueryGenerator.Instance;
         }
 
-        public NormalizedTableHandler VisitMultiary(MultiaryExpression expression, object context)
+        public NormalizedSearchParameterQueryGenerator VisitMultiary(MultiaryExpression expression, object context)
         {
             foreach (var childExpression in expression.Expressions)
             {
@@ -158,19 +155,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return null;
         }
 
-        public NormalizedTableHandler VisitString(StringExpression expression, object context)
+        public NormalizedSearchParameterQueryGenerator VisitString(StringExpression expression, object context)
         {
             if (expression.FieldName == FieldName.TokenText)
             {
-                return TokenTextNormalizedTableHandler.Instance;
+                return TokenTextSearchParameterQueryGenerator.Instance;
             }
 
-            return TokenNormalizedTableHandler.Instance;
+            return TokenSearchParameterQueryGenerator.Instance;
         }
 
-        public NormalizedTableHandler VisitCompartment(CompartmentSearchExpression expression, object context)
+        public NormalizedSearchParameterQueryGenerator VisitCompartment(CompartmentSearchExpression expression, object context)
         {
-            return CompartmentNormalizedTableHandler.Instance;
+            return CompartmentSearchParameterQueryGenerator.Instance;
         }
     }
 }

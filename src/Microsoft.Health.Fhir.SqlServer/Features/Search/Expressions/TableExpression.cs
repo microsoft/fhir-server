@@ -7,15 +7,15 @@ using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.NormalizedTableHandlers;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
     internal class TableExpression : Expression
     {
-        public TableExpression(NormalizedTableHandler tableHandler, Expression normalizedPredicate, Expression denormalizedPredicate = null)
+        public TableExpression(NormalizedSearchParameterQueryGenerator searchParameterQueryGenerator, Expression normalizedPredicate, Expression denormalizedPredicate = null)
         {
-            EnsureArg.IsNotNull(tableHandler, nameof(tableHandler));
+            EnsureArg.IsNotNull(searchParameterQueryGenerator, nameof(searchParameterQueryGenerator));
             EnsureArg.IsNotNull(normalizedPredicate, nameof(normalizedPredicate));
             switch (normalizedPredicate)
             {
@@ -27,12 +27,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
                     throw new ArgumentOutOfRangeException(nameof(normalizedPredicate));
             }
 
-            TableHandler = tableHandler;
+            SearchParameterQueryGenerator = searchParameterQueryGenerator;
             NormalizedPredicate = normalizedPredicate;
             DenormalizedPredicate = denormalizedPredicate;
         }
 
-        public NormalizedTableHandler TableHandler { get; }
+        public NormalizedSearchParameterQueryGenerator SearchParameterQueryGenerator { get; }
 
         public Expression NormalizedPredicate { get; }
 
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Table {TableHandler.Table} Normalized:{NormalizedPredicate} Denormalized:{DenormalizedPredicate})";
+            return $"(Table {SearchParameterQueryGenerator.Table} Normalized:{NormalizedPredicate} Denormalized:{DenormalizedPredicate})";
         }
     }
 }

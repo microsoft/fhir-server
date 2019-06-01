@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
     internal class SqlQueryGenerator : ISqlExpressionVisitor<object, object>
     {
@@ -74,7 +74,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     .Append("r.").Append(V1.Resource.ResourceTypeId).Append(", ")
                     .Append("r.").Append(V1.Resource.ResourceId).Append(", ")
                     .Append("r.").Append(V1.Resource.Version).Append(", ")
-                    .Append("r.").Append(V1.Resource.IsHistory).Append(", ")
                     .Append("r.").Append(V1.Resource.IsDeleted).Append(", ")
                     .Append("r.").Append(V1.Resource.ResourceSurrogateId).Append(", ")
                     .Append("r.").Append(V1.Resource.LastUpdated).Append(", ")
@@ -165,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 using (StringBuilder.Indent())
                 {
                     StringBuilder.Append("SELECT ").AppendLine(V1.Resource.ResourceSurrogateId)
-                        .Append("FROM ").AppendLine(tableExpression.TableHandler.Table);
+                        .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
                     using (var delimited = StringBuilder.DelimitWhereClause())
                     {
                         AppendHistoryClause(delimited);
@@ -177,7 +176,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         }
 
                         delimited.BeginDelimitedElement();
-                        missing.AcceptVisitor(tableExpression.TableHandler, this);
+                        missing.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, this);
                     }
                 }
 
@@ -190,7 +189,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
             else
             {
-                StringBuilder.AppendLine(tableExpression.TableHandler.Table);
+                StringBuilder.AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
 
                 using (var delimited = StringBuilder.DelimitWhereClause())
                 {
@@ -211,7 +210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     if (tableExpression.NormalizedPredicate != null)
                     {
                         delimited.BeginDelimitedElement();
-                        tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.TableHandler, this);
+                        tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, this);
                     }
                 }
 
