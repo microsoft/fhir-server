@@ -17,7 +17,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Core.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.CosmosDb", "src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj", "{BC1F4876-CD3C-49D2-A469-BD530B53A0FD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Web", "src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj", "{DCDE987F-0B50-4233-8661-6B5A251E7CAE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Stu3.Web", "src\Microsoft.Health.Fhir.Stu3.Web\Microsoft.Health.Fhir.Stu3.Web.csproj", "{DCDE987F-0B50-4233-8661-6B5A251E7CAE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests.Common", "src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj", "{83F1D0BE-F8C4-4244-BB79-B77D92B8F092}"
 EndProject
