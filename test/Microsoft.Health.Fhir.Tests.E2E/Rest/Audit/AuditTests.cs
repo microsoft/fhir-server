@@ -407,7 +407,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             const string url = "Patient/123";
 
             // Create a new client with no token supplied.
-            var client = (ICustomFhirClient)Activator.CreateInstance(_client.GetType(), _fixture.CreateHttpClient(), Format.Json);
+            var client = (ICustomFhirClient)Activator.CreateInstance(_client.GetType(), _fixture.CreateHttpClient(), Format.Json, _fixture.FhirVersion);
 
             await clientSetup(client);
 
