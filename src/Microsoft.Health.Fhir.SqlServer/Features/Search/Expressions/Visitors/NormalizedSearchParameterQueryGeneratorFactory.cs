@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         return QuantitySearchParameterQueryGenerator.Instance;
                     case SearchParamType.Reference:
                         return ReferenceSearchParameterQueryGenerator.Instance;
-                    case SearchParamType.Str:
+                    case SearchParamType.String:
                         return StringSearchParameterQueryGenerator.Instance;
                     case SearchParamType.Uri:
                         return UriSearchParameterQueryGenerator.Instance;
