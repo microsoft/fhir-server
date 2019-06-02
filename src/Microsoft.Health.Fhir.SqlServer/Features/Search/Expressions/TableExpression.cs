@@ -13,10 +13,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
     internal class TableExpression : Expression
     {
-        public TableExpression(NormalizedSearchParameterQueryGenerator searchParameterQueryGenerator, Expression normalizedPredicate, Expression denormalizedPredicate = null)
+        public TableExpression(
+            NormalizedSearchParameterQueryGenerator searchParameterQueryGenerator,
+            Expression normalizedPredicate,
+            Expression denormalizedPredicate = null,
+            TableExpressionKind kind = TableExpressionKind.Normal)
         {
             EnsureArg.IsNotNull(searchParameterQueryGenerator, nameof(searchParameterQueryGenerator));
             EnsureArg.IsNotNull(normalizedPredicate, nameof(normalizedPredicate));
+
             switch (normalizedPredicate)
             {
                 case SearchParameterExpressionBase _:
@@ -30,7 +35,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             SearchParameterQueryGenerator = searchParameterQueryGenerator;
             NormalizedPredicate = normalizedPredicate;
             DenormalizedPredicate = denormalizedPredicate;
+            Kind = kind;
         }
+
+        public TableExpressionKind Kind { get; }
 
         public NormalizedSearchParameterQueryGenerator SearchParameterQueryGenerator { get; }
 

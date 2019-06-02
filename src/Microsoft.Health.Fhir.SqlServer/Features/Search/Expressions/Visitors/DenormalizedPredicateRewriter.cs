@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 ? extractedDemormalizedExpression
                 : Expression.And(firstTableExpression.DenormalizedPredicate, extractedDemormalizedExpression);
 
-            firstTableExpression = new TableExpression(firstTableExpression.SearchParameterQueryGenerator, firstTableExpression.NormalizedPredicate, newDenormalizedPredicate);
+            firstTableExpression = new TableExpression(firstTableExpression.SearchParameterQueryGenerator, firstTableExpression.NormalizedPredicate, newDenormalizedPredicate, firstTableExpression.Kind);
 
             var normalizedPredicates = expression.NormalizedPredicates.ToList();
             normalizedPredicates[0] = firstTableExpression;

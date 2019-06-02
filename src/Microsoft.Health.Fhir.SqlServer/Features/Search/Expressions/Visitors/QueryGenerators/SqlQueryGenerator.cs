@@ -115,18 +115,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             var searchOptions = (SearchOptions)context;
 
-            StringBuilder.Append("SELECT DISTINCT ");
-
-            bool withTopClause = _tableExpressionCounter == _totalTableExpressions && !searchOptions.CountOnly;
-
-            if (withTopClause)
-            {
-                StringBuilder.Append("TOP ").Append(searchOptions.MaxItemCount + 1).Append(" ");
-            }
-
-            StringBuilder.Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
-                .Append("FROM ");
-
             if (tableExpression.NormalizedPredicate is MissingSearchParameterExpression missing && missing.IsMissing)
             {
                 if (_tableExpressionCounter == 1)
@@ -181,42 +169,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.AppendLine(")");
-
-                if (withTopClause)
-                {
-                    StringBuilder.Append("ORDER BY t.").Append(V1.Resource.ResourceSurrogateId).AppendLine(" ASC");
-                }
             }
             else
             {
-                StringBuilder.AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
-
-                using (var delimited = StringBuilder.DelimitWhereClause())
+                switch (tableExpression.Kind)
                 {
-                    AppendHistoryClause(delimited);
+                    case TableExpressionKind.Normal:
 
-                    if (_tableExpressionCounter > 1)
-                    {
-                        delimited.BeginDelimitedElement();
-                        StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(")");
-                    }
+                        StringBuilder.Append("SELECT ");
 
-                    if (tableExpression.DenormalizedPredicate != null)
-                    {
-                        delimited.BeginDelimitedElement();
-                        tableExpression.DenormalizedPredicate?.AcceptVisitor(this, context);
-                    }
+                        bool withTopClause = _tableExpressionCounter == _totalTableExpressions && !searchOptions.CountOnly;
 
-                    if (tableExpression.NormalizedPredicate != null)
-                    {
-                        delimited.BeginDelimitedElement();
-                        tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, this);
-                    }
-                }
+                        StringBuilder.Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
+                            .Append("FROM ");
 
-                if (withTopClause)
-                {
-                    StringBuilder.Append("ORDER BY ").Append(V1.Resource.ResourceSurrogateId).AppendLine(" ASC");
+                        StringBuilder.AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
+
+                        using (var delimited = StringBuilder.DelimitWhereClause())
+                        {
+                            AppendHistoryClause(delimited);
+
+                            if (_tableExpressionCounter > 1)
+                            {
+                                delimited.BeginDelimitedElement();
+                                StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(")");
+                            }
+
+                            if (tableExpression.DenormalizedPredicate != null)
+                            {
+                                delimited.BeginDelimitedElement();
+                                tableExpression.DenormalizedPredicate?.AcceptVisitor(this, context);
+                            }
+
+                            if (tableExpression.NormalizedPredicate != null)
+                            {
+                                delimited.BeginDelimitedElement();
+                                tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, this);
+                            }
+                        }
+
+                        break;
+
+                    case TableExpressionKind.Concatenation:
+                        StringBuilder.Append("SELECT Sid1 FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+                        StringBuilder.AppendLine("UNION ALL");
+
+                        goto case TableExpressionKind.Normal;
                 }
             }
 

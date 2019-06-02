@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -16,8 +17,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
         {
-            context.StringBuilder.Append(V1.StringSearchParam.TextOverflow).Append(expression.ComponentIndex + 1).Append(" IS NULL AND ");
-            return VisitSimpleString(expression, context, V1.StringSearchParam.Text, expression.Value);
+            context.StringBuilder.Append(V1.StringSearchParam.TextOverflow).Append(expression.ComponentIndex + 1);
+
+            StringColumn column;
+            switch (expression.FieldName)
+            {
+                case FieldName.String:
+                    column = V1.StringSearchParam.Text;
+                    context.StringBuilder.Append(" IS NULL AND ");
+                    break;
+                case SqlFieldName.TextOverflow:
+                    column = V1.StringSearchParam.TextOverflow;
+                    context.StringBuilder.Append(" IS NOT NULL AND ");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
+            }
+
+            return VisitSimpleString(expression, context, column, expression.Value);
         }
     }
 }

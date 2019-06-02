@@ -89,10 +89,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var expression = (SqlRootExpression)searchExpression
                                  ?.AcceptVisitor(FlatteningRewriter.Instance)
                                  ?.AcceptVisitor(_expressionToSqlExpressionRewriter)
-                             ?.AcceptVisitor(NormalizedPredicateReorderer.Instance)
+                                 ?.AcceptVisitor(NormalizedPredicateReorderer.Instance)
+                                 ?.AcceptVisitor(DenormalizedPredicateRewriter.Instance)
+                                 ?.AcceptVisitor(StringOverflowRewriter.Instance)
                              ?? SqlRootExpression.WithDenormalizedPredicates();
-
-            expression = (SqlRootExpression)expression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
