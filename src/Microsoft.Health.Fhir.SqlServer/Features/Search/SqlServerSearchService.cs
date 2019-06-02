@@ -87,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var expression = (SqlRootExpression)searchExpression
+                                 ?.AcceptVisitor(DateTimeRangeRewriter.Instance)
                                  ?.AcceptVisitor(FlatteningRewriter.Instance)
                                  ?.AcceptVisitor(_expressionToSqlExpressionRewriter)
                                  ?.AcceptVisitor(NormalizedPredicateReorderer.Instance)
