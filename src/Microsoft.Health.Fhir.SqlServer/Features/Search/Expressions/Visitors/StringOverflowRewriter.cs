@@ -3,65 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    internal class StringOverflowRewriter : SqlExpressionRewriterWithDefaultInitialContext<object>
+    internal class StringOverflowRewriter : ConcatenationRewriter
     {
         internal static readonly StringOverflowRewriter Instance = new StringOverflowRewriter();
 
-        public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
+        private StringOverflowRewriter()
+            : base(new Scout())
         {
-            if (expression.NormalizedPredicates.Count == 0)
-            {
-                return expression;
-            }
-
-            List<TableExpression> newTableExpressions = null;
-            for (var i = 0; i < expression.NormalizedPredicates.Count; i++)
-            {
-                TableExpression tableExpression = expression.NormalizedPredicates[i];
-
-                if (tableExpression.NormalizedPredicate.AcceptVisitor(Scout.Instance, null))
-                {
-                    if (newTableExpressions == null)
-                    {
-                        newTableExpressions = new List<TableExpression>();
-                        for (int j = 0; j < i; j++)
-                        {
-                            newTableExpressions.Add(expression.NormalizedPredicates[j]);
-                        }
-                    }
-
-                    newTableExpressions.Add(tableExpression);
-                    newTableExpressions.Add((TableExpression)tableExpression.AcceptVisitor(this, context));
-                }
-                else
-                {
-                    newTableExpressions?.Add(tableExpression);
-                }
-            }
-
-            if (newTableExpressions == null)
-            {
-                return expression;
-            }
-
-            return new SqlRootExpression(newTableExpressions, expression.DenormalizedPredicates);
-        }
-
-        public override Expression VisitTable(TableExpression tableExpression, object context)
-        {
-            var normalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(this, context);
-
-            return new TableExpression(
-                tableExpression.SearchParameterQueryGenerator,
-                normalizedPredicate,
-                tableExpression.DenormalizedPredicate,
-                TableExpressionKind.Concatenation);
         }
 
         public override Expression VisitString(StringExpression expression, object context)
@@ -71,9 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private class Scout : DefaultExpressionVisitor<object, bool>
         {
-            internal static readonly Scout Instance = new Scout();
-
-            private Scout()
+            internal Scout()
                 : base((accumulated, current) => accumulated || current)
             {
             }

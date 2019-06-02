@@ -17,9 +17,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
         {
-            var column = V1.QuantitySearchParam.SingleValue;
-            context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
-            return VisitSimpleBinary(expression.BinaryOperator, context, column, expression.ComponentIndex, expression.Value);
+            NullableDecimalColumn valueColumn;
+            NullableDecimalColumn nullCheckColumn;
+            switch (expression.FieldName)
+            {
+                case FieldName.Quantity:
+                    valueColumn = nullCheckColumn = V1.QuantitySearchParam.SingleValue;
+                    break;
+                case SqlFieldName.QuantityLow:
+                    valueColumn = nullCheckColumn = V1.QuantitySearchParam.LowValue;
+                    break;
+                case SqlFieldName.QuantityHigh:
+                    valueColumn = V1.QuantitySearchParam.HighValue;
+                    nullCheckColumn = V1.QuantitySearchParam.LowValue;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
+            }
+
+            context.StringBuilder.Append(nullCheckColumn).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
+            return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
         }
 
         public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)

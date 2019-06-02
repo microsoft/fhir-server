@@ -92,6 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                  ?.AcceptVisitor(NormalizedPredicateReorderer.Instance)
                                  ?.AcceptVisitor(DenormalizedPredicateRewriter.Instance)
                                  ?.AcceptVisitor(StringOverflowRewriter.Instance)
+                                 ?.AcceptVisitor(NumericRangeRewriter.Instance)
                                  ?.AcceptVisitor(MissingSearchParamVisitor.Instance)
                                  ?.AcceptVisitor(TopRewriter.Instance, searchOptions)
                              ?? SqlRootExpression.WithDenormalizedPredicates();

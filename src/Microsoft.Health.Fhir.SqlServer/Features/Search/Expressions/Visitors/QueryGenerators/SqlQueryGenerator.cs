@@ -97,8 +97,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     denormalizedPredicate.AcceptVisitor(this, context);
                 }
 
-                AppendHistoryClause(delimitedClause);
-                AppendDeletedClause(delimitedClause);
+                if (expression.NormalizedPredicates.Count == 0)
+                {
+                    AppendHistoryClause(delimitedClause);
+                    AppendDeletedClause(delimitedClause);
+                }
             }
 
             if (!searchOptions.CountOnly)
@@ -124,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendHistoryClause(delimited);
 
-                        if (_tableExpressionCounter > 1)
+                        if (_tableExpressionCounter > 1 && tableExpression.Kind == TableExpressionKind.Normal)
                         {
                             delimited.BeginDelimitedElement();
                             StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(")");
