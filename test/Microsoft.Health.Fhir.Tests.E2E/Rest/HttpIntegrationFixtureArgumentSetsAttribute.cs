@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public sealed class HttpIntegrationFixtureArgumentSetsAttribute : FixtureArgumentSetsAttribute
     {
         public HttpIntegrationFixtureArgumentSetsAttribute(DataStore dataStores = 0, Format formats = 0, FhirVersion fhirVersions = 0)
-            : base(dataStores, formats, fhirVersions, null)
+            : base(dataStores, formats, fhirVersions)
         {
         }
     }

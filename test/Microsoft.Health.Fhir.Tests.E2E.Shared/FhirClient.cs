@@ -489,6 +489,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             return resourceElement.AddMetaTag(system, code);
         }
 
+        public ResourceElement AddObservationIdentifier(ResourceElement resourceElement, string system, string value)
+        {
+            return resourceElement.AddObservationIdentifier(system, value);
+        }
+
         public ResourceElement UpdateValueSetStatus(ResourceElement resourceElement, string status)
         {
             return resourceElement.UpdateValueSetStatus(status);

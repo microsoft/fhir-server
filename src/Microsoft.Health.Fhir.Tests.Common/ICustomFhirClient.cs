@@ -121,6 +121,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         ResourceElement AddMetaTag(ResourceElement resourceElement, string system, string code);
 
+        ResourceElement AddObservationIdentifier(ResourceElement resourceElement, string system, string identifier);
+
         bool Compare(ResourceElement expected, ITypedElement actual);
 
         bool Compare(ResourceElement expected, ResourceElement actual);
