@@ -12,6 +12,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     {
         private readonly Func<TOutput, TOutput, TOutput> _outputAggregator;
 
+        protected DefaultExpressionVisitor()
+            : this((acc, curr) => acc)
+        {
+        }
+
         protected DefaultExpressionVisitor(Func<TOutput, TOutput, TOutput> outputAggregator)
         {
             EnsureArg.IsNotNull(outputAggregator, nameof(outputAggregator));

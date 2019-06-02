@@ -9,5 +9,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     {
         Normal,
         Concatenation,
+        NotExists,
+        All,
+        Top,
     }
 }

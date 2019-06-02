@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
@@ -19,14 +18,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             Expression denormalizedPredicate = null,
             TableExpressionKind kind = TableExpressionKind.Normal)
         {
-            EnsureArg.IsNotNull(searchParameterQueryGenerator, nameof(searchParameterQueryGenerator));
-            EnsureArg.IsNotNull(normalizedPredicate, nameof(normalizedPredicate));
-
             switch (normalizedPredicate)
             {
                 case SearchParameterExpressionBase _:
                 case CompartmentSearchExpression _:
                 case ChainedExpression _:
+                case null:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(normalizedPredicate));
