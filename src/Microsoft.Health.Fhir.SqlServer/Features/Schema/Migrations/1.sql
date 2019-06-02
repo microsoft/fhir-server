@@ -126,7 +126,7 @@ GO
 CREATE TABLE dbo.SearchParam
 (
     SearchParamId smallint IDENTITY(1,1) NOT NULL,
-    Uri varchar(128) NOT NULL
+    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam ON dbo.SearchParam
@@ -137,7 +137,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam ON dbo.SearchParam
 CREATE TABLE dbo.ResourceType
 (
     ResourceTypeId smallint IDENTITY(1,1) NOT NULL,
-    Name nvarchar(50) NOT NULL
+    Name nvarchar(50) COLLATE Latin1_General_100_CS_AS  NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType on dbo.ResourceType
@@ -161,7 +161,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_System ON dbo.System
 CREATE TABLE dbo.QuantityCode
 (
     QuantityCodeId int IDENTITY(1,1) NOT NULL,
-    Value nvarchar(256) NOT NULL
+    Value nvarchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
@@ -229,7 +229,7 @@ CREATE NONCLUSTERED INDEX IX_Resource_LastUpdated ON dbo.Resource
 CREATE TABLE dbo.ClaimType
 (
     ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
-    Name varchar(128) NOT NULL
+    Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
@@ -263,7 +263,7 @@ CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
 CREATE TABLE dbo.CompartmentType
 (
     CompartmentTypeId tinyint IDENTITY(1,1) NOT NULL,
-    Name varchar(128) NOT NULL
+    Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
@@ -371,7 +371,7 @@ CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
-    Code varchar(128) NOT NULL
+    Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.TokenSearchParam
@@ -380,7 +380,7 @@ CREATE TABLE dbo.TokenSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
-    Code varchar(128) NOT NULL,
+    Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -777,12 +777,12 @@ GO
 CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
-    BaseUri1 varchar(128) NULL,
+    BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId1 smallint NOT NULL,
-    ReferenceResourceId1 varchar(64) NOT NULL,
+    ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) NOT NULL
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
@@ -795,7 +795,7 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
     ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) NOT NULL,
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -835,9 +835,9 @@ CREATE TYPE dbo.TokenTokenCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) NOT NULL
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.TokenTokenCompositeSearchParam
@@ -846,9 +846,9 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) NOT NULL,
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -887,7 +887,7 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetimeoffset(7) NOT NULL,
     EndDateTime2 datetimeoffset(7) NOT NULL
 )
@@ -898,7 +898,7 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
     IsHistory bit NOT NULL,
@@ -957,7 +957,7 @@ CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
     SingleValue2 decimal(18,6) NULL,
@@ -971,7 +971,7 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
     SingleValue2 decimal(18,6) NULL,
@@ -1052,7 +1052,7 @@ CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
@@ -1063,7 +1063,7 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_CI_AI NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NULL,
     IsHistory bit NOT NULL,
@@ -1126,7 +1126,7 @@ CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,
@@ -1142,7 +1142,7 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,
