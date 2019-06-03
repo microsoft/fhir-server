@@ -5,10 +5,13 @@
 
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Turns an expression with a :missing=true search parameter expression and turns it into a
+    /// <see cref="TableExpressionKind.NotExists"/> table expression with the condition negated
+    /// </summary>
     internal class MissingSearchParamVisitor : SqlExpressionRewriterWithDefaultInitialContext<object>
     {
         internal static readonly MissingSearchParamVisitor Instance = new MissingSearchParamVisitor();

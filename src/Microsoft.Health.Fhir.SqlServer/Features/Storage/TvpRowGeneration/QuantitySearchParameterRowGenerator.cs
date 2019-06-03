@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
             row = new V1.QuantitySearchParamTableTypeRow(
                 searchParamId,
-                Model.GetSystem(searchValue.System),
-                Model.GetQuantityCode(searchValue.Code),
+                Model.GetSystemId(searchValue.System),
+                Model.GetQuantityCodeId(searchValue.Code),
                 isSingleValue ? searchValue.Low : null,
                 isSingleValue ? null : searchValue.Low ?? (decimal?)V1.QuantitySearchParam.LowValue.MinValue,
                 isSingleValue ? null : searchValue.High ?? (decimal?)V1.QuantitySearchParam.HighValue.MaxValue);

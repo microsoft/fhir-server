@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public virtual Expression VisitTable(TableExpression tableExpression, TContext context)
         {
             Expression denormalizedPredicate = tableExpression.DenormalizedPredicate?.AcceptVisitor(this, context);
-            Expression normalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(this, context);
+            Expression normalizedPredicate = tableExpression.NormalizedPredicate?.AcceptVisitor(this, context);
 
             if (ReferenceEquals(denormalizedPredicate, tableExpression.DenormalizedPredicate) &&
                 ReferenceEquals(normalizedPredicate, tableExpression.NormalizedPredicate))

@@ -8,6 +8,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Rewrites expressions over string search parameters to account for entries where the TextOverflow
+    /// column is not null.
+    /// </summary>
     internal class StringOverflowRewriter : ConcatenationRewriter
     {
         internal static readonly StringOverflowRewriter Instance = new StringOverflowRewriter();

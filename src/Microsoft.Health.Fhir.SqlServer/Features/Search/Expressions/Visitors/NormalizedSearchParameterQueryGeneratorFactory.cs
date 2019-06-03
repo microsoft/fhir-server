@@ -16,6 +16,9 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Returns the <see cref="NormalizedSearchParameterQueryGenerator"/> for an expression.
+    /// </summary>
     internal class NormalizedSearchParameterQueryGeneratorFactory : IExpressionVisitorWithInitialContext<object, NormalizedSearchParameterQueryGenerator>
     {
         private readonly SearchParameterToSearchValueTypeMap _searchParameterToSearchValueTypeMap;

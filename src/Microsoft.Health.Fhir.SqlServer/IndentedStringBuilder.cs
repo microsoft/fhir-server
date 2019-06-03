@@ -92,7 +92,15 @@ namespace Microsoft.Health.Fhir.SqlServer
             return this;
         }
 
-        internal DelimitedScope Delimit(Action<IndentedStringBuilder> applyPrefix, Action<IndentedStringBuilder> applyDelimiter, Action<IndentedStringBuilder> applyPostfix)
+        /// <summary>
+        /// Helps with appending delimited items with a prefix, delimiter, and postfix, when the number of items to be appended is not
+        /// readily known.
+        /// </summary>
+        /// <param name="applyPrefix">A function that is called the first time <see cref="DelimitedScope.BeginDelimitedElement"/> is called</param>
+        /// <param name="applyDelimiter">A function that is called the every subsequent time <see cref="DelimitedScope.BeginDelimitedElement"/> is called</param>
+        /// <param name="applyPostfix">A function that is called one the <see cref="DelimitedScope"/> is disposed.</param>
+        /// <returns>A disposable scope on which to call <see cref="DelimitedScope.BeginDelimitedElement"/></returns>
+        internal DelimitedScope BeginDelimitedScope(Action<IndentedStringBuilder> applyPrefix, Action<IndentedStringBuilder> applyDelimiter, Action<IndentedStringBuilder> applyPostfix)
         {
             return new DelimitedScope(this, applyPrefix, applyDelimiter, applyPostfix);
         }
@@ -143,7 +151,7 @@ namespace Microsoft.Health.Fhir.SqlServer
 
             private bool IsStarted => _sb._delimitedScopes[_index];
 
-            // Readonly structs cannot have property setters, so this method
+            // Readonly structs cannot have property setters, so this is a method
             private void SetIsStarted(bool value) => _sb._delimitedScopes[_index] = value;
 
             public IndentedStringBuilder BeginDelimitedElement()

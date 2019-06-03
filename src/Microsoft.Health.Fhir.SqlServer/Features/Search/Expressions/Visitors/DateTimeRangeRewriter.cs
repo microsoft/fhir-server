@@ -10,6 +10,11 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Rewrites (And (FieldGreaterThanOrEqual DateTimeStart x) (FieldLessThanOrEqual DateTimeStart y)) to
+    /// (And (FieldGreaterThanOrEqual DateTimeStart x) (FieldLessThanOrEqual DateTimeEnd y) (FieldLessThanOrEqual DateTimeStart y)).
+    /// This rewriting constrains the range scan over the index (DateTimeStart, DateTimeEnd).
+    /// </summary>
     internal class DateTimeRangeRewriter : ExpressionRewriterWithDefaultInitialContext<object>
     {
         internal static readonly DateTimeRangeRewriter Instance = new DateTimeRangeRewriter();

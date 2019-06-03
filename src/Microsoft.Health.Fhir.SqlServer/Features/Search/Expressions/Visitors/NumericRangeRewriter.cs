@@ -8,6 +8,11 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Rewrites expressions over Quantity and Number values to take ranges into account.
+    /// They will combine the results of the original expression with the results of the
+    /// expressions over the low and high fields where the entry is not a single value.
+    /// </summary>
     internal class NumericRangeRewriter : ConcatenationRewriter
     {
         internal static readonly NumericRangeRewriter Instance = new NumericRangeRewriter();

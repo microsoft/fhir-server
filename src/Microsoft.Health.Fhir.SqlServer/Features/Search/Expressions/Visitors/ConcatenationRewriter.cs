@@ -9,6 +9,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// An abstract rewriter to rewrite a table expression into a concatenation of two table expressions.
+    /// </summary>
     internal abstract class ConcatenationRewriter : SqlExpressionRewriterWithDefaultInitialContext<object>
     {
         private readonly IExpressionVisitor<object, bool> _scout;

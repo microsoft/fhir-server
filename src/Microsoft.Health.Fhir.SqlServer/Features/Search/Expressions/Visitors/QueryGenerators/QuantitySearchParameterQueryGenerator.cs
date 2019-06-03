@@ -44,9 +44,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             switch (expression.FieldName)
             {
                 case FieldName.QuantityCode:
-                    return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.QuantityCodeId, expression.ComponentIndex, context.Model.GetQuantityCode(expression.Value));
+                    if (context.Model.TryGetQuantityCodeId(expression.Value, out var quantityCodeId))
+                    {
+                        return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.QuantityCodeId, expression.ComponentIndex, quantityCodeId);
+                    }
+
+                    context.StringBuilder.Append(V1.QuantitySearchParam.QuantityCodeId)
+                        .Append(" IN (SELECT ")
+                        .Append(V1.QuantityCode.QuantityCodeId)
+                        .Append(" FROM ").Append(V1.QuantityCode)
+                        .Append(" WHERE ")
+                        .Append(V1.QuantityCode.Value)
+                        .Append(" = ")
+                        .Append(context.Parameters.AddParameter(V1.QuantityCode.Value, expression.Value))
+                        .Append(")");
+
+                    return context;
+
                 case FieldName.QuantitySystem:
-                    return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.SystemId, expression.ComponentIndex, context.Model.GetSystem(expression.Value));
+                    if (context.Model.TryGetSystemId(expression.Value, out var systemId))
+                    {
+                        return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.SystemId, expression.ComponentIndex, systemId);
+                    }
+
+                    context.StringBuilder.Append(V1.QuantitySearchParam.SystemId)
+                        .Append(" IN (SELECT ")
+                        .Append(V1.System.SystemId)
+                        .Append(" FROM ").Append(V1.System)
+                        .Append(" WHERE ")
+                        .Append(V1.System.Value)
+                        .Append(" = ")
+                        .Append(context.Parameters.AddParameter(V1.System.Value, expression.Value))
+                        .Append(")");
+
+                    return context;
+
                 default:
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }

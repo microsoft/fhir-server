@@ -12,7 +12,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
         {
-            return VisitSimpleBinary(BinaryOperator.Equal, context, V1.Resource.ResourceTypeId, expression.ComponentIndex, context.Model.GetResourceTypeIdOrInvalidIfNotRecognized(expression.Value));
+            if (!context.Model.TryGetResourceTypeId(expression.Value, out var resourceTypeId))
+            {
+                context.StringBuilder.Append("0 = 1");
+                return context;
+            }
+
+            return VisitSimpleBinary(BinaryOperator.Equal, context, V1.Resource.ResourceTypeId, expression.ComponentIndex, resourceTypeId);
         }
     }
 }

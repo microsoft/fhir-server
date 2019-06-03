@@ -7,9 +7,17 @@ namespace Microsoft.Health.Fhir.SqlServer
 {
     internal static class IndentedStringBuilderExtensions
     {
-        public static IndentedStringBuilder.DelimitedScope DelimitWhereClause(this IndentedStringBuilder indentedStringBuilder)
+        /// <summary>
+        /// Helps with building a WHERE clause with 0 to many predicates ANDed together.
+        /// Call <see cref="IndentedStringBuilder.DelimitedScope.BeginDelimitedElement"/> before appending
+        /// a predicate and be sure to dispose the the <see cref="IndentedStringBuilder.DelimitedScope"/>
+        /// at the end.
+        /// </summary>
+        /// <param name="indentedStringBuilder">The string builder</param>
+        /// <returns>The scope</returns>
+        public static IndentedStringBuilder.DelimitedScope BeginDelimitedWhereClause(this IndentedStringBuilder indentedStringBuilder)
         {
-            return indentedStringBuilder.Delimit(
+            return indentedStringBuilder.BeginDelimitedScope(
                 sb =>
                 {
                     sb.Append("WHERE ");

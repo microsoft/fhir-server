@@ -12,6 +12,13 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
+    /// <summary>
+    /// The root of a search expression tree that will be translated to a SQL command.
+    /// It is organized as a set of "normalized" table expression predicates and a set
+    /// of "denormalized" predicates. The normalized predicates are over a search parameter
+    /// table, whereas denormalized predicates are applied to the Resource table directly. Some
+    /// of them can be applied to search parameter tables as well.
+    /// </summary>
     internal class SqlRootExpression : Expression
     {
         public SqlRootExpression(IReadOnlyList<TableExpression> normalizedPredicates, IReadOnlyList<Expression> denormalizedPredicates)

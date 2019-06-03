@@ -11,11 +11,14 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    internal class ExpressionToSqlExpressionRewriter : ExpressionRewriterWithDefaultInitialContext<int>
+    /// <summary>
+    /// Constructs a <see cref="SqlRootExpression"/> by partitioning predicates into normalized and denormalized predicates.
+    /// </summary>
+    internal class SqlRootExpressionRewriter : ExpressionRewriterWithDefaultInitialContext<int>
     {
         private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
 
-        public ExpressionToSqlExpressionRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
+        public SqlRootExpressionRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
         {
             EnsureArg.IsNotNull(normalizedSearchParameterQueryGeneratorFactory, nameof(normalizedSearchParameterQueryGeneratorFactory));
             _normalizedSearchParameterQueryGeneratorFactory = normalizedSearchParameterQueryGeneratorFactory;
@@ -28,40 +31,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 throw new InvalidOperationException("Or is not supported as a top-level expression");
             }
 
-            List<Expression> resourceLevelCriteria = null;
-            List<TableExpression> joinedCriteria = null;
+            List<Expression> denormalizedPredicates = null;
+            List<TableExpression> normalizedPredicates = null;
 
             for (var i = 0; i < expression.Expressions.Count; i++)
             {
                 Expression childExpression = expression.Expressions[i];
                 if (TryGetNormalizedGenerator(childExpression, out var normalizedGenerator))
                 {
-                    if (joinedCriteria == null)
+                    if (normalizedPredicates == null)
                     {
-                        joinedCriteria = new List<TableExpression>();
-                        resourceLevelCriteria = new List<Expression>();
+                        normalizedPredicates = new List<TableExpression>();
+                        denormalizedPredicates = new List<Expression>();
                         for (int j = 0; j < i; j++)
                         {
-                            resourceLevelCriteria.Add(expression.Expressions[j]);
+                            denormalizedPredicates.Add(expression.Expressions[j]);
                         }
                     }
 
-                    joinedCriteria.Add(new TableExpression(normalizedGenerator, childExpression));
+                    normalizedPredicates.Add(new TableExpression(normalizedGenerator, childExpression));
                 }
                 else
                 {
-                    resourceLevelCriteria?.Add(expression);
+                    denormalizedPredicates?.Add(expression);
                 }
             }
 
-            if (joinedCriteria == null)
+            if (normalizedPredicates == null)
             {
                 SqlRootExpression.WithDenormalizedPredicates(expression.Expressions);
             }
 
             return new SqlRootExpression(
-                joinedCriteria ?? (IReadOnlyList<TableExpression>)Array.Empty<TableExpression>(),
-                resourceLevelCriteria ?? expression.Expressions);
+                normalizedPredicates ?? (IReadOnlyList<TableExpression>)Array.Empty<TableExpression>(),
+                denormalizedPredicates ?? expression.Expressions);
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, int context) => ConvertNonMultiary(expression);

@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     internal abstract class SqlExpressionRewriterWithDefaultInitialContext<TContext> : SqlExpressionRewriter<TContext>, IExpressionVisitorWithInitialContext<TContext, Expression>
     {
-        public TContext InitialContext => default(TContext);
+        public TContext InitialContext => default;
     }
 }

@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("FROM ").Append(V1.Resource).AppendLine(" r");
 
-            using (var delimitedClause = StringBuilder.DelimitWhereClause())
+            using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
             {
                 if (expression.NormalizedPredicates.Count > 0)
                 {
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("SELECT ").Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
                         .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
 
-                    using (var delimited = StringBuilder.DelimitWhereClause())
+                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                     {
                         AppendHistoryClause(delimited);
 
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("SELECT ").Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid1")
                         .Append("FROM ").AppendLine(V1.Resource);
 
-                    using (var delimited = StringBuilder.DelimitWhereClause())
+                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                     {
                         AppendHistoryClause(delimited);
                         AppendDeletedClause(delimited);
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         StringBuilder.Append("SELECT ").AppendLine(V1.Resource.ResourceSurrogateId)
                             .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
-                        using (var delimited = StringBuilder.DelimitWhereClause())
+                        using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                         {
                             AppendHistoryClause(delimited);
 

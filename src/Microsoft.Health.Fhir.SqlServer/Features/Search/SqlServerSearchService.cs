@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal class SqlServerSearchService : SearchService
     {
         private readonly SqlServerFhirModel _model;
-        private readonly ExpressionToSqlExpressionRewriter _expressionToSqlExpressionRewriter;
+        private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
 
@@ -41,16 +42,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             IFhirDataStore fhirDataStore,
             IModelInfoProvider modelInfoProvider,
             SqlServerFhirModel model,
-            ExpressionToSqlExpressionRewriter expressionToSqlExpressionRewriter,
+            SqlRootExpressionRewriter sqlRootExpressionRewriter,
             SqlServerDataStoreConfiguration configuration,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
         {
-            EnsureArg.IsNotNull(expressionToSqlExpressionRewriter, nameof(expressionToSqlExpressionRewriter));
+            EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
-            _expressionToSqlExpressionRewriter = expressionToSqlExpressionRewriter;
+            _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _configuration = configuration;
             _logger = logger;
         }
@@ -76,7 +77,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
-                    // TODO: respect order by when implemented
                     var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, Expression.GreaterThanOrEqual(SqlFieldName.ResourceSurrogateId, null, token));
                     searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
                 }
@@ -88,14 +88,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             var expression = (SqlRootExpression)searchExpression
                                  ?.AcceptVisitor(DateTimeRangeRewriter.Instance)
-                                 ?.AcceptVisitor(FlatteningRewriter.Instance)
-                                 ?.AcceptVisitor(_expressionToSqlExpressionRewriter)
-                                 ?.AcceptVisitor(NormalizedPredicateReorderer.Instance)
-                                 ?.AcceptVisitor(DenormalizedPredicateRewriter.Instance)
-                                 ?.AcceptVisitor(StringOverflowRewriter.Instance)
-                                 ?.AcceptVisitor(NumericRangeRewriter.Instance)
-                                 ?.AcceptVisitor(MissingSearchParamVisitor.Instance)
-                                 ?.AcceptVisitor(TopRewriter.Instance, searchOptions)
+                                 .AcceptVisitor(FlatteningRewriter.Instance)
+                                 .AcceptVisitor(_sqlRootExpressionRewriter)
+                                 .AcceptVisitor(NormalizedPredicateReorderer.Instance)
+                                 .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
+                                 .AcceptVisitor(StringOverflowRewriter.Instance)
+                                 .AcceptVisitor(NumericRangeRewriter.Instance)
+                                 .AcceptVisitor(MissingSearchParamVisitor.Instance)
+                                 .AcceptVisitor(TopRewriter.Instance, searchOptions)
                              ?? SqlRootExpression.WithDenormalizedPredicates();
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
@@ -105,11 +105,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 using (SqlCommand sqlCommand = connection.CreateCommand())
                 {
                     var stringBuilder = new IndentedStringBuilder(new StringBuilder());
-                    stringBuilder.AppendLine("SET STATISTICS IO ON;");
-                    stringBuilder.AppendLine("SET STATISTICS TIME ON;");
-                    stringBuilder.AppendLine();
 
-                    connection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL MESSAGE: {args.Message}");
+                    EnableTimeAndIoMessageLogging(stringBuilder, connection);
 
                     var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch);
 
@@ -117,17 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     sqlCommand.CommandText = stringBuilder.ToString();
 
-                    var sb = new StringBuilder();
-                    foreach (SqlParameter p in sqlCommand.Parameters)
-                    {
-                        sb.Append("DECLARE ").Append(p).Append(" ").Append(p.SqlDbType).Append(p.Value is string ? $"({p.Size})" : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null).Append(" = ").AppendLine(p.Value is string ? $"'{p.Value}'" : p.Value.ToString());
-                    }
-
-                    sb.AppendLine();
-
-                    sb.AppendLine(sqlCommand.CommandText);
-
-                    _logger.LogInformation(sb.ToString());
+                    LogSqlComand(sqlCommand);
 
                     using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
@@ -180,12 +167,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null));
                         }
 
+                        // call NextResultAsync to get the info messages
                         await reader.NextResultAsync(cancellationToken);
 
                         return new SearchResult(resources, newContinuationId?.ToString(CultureInfo.InvariantCulture));
                     }
                 }
             }
+        }
+
+        [Conditional("DEBUG")]
+        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnection connection)
+        {
+            stringBuilder.AppendLine("SET STATISTICS IO ON;");
+            stringBuilder.AppendLine("SET STATISTICS TIME ON;");
+            stringBuilder.AppendLine();
+            connection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
+        }
+
+        /// <summary>
+        /// Logs the parameter declarations and command text of a SQL command
+        /// </summary>
+        [Conditional("DEBUG")]
+        private void LogSqlComand(SqlCommand sqlCommand)
+        {
+            var sb = new StringBuilder();
+            foreach (SqlParameter p in sqlCommand.Parameters)
+            {
+                sb.Append("DECLARE ")
+                    .Append(p)
+                    .Append(" ")
+                    .Append(p.SqlDbType)
+                    .Append(p.Value is string ? $"({p.Size})" : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
+                    .Append(" = ")
+                    .Append(p.Value is string ? $"'{p.Value}'" : p.Value.ToString())
+                    .AppendLine(";");
+            }
+
+            sb.AppendLine();
+
+            sb.AppendLine(sqlCommand.CommandText);
+            _logger.LogInformation(sb.ToString());
         }
     }
 }

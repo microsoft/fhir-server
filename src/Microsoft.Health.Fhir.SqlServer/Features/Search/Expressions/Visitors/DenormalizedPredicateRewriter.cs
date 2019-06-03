@@ -5,12 +5,16 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Promotes predicates applied directly in on the Resource table to the search parameter tables.
+    /// These are predicates on the ResoruceSurrogateId and ResourceType columns. The idea is to make these
+    /// queries as selective as possible.
+    /// </summary>
     internal class DenormalizedPredicateRewriter : ExpressionRewriterWithDefaultInitialContext<object>, ISqlExpressionVisitor<object, Expression>
     {
         public static readonly DenormalizedPredicateRewriter Instance = new DenormalizedPredicateRewriter();
@@ -58,18 +62,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            TableExpression firstTableExpression = expression.NormalizedPredicates[0];
+            var newNormalizedPredicates = new List<TableExpression>(expression.NormalizedPredicates.Count);
+            foreach (var firstTableExpression in expression.NormalizedPredicates)
+            {
+                Expression newDenormalizedPredicate = firstTableExpression.DenormalizedPredicate == null
+                    ? extractedDemormalizedExpression
+                    : Expression.And(firstTableExpression.DenormalizedPredicate, extractedDemormalizedExpression);
 
-            Expression newDenormalizedPredicate = firstTableExpression.DenormalizedPredicate == null
-                ? extractedDemormalizedExpression
-                : Expression.And(firstTableExpression.DenormalizedPredicate, extractedDemormalizedExpression);
+                newNormalizedPredicates.Add(new TableExpression(firstTableExpression.SearchParameterQueryGenerator, firstTableExpression.NormalizedPredicate, newDenormalizedPredicate, firstTableExpression.Kind));
+            }
 
-            firstTableExpression = new TableExpression(firstTableExpression.SearchParameterQueryGenerator, firstTableExpression.NormalizedPredicate, newDenormalizedPredicate, firstTableExpression.Kind);
-
-            var normalizedPredicates = expression.NormalizedPredicates.ToList();
-            normalizedPredicates[0] = firstTableExpression;
-
-            return new SqlRootExpression(normalizedPredicates, newDenormalizedPredicates);
+            return new SqlRootExpression(newNormalizedPredicates, newDenormalizedPredicates);
         }
 
         public Expression VisitTable(TableExpression tableExpression, object context)

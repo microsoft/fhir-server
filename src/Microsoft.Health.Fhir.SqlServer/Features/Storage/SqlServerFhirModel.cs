@@ -81,15 +81,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _resourceTypeToId[resourceTypeName];
         }
 
-        public short GetResourceTypeIdOrInvalidIfNotRecognized(string resourceTypeName)
+        public bool TryGetResourceTypeId(string resourceTypeName, out short id)
         {
             ThrowIfNotInitialized();
-            if (_resourceTypeToId.TryGetValue(resourceTypeName, out var value))
-            {
-                return value;
-            }
-
-            return -1;
+            return _resourceTypeToId.TryGetValue(resourceTypeName, out id);
         }
 
         public string GetResourceTypeName(short resourceTypeId)
@@ -116,7 +111,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _compartmentTypeToId[compartmentType];
         }
 
-        public int GetSystem(string system)
+        public bool TryGetSystemId(string system, out int systemId)
+        {
+            ThrowIfNotInitialized();
+            return _systemToId.TryGetValue(system, out systemId);
+        }
+
+        public int GetSystemId(string system)
         {
             ThrowIfNotInitialized();
 
@@ -124,12 +125,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
         }
 
-        public int GetQuantityCode(string code)
+        public int GetQuantityCodeId(string code)
         {
             ThrowIfNotInitialized();
 
             V1.QuantityCodeTable quantityCodeTable = V1.QuantityCode;
             return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
+        }
+
+        public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
+        {
+            ThrowIfNotInitialized();
+            return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
         public ValueTask EnsureInitialized() => _initializationOperation.EnsureInitialized();

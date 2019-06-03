@@ -28,8 +28,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             switch (expression.FieldName)
             {
                 case FieldName.TokenSystem:
-                    VisitSimpleBinary(BinaryOperator.Equal, context, V1.TokenSearchParam.SystemId, expression.ComponentIndex, context.Model.GetSystem(expression.Value));
-                    break;
+                    if (context.Model.TryGetSystemId(expression.Value, out var systemId))
+                    {
+                        return VisitSimpleBinary(BinaryOperator.Equal, context, V1.TokenSearchParam.SystemId, expression.ComponentIndex, systemId);
+                    }
+
+                    context.StringBuilder.Append(V1.TokenSearchParam.SystemId)
+                        .Append(" IN (SELECT ")
+                        .Append(V1.System.SystemId)
+                        .Append(" FROM ").Append(V1.System)
+                        .Append(" WHERE ")
+                        .Append(V1.System.Value)
+                        .Append(" = ")
+                        .Append(context.Parameters.AddParameter(V1.System.Value, expression.Value))
+                        .Append(")");
+
+                    return context;
+
                 case FieldName.TokenCode:
                     VisitSimpleString(expression, context, V1.TokenSearchParam.Code, expression.Value);
                     break;
