@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            Expression extractedDemormalizedExpression = null;
+            Expression extractedDenormalizedExpression = null;
             List<Expression> newDenormalizedPredicates = null;
 
             for (int i = 0; i < expression.DenormalizedPredicates.Count; i++)
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     {
                         case SqlSearchParameters.ResourceSurrogateIdParameterName:
                         case SearchParameterNames.ResourceType:
-                            extractedDemormalizedExpression = extractedDemormalizedExpression == null ? currentExpression : Expression.And(extractedDemormalizedExpression, currentExpression);
+                            extractedDenormalizedExpression = extractedDenormalizedExpression == null ? currentExpression : Expression.And(extractedDenormalizedExpression, currentExpression);
                             if (newDenormalizedPredicates == null)
                             {
                                 newDenormalizedPredicates = new List<Expression>();
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            if (extractedDemormalizedExpression == null)
+            if (extractedDenormalizedExpression == null)
             {
                 return expression;
             }
@@ -66,8 +66,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             foreach (var firstTableExpression in expression.NormalizedPredicates)
             {
                 Expression newDenormalizedPredicate = firstTableExpression.DenormalizedPredicate == null
-                    ? extractedDemormalizedExpression
-                    : Expression.And(firstTableExpression.DenormalizedPredicate, extractedDemormalizedExpression);
+                    ? extractedDenormalizedExpression
+                    : Expression.And(firstTableExpression.DenormalizedPredicate, extractedDenormalizedExpression);
 
                 newNormalizedPredicates.Add(new TableExpression(firstTableExpression.SearchParameterQueryGenerator, firstTableExpression.NormalizedPredicate, newDenormalizedPredicate, firstTableExpression.Kind));
             }

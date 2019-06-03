@@ -15,8 +15,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     internal class SqlQueryGenerator : DefaultExpressionVisitor<SearchOptions, object>, ISqlExpressionVisitor<SearchOptions, object>
     {
         private readonly bool _isHistorySearch;
-        private int _tableExpressionCounter;
-        private int _totalTableExpressions;
+        private int _tableExpressionCounter = -1;
+        private SqlRootExpression _rootExpression;
 
         public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch)
         {
@@ -43,10 +43,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new ArgumentException($"Argument should be of type {nameof(SearchOptions)}", nameof(context));
             }
 
+            _rootExpression = expression;
+
             if (expression.NormalizedPredicates.Count > 0)
             {
-                _totalTableExpressions = expression.NormalizedPredicates.Count;
-
                 StringBuilder.Append("WITH ");
 
                 StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.NormalizedPredicates, (sb, tableExpression) =>
@@ -127,10 +127,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendHistoryClause(delimited);
 
-                        if (_tableExpressionCounter > 1 && tableExpression.Kind == TableExpressionKind.Normal)
+                        int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+
+                        if (predecessorIndex >= 0)
                         {
                             delimited.BeginDelimitedElement();
-                            StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(")");
+                            StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(predecessorIndex)).Append(")");
                         }
 
                         if (tableExpression.DenormalizedPredicate != null)
@@ -208,6 +210,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return null;
+        }
+
+        private int FindRestrictingPredecessorTableExpressionIndex()
+        {
+            int FindImpl(int currentIndex)
+            {
+                TableExpression currentTableExpression = _rootExpression.NormalizedPredicates[currentIndex];
+                switch (currentTableExpression.Kind)
+                {
+                    case TableExpressionKind.NotExists:
+                    case TableExpressionKind.Normal:
+                        return currentIndex - 1;
+                    case TableExpressionKind.Concatenation:
+                        return FindImpl(currentIndex - 1);
+
+                    default:
+                        throw new ArgumentOutOfRangeException(currentTableExpression.Kind.ToString());
+                }
+            }
+
+            return FindImpl(_tableExpressionCounter);
         }
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited)
