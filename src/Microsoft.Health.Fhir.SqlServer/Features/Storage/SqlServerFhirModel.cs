@@ -11,13 +11,13 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private ConcurrentDictionary<string, int> _systemToId;
         private ConcurrentDictionary<string, int> _quantityCodeToId;
         private Dictionary<string, byte> _claimNameToId;
-        private Dictionary<CompartmentType, byte> _compartmentTypeToId;
+        private Dictionary<string, byte> _compartmentTypeToId;
 
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _searchParamUriToId[searchParamUri];
         }
 
-        public byte GetCompartmentId(CompartmentType compartmentType)
+        public byte GetCompartmentId(string compartmentType)
         {
             ThrowIfNotInitialized();
             return _compartmentTypeToId[compartmentType];
@@ -172,10 +172,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
-                    string commaSeparatedResourceTypes = string.Join(",", ModelInfo.SupportedResources);
+                    string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
                     string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
-                    string commaSeparatedCompartmentTypes = string.Join(',', Enum.GetNames(typeof(CompartmentType)));
+                    string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
 
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
-                        var compartmentTypeToId = new Dictionary<CompartmentType, byte>();
+                        var compartmentTypeToId = new Dictionary<string, byte>();
 
                         // result set 1
                         while (reader.Read())
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         while (reader.Read())
                         {
                             (byte id, string compartmentName) = reader.ReadRow(V1.CompartmentType.CompartmentTypeId, V1.CompartmentType.Name);
-                            compartmentTypeToId.Add(Enum.Parse<CompartmentType>(compartmentName), id);
+                            compartmentTypeToId.Add(compartmentName, id);
                         }
 
                         // result set 5
