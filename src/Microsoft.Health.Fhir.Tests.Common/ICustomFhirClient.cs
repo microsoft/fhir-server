@@ -89,6 +89,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         ResourceElement GetDefaultOrganization();
 
+        ResourceElement GetEmptyRiskAssessment();
+
         ResourceElement GetEmptyObservation();
 
         ResourceElement GetEmptyValueSet();
@@ -113,15 +115,37 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         ResourceElement UpdateObservationStatus(ResourceElement resourceElement, string status);
 
+        ResourceElement UpdateObservationValueQuantity(ResourceElement resourceElement, decimal quantity, string unit, string system);
+
+        ResourceElement UpdateObservationValueCodeableConcept(ResourceElement resourceElement, string system, string code, string text, (string system, string code, string display)[] codings);
+
         ResourceElement UpdateValueSetStatus(ResourceElement resourceElement, string status);
 
         ResourceElement UpdateValueSetUrl(ResourceElement resourceElement, string url);
 
         ResourceElement AddObservationCoding(ResourceElement resourceElement, string system, string code);
 
+        ResourceElement UpdateObservationEffectiveDate(ResourceElement resourceElement, string date);
+
         ResourceElement AddMetaTag(ResourceElement resourceElement, string system, string code);
 
         ResourceElement AddObservationIdentifier(ResourceElement resourceElement, string system, string identifier);
+
+        ResourceElement UpdateRiskAssessmentSubject(ResourceElement resourceElement, string subject);
+
+        ResourceElement UpdateRiskAssessmentStatus(ResourceElement resourceElement, string status);
+
+        ResourceElement UpdateRiskAssessmentProbability(ResourceElement resourceElement, int probability);
+
+        ResourceElement UpdatePatientManagingOrganization(ResourceElement resourceElement, string reference);
+
+        ResourceElement UpdateObservationSubject(ResourceElement resourceElement, string reference);
+
+        ResourceElement UpdateEncounterSubject(ResourceElement resourceElement, string reference);
+
+        ResourceElement UpdateConditionSubject(ResourceElement resourceElement, string reference);
+
+        ResourceElement UpdateObservationDevice(ResourceElement resourceElement, string reference);
 
         bool Compare(ResourceElement expected, ITypedElement actual);
 

@@ -5,7 +5,6 @@
 
 using System.Linq;
 using System.Threading.Tasks;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -65,6 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
+        [HttpIntegrationFixtureArgumentSets(fhirVersions: FhirVersion.Stu3)]
         [InlineData("related=Observation/example-TPMT-haplotype-one$http://hl7.org/fhir/observation-relationshiptypes|derived-from", ObservationWithTPMTDiplotype)]
         [InlineData("related=Observation/example-TPMT-haplotype-one$derived-from", ObservationWithTPMTDiplotype)]
         [InlineData("related=Sequence/example-TPMT-one$derived-from", ObservationWithTPMTHaplotypeOne)]

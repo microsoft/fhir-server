@@ -176,6 +176,46 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return poco.ToResourceElement();
         }
 
+        public static ResourceElement UpdateObservationValueQuantity(this ResourceElement resource, decimal quantity, string unit, string system)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Observation>();
+
+            poco.Value = new Quantity(quantity, unit, system);
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateObservationValueCodeableConcept(this ResourceElement resource, string system, string code, string text, (string system, string code, string display)[] codings)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Observation>();
+
+            var value = new CodeableConcept(system, code, text);
+
+            if (codings != null)
+            {
+                value.Coding = codings.Select(x => new Coding(x.system, x.code, x.display)).ToList();
+            }
+
+            poco.Value = value;
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateObservationEffectiveDate(this ResourceElement resource, string date)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Observation>();
+
+            poco.Effective = new FhirDateTime(date);
+
+            return poco.ToResourceElement();
+        }
+
         public static ResourceElement AddObservationCoding(this ResourceElement resource, string system, string code)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
@@ -252,6 +292,99 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             var poco = resource.ToPoco<ValueSet>();
 
             poco.Url = url;
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateRiskAssessmentSubject(this ResourceElement resource, string reference)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<RiskAssessment>();
+
+            poco.Subject = new ResourceReference(reference);
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateRiskAssessmentStatus(this ResourceElement resource, string status)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<RiskAssessment>();
+
+            poco.Status = status.GetValueByEnumLiteral<ObservationStatus>();
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateRiskAssessmentProbability(this ResourceElement resource, int probability)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<RiskAssessment>();
+
+            if (poco.Prediction == null)
+            {
+                poco.Prediction = new List<RiskAssessment.PredictionComponent>();
+            }
+
+            poco.Prediction.Add(new RiskAssessment.PredictionComponent { Probability = new FhirDecimal(probability) });
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdatePatientManagingOrganization(this ResourceElement resource, string reference)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Patient>();
+
+            poco.ManagingOrganization = new ResourceReference(reference);
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateObservationSubject(this ResourceElement resource, string reference)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Observation>();
+
+            poco.Subject = new ResourceReference(reference);
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateEncounterSubject(this ResourceElement resource, string reference)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Encounter>();
+
+            poco.Subject = new ResourceReference(reference);
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateConditionSubject(this ResourceElement resource, string reference)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Condition>();
+
+            poco.Subject = new ResourceReference(reference);
+
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement UpdateObservationDevice(this ResourceElement resource, string reference)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<Observation>();
+
+            poco.Device = new ResourceReference(reference);
 
             return poco.ToResourceElement();
         }

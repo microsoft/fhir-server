@@ -413,6 +413,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             return GetJsonSample("Organization");
         }
 
+        public ResourceElement GetEmptyRiskAssessment()
+        {
+            return new RiskAssessment().ToResourceElement();
+        }
+
         public ResourceElement GetEmptyObservation()
         {
             return new Observation().ToResourceElement();
@@ -479,6 +484,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             return resourceElement.UpdateObservationStatus(status);
         }
 
+        public ResourceElement UpdateObservationValueQuantity(ResourceElement resourceElement, decimal quantity, string unit, string system)
+        {
+            return resourceElement.UpdateObservationValueQuantity(quantity, unit, system);
+        }
+
+        public ResourceElement UpdateObservationValueCodeableConcept(ResourceElement resourceElement, string system, string code, string text, (string system, string code, string display)[] codings)
+        {
+            return resourceElement.UpdateObservationValueCodeableConcept(system, code, text, codings);
+        }
+
         public ResourceElement AddObservationCoding(ResourceElement resourceElement, string system, string code)
         {
             return resourceElement.AddObservationCoding(system, code);
@@ -502,6 +517,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E
         public ResourceElement UpdateValueSetUrl(ResourceElement resourceElement, string url)
         {
             return resourceElement.UpdateValueSetUrl(url);
+        }
+
+        public ResourceElement UpdateObservationEffectiveDate(ResourceElement resourceElement, string date)
+        {
+            return resourceElement.UpdateObservationEffectiveDate(date);
+        }
+
+        public ResourceElement UpdateRiskAssessmentSubject(ResourceElement resourceElement, string reference)
+        {
+            return resourceElement.UpdateRiskAssessmentSubject(reference);
+        }
+
+        public ResourceElement UpdateRiskAssessmentStatus(ResourceElement resourceElement, string status)
+        {
+            return resourceElement.UpdateRiskAssessmentStatus(status);
+        }
+
+        public ResourceElement UpdateRiskAssessmentProbability(ResourceElement resourceElement, int probability)
+        {
+            return resourceElement.UpdateRiskAssessmentProbability(probability);
+        }
+
+        public ResourceElement UpdatePatientManagingOrganization(ResourceElement resourceElement, string reference)
+        {
+            return resourceElement.UpdatePatientManagingOrganization(reference);
+        }
+
+        public ResourceElement UpdateObservationSubject(ResourceElement resourceElement, string reference)
+        {
+            return resourceElement.UpdateObservationSubject(reference);
+        }
+
+        public ResourceElement UpdateEncounterSubject(ResourceElement resourceElement, string reference)
+        {
+            return resourceElement.UpdateEncounterSubject(reference);
+        }
+
+        public ResourceElement UpdateConditionSubject(ResourceElement resourceElement, string reference)
+        {
+            return resourceElement.UpdateConditionSubject(reference);
+        }
+
+        public ResourceElement UpdateObservationDevice(ResourceElement resourceElement, string reference)
+        {
+            return resourceElement.UpdateObservationDevice(reference);
         }
 
         public bool Compare(ResourceElement expected, ITypedElement actual)

@@ -52,7 +52,11 @@
     <None Remove="TestFiles\R4\AuthConfigWithValidRoles.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
+    <None Remove="TestFiles\R4\Condition-For-Patient-f001.json" />
+    <None Remove="TestFiles\R4\Device-d1.json" />
+    <None Remove="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\InvalidCompartmentDefinition.json" />
+    <None Remove="TestFiles\R4\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\R4\ObservationWith20MinuteApgarScore.json" />
     <None Remove="TestFiles\R4\ObservationWithBloodPressure.json" />
@@ -65,6 +69,7 @@
     <None Remove="TestFiles\R4\ObservationWithTPMTDiplotype.json" />
     <None Remove="TestFiles\R4\ObservationWithTPMTHaplotypeOne.json" />
     <None Remove="TestFiles\R4\Organization.json" />
+    <None Remove="TestFiles\R4\Patient-f001.json" />
     <None Remove="TestFiles\R4\Patient.json" />
     <None Remove="TestFiles\R4\Patient.xml" />
     <None Remove="TestFiles\R4\ValidCompartmentDefinition.json" />
@@ -93,7 +98,11 @@
     <EmbeddedResource Include="TestFiles\R4\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
+    <EmbeddedResource Include="TestFiles\R4\Condition-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R4\Device-d1.json" />
+    <EmbeddedResource Include="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R4\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWith20MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWithBloodPressure.json" />
@@ -106,6 +115,7 @@
     <EmbeddedResource Include="TestFiles\R4\ObservationWithTPMTDiplotype.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWithTPMTHaplotypeOne.json" />
     <EmbeddedResource Include="TestFiles\R4\Organization.json" />
+    <EmbeddedResource Include="TestFiles\R4\Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
