@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"organization={valueToSearch}";
 
-            ResourceElement bundle = await Client.SearchAsync("Patient", query);
+            ResourceElement bundle = await Client.SearchAsync(KnownResourceTypes.Patient, query);
 
             ResourceElement[] expected = matchIndices.Select(i => Fixture.Patients[i]).ToArray();
 

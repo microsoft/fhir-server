@@ -118,8 +118,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var entries = readResponse.Resource.Select(KnownFhirPaths.BundleEntries).ToList();
             Assert.Equal(2, entries.Count);
 
-            ResourceElement patientHistory = entries.First(e => e.InstanceType == "Patient").ToResourceElement();
-            ResourceElement obsHistory = entries.First(e => e.InstanceType == "Observation").ToResourceElement();
+            ResourceElement patientHistory = entries.First(e => e.InstanceType == KnownResourceTypes.Patient).ToResourceElement();
+            ResourceElement obsHistory = entries.First(e => e.InstanceType == KnownResourceTypes.Observation).ToResourceElement();
 
             Assert.NotNull(obsHistory);
             Assert.NotNull(patientHistory);

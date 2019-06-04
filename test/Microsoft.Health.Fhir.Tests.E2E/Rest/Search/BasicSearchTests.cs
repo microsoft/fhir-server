@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             : base(fixture)
         {
             // Delete all patients before starting the test.
-            Client.DeleteAllResources("Patient").Wait();
+            Client.DeleteAllResources(KnownResourceTypes.Patient).Wait();
         }
 
         [Fact]
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await Client.CreateAsync(Client.GetDefaultObservation());
             await Client.CreateAsync(Client.GetDefaultOrganization());
 
-            await ExecuteAndValidateBundle("Patient", patients);
+            await ExecuteAndValidateBundle(KnownResourceTypes.Patient, patients);
         }
 
         [Fact]
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             await ExecuteAndValidateBundle("?_type=Patient", patients);
 
-            ResourceElement bundle = await Client.SearchPostAsync(null, ("_type", "Patient"));
+            ResourceElement bundle = await Client.SearchPostAsync(null, ("_type", KnownResourceTypes.Patient));
             ValidateBundle(bundle, "_search", patients);
 
             bundle = await Client.SearchAsync("?_type=Observation,Patient");

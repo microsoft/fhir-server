@@ -11,6 +11,7 @@ using System.Net.Http;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenUnsetContentType_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
         {
-            var result = await Client.HttpClient.PostAsync("Observation", new StringContent("Content!"));
+            var result = await Client.HttpClient.PostAsync(KnownResourceTypes.Observation, new StringContent("Content!"));
 
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, result.StatusCode);
         }
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenAnUnsupportedContentType_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
         {
-            var result = await Client.HttpClient.PostAsync("Observation", new FormUrlEncodedContent(new KeyValuePair<string, string>[0]));
+            var result = await Client.HttpClient.PostAsync(KnownResourceTypes.Observation, new FormUrlEncodedContent(new KeyValuePair<string, string>[0]));
 
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, result.StatusCode);
         }

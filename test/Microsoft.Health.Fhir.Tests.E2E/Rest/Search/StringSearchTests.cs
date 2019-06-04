@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"address-city{modifier}={valueToSearch}";
 
-            ResourceElement bundle = await Client.SearchAsync("Patient", query);
+            ResourceElement bundle = await Client.SearchAsync(KnownResourceTypes.Patient, query);
 
             Assert.NotNull(bundle);
 
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAStringSearchParamWithMultipleValues_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            ResourceElement bundle = await Client.SearchAsync("Patient", "family=Smith,Ander");
+            ResourceElement bundle = await Client.SearchAsync(KnownResourceTypes.Patient, "family=Smith,Ander");
 
             ValidateBundle(bundle, Fixture.Patients[0], Fixture.Patients[2]);
         }

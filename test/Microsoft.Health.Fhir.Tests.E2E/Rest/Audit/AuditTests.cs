@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -42,8 +43,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.CreateAsync(_client.GetDefaultObservation()),
                 "create",
-                "Observation",
-                _ => "Observation",
+                KnownResourceTypes.Observation,
+                _ => KnownResourceTypes.Observation,
                 HttpStatusCode.Created);
         }
 
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     return await _client.ReadAsync(response.Resource.InstanceType, response.Resource.Id);
                 },
                 "read",
-                "Patient",
+                KnownResourceTypes.Patient,
                 p => $"Patient/{p.Id}",
                 HttpStatusCode.OK);
         }
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
                     try
                     {
-                        await _client.ReadAsync("Patient", "123");
+                        await _client.ReadAsync(KnownResourceTypes.Patient, "123");
                     }
                     catch (FhirException ex)
                     {
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     return result;
                 },
                 "read",
-                "OperationOutcome",
+                KnownResourceTypes.OperationOutcome,
                 _ => $"Patient/123",
                 HttpStatusCode.NotFound);
         }
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     return await _client.VReadAsync(result.Resource.InstanceType, result.Resource.Id, result.Resource.VersionId);
                 },
                 "vread",
-                "Organization",
+                KnownResourceTypes.Organization,
                 o => $"Organization/{o.Id}/_history/{o.VersionId}",
                 HttpStatusCode.OK);
         }
@@ -118,7 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     return await _client.UpdateAsync(resource);
                 },
                 "update",
-                "Patient",
+                KnownResourceTypes.Patient,
                 p => $"Patient/{p.Id}",
                 HttpStatusCode.OK);
         }
@@ -157,7 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "history-type",
-                "Bundle",
+                KnownResourceTypes.Bundle,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -170,7 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "history-system",
-                "Bundle",
+                KnownResourceTypes.Bundle,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -186,7 +187,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     return await _client.SearchAsync($"Observation/{result.Resource.Id}/_history");
                 },
                 "history-instance",
-                "Bundle",
+                KnownResourceTypes.Bundle,
                 b => $"Observation/{b.Scalar<string>("Bundle.entry.first().resource.id")}/_history",
                 HttpStatusCode.OK);
         }
@@ -199,7 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "search",
-                "Bundle",
+                KnownResourceTypes.Bundle,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -212,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "search-type",
-                "Bundle",
+                KnownResourceTypes.Bundle,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -221,9 +222,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenAServer_WhenSearchedByResourceTypeUsingPost_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                () => _client.SearchPostAsync("Observation", ("_tag", "123")),
+                () => _client.SearchPostAsync(KnownResourceTypes.Observation, ("_tag", "123")),
                 "search-type",
-                "Bundle",
+                KnownResourceTypes.Bundle,
                 _ => "Observation/_search",
                 HttpStatusCode.OK);
         }
@@ -236,7 +237,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "search-system",
-                "Bundle",
+                KnownResourceTypes.Bundle,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -247,7 +248,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchPostAsync(null, ("_tag", "123")),
                 "search-system",
-                "Bundle",
+                KnownResourceTypes.Bundle,
                 _ => "_search",
                 HttpStatusCode.OK);
         }
@@ -421,7 +422,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutedAuditEntry(ae, "read", "Patient", expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
+                ae => ValidateExecutedAuditEntry(ae, "read", KnownResourceTypes.Patient, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
         private void ValidateExecutingAuditEntry(AuditEntry auditEntry, string expectedAction, Uri expectedUri, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey)

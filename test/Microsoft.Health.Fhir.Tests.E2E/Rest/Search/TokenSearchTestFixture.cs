@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             : base(dataStore, format, fhirVersion)
         {
             // Prepare the resources used for number search tests.
-            FhirClient.DeleteAllResources("Observation").Wait();
+            FhirClient.DeleteAllResources(KnownResourceTypes.Observation).Wait();
 
             Observations = FhirClient.CreateResourcesAsync(
                 FhirClient.GetDefaultObservation,

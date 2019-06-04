@@ -6,6 +6,7 @@
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("eb5.0001|system1|unit2")]
         public async Task GivenAQuantitySearchParameterWithQuantity_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            ResourceElement bundle = await Client.SearchAsync("Observation", $"value-quantity={queryValue}");
+            ResourceElement bundle = await Client.SearchAsync(KnownResourceTypes.Observation, $"value-quantity={queryValue}");
 
             ResourceElement[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
 

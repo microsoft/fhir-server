@@ -7,6 +7,7 @@ using System;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenGettingAResource_GivenANonExistantId_TheServerShouldReturnANotFoundStatus()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.ReadAsync("Observation", Guid.NewGuid().ToString()));
+                () => Client.ReadAsync(KnownResourceTypes.Observation, Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Client.DeleteAsync(createdResource);
 
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.ReadAsync("Observation", createdResource.Id));
+                () => Client.ReadAsync(KnownResourceTypes.Observation, createdResource.Id));
 
             Assert.Equal(System.Net.HttpStatusCode.Gone, ex.StatusCode);
         }

@@ -6,6 +6,7 @@
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("system3|", 4, 5, 6)]
         public async Task GivenATokenSearchParameter_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            ResourceElement bundle = await Client.SearchAsync("Observation", $"value-concept={queryValue}");
+            ResourceElement bundle = await Client.SearchAsync(KnownResourceTypes.Observation, $"value-concept={queryValue}");
 
             ResourceElement[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
 
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("text2", 3, 6)]
         public async Task GivenATokenSearchParameterWithTextModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            ResourceElement bundle = await Client.SearchAsync("Observation", $"value-concept:text={queryValue}");
+            ResourceElement bundle = await Client.SearchAsync(KnownResourceTypes.Observation, $"value-concept:text={queryValue}");
 
             ResourceElement[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
 

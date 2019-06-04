@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -144,7 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("eb1981-01-01T00:00:00.0000001", 0, 1, 2, 3, 4, 5)] // Only dates with end time earlier than 1981-01-01T00:00:00.0000001 would match.
         public async Task GivenADateTimeSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            ResourceElement bundle = await Client.SearchAsync("Observation", $"date={queryValue}&code={Fixture.Code}");
+            ResourceElement bundle = await Client.SearchAsync(KnownResourceTypes.Observation, $"date={queryValue}&code={Fixture.Code}");
 
             ResourceElement[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
 

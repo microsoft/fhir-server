@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Newtonsoft.Json.Linq;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
                 driver.Navigate().GoToUrl(_fixture.SmartLauncherUrl);
 
-                var patientElement = driver.FindElement(By.Id("patient"));
+                var patientElement = driver.FindElement(By.Id(KnownResourceTypes.Patient));
                 patientElement.SendKeys(patient.Id);
 
                 var launchButton = driver.FindElement(By.Id("launchButton"));

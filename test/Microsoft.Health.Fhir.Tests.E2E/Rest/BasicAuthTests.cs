@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var createdResource = createdResponse.Resource;
 
             await Client.RunAsUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync("Observation", createdResource.Id));
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync(KnownResourceTypes.Observation, createdResource.Id));
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
             // Getting the resource should result in NotFound.
-            await ExecuteAndValidateNotFoundStatus(() => Client.ReadAsync("Observation", createdResource.Id));
+            await ExecuteAndValidateNotFoundStatus(() => Client.ReadAsync(KnownResourceTypes.Observation, createdResource.Id));
 
             async Task<FhirException> ExecuteAndValidateNotFoundStatus(Func<Task> action)
             {
@@ -178,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var createdResource = createdResponse.Resource;
 
             await Client.RunAsUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
-            FhirResponse<ResourceElement> readResponse = await Client.ReadAsync("Observation", createdResource.Id);
+            FhirResponse<ResourceElement> readResponse = await Client.ReadAsync(KnownResourceTypes.Observation, createdResource.Id);
 
             ResourceElement readResource = readResponse.Resource;
 

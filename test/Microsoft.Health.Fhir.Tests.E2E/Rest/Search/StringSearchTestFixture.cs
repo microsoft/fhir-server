@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             : base(dataStore, format, fhirVersion)
         {
             // Prepare the resources used for string search tests.
-            FhirClient.DeleteAllResources("Patient").Wait();
+            FhirClient.DeleteAllResources(KnownResourceTypes.Patient).Wait();
 
             Patients = FhirClient.CreateResourcesAsync(
                     FhirClient.GetDefaultPatient,
