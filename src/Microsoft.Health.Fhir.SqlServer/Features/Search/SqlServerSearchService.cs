@@ -140,13 +140,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 V1.Resource.RequestMethod,
                                 V1.Resource.RawResource);
 
-                            newContinuationId = resourceSurrogateId;
-
                             if (resources.Count == searchOptions.MaxItemCount)
                             {
                                 moreResults = true;
                                 break;
                             }
+
+                            newContinuationId = resourceSurrogateId;
 
                             string rawResource;
 
