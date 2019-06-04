@@ -312,6 +312,9 @@
   <data name="SearchParameterDefinitionInvalidResource" xml:space="preserve">
     <value>bundle.entry[{0}].resource is not a SearchParameter resource.</value>
   </data>
+  <data name="SearchParameterKeyRequired" xml:space="preserve">
+    <value>For search parameters key is required</value>
+  </data>
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
   </data>
