@@ -4,15 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
-using static Hl7.Fhir.Model.SearchParameter;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
     public interface ISearchParameterExpressionParser
     {
         Expression Parse(
-            SearchParameter searchParameter,
-            SearchModifierCode? modifier,
+            SearchParameterInfo searchParameter,
+            SearchParameter.SearchModifierCode? modifier,
             string value);
     }
 }

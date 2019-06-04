@@ -42,6 +42,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
         public string ETag { get; protected set; }
 
         [JsonProperty(KnownDocumentProperties.IsSystem)]
-        public bool IsSystem { get; } = false;
+        public bool IsSystem { get; } = true;
     }
 }
