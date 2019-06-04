@@ -5,6 +5,7 @@
 
 using System;
 using System.Threading;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, new[] { CapabilityStatement.TypeRestfulInteraction.Read });
 
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(statement);
+            _conformanceProvider.GetCapabilityStatementAsync().Returns(statement.ToTypedElement());
         }
 
         [Fact]

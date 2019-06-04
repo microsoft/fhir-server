@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             patientResource.UpdateCreate = true;
             patientResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(_conformanceStatement);
+            _conformanceProvider.GetCapabilityStatementAsync().Returns(_conformanceStatement.ToTypedElement());
             var lazyConformanceProvider = new Lazy<IConformanceProvider>(() => _conformanceProvider);
 
             var collection = new ServiceCollection();

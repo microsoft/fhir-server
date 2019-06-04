@@ -6,6 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _conformanceConfiguration = conformanceConfiguration.Value;
         }
 
-        public override async Task<CapabilityStatement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken))
+        public override async Task<ITypedElement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
             if (_capabilityStatement == null)
             {
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             await _configuredConformanceProvider.GetCapabilityStatementAsync(cancellationToken);
 
                         _capabilityStatement =
-                            generated.Intersect(configured, _conformanceConfiguration.UseStrictConformance);
+                            generated.Intersect(configured.ToPoco() as CapabilityStatement, _conformanceConfiguration.UseStrictConformance);
 
                         _capabilityStatement.UrlElement = new FhirUri(_urlResolver.ResolveMetadataUrl(false));
                     }
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
             }
 
-            return _capabilityStatement;
+            return _capabilityStatement.ToTypedElement();
         }
 
         public void Dispose()

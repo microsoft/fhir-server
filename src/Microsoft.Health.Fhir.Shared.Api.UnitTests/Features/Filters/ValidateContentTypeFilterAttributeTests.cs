@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Internal;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             };
 
             _conformanceProvider = Substitute.For<IConformanceProvider>();
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(_statement);
+            _conformanceProvider.GetCapabilityStatementAsync().Returns(_statement.ToTypedElement());
         }
 
         [Theory]

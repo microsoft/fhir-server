@@ -12,12 +12,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
     public class ResourceValidator : AbstractValidator<ResourceElement>
     {
-        public ResourceValidator(INarrativeHtmlSanitizer narrativeHtmlSanitizer)
+        public ResourceValidator(INarrativeHtmlSanitizer narrativeHtmlSanitizer, IModelAttributeValidator modelAttributeValidator)
         {
             RuleFor(x => x.Id)
                 .SetValidator(new IdValidator());
             RuleFor(x => x)
-                .SetValidator(new AttributeValidator());
+                .SetValidator(new AttributeValidator(modelAttributeValidator));
             RuleFor(x => x)
                 .SetValidator(new NarrativeValidator(narrativeHtmlSanitizer));
         }

@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             organizationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.NoVersion;
 
             var provider = Substitute.For<ConformanceProviderBase>();
-            provider.GetCapabilityStatementAsync().Returns(_conformance);
+            provider.GetCapabilityStatementAsync().Returns(_conformance.ToTypedElement());
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.

@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Diagnostics;
@@ -120,7 +121,8 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                 return isSupported;
             }
 
-            CapabilityStatement statement = await _conformanceProvider.GetCapabilityStatementAsync();
+            var typedStatement = await _conformanceProvider.GetCapabilityStatementAsync();
+            CapabilityStatement statement = typedStatement.ToPoco() as CapabilityStatement;
 
             return _supportedFormats.GetOrAdd(resourceFormat, format =>
             {

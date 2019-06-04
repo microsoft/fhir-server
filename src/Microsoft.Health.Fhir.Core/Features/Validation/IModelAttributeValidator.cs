@@ -4,11 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public interface IModelAttributeValidator
     {
-        bool TryValidate(object value, ICollection<ValidationResult> validationResults = null, bool recurse = false);
+        bool TryValidate(ResourceElement value, ICollection<ValidationResult> validationResults = null, bool recurse = false);
     }
 }
