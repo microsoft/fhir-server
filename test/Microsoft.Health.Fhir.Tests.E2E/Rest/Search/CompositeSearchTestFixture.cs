@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 string testFileName = TestFileNames[i];
 
-                ResourceElement result = FhirClient.CreateResourcesAsync<ResourceElement>(() =>
+                ResourceElement result = FhirClient.CreateResourcesAsync(() =>
                 {
                     ResourceElement observation = FhirClient.GetJsonSample(testFileName);
 

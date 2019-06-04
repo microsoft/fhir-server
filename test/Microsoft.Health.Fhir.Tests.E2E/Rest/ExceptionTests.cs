@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -35,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return;
             }
 
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<ResourceElement>("?throw=internal"));
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync("?throw=internal"));
 
             Assert.Equal(HttpStatusCode.InternalServerError, fhirException.StatusCode);
 
@@ -60,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return;
             }
 
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<ResourceElement>("?throw=middleware"));
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync("?throw=middleware"));
 
             Assert.Equal(HttpStatusCode.InternalServerError, fhirException.StatusCode);
 
@@ -79,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenAnUnknownRoute_TheServerShouldReturnAnOperationOutcome()
         {
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<ResourceElement>("unknownRoute"));
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync("unknownRoute"));
 
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 

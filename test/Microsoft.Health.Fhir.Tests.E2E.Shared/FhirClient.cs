@@ -107,14 +107,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             await SetupAuthenticationAsync(clientApplication);
         }
 
-        public Task<FhirResponse<T>> CreateAsync<T>(T resource)
-            where T : ResourceElement
+        public Task<FhirResponse<ResourceElement>> CreateAsync(ResourceElement resource)
         {
             return CreateAsync(resource.InstanceType, resource);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource)
-            where T : ResourceElement
+        public async Task<FhirResponse<ResourceElement>> CreateAsync(string uri, ResourceElement resource)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, uri);
             message.Headers.Accept.Add(_mediaType);
@@ -124,17 +122,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResourceElementResponseAsync<T>(response);
+            return await CreateResourceElementResponseAsync(response);
         }
 
-        public Task<FhirResponse<T>> ReadAsync<T>(string resourceType, string resourceId)
-            where T : ResourceElement
+        public Task<FhirResponse<ResourceElement>> ReadAsync(string resourceType, string resourceId)
         {
-            return ReadAsync<T>($"{resourceType}/{resourceId}");
+            return ReadAsync($"{resourceType}/{resourceId}");
         }
 
-        public async Task<FhirResponse<T>> ReadAsync<T>(string uri)
-            where T : ResourceElement
+        public async Task<FhirResponse<ResourceElement>> ReadAsync(string uri)
         {
             var message = new HttpRequestMessage(HttpMethod.Get, uri);
             message.Headers.Accept.Add(_mediaType);
@@ -143,25 +139,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResourceElementResponseAsync<T>(response);
+            return await CreateResourceElementResponseAsync(response);
         }
 
-        public Task<FhirResponse<T>> VReadAsync<T>(string resourceType, string resourceId, string versionId)
-            where T : ResourceElement
+        public Task<FhirResponse<ResourceElement>> VReadAsync(string resourceType, string resourceId, string versionId)
         {
-            return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}");
+            return ReadAsync($"{resourceType}/{resourceId}/_history/{versionId}");
         }
 
-        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null)
-            where T : ResourceElement
+        public Task<FhirResponse<ResourceElement>> UpdateAsync(ResourceElement resource, string ifMatchVersion = null)
         {
             return UpdateAsync($"{resource.InstanceType}/{resource.Id}", resource, ifMatchVersion);
         }
 
-        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)
-            where T : ResourceElement
+        public async Task<FhirResponse<ResourceElement>> UpdateAsync(string uri, ResourceElement resource, string ifMatchVersion = null)
         {
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
+            var request = new HttpRequestMessage(HttpMethod.Put, uri)
             {
                 Content = CreateStringContent(resource),
             };
@@ -178,11 +171,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResourceElementResponseAsync<T>(response);
+            return await CreateResourceElementResponseAsync(response);
         }
 
-        public Task<FhirResponse> DeleteAsync<T>(T resource)
-            where T : ResourceElement
+        public Task<FhirResponse> DeleteAsync(ResourceElement resource)
         {
             return DeleteAsync($"{resource.InstanceType}/{resource.Id}");
         }
@@ -199,15 +191,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             return new FhirResponse(response);
         }
 
-        public Task<FhirResponse> HardDeleteAsync<T>(T resource)
-            where T : ResourceElement
+        public Task<FhirResponse> HardDeleteAsync(ResourceElement resource)
         {
             return DeleteAsync($"{resource.InstanceType}/{resource.Id}?hardDelete=true");
         }
 
         public Task<FhirResponse<ResourceElement>> SearchAsync(string resourceType, string query = null, int? count = null)
         {
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
 
             sb.Append(resourceType).Append("?");
 
@@ -238,7 +229,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResourceElementResponseAsync<ResourceElement>(response);
+            return await CreateResourceElementResponseAsync(response);
         }
 
         public async Task<FhirResponse<ResourceElement>> SearchPostAsync(string resourceType, params (string key, string value)[] body)
@@ -251,7 +242,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResourceElementResponseAsync<ResourceElement>(response);
+            return await CreateResourceElementResponseAsync(response);
         }
 
         public async Task<string> ExportAsync(Dictionary<string, string> queryParams)
@@ -280,32 +271,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E
         {
             if (!response.IsSuccessStatusCode)
             {
-                FhirResponse<ResourceElement> operationOutcome = await CreateResourceElementResponseAsync<ResourceElement>(response);
+                FhirResponse<ResourceElement> operationOutcome = await CreateResourceElementResponseAsync(response);
 
                 throw new FhirException(operationOutcome);
             }
         }
 
-        public async Task<FhirResponse<T>> CreateResourceElementResponseAsync<T>(HttpResponseMessage response)
-            where T : ResourceElement
+        public async Task<FhirResponse<ResourceElement>> CreateResourceElementResponseAsync(HttpResponseMessage response)
         {
             string content = await response.Content.ReadAsStringAsync();
 
             var resource = _deserialize(content).ToResourceElement();
 
-            return new FhirResponse<T>(
+            return new FhirResponse<ResourceElement>(
                 response,
-                string.IsNullOrWhiteSpace(content) ? null : (T)resource);
-        }
-
-        public async Task<FhirResponse<T>> CreateResponseAsync<T>(HttpResponseMessage response)
-            where T : Resource
-        {
-            string content = await response.Content.ReadAsStringAsync();
-
-            return new FhirResponse<T>(
-                response,
-                string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
+                string.IsNullOrWhiteSpace(content) ? null : resource);
         }
 
         public async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
@@ -322,10 +302,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E
                     _bearerTokens[tokenKey] = bearerToken;
                 }
 
-                HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-
-                // TODO: Fix this
-                ////HttpClient.SetBearerToken(bearerToken);
+                HttpClient.SetBearerToken(bearerToken);
             }
         }
 
@@ -378,7 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 
         public async Task GetSecuritySettings(string fhirServerMetadataUrl)
         {
-            FhirResponse<ResourceElement> readResponse = await ReadAsync<ResourceElement>(fhirServerMetadataUrl);
+            FhirResponse<ResourceElement> readResponse = await ReadAsync(fhirServerMetadataUrl);
 
             var metadata = readResponse.Resource.ToPoco<CapabilityStatement>();
 

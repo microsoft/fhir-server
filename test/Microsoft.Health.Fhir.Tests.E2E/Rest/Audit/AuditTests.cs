@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 {
                     FhirResponse<ResourceElement> response = await _client.CreateAsync(_client.GetDefaultPatient());
 
-                    return await _client.ReadAsync<ResourceElement>(response.Resource.InstanceType, response.Resource.Id);
+                    return await _client.ReadAsync(response.Resource.InstanceType, response.Resource.Id);
                 },
                 "read",
                 "Patient",
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
                     try
                     {
-                        await _client.ReadAsync<ResourceElement>("Patient", "123");
+                        await _client.ReadAsync("Patient", "123");
                     }
                     catch (FhirException ex)
                     {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 {
                     FhirResponse<ResourceElement> result = await _client.CreateAsync(_client.GetDefaultOrganization());
 
-                    return await _client.VReadAsync<ResourceElement>(result.Resource.InstanceType, result.Resource.Id, result.Resource.VersionId);
+                    return await _client.VReadAsync(result.Resource.InstanceType, result.Resource.Id, result.Resource.VersionId);
                 },
                 "vread",
                 "Organization",
@@ -411,7 +411,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             await clientSetup(client);
 
-            FhirResponse<ResourceElement> response = (await Assert.ThrowsAsync<FhirException>(() => client.ReadAsync<ResourceElement>(url))).Response;
+            FhirResponse<ResourceElement> response = (await Assert.ThrowsAsync<FhirException>(() => client.ReadAsync(url))).Response;
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
 

@@ -102,9 +102,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Thread.Sleep(500);  // put a small gap between since and the first edits
 
             var updatedResourceElement = Client.UpdateText(_createdResource.Resource, "Changed by E2E test");
-            await Client.UpdateAsync<ResourceElement>(updatedResourceElement);
+            await Client.UpdateAsync(updatedResourceElement);
 
-            ResourceElement newPatient = (await Client.CreateAsync<ResourceElement>(Client.GetDefaultPatient())).Resource;
+            ResourceElement newPatient = (await Client.CreateAsync(Client.GetDefaultPatient())).Resource;
 
             var before = newPatient.LastUpdated.Value.AddMilliseconds(100);
             Thread.Sleep(500);  // make sure that the before time is not in the future

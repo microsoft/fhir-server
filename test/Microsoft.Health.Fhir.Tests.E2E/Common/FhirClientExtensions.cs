@@ -60,10 +60,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return resources;
         }
 
-        public static async Task<TResource> CreateResourcesAsync<TResource>(this ICustomFhirClient client, Func<TResource> resourceFactory)
-            where TResource : ResourceElement
+        public static async Task<ResourceElement> CreateResourcesAsync(this ICustomFhirClient client, Func<ResourceElement> resourceFactory)
         {
-            TResource resource = resourceFactory();
+            ResourceElement resource = resourceFactory();
 
             return await client.CreateAsync(resource);
         }

@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Client.DeleteAsync(response.Resource);
 
             // Subsequent read on the resource should return Gone.
-            FhirException ex = await ExecuteAndValidateGoneStatus(() => Client.ReadAsync<ResourceElement>(resourceType, resourceId));
+            FhirException ex = await ExecuteAndValidateGoneStatus(() => Client.ReadAsync(resourceType, resourceId));
 
             string eTag = ex.Headers.ETag.ToString();
 
@@ -49,10 +49,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string deleteVersionId = WeakETag.FromWeakETag(eTag).VersionId;
 
             // Subsequent read on the specific version should still work.
-            await Client.VReadAsync<ResourceElement>(resourceType, resourceId, versionId);
+            await Client.VReadAsync(resourceType, resourceId, versionId);
 
             // Subsequent read on the deleted version should return Gone.
-            await ExecuteAndValidateGoneStatus(() => Client.VReadAsync<ResourceElement>(resourceType, resourceId, deleteVersionId));
+            await ExecuteAndValidateGoneStatus(() => Client.VReadAsync(resourceType, resourceId, deleteVersionId));
 
             async Task<FhirException> ExecuteAndValidateGoneStatus(Func<Task> action)
             {
@@ -92,12 +92,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Client.HardDeleteAsync(observation);
 
             // Getting the resource should result in NotFound.
-            await ExecuteAndValidateNotFoundStatus(() => Client.ReadAsync<ResourceElement>(observation.InstanceType, resourceId));
+            await ExecuteAndValidateNotFoundStatus(() => Client.ReadAsync(observation.InstanceType, resourceId));
 
             // Each version read should also result in NotFound.
             foreach (string versionId in versionIds)
             {
-                await ExecuteAndValidateNotFoundStatus(() => Client.VReadAsync<ResourceElement>(observation.InstanceType, resourceId, versionId));
+                await ExecuteAndValidateNotFoundStatus(() => Client.VReadAsync(observation.InstanceType, resourceId, versionId));
             }
 
             // History API should return NotFound.
@@ -137,12 +137,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Client.HardDeleteAsync(observation);
 
             // Getting the resource should result in NotFound.
-            await ExecuteAndValidateNotFoundStatus(() => Client.ReadAsync<ResourceElement>(observation.InstanceType, resourceId));
+            await ExecuteAndValidateNotFoundStatus(() => Client.ReadAsync(observation.InstanceType, resourceId));
 
             // Each version read should also result in NotFound.
             foreach (string versionId in versionIds)
             {
-                await ExecuteAndValidateNotFoundStatus(() => Client.VReadAsync<ResourceElement>(observation.InstanceType, resourceId, versionId));
+                await ExecuteAndValidateNotFoundStatus(() => Client.VReadAsync(observation.InstanceType, resourceId, versionId));
             }
 
             // History API should return NotFound.

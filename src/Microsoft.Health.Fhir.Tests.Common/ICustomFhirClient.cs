@@ -26,34 +26,25 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         Task RunAsClientApplication(TestApplication clientApplication);
 
-        Task<FhirResponse<T>> CreateAsync<T>(T resource)
-            where T : ResourceElement;
+        Task<FhirResponse<ResourceElement>> CreateAsync(ResourceElement resource);
 
-        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource)
-            where T : ResourceElement;
+        Task<FhirResponse<ResourceElement>> CreateAsync(string uri, ResourceElement resource);
 
-        Task<FhirResponse<T>> ReadAsync<T>(string resourceType, string resourceId)
-            where T : ResourceElement;
+        Task<FhirResponse<ResourceElement>> ReadAsync(string resourceType, string resourceId);
 
-        Task<FhirResponse<T>> ReadAsync<T>(string uri)
-            where T : ResourceElement;
+        Task<FhirResponse<ResourceElement>> ReadAsync(string uri);
 
-        Task<FhirResponse<T>> VReadAsync<T>(string resourceType, string resourceId, string versionId)
-            where T : ResourceElement;
+        Task<FhirResponse<ResourceElement>> VReadAsync(string resourceType, string resourceId, string versionId);
 
-        Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null)
-            where T : ResourceElement;
+        Task<FhirResponse<ResourceElement>> UpdateAsync(ResourceElement resource, string ifMatchVersion = null);
 
-        Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)
-            where T : ResourceElement;
+        Task<FhirResponse<ResourceElement>> UpdateAsync(string uri, ResourceElement resource, string ifMatchVersion = null);
 
-        Task<FhirResponse> DeleteAsync<T>(T resource)
-            where T : ResourceElement;
+        Task<FhirResponse> DeleteAsync(ResourceElement resource);
 
         Task<FhirResponse> DeleteAsync(string uri);
 
-        Task<FhirResponse> HardDeleteAsync<T>(T resource)
-            where T : ResourceElement;
+        Task<FhirResponse> HardDeleteAsync(ResourceElement resource);
 
         Task<FhirResponse<ResourceElement>> SearchAsync(string resourceType, string query = null, int? count = null);
 
@@ -63,15 +54,9 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         Task<string> ExportAsync(Dictionary<string, string> queryParams);
 
-        ////StringContent CreateStringContent(Resource resource);
-
         Task EnsureSuccessStatusCodeAsync(HttpResponseMessage response);
 
-        Task<FhirResponse<T>> CreateResourceElementResponseAsync<T>(HttpResponseMessage response)
-            where T : ResourceElement;
-
-        ////Task<FhirResponse<T>> CreateResponseAsync<T>(HttpResponseMessage response)
-        ////    where T : Resource;
+        Task<FhirResponse<ResourceElement>> CreateResourceElementResponseAsync(HttpResponseMessage response);
 
         Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null);
 

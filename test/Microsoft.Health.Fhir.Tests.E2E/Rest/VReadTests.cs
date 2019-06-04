@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var createdResource = createdResponse.Resource;
 
-            FhirResponse<ResourceElement> vReadResponse = await Client.VReadAsync<ResourceElement>(
+            FhirResponse<ResourceElement> vReadResponse = await Client.VReadAsync(
                 createdResource.InstanceType,
                 createdResource.Id,
                 createdResource.VersionId);
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenGettingAResource_GivenANonExistingIdAndVersionId_TheServerShouldReturnANotFoundStatus()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.VReadAsync<ResourceElement>("Observation", Guid.NewGuid().ToString(), Guid.NewGuid().ToString()));
+                () => Client.VReadAsync("Observation", Guid.NewGuid().ToString(), Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var createdResource = createdResponse.Resource;
 
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.VReadAsync<ResourceElement>("Observation", createdResource.Id, Guid.NewGuid().ToString()));
+                () => Client.VReadAsync("Observation", createdResource.Id, Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var deletedVersion = WeakETag.FromWeakETag(deleteResponse.Headers.ETag.ToString()).VersionId;
 
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.VReadAsync<ResourceElement>("Observation", createdResource.Id, deletedVersion));
+                () => Client.VReadAsync("Observation", createdResource.Id, deletedVersion));
 
             Assert.Equal(System.Net.HttpStatusCode.Gone, ex.StatusCode);
         }
