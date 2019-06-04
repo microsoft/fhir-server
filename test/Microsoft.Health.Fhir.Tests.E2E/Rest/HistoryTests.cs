@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             FhirResponse<ResourceElement> readResponse = await Client.SearchAsync("Observation/_history");
 
-            Assert.NotEmpty(readResponse.Resource.Select("Resource.entry.resource"));
+            Assert.NotEmpty(readResponse.Resource.Select(KnownFhirPaths.BundleEntries));
         }
 
         [Fact]
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             FhirResponse<ResourceElement> readResponse = await Client.SearchAsync($"Observation/{_createdResource.Resource.Id}/_history");
 
-            Assert.NotEmpty(readResponse.Resource.Select("Resource.entry.resource"));
+            Assert.NotEmpty(readResponse.Resource.Select(KnownFhirPaths.BundleEntries));
         }
 
         [Fact]
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             FhirResponse<ResourceElement> readResponse = await Client.SearchAsync("_history");
 
-            Assert.NotEmpty(readResponse.Resource.Select("Resource.entry.resource"));
+            Assert.NotEmpty(readResponse.Resource.Select(KnownFhirPaths.BundleEntries));
         }
 
         [Fact]
@@ -76,12 +77,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<ResourceElement> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString);
 
-            var entries = readResponse.Resource.Select("Resource.entry.resource").ToList();
+            var entries = readResponse.Resource.Select(KnownFhirPaths.BundleEntries).ToList();
             ValidateEntry(entries);
 
-            FhirResponse<ResourceElement> selfLinkResponse = Client.SearchAsync(readResponse.Resource.Scalar<string>("Resource.link.where(relation = 'self').url")).Result;
+            FhirResponse<ResourceElement> selfLinkResponse = Client.SearchAsync(readResponse.Resource.Scalar<string>(KnownFhirPaths.BundleSelfLink)).Result;
 
-            var selfLinkEntries = selfLinkResponse.Resource.Select("Resource.entry.resource").ToList();
+            var selfLinkEntries = selfLinkResponse.Resource.Select(KnownFhirPaths.BundleEntries).ToList();
             ValidateEntry(selfLinkEntries);
 
             void ValidateEntry(List<ITypedElement> collection)
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<ResourceElement> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
 
-            var entries = readResponse.Resource.Select("Resource.entry.resource").ToList();
+            var entries = readResponse.Resource.Select(KnownFhirPaths.BundleEntries).ToList();
             Assert.Equal(2, entries.Count);
 
             ResourceElement patientHistory = entries.First(e => e.InstanceType == "Patient").ToResourceElement();
@@ -153,7 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Query all the recent changes
             FhirResponse<ResourceElement> allChanges = await Client.SearchAsync("_history?_since=" + sinceUriString);
 
-            var entries = allChanges.Resource.Select("Resource.entry.resource").ToList();
+            var entries = allChanges.Resource.Select(KnownFhirPaths.BundleEntries).ToList();
 
             Assert.Equal(7, entries.Count);
 
@@ -164,7 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
             Thread.Sleep(500);
             var firstSet = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
-            var firstSetEntries = firstSet.Resource.Select("Resource.entry.resource").ToList();
+            var firstSetEntries = firstSet.Resource.Select(KnownFhirPaths.BundleEntries).ToList();
 
             Assert.Equal(4, firstSetEntries.Count);
 
@@ -173,7 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
             Thread.Sleep(500); // wait 500 milliseconds to make sure that the value passed to the server for _before is not a time in the future
             var secondSet = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
-            var fsecondSetEntries = secondSet.Resource.Select("Resource.entry.resource").ToList();
+            var fsecondSetEntries = secondSet.Resource.Select(KnownFhirPaths.BundleEntries).ToList();
 
             Assert.Equal(3, fsecondSetEntries.Count);
 
@@ -221,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
             FhirResponse<ResourceElement> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString);
-            var readEntries = readResponse.Resource.Select("Resource.entry.resource");
+            var readEntries = readResponse.Resource.Select(KnownFhirPaths.BundleEntries);
 
             Assert.Equal(10, readEntries.Count());
 
@@ -233,13 +234,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Thread.Sleep(500);
 
             FhirResponse<ResourceElement> firstBatch = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
-            var firstBatchEntries = firstBatch.Resource.Select("Resource.entry.resource");
+            var firstBatchEntries = firstBatch.Resource.Select(KnownFhirPaths.BundleEntries);
 
             Assert.Equal(10, firstBatchEntries.Count());
 
-            var secondBatch = await Client.SearchAsync(firstBatch.Resource.Scalar<string>("Resource.link.where(relation = 'self').url"));
+            var secondBatch = await Client.SearchAsync(firstBatch.Resource.Scalar<string>(KnownFhirPaths.BundleSelfLink));
 
-            Assert.Single(secondBatch.Resource.Select("Resource.entry.resource"));
+            Assert.Single(secondBatch.Resource.Select(KnownFhirPaths.BundleEntries));
 
             foreach (var r in newResources)
             {
@@ -261,7 +262,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<ResourceElement> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString);
 
-            Assert.Empty(readResponse.Resource.Select("Resource.entry.resource"));
+            Assert.Empty(readResponse.Resource.Select(KnownFhirPaths.BundleEntries));
         }
 
         [Fact]
@@ -285,7 +286,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<ResourceElement> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString + "&_before=" + beforeUriString);
 
-            Assert.Empty(readResponse.Resource.Select("Resource.entry.resource"));
+            Assert.Empty(readResponse.Resource.Select(KnownFhirPaths.BundleEntries));
 
             if (newPatient?.Resource != null)
             {
@@ -318,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
                 FhirResponse<ResourceElement> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString);
 
-                if (!readResponse.Resource.Select("Resource.entry.resource").Any())
+                if (!readResponse.Resource.Select(KnownFhirPaths.BundleEntries).Any())
                 {
                     break;
                 }

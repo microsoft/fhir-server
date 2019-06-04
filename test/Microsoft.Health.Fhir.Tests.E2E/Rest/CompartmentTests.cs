@@ -9,6 +9,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -105,14 +106,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 ResourceElement bundle = await Client.SearchAsync(searchUrl);
 
-                searchUrl = bundle.Scalar<string>("Resource.link.where(relation = 'next').url");
+                searchUrl = bundle.Scalar<string>(KnownFhirPaths.BundleNextLink);
 
                 if (searchUrl != null)
                 {
                     Assert.StartsWith(baseUrl, searchUrl);
                 }
 
-                var entries = bundle.Select("Resource.entry.resource");
+                var entries = bundle.Select(KnownFhirPaths.BundleEntries);
                 results.AddRange(entries.Select(e => e.ToResourceElement()));
             }
 

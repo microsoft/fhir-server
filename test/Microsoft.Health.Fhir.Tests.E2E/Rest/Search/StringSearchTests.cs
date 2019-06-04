@@ -8,6 +8,7 @@ using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             if (shouldMatch)
             {
-                IEnumerable<ITypedElement> bundleEntries = bundle.Select("Resource.entry.resource");
+                IEnumerable<ITypedElement> bundleEntries = bundle.Select(KnownFhirPaths.BundleEntries);
                 Assert.NotEmpty(bundleEntries);
                 Assert.Collection(
                     bundleEntries,
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             else
             {
-                Assert.Empty(bundle.Select("Resource.entry.resource"));
+                Assert.Empty(bundle.Select(KnownFhirPaths.BundleEntries));
             }
         }
 

@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             ValidateBundle(bundle, expectedResources);
 
-            var actualUrl = WebUtility.UrlDecode(bundle.Scalar<string>("Resource.link.where(relation = 'self').url"));
+            var actualUrl = WebUtility.UrlDecode(bundle.Scalar<string>(KnownFhirPaths.BundleSelfLink));
 
             Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
         }
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             Assert.NotNull(bundle);
             Assert.Collection(
-                bundle.Select("Resource.entry.resource"),
+                bundle.Select(KnownFhirPaths.BundleEntries),
                 expectedResources.Select(er => new Action<ITypedElement>(r => Assert.True(Client.Compare(er, r)))).ToArray());
         }
 

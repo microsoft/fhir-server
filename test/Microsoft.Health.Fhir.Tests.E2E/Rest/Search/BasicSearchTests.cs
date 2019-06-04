@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             bundle = await Client.SearchAsync("?_type=Observation,Patient");
 
-            var bundleCount = bundle.Select("Resource.entry").Count();
+            var bundleCount = bundle.Select(KnownFhirPaths.BundleEntries).Count();
 
             Assert.True(bundleCount > patients.Length);
             bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"));
@@ -133,14 +133,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Assert.NotNull(bundle);
 
-                var entries = bundle.Select("Resource.entry.resource").ToList();
+                var entries = bundle.Select(KnownFhirPaths.BundleEntries).ToList();
 
                 Assert.NotEmpty(entries);
                 Assert.True(entries.Count <= count);
 
                 results.AddRange(entries.Select(e => e.ToResourceElement()));
 
-                url = bundle.Scalar<string>("Resource.link.where(relation = 'next').url");
+                url = bundle.Scalar<string>(KnownFhirPaths.BundleNextLink);
 
                 if (url != null)
                 {
@@ -177,10 +177,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Assert.NotNull(bundle);
 
-                var entries = bundle.Select("Resource.entry.resource");
+                var entries = bundle.Select(KnownFhirPaths.BundleEntries);
                 results.AddRange(entries.Select(e => e.ToResourceElement()));
 
-                url = bundle.Scalar<string>("Resource.link.where(relation = 'next').url");
+                url = bundle.Scalar<string>(KnownFhirPaths.BundleNextLink);
 
                 if (url != null)
                 {
@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Assert.NotNull(bundle);
             Assert.Equal(numberOfResources, bundle.Scalar<long>("Resource.total"));
-            Assert.Empty(bundle.Select("Resource.entry"));
+            Assert.Empty(bundle.Select(KnownFhirPaths.BundleEntries));
 
             ResourceElement PatientFactory()
             {
