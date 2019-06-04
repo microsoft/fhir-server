@@ -486,6 +486,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E
             return resourceElement.AddObservationIdentifier(system, value);
         }
 
+        public ResourceElement AddDocumentReferenceIdentifier(ResourceElement resourceElement, string system, string value)
+        {
+            return resourceElement.AddDocumentReferenceIdentifier(system, value);
+        }
+
         public ResourceElement UpdateValueSetStatus(ResourceElement resourceElement, string status)
         {
             return resourceElement.UpdateValueSetStatus(status);

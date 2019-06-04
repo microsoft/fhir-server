@@ -11,6 +11,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public const string Device = "Device";
 
+        public const string DocumentReference = "DocumentReference";
+
         public const string Encounter = "Encounter";
 
         public const string Immunization = "Immunization";

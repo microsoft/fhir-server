@@ -54,6 +54,9 @@
     <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\R4\Condition-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\Device-d1.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-002.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-003.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example.json" />
     <None Remove="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\Observation-For-Patient-f001.json" />
@@ -75,6 +78,9 @@
     <None Remove="TestFiles\R4\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\Weight.json" />
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-002.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-003.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
@@ -100,6 +106,9 @@
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R4\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\Device-d1.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-003.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-002.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example.json" />
     <EmbeddedResource Include="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\Observation-For-Patient-f001.json" />
@@ -127,6 +136,9 @@
     <EmbeddedResource Include="TestFiles\Stu3\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DeviceComponent-For-Device-d1.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-003.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-002.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith1MinuteApgarScore.json" />

@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public class CompositeSearchTestFixture : HttpIntegrationTestFixture
     {
-        private static readonly string[] TestFileNames = new string[]
+        private static readonly string[] ObservationTestFileNames =
         {
             "ObservationWith1MinuteApgarScore",
             "ObservationWith20MinuteApgarScore",
@@ -24,14 +24,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             "ObservationWithBloodPressure",
         };
 
+        private static readonly string[] DocumentReferenceTestFileNames =
+        {
+            "DocumentReference-example",
+            "DocumentReference-example-002",
+            "DocumentReference-example-003",
+        };
+
         public CompositeSearchTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
             : base(dataStore, format, fhirVersion)
         {
-            var resultDictionary = new Dictionary<string, ResourceElement>(TestFileNames.Length);
+            var resultDictionary = new Dictionary<string, ResourceElement>(ObservationTestFileNames.Length);
 
-            for (int i = 0; i < TestFileNames.Length; i++)
+            for (int i = 0; i < ObservationTestFileNames.Length; i++)
             {
-                string testFileName = TestFileNames[i];
+                string testFileName = ObservationTestFileNames[i];
 
                 ResourceElement result = FhirClient.CreateResourcesAsync(() =>
                 {
@@ -45,6 +52,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Observations = resultDictionary;
 
+            var documentReferenceDictionary = new Dictionary<string, ResourceElement>(DocumentReferenceTestFileNames.Length);
+
+            for (int i = 0; i < DocumentReferenceTestFileNames.Length; i++)
+            {
+                string testFileName = DocumentReferenceTestFileNames[i];
+
+                ResourceElement result = FhirClient.CreateResourcesAsync(() =>
+                {
+                    ResourceElement documentReference = FhirClient.GetJsonSample(testFileName);
+
+                    return FhirClient.AddDocumentReferenceIdentifier(documentReference, null, TestSessionId);
+                }).Result;
+
+                documentReferenceDictionary.Add(testFileName, result);
+            }
+
+            DocumentReferences = documentReferenceDictionary;
+
             FhirVersion = fhirVersion;
         }
 
@@ -53,5 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public string TestSessionId { get; } = Guid.NewGuid().ToString();
 
         public IReadOnlyDictionary<string, ResourceElement> Observations { get; }
+
+        public IReadOnlyDictionary<string, ResourceElement> DocumentReferences { get; }
     }
 }

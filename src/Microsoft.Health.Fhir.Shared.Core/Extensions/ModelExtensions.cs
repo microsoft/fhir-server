@@ -274,6 +274,22 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return poco.ToResourceElement();
         }
 
+        public static ResourceElement AddDocumentReferenceIdentifier(this ResourceElement resource, string system, string value)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var poco = resource.ToPoco<DocumentReference>();
+
+            if (poco.Identifier == null)
+            {
+                poco.Identifier = new List<Identifier>();
+            }
+
+            poco.Identifier.Add(new Identifier(system, value));
+
+            return poco.ToResourceElement();
+        }
+
         public static ResourceElement UpdateValueSetStatus(this ResourceElement resource, string status)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));

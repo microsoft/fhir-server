@@ -116,6 +116,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         ResourceElement AddObservationIdentifier(ResourceElement resourceElement, string system, string identifier);
 
+        ResourceElement AddDocumentReferenceIdentifier(ResourceElement resourceElement, string system, string identifier);
+
         ResourceElement UpdateRiskAssessmentSubject(ResourceElement resourceElement, string subject);
 
         ResourceElement UpdateRiskAssessmentStatus(ResourceElement resourceElement, string status);
