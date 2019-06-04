@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -75,6 +75,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string AuthorizationPermissionDefinitionInvalid {
             get {
                 return ResourceManager.GetString("AuthorizationPermissionDefinitionInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to connect to given destination..
+        /// </summary>
+        internal static string CantConnectToDestination {
+            get {
+                return ResourceManager.GetString("CantConnectToDestination", resourceCulture);
             }
         }
         
@@ -210,6 +219,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string DeleteVersionNotAllowed {
             get {
                 return ResourceManager.GetString("DeleteVersionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The destination client is not connected to the destination end point..
+        /// </summary>
+        internal static string DestinationClientNotConnected {
+            get {
+                return ResourceManager.GetString("DestinationClientNotConnected", resourceCulture);
             }
         }
         
