@@ -14,7 +14,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Api\Microsoft.Health.Fhir.Stu3.Api.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Core\Microsoft.Health.Fhir.Stu3.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
-    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Web\Microsoft.Health.Fhir.Stu3.Web.csproj" />
   </ItemGroup>
 
   <Import Project="..\Microsoft.Health.Fhir.Tests.E2E.Shared\Microsoft.Health.Fhir.Tests.E2E.Shared.projitems" Label="Shared" />

@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -25,12 +26,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
         private IDictionary<Uri, SearchParameterInfo> _urlLookup;
+        private ILogger<SearchParameterDefinitionManager> _logger;
 
-        public SearchParameterDefinitionManager(FhirJsonParser fhirJsonParser)
+        public SearchParameterDefinitionManager(FhirJsonParser fhirJsonParser, ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
 
             _fhirJsonParser = fhirJsonParser;
+            _logger = logger;
         }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => _urlLookup.Values;
@@ -97,11 +100,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             foreach (KeyValuePair<string, IDictionary<string, SearchParameterInfo>> entry in _typeLookup)
             {
+                _logger.LogWarning($"{entry.Key}");
+
                 var searchParameters = entry.Value.Select(
-                        searchParameter => new CapabilityStatement.SearchParamComponent
+                        searchParameter =>
                         {
-                            Name = searchParameter.Key,
-                            Type = Enum.Parse<SearchParamType>(searchParameter.Value.Type?.ToString()),
+                            _logger.LogWarning(searchParameter.Value.Type.ToString());
+                            return new CapabilityStatement.SearchParamComponent
+                            {
+                                Name = searchParameter.Key,
+                                Type = Enum.Parse<SearchParamType>(searchParameter.Value.Type?.ToString()),
+                            };
                         });
 
                 var capabilityStatement = (ListedCapabilityStatement)statement;
