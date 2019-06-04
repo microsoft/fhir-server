@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Client = fixture.FhirClient;
         }
 
-        protected ICustomFhirClient Client { get; set; }
+        protected IVersionSpecificFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

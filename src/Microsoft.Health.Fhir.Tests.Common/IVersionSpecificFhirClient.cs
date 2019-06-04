@@ -14,7 +14,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Common
 {
-    public interface ICustomFhirClient
+    public interface IVersionSpecificFhirClient
     {
         Format Format { get; }
 

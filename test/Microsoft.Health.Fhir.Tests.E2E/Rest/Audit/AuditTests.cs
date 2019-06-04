@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         private const string ExpectedClaimKey = "appid";
 
         private readonly AuditTestFixture _fixture;
-        private readonly ICustomFhirClient _client;
+        private readonly IVersionSpecificFhirClient _client;
 
         private readonly TraceAuditLogger _auditLogger;
 
@@ -396,7 +396,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, null, expectedUri, expectedStatusCode, correlationId, expectedClaimValue, expectedClaimKey));
         }
 
-        private async Task ExecuteAndValidate(Func<ICustomFhirClient, Task> clientSetup, HttpStatusCode expectedStatusCode, string expectedAppId)
+        private async Task ExecuteAndValidate(Func<IVersionSpecificFhirClient, Task> clientSetup, HttpStatusCode expectedStatusCode, string expectedAppId)
         {
             if (!_fixture.IsUsingInProcTestServer || !_fixture.FhirClient.SecuritySettings.SecurityEnabled)
             {
@@ -407,7 +407,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             const string url = "Patient/123";
 
             // Create a new client with no token supplied.
-            var client = (ICustomFhirClient)Activator.CreateInstance(_client.GetType(), _fixture.CreateHttpClient(), Format.Json, _fixture.FhirVersion);
+            var client = (IVersionSpecificFhirClient)Activator.CreateInstance(_client.GetType(), _fixture.CreateHttpClient(), Format.Json, _fixture.FhirVersion);
 
             await clientSetup(client);
 

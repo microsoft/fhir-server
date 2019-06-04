@@ -30,7 +30,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E
 {
-    public class FhirClient : ICustomFhirClient
+    public class FhirClient : IVersionSpecificFhirClient
     {
         private readonly Format _format;
         private readonly FhirVersion _fhirVersion;

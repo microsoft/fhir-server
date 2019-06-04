@@ -15,12 +15,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public static class FhirClientExtensions
     {
-        public static async Task DeleteAllResources(this ICustomFhirClient client, string resourceType)
+        public static async Task DeleteAllResources(this IVersionSpecificFhirClient client, string resourceType)
         {
             await DeleteAllResources(client, resourceType, null);
         }
 
-        public static async Task DeleteAllResources(this ICustomFhirClient client, string resourceType, string searchUrl)
+        public static async Task DeleteAllResources(this IVersionSpecificFhirClient client, string resourceType, string searchUrl)
         {
             while (true)
             {
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
         }
 
-        public static async Task<ResourceElement[]> CreateResourcesAsync(this ICustomFhirClient client, Func<ResourceElement> baseResourceGetter, int count)
+        public static async Task<ResourceElement[]> CreateResourcesAsync(this IVersionSpecificFhirClient client, Func<ResourceElement> baseResourceGetter, int count)
         {
             var resources = new ResourceElement[count];
 
@@ -54,14 +54,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return resources;
         }
 
-        public static async Task<ResourceElement> CreateResourcesAsync(this ICustomFhirClient client, Func<ResourceElement> resourceFactory)
+        public static async Task<ResourceElement> CreateResourcesAsync(this IVersionSpecificFhirClient client, Func<ResourceElement> resourceFactory)
         {
             ResourceElement resource = resourceFactory();
 
             return await client.CreateAsync(resource);
         }
 
-        public static async Task<ResourceElement[]> CreateResourcesAsync(this ICustomFhirClient client, Func<ResourceElement> baseResourceGetter, params Func<ResourceElement, ResourceElement>[] resourceCustomizer)
+        public static async Task<ResourceElement[]> CreateResourcesAsync(this IVersionSpecificFhirClient client, Func<ResourceElement> baseResourceGetter, params Func<ResourceElement, ResourceElement>[] resourceCustomizer)
         {
             var resources = new ResourceElement[resourceCustomizer.Length];
 

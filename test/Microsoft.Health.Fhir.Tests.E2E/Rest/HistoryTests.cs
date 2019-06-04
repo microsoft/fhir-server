@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -34,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _createdResource = Client.CreateAsync(Client.GetDefaultObservation()).GetAwaiter().GetResult();
         }
 
-        protected ICustomFhirClient Client { get; set; }
+        protected IVersionSpecificFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

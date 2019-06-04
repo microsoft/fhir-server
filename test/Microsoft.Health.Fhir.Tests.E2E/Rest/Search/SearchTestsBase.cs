@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected TFixture Fixture { get; }
 
-        protected ICustomFhirClient Client => Fixture.FhirClient;
+        protected IVersionSpecificFhirClient Client => Fixture.FhirClient;
 
         protected async Task<ResourceElement> ExecuteAndValidateBundle(string searchUrl, params ResourceElement[] expectedResources)
         {

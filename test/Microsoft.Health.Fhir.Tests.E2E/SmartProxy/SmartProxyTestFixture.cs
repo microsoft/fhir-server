@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
         public HttpClient HttpClient { get; }
 
-        public ICustomFhirClient FhirClient { get; }
+        public IVersionSpecificFhirClient FhirClient { get; }
 
         public void Dispose()
         {

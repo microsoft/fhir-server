@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public HttpClient HttpClient { get; }
 
-        public ICustomFhirClient FhirClient { get; }
+        public IVersionSpecificFhirClient FhirClient { get; }
 
         protected TestServer Server { get; private set; }
 
