@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (normalizedPredicates == null)
             {
-                SqlRootExpression.WithDenormalizedPredicates(expression.Expressions);
+                SqlRootExpression.WithDenormalizedExpressions(expression.Expressions);
             }
 
             return new SqlRootExpression(
@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private Expression ConvertNonMultiary(Expression expression)
         {
             return TryGetNormalizedGenerator(expression, out var generator)
-                ? SqlRootExpression.WithNormalizedPredicates(new TableExpression(generator, expression))
-                : SqlRootExpression.WithDenormalizedPredicates(expression);
+                ? SqlRootExpression.WithTableExpressions(new TableExpression(generator, expression))
+                : SqlRootExpression.WithDenormalizedExpressions(expression);
         }
 
         private bool TryGetNormalizedGenerator(Expression expression, out NormalizedSearchParameterQueryGenerator normalizedGenerator)

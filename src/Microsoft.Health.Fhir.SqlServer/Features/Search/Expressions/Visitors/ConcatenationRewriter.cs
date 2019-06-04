@@ -24,15 +24,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.NormalizedPredicates.Count == 0)
+            if (expression.TableExpressions.Count == 0)
             {
                 return expression;
             }
 
             List<TableExpression> newTableExpressions = null;
-            for (var i = 0; i < expression.NormalizedPredicates.Count; i++)
+            for (var i = 0; i < expression.TableExpressions.Count; i++)
             {
-                TableExpression tableExpression = expression.NormalizedPredicates[i];
+                TableExpression tableExpression = expression.TableExpressions[i];
 
                 if (tableExpression.NormalizedPredicate.AcceptVisitor(_scout, null))
                 {
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         newTableExpressions = new List<TableExpression>();
                         for (int j = 0; j < i; j++)
                         {
-                            newTableExpressions.Add(expression.NormalizedPredicates[j]);
+                            newTableExpressions.Add(expression.TableExpressions[j]);
                         }
                     }
 
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            return new SqlRootExpression(newTableExpressions, expression.DenormalizedPredicates);
+            return new SqlRootExpression(newTableExpressions, expression.DenormalizedExpressions);
         }
 
         public override Expression VisitTable(TableExpression tableExpression, object context)

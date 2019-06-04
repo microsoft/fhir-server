@@ -21,35 +21,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// </summary>
     internal class SqlRootExpression : Expression
     {
-        public SqlRootExpression(IReadOnlyList<TableExpression> normalizedPredicates, IReadOnlyList<Expression> denormalizedPredicates)
+        public SqlRootExpression(IReadOnlyList<TableExpression> tableExpressions, IReadOnlyList<Expression> denormalizedExpressions)
         {
-            EnsureArg.IsNotNull(normalizedPredicates, nameof(normalizedPredicates));
-            EnsureArg.IsNotNull(denormalizedPredicates, nameof(denormalizedPredicates));
+            EnsureArg.IsNotNull(tableExpressions, nameof(tableExpressions));
+            EnsureArg.IsNotNull(denormalizedExpressions, nameof(denormalizedExpressions));
 
-            NormalizedPredicates = normalizedPredicates;
-            DenormalizedPredicates = denormalizedPredicates;
+            TableExpressions = tableExpressions;
+            DenormalizedExpressions = denormalizedExpressions;
         }
 
-        public IReadOnlyList<TableExpression> NormalizedPredicates { get; }
+        public IReadOnlyList<TableExpression> TableExpressions { get; }
 
-        public IReadOnlyList<Expression> DenormalizedPredicates { get; }
+        public IReadOnlyList<Expression> DenormalizedExpressions { get; }
 
-        public static SqlRootExpression WithNormalizedPredicates(params TableExpression[] expressions)
+        public static SqlRootExpression WithTableExpressions(params TableExpression[] expressions)
         {
             return new SqlRootExpression(expressions, Array.Empty<Expression>());
         }
 
-        public static SqlRootExpression WithDenormalizedPredicates(params Expression[] expressions)
+        public static SqlRootExpression WithDenormalizedExpressions(params Expression[] expressions)
         {
             return new SqlRootExpression(Array.Empty<TableExpression>(), expressions);
         }
 
-        public static SqlRootExpression WithNormalizedPredicates(IReadOnlyList<TableExpression> expressions)
+        public static SqlRootExpression WithTableExpressions(IReadOnlyList<TableExpression> expressions)
         {
             return new SqlRootExpression(expressions, Array.Empty<Expression>());
         }
 
-        public static SqlRootExpression WithDenormalizedPredicates(IReadOnlyList<Expression> expressions)
+        public static SqlRootExpression WithDenormalizedExpressions(IReadOnlyList<Expression> expressions)
         {
             return new SqlRootExpression(Array.Empty<TableExpression>(), expressions);
         }
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(SqlRoot (Joined{(NormalizedPredicates.Any() ? " " + string.Join(" ", NormalizedPredicates) : null)}) (Resource{(DenormalizedPredicates.Any() ? " " + string.Join(" ", DenormalizedPredicates) : null)}))";
+            return $"(SqlRoot (Joined{(TableExpressions.Any() ? " " + string.Join(" ", TableExpressions) : null)}) (Resource{(DenormalizedExpressions.Any() ? " " + string.Join(" ", DenormalizedExpressions) : null)}))";
         }
     }
 }

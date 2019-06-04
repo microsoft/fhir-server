@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                  .AcceptVisitor(NumericRangeRewriter.Instance)
                                  .AcceptVisitor(MissingSearchParamVisitor.Instance)
                                  .AcceptVisitor(TopRewriter.Instance, searchOptions)
-                             ?? SqlRootExpression.WithDenormalizedPredicates();
+                             ?? SqlRootExpression.WithDenormalizedExpressions();
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {

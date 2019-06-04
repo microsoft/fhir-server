@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.NormalizedPredicates.Count == 0 || expression.DenormalizedPredicates.Count == 0)
+            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0)
             {
                 return expression;
             }
@@ -29,9 +29,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             Expression extractedDenormalizedExpression = null;
             List<Expression> newDenormalizedPredicates = null;
 
-            for (int i = 0; i < expression.DenormalizedPredicates.Count; i++)
+            for (int i = 0; i < expression.DenormalizedExpressions.Count; i++)
             {
-                Expression currentExpression = expression.DenormalizedPredicates[i];
+                Expression currentExpression = expression.DenormalizedExpressions[i];
 
                 if (currentExpression is SearchParameterExpression searchParameterExpression)
                 {
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                                 newDenormalizedPredicates = new List<Expression>();
                                 for (int j = 0; j < i; j++)
                                 {
-                                    newDenormalizedPredicates.Add(expression.DenormalizedPredicates[j]);
+                                    newDenormalizedPredicates.Add(expression.DenormalizedExpressions[j]);
                                 }
                             }
 
@@ -62,17 +62,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            var newNormalizedPredicates = new List<TableExpression>(expression.NormalizedPredicates.Count);
-            foreach (var firstTableExpression in expression.NormalizedPredicates)
+            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count);
+            foreach (var firstTableExpression in expression.TableExpressions)
             {
                 Expression newDenormalizedPredicate = firstTableExpression.DenormalizedPredicate == null
                     ? extractedDenormalizedExpression
                     : Expression.And(firstTableExpression.DenormalizedPredicate, extractedDenormalizedExpression);
 
-                newNormalizedPredicates.Add(new TableExpression(firstTableExpression.SearchParameterQueryGenerator, firstTableExpression.NormalizedPredicate, newDenormalizedPredicate, firstTableExpression.Kind));
+                newTableExpressions.Add(new TableExpression(firstTableExpression.SearchParameterQueryGenerator, firstTableExpression.NormalizedPredicate, newDenormalizedPredicate, firstTableExpression.Kind));
             }
 
-            return new SqlRootExpression(newNormalizedPredicates, newDenormalizedPredicates);
+            return new SqlRootExpression(newTableExpressions, newDenormalizedPredicates);
         }
 
         public Expression VisitTable(TableExpression tableExpression, object context)

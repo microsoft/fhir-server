@@ -19,12 +19,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.NormalizedPredicates.Count == 1)
+            if (expression.TableExpressions.Count == 1)
             {
                 return expression;
             }
 
-            List<TableExpression> reorderedExpressions = expression.NormalizedPredicates.OrderByDescending(t =>
+            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t =>
             {
                 switch (t.SearchParameterQueryGenerator)
                 {
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }).ToList();
 
-            return new SqlRootExpression(reorderedExpressions, expression.DenormalizedPredicates);
+            return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
         }
     }
 }

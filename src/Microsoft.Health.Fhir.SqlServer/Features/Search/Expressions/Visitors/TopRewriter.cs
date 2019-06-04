@@ -17,16 +17,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {
-            if (context.CountOnly || expression.NormalizedPredicates.Count == 0)
+            if (context.CountOnly || expression.TableExpressions.Count == 0)
             {
                 return expression;
             }
 
-            var newNormalizedPredicates = new List<TableExpression>(expression.NormalizedPredicates.Count + 1);
-            newNormalizedPredicates.AddRange(expression.NormalizedPredicates);
+            var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
+            newNormalizedPredicates.AddRange(expression.TableExpressions);
             newNormalizedPredicates.Add(TopTableExpression);
 
-            return new SqlRootExpression(newNormalizedPredicates, expression.DenormalizedPredicates);
+            return new SqlRootExpression(newNormalizedPredicates, expression.DenormalizedExpressions);
         }
     }
 }

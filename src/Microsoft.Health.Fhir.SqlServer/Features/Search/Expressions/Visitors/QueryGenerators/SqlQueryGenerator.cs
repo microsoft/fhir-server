@@ -45,11 +45,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             _rootExpression = expression;
 
-            if (expression.NormalizedPredicates.Count > 0)
+            if (expression.TableExpressions.Count > 0)
             {
                 StringBuilder.Append("WITH ");
 
-                StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.NormalizedPredicates, (sb, tableExpression) =>
+                StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.TableExpressions, (sb, tableExpression) =>
                 {
                     sb.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
@@ -85,19 +85,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
             {
-                if (expression.NormalizedPredicates.Count > 0)
+                if (expression.TableExpressions.Count > 0)
                 {
                     delimitedClause.BeginDelimitedElement();
                     StringBuilder.Append("r.").Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter)).Append(")");
                 }
 
-                foreach (var denormalizedPredicate in expression.DenormalizedPredicates)
+                foreach (var denormalizedPredicate in expression.DenormalizedExpressions)
                 {
                     delimitedClause.BeginDelimitedElement();
                     denormalizedPredicate.AcceptVisitor(this, context);
                 }
 
-                if (expression.NormalizedPredicates.Count == 0)
+                if (expression.TableExpressions.Count == 0)
                 {
                     AppendHistoryClause(delimitedClause);
                     AppendDeletedClause(delimitedClause);
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             int FindImpl(int currentIndex)
             {
-                TableExpression currentTableExpression = _rootExpression.NormalizedPredicates[currentIndex];
+                TableExpression currentTableExpression = _rootExpression.TableExpressions[currentIndex];
                 switch (currentTableExpression.Kind)
                 {
                     case TableExpressionKind.NotExists:
