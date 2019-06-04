@@ -56,17 +56,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             SetUpEnvironmentVariables();
 
-            string environmentUrl = string.Empty;
+            string dataStoreModifier = dataStore == DataStore.SqlServer ? "_Sql" : string.Empty;
+            string fhirVersionModifier = fhirVersion == FhirVersion.R4 ? "_R4" : string.Empty;
 
-            switch (dataStore)
-            {
-                case DataStore.CosmosDb:
-                    environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
-                    break;
-                case DataStore.SqlServer:
-                    environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl_Sql");
-                    break;
-            }
+            string environmentUrl = Environment.GetEnvironmentVariable($"TestEnvironmentUrl{fhirVersionModifier}{dataStoreModifier}");
 
             if (string.IsNullOrWhiteSpace(environmentUrl))
             {
