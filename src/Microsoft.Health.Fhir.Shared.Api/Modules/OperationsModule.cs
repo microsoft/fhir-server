@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add<ResourceToNdjsonBytesSerializer>()
                 .Singleton()
-                .AsService<IResourceToNdjsonBytesSerializer>();
+                .AsService<IResourceToByteArraySerializer>();
         }
     }
 }

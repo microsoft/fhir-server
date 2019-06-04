@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly ISecretStore _secretStore;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ISearchService _searchService;
-        private readonly IResourceToNdjsonBytesSerializer _resourceToNdjsonSerializer;
+        private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
         private readonly ILogger _logger;
 
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ISecretStore secretStore,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             ISearchService searchService,
-            IResourceToNdjsonBytesSerializer resourceToNdjsonSerializer,
+            IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClientFactory exportDestinationClientFactory,
             ILogger<ExportJobTask> logger)
         {
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(secretStore, nameof(secretStore));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
-            EnsureArg.IsNotNull(resourceToNdjsonSerializer, nameof(resourceToNdjsonSerializer));
+            EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _secretStore = secretStore;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchService = searchService;
-            _resourceToNdjsonSerializer = resourceToNdjsonSerializer;
+            _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClientFactory = exportDestinationClientFactory;
             _logger = logger;
         }
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             try
             {
                 // Get destination type from secret store.
-                DestinationInfo destinationInfo = await GetDestinationInfo();
+                DestinationInfo destinationInfo = await GetDestinationInfo(cancellationToken);
 
                 // Connect to the destination using appropriate client.
                 _exportDestinationClient = _exportDestinationClientFactory.Create(destinationInfo.DestinationType);
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var queryParameters = new Tuple<string, string>[]
                 {
                     null,
-                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaxItemCountPerQuery.ToString(CultureInfo.InvariantCulture)),
+                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
                 };
 
@@ -144,12 +144,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _logger.LogTrace("Successfully completed the job.");
 
-                await UpdateJobStatus(OperationStatus.Completed, cancellationToken);
+                await UpdateJobStatus(OperationStatus.Completed, updateEndTimestamp: true, cancellationToken);
 
                 try
                 {
                     // Best effort to delete the secret. If it fails to delete, then move on.
-                    await _secretStore.DeleteSecretAsync(_exportJobRecord.SecretName);
+                    await _secretStore.DeleteSecretAsync(_exportJobRecord.SecretName, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -170,13 +170,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                await UpdateJobStatus(OperationStatus.Failed, cancellationToken);
+                await UpdateJobStatus(OperationStatus.Failed, updateEndTimestamp: true, cancellationToken);
             }
         }
 
-        private async Task UpdateJobStatus(OperationStatus operationStatus, CancellationToken cancellationToken)
+        private async Task UpdateJobStatus(OperationStatus operationStatus, bool updateEndTimestamp, CancellationToken cancellationToken)
         {
             _exportJobRecord.Status = operationStatus;
+
+            if (updateEndTimestamp)
+            {
+                _exportJobRecord.EndTime = Clock.UtcNow;
+            }
 
             await UpdateJobRecord(_exportJobRecord, cancellationToken);
         }
@@ -189,9 +194,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _weakETag = updatedExportJobOutcome.ETag;
         }
 
-        private async Task<DestinationInfo> GetDestinationInfo()
+        private async Task<DestinationInfo> GetDestinationInfo(CancellationToken cancellationToken)
         {
-            SecretWrapper secret = await _secretStore.GetSecretAsync(_exportJobRecord.SecretName);
+            SecretWrapper secret = await _secretStore.GetSecretAsync(_exportJobRecord.SecretName, cancellationToken);
 
             DestinationInfo destinationInfo = JsonConvert.DeserializeObject<DestinationInfo>(secret.SecretValue);
             return destinationInfo;
@@ -214,11 +219,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             // Serialize into NDJson and write to the file.
-            byte[] bytesToWrite = _resourceToNdjsonSerializer.Serialize(resourceWrapper);
+            byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(resourceWrapper);
 
             await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
 
-            // Incremenet the file information.
+            // Increment the file information.
             exportFileInfo.Increment(bytesToWrite.Length);
         }
     }

@@ -19,14 +19,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         private Dictionary<Uri, StringBuilder> _exportedData = new Dictionary<Uri, StringBuilder>();
         private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
 
-        private readonly Uri _baseUri = new Uri("https://localhost:44348/");
-
         public string DestinationType => "in-memory";
 
         public async Task ConnectAsync(string destinationConnectionString, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString);
-
             await Task.CompletedTask;
         }
 
@@ -34,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         {
             EnsureArg.IsNotNullOrWhiteSpace(fileName, nameof(fileName));
 
-            var fileUri = new Uri(_baseUri, fileName);
+            var fileUri = new Uri(fileName, UriKind.Relative);
 
             _exportedData.Add(fileUri, new StringBuilder());
 
@@ -76,6 +72,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
 
             // Now that all of the parts are committed, remove all stream mappings.
             _streamMappings.Clear();
+        }
+
+        public string GetExportedData(Uri fileUri)
+        {
+            if (_exportedData.TryGetValue(fileUri, out StringBuilder sb))
+            {
+                return sb.ToString();
+            }
+
+            return null;
         }
     }
 }

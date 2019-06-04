@@ -14,9 +14,9 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     /// <summary>
-    /// A serializer used to serialize the resource represented by <see cref="ResourceWrapper"/> to bytes representing new line deliminated JSON.
+    /// A serializer used to serialize the resource represented by <see cref="ResourceWrapper"/> to byte array representing new line deliminated JSON.
     /// </summary>
-    public class ResourceToNdjsonBytesSerializer : IResourceToNdjsonBytesSerializer
+    public class ResourceToNdjsonBytesSerializer : IResourceToByteArraySerializer
     {
         private readonly ResourceDeserializer _resourceDeserializer;
         private readonly FhirJsonSerializer _fhirJsonSerializer;

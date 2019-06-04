@@ -8,12 +8,12 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     /// <summary>
-    /// A serializer used to serialize the resource represented by <see cref="ResourceWrapper"/> to bytes representing new line deliminated JSON.
+    /// A serializer used to serialize the resource represented by <see cref="ResourceWrapper"/> to byte array.
     /// </summary>
-    public interface IResourceToNdjsonBytesSerializer
+    public interface IResourceToByteArraySerializer
     {
         /// <summary>
-        /// Serializes the resource represented by <see cref="ResourceWrapper"/> to bytes representing new line deliminated JSON.
+        /// Serializes the resource represented by <see cref="ResourceWrapper"/> to byte array.
         /// </summary>
         /// <param name="resourceWrapper">The resource wrapper used to serialize.</param>
         /// <returns>The serialized bytes.</returns>

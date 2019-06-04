@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.KeyVault
     {
         private Dictionary<string, string> _secrets = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        public Task<SecretWrapper> GetSecretAsync(string secretName)
+        public Task<SecretWrapper> GetSecretAsync(string secretName, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName);
 
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.KeyVault
             return Task.FromResult(wrapper);
         }
 
-        public Task<SecretWrapper> SetSecretAsync(string secretName, string secretValue)
+        public Task<SecretWrapper> SetSecretAsync(string secretName, string secretValue, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName);
             EnsureArg.IsNotNullOrWhiteSpace(secretValue);
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.KeyVault
             return Task.FromResult(new SecretWrapper(secretName, secretValue));
         }
 
-        public Task<SecretWrapper> DeleteSecretAsync(string secretName)
+        public Task<SecretWrapper> DeleteSecretAsync(string secretName, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName);
 

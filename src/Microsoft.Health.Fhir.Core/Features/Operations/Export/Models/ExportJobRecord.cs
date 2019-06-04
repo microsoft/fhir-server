@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Id = Guid.NewGuid().ToString();
             Status = OperationStatus.Queued;
 
-            QueuedTime = DateTimeOffset.UtcNow;
+            QueuedTime = Clock.UtcNow;
             SecretName = SecretPrefix + Id;
         }
 
