@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(":below", "urn")]
         public async Task GivenAUriSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string queryValue, params int[] expectedIndices)
         {
-            FhirResponse<ResourceElement> bundleResponse = await Client.SearchAsync("ValueSet", $"url{modifier}={queryValue}");
+            FhirResponse<ResourceElement> bundleResponse = await Client.SearchAsync(KnownResourceTypes.ValueSet, $"url{modifier}={queryValue}");
 
             ResourceElement[] expected = expectedIndices.Select(i => Fixture.ValueSets[i]).ToArray();
 

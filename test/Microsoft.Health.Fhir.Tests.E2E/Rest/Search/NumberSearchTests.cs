@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("eb5.0001", 0, 1, 2)]
         public async Task GivenANumberSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            ResourceElement bundle = await Client.SearchAsync("RiskAssessment", $"probability={queryValue}");
+            ResourceElement bundle = await Client.SearchAsync(KnownResourceTypes.RiskAssessment, $"probability={queryValue}");
 
             ResourceElement[] expected = expectedIndices.Select(i => Fixture.Immunizations[i]).ToArray();
 

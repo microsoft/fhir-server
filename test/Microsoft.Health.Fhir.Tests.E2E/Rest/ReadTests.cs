@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<ResourceElement> createdResponse = await Client.CreateAsync(Client.GetDefaultObservation());
             var createdResource = createdResponse.Resource;
 
-            FhirResponse<ResourceElement> readResponse = await Client.ReadAsync(createdResource.InstanceType, createdResource.Id);
+            FhirResponse<ResourceElement> readResponse = await Client.ReadAsync(KnownResourceTypes.Observation, createdResource.Id);
 
             var readResource = readResponse.Resource;
 

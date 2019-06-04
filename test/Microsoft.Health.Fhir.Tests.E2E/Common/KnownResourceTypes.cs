@@ -21,6 +21,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public const string Organization = "Organization";
 
+        public const string RiskAssessment = "RiskAssessment";
+
         public const string Patient = "Patient";
+
+        public const string ValueSet = "ValueSet";
     }
 }

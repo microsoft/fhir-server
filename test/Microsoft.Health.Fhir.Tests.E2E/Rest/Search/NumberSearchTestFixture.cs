@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             : base(dataStore, format, fhirVersion)
         {
             // Prepare the resources used for number search tests.
-            FhirClient.DeleteAllResources("RiskAssessment").Wait();
+            FhirClient.DeleteAllResources(KnownResourceTypes.RiskAssessment).Wait();
 
             Immunizations = FhirClient.CreateResourcesAsync(
                 FhirClient.GetEmptyRiskAssessment,

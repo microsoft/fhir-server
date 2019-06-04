@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var createdResource = createdResponse.Resource;
 
             FhirResponse<ResourceElement> vReadResponse = await Client.VReadAsync(
-                createdResource.InstanceType,
+                KnownResourceTypes.Observation,
                 createdResource.Id,
                 createdResource.VersionId);
 

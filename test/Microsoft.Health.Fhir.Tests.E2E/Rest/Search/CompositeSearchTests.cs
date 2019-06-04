@@ -12,8 +12,6 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    extern alias E2ER4;
-
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json, FhirVersion.All)]
     public class CompositeSearchTests : SearchTestsBase<CompositeSearchTestFixture>
     {

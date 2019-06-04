@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             : base(dataStore, format, fhirVersion)
         {
             // Prepare the resources used for URI search tests.
-            FhirClient.DeleteAllResources("ValueSet").Wait();
+            FhirClient.DeleteAllResources(KnownResourceTypes.ValueSet).Wait();
 
             ValueSets = FhirClient.CreateResourcesAsync(
                 FhirClient.GetEmptyValueSet,

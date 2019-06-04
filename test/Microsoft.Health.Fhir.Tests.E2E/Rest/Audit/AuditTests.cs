@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 {
                     FhirResponse<ResourceElement> response = await _client.CreateAsync(_client.GetDefaultPatient());
 
-                    return await _client.ReadAsync(response.Resource.InstanceType, response.Resource.Id);
+                    return await _client.ReadAsync(KnownResourceTypes.Patient, response.Resource.Id);
                 },
                 "read",
                 KnownResourceTypes.Patient,
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 {
                     FhirResponse<ResourceElement> result = await _client.CreateAsync(_client.GetDefaultOrganization());
 
-                    return await _client.VReadAsync(result.Resource.InstanceType, result.Resource.Id, result.Resource.VersionId);
+                    return await _client.VReadAsync(KnownResourceTypes.Organization, result.Resource.Id, result.Resource.VersionId);
                 },
                 "vread",
                 KnownResourceTypes.Organization,
