@@ -4,19 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
     public class SearchParameterComponentInfo
     {
-        public SearchParameterComponentInfo(Uri definitionUrl)
+        public SearchParameterComponentInfo(Uri definitionUrl = null, string expression = null)
         {
-            EnsureArg.IsNotNull(definitionUrl, nameof(definitionUrl));
-
             DefinitionUrl = definitionUrl;
+            Expression = expression;
         }
 
         public Uri DefinitionUrl { get; }
+
+        public string Expression { get; }
     }
 }

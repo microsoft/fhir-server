@@ -118,6 +118,17 @@
             "metadata": {
                 "description": "The password for the sql admin user if using SQL server."
             }
+        },
+        "fhirVersion": {
+            "type": "string",
+            "defaultValue": "Stu3",
+            "allowedValues": [
+                "Stu3",
+                "R4"
+            ],
+            "metadata": {
+                "description": "Only applies when specifying Repository Url"
+            }
         }
     },
     "variables": {
@@ -145,7 +156,11 @@
             "SqlServer:Initialize": "true",
             "DataStore": "SqlServer"
         },
-        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
+        "emptyFhirServerConfigProperties": {},
+        "kuduFhirServerConfigProperties": {
+            "PROJECT": "[concat('src/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web/Microsoft.Health.Fhir.', parameters('fhirVersion'), '.Web.csproj')]"
+        },
+        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), if(variables('deploySourceCode'), variables('kuduFhirServerConfigProperties'), variables('emptyFhirServerConfigProperties')))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]"
     },
     "resources": [

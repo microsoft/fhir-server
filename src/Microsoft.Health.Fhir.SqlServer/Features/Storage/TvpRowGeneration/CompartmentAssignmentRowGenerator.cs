@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -85,11 +85,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 return;
             }
 
-            _patientCompartmentId = _model.GetCompartmentId(CompartmentType.Patient);
-            _encounterCompartmentId = _model.GetCompartmentId(CompartmentType.Encounter);
-            _relatedPersonCompartmentId = _model.GetCompartmentId(CompartmentType.RelatedPerson);
-            _practitionerCompartmentId = _model.GetCompartmentId(CompartmentType.Practitioner);
-            _deviceCompartmentId = _model.GetCompartmentId(CompartmentType.Device);
+            _patientCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.Patient);
+            _encounterCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.Encounter);
+            _relatedPersonCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.RelatedPerson);
+            _practitionerCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.Practitioner);
+            _deviceCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.Device);
 
             Volatile.Write(ref _initialized, true);
         }
