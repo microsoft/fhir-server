@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
         {
-            var instant = DateTimeOffset.Now;
+            var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
             using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
             {
                 var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));

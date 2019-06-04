@@ -180,7 +180,6 @@ CREATE TABLE dbo.Resource
     Version int NOT NULL,
     IsHistory bit NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
-    LastUpdated datetime2(7) NOT NULL,
     IsDeleted bit NOT NULL,
     RequestMethod varchar(10) NULL,
     RawResource varbinary(max) NOT NULL
@@ -216,11 +215,6 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId O
     ResourceSurrogateId
 )
 WHERE IsHistory = 0 AND IsDeleted = 0
-
-CREATE NONCLUSTERED INDEX IX_Resource_LastUpdated ON dbo.Resource
-(
-    LastUpdated
-)
 
 /*************************************************************
     Capture claims on write
@@ -1199,15 +1193,18 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
-    Sequence for generating surrogate IDs for resources
+    Sequence for generating unique 12.5ns "tick" components that are added
+    to a base ID based on the timestamp to form a unique resource surrogate ID
 **************************************************************/
 
-CREATE SEQUENCE dbo.ResourceSurrogateIdSequence
-        AS BIGINT
+CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
+        AS int
         START WITH 0
         INCREMENT BY 1
-        NO CYCLE
-        CACHE 50
+        MINVALUE 0
+        MAXVALUE 79999
+        CYCLE
+        CACHE 1000000
 GO
 
 /*************************************************************
@@ -1222,6 +1219,9 @@ GO
 --     Creates or updates (including marking deleted) a FHIR resource
 --
 -- PARAMETERS
+--     @baseResourceSurrogateId
+--         * A bigint to which a value between [0, 80000) is added, forming a unique ResourceSurrogateId.
+--         * This value should be the current UTC datetime, truncated to millisecnd precision, with its 100ns ticks component bitshifted left by 3.
 --     @resourceTypeId
 --         * The ID of the resource type (See ResourceType table)
 --     @resourceid
@@ -1275,12 +1275,12 @@ GO
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
 CREATE PROCEDURE dbo.UpsertResource
+    @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
     @allowCreate bit,
     @isDeleted bit,
-    @updatedDateTime datetimeoffset(7),
     @keepHistory bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
@@ -1477,12 +1477,12 @@ AS
         END
     END
 
-    DECLARE @resourceSurrogateId bigint = NEXT VALUE FOR dbo.ResourceSurrogateIdSequence
+    DECLARE @resourceSurrogateId bigint = @baseResourceSurrogateId + (NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence)
 
     INSERT INTO dbo.Resource
-        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, LastUpdated, IsDeleted, RequestMethod, RawResource)
+        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource)
     VALUES
-        (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
+        (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, @isDeleted, @requestMethod, @rawResource)
 
     INSERT INTO dbo.ResourceWriteClaim
         (ResourceSurrogateId, ClaimTypeId, ClaimValue)
@@ -1594,12 +1594,12 @@ AS
     SET NOCOUNT ON
 
     IF (@version IS NULL) BEGIN
-        SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
     END
     ELSE BEGIN
-        SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND Version = @version
     END

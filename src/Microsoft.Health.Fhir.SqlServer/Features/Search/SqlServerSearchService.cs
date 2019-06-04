@@ -87,7 +87,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             SqlRootExpression expression = (SqlRootExpression)searchExpression
-                                 ?.AcceptVisitor(DateTimeRangeRewriter.Instance)
+                                 ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
+                                 .AcceptVisitor(DateTimeRangeRewriter.Instance)
                                  .AcceptVisitor(FlatteningRewriter.Instance)
                                  .AcceptVisitor(_sqlRootExpressionRewriter)
                                  .AcceptVisitor(NormalizedPredicateReorderer.Instance)
@@ -130,13 +131,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         while (await reader.ReadAsync(cancellationToken))
                         {
-                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, DateTime lastUpdated, string requestMethod, Stream rawResourceStream) = reader.ReadRow(
+                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, Stream rawResourceStream) = reader.ReadRow(
                                 V1.Resource.ResourceTypeId,
                                 V1.Resource.ResourceId,
                                 V1.Resource.Version,
                                 V1.Resource.IsDeleted,
                                 V1.Resource.ResourceSurrogateId,
-                                V1.Resource.LastUpdated,
                                 V1.Resource.RequestMethod,
                                 V1.Resource.RawResource);
 
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _model.GetResourceTypeName(resourceTypeId),
                                 new RawResource(rawResource, FhirResourceFormat.Json),
                                 new ResourceRequest(default(Uri), requestMethod),
-                                new DateTimeOffset(lastUpdated, TimeSpan.Zero),
+                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                 isDeleted,
                                 null,
                                 null,

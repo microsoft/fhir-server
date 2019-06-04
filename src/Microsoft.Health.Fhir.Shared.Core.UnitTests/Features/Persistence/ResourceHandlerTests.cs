@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenLastUpdatedShouldBeSet()
         {
             var resource = Samples.GetDefaultObservation();
-            var instant = DateTimeOffset.UtcNow;
+            var instant = new DateTimeOffset(DateTimeOffset.Now.Date.AddTicks((6 * TimeSpan.TicksPerMillisecond) + (long)(0.7 * TimeSpan.TicksPerMillisecond)), TimeSpan.Zero);
 
             using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
             {
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
                 resource = (await _mediator.UpsertResourceAsync(resource)).Resource;
 
-                Assert.Equal(instant, resource.LastUpdated);
+                Assert.Equal(new DateTimeOffset(DateTimeOffset.Now.Date.AddMilliseconds(6), TimeSpan.Zero), resource.LastUpdated);
             }
         }
 

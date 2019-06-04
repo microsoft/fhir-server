@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -21,8 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
-            if ((expression.Parameter.Type == SearchParamType.Date
-                 && expression.Parameter.Name != SearchParameterNames.LastUpdated) ||
+            if (expression.Parameter.Type == SearchParamType.Date ||
                 expression.Parameter.Type == SearchParamType.Composite)
             {
                 return base.VisitSearchParameter(expression, context);

@@ -76,7 +76,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append("r.").Append(V1.Resource.Version).Append(", ")
                     .Append("r.").Append(V1.Resource.IsDeleted).Append(", ")
                     .Append("r.").Append(V1.Resource.ResourceSurrogateId).Append(", ")
-                    .Append("r.").Append(V1.Resource.LastUpdated).Append(", ")
                     .Append("r.").Append(V1.Resource.RequestMethod).Append(", ")
                     .Append("r.").AppendLine(V1.Resource.RawResource);
             }
@@ -287,8 +286,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 case SearchParameterNames.Id:
                     return new ResourceIdParameterQueryGenerator();
-                case SearchParameterNames.LastUpdated:
-                    return new LastUpdatedParameterQueryGenerator();
                 case SearchParameterNames.ResourceType:
                     return new ResourceTypeIdParameterQueryGenerator();
                 case SqlSearchParameters.ResourceSurrogateIdParameterName:
