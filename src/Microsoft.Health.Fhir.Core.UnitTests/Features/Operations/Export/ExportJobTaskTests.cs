@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
@@ -147,10 +148,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(x => CreateSearchResult());
 
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
+
+            using (Mock.Property(() => Clock.UtcNowFunc, () => endTimestamp))
+            {
+                await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            }
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
         [Fact]
@@ -165,10 +172,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     throw new Exception();
                 });
 
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
+
+            using (Mock.Property(() => Clock.UtcNowFunc, () => endTimestamp))
+            {
+                await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            }
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
         [Theory]
