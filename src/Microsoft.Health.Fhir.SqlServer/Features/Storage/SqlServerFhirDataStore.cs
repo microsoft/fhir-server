@@ -14,7 +14,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -227,7 +226,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
 
-            foreach (var resource in ModelInfo.SupportedResources)
+            foreach (var resource in ModelInfoProvider.GetResourceTypeNames())
             {
                 statement.BuildRestResourceComponent(resource, builder =>
                 {

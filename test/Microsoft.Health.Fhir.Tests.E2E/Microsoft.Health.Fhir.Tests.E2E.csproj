@@ -38,7 +38,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Api\Microsoft.Health.Fhir.Stu3.Api.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Core\Microsoft.Health.Fhir.Stu3.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
-    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj">
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Web\Microsoft.Health.Fhir.Stu3.Web.csproj">
       <Aliases>WebStu3</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />

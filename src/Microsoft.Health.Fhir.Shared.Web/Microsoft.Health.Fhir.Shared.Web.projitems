@@ -9,7 +9,17 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Web</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+<<<<<<< HEAD
     <Compile Include="$(MSBuildThisFileDirectory)KnownDataStores.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
+=======
+    <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderApplicationConfiguration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderConfiguration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderRegistrationExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderUserConfiguration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)KnownDataStores.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Startup.cs" />
+>>>>>>> origin/master
   </ItemGroup>
 </Project>

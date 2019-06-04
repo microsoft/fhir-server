@@ -17,7 +17,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Core.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.CosmosDb", "src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj", "{BC1F4876-CD3C-49D2-A469-BD530B53A0FD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Web", "src\Microsoft.Health.Fhir.Web\Microsoft.Health.Fhir.Web.csproj", "{DCDE987F-0B50-4233-8661-6B5A251E7CAE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Stu3.Web", "src\Microsoft.Health.Fhir.Stu3.Web\Microsoft.Health.Fhir.Stu3.Web.csproj", "{DCDE987F-0B50-4233-8661-6B5A251E7CAE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests.Common", "src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj", "{83F1D0BE-F8C4-4244-BB79-B77D92B8F092}"
 EndProject
@@ -110,9 +110,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Tests.E2E.Shared", "test\Microsoft.Health.Fhir.Tests.E2E.Shared\Microsoft.Health.Fhir.Tests.E2E.Shared.shproj", "{A34CF0BF-6D35-4628-BCA8-9B902A4C698C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Web.Common", "src\Microsoft.Health.Fhir.Web.Common\Microsoft.Health.Fhir.Web.Common.csproj", "{5680A0FA-ABA4-4A72-BFA6-F0931C2E3435}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Web.Common", "src\Microsoft.Health.Fhir.Web.Common\Microsoft.Health.Fhir.Web.Common.csproj", "{5680A0FA-ABA4-4A72-BFA6-F0931C2E3435}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Tests.E2E.R4", "test\Microsoft.Health.Fhir.Tests.E2E.R4\Microsoft.Health.Fhir.Tests.E2E.R4.csproj", "{F860FC6B-7C38-4ABA-8267-2BEAD881F8B9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests.E2E.R4", "test\Microsoft.Health.Fhir.Tests.E2E.R4\Microsoft.Health.Fhir.Tests.E2E.R4.csproj", "{F860FC6B-7C38-4ABA-8267-2BEAD881F8B9}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -304,6 +304,8 @@ Global
 		{C6759C03-6060-44D7-B44D-0BD89908B741} = {D6F23CE5-CCF6-4B52-9BEB-72294756E6C6}
 		{9DC49B6B-EBFC-44F6-B65F-8931078B630D} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{F6ED4870-7745-4A03-BD61-2850811A0DE2} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{87849B3F-5D12-41CA-A082-FAC065EF9FD8} = {7457B218-2651-49B5-BED8-22233889516A}
+		{E02E5224-32CD-490F-B1E5-8509AD669334} = {7457B218-2651-49B5-BED8-22233889516A}
 		{BDD93417-1C3D-4EC9-BCBB-F5AE2F785642} = {7457B218-2651-49B5-BED8-22233889516A}
 		{070759A9-51D9-4967-8651-39CCA8288C93} = {BDD93417-1C3D-4EC9-BCBB-F5AE2F785642}
 		{D933AC8A-3CE5-4F03-AEE4-9AC0D0274D80} = {BDD93417-1C3D-4EC9-BCBB-F5AE2F785642}

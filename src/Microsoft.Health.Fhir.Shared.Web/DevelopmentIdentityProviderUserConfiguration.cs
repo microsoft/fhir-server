@@ -3,18 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.ValueSets
+using System.Collections.Generic;
+
+namespace Microsoft.Health.Fhir.Web
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1720: Identifiers should not contain type names", Justification = "Specified in the FHIR spec")]
-    public enum SearchParamType
+    public class DevelopmentIdentityProviderUserConfiguration
     {
-        Number,
-        Date,
-        String,
-        Token,
-        Reference,
-        Quantity,
-        Uri,
-        Composite,
+        public string Id { get; set; }
+
+        public IList<string> Roles { get; } = new List<string>();
     }
 }
