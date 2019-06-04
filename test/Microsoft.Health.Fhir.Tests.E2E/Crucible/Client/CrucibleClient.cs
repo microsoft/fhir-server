@@ -16,7 +16,6 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Crucible.Client.Models;
 using Newtonsoft.Json;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
 {

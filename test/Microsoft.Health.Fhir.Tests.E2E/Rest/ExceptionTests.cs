@@ -4,10 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {

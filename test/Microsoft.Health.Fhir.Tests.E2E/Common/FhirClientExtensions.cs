@@ -3,12 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-////using System;
-////using System.Linq;
-////using System.Threading.Tasks;
-////using Hl7.Fhir.Model;
-////using Task = System.Threading.Tasks.Task;
-
 using System;
 using System.Linq;
 using System.Threading.Tasks;

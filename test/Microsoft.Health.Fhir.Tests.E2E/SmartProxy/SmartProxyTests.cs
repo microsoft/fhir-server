@@ -21,8 +21,6 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
-    extern alias E2EStu3;
-
     public class SmartProxyTests : IClassFixture<SmartProxyTestFixture>
     {
         private SmartProxyTestFixture _fixture;
