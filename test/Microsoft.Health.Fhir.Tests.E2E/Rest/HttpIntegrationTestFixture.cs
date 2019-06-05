@@ -37,11 +37,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// </summary>
     public class HttpIntegrationTestFixture : IDisposable
     {
-        private readonly DataStore _dataStore;
-        private readonly Format _format;
         private readonly FhirVersion _fhirVersion;
-        private string _environmentUrl;
-        private HttpMessageHandler _messageHandler;
+        private readonly string _environmentUrl;
+        private readonly HttpMessageHandler _messageHandler;
 
         public HttpIntegrationTestFixture(DataStore dataStore, Format format, FhirVersion fhirVersion)
             : this(Path.Combine("src"), dataStore, format, fhirVersion)
@@ -50,8 +48,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected HttpIntegrationTestFixture(string targetProjectParentDirectory, DataStore dataStore, Format format, FhirVersion fhirVersion)
         {
-            _dataStore = dataStore;
-            _format = format;
             _fhirVersion = fhirVersion;
 
             SetUpEnvironmentVariables();
@@ -90,10 +86,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             switch (_fhirVersion)
             {
                 case FhirVersion.Stu3:
-                    FhirClient = new E2EStu3::Microsoft.Health.Fhir.Tests.E2E.FhirClient(HttpClient, _format, _fhirVersion);
+                    FhirClient = new E2EStu3::Microsoft.Health.Fhir.Tests.E2E.FhirClient(HttpClient, format, _fhirVersion);
                     break;
                 case FhirVersion.R4:
-                    FhirClient = new E2ER4::Microsoft.Health.Fhir.Tests.E2E.FhirClient(HttpClient, _format, _fhirVersion);
+                    FhirClient = new E2ER4::Microsoft.Health.Fhir.Tests.E2E.FhirClient(HttpClient, format, _fhirVersion);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -222,7 +218,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 var projectName = type.GetTypeInfo().Assembly.GetName().Name;
 
                 // Get currently executing test project path
-                var applicationBasePath = System.AppContext.BaseDirectory;
+                var applicationBasePath = AppContext.BaseDirectory;
 
                 // Find the path to the target project
                 var directoryInfo = new DirectoryInfo(applicationBasePath);
