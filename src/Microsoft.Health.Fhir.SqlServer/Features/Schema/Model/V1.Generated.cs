@@ -81,8 +81,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly DateTime2Column StartDateTime = new DateTime2Column("StartDateTime", 7);
-            internal readonly DateTime2Column EndDateTime = new DateTime2Column("EndDateTime", 7);
+            internal readonly DateTime2Column StartDateTime = new DateTime2Column("StartDateTime", 3);
+            internal readonly DateTime2Column EndDateTime = new DateTime2Column("EndDateTime", 3);
             internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
@@ -96,9 +96,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
-            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
-            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 3);
+            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 3);
+            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 3);
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -123,9 +123,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
             internal readonly NullableIntColumn QuantityCodeId = new NullableIntColumn("QuantityCodeId");
-            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
-            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
-            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 3);
+            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 3);
+            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 3);
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -255,8 +255,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
-            internal readonly DateTime2Column StartDateTime2 = new DateTime2Column("StartDateTime2", 7);
-            internal readonly DateTime2Column EndDateTime2 = new DateTime2Column("EndDateTime2", 7);
+            internal readonly DateTime2Column StartDateTime2 = new DateTime2Column("StartDateTime2", 3);
+            internal readonly DateTime2Column EndDateTime2 = new DateTime2Column("EndDateTime2", 3);
             internal readonly BitColumn IsLongerThanADay2 = new BitColumn("IsLongerThanADay2");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
@@ -272,12 +272,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
-            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
-            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
-            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
-            internal readonly NullableDecimalColumn SingleValue3 = new NullableDecimalColumn("SingleValue3", 18, 6);
-            internal readonly NullableDecimalColumn LowValue3 = new NullableDecimalColumn("LowValue3", 18, 6);
-            internal readonly NullableDecimalColumn HighValue3 = new NullableDecimalColumn("HighValue3", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 3);
+            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 3);
+            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 3);
+            internal readonly NullableDecimalColumn SingleValue3 = new NullableDecimalColumn("SingleValue3", 18, 3);
+            internal readonly NullableDecimalColumn LowValue3 = new NullableDecimalColumn("LowValue3", 18, 3);
+            internal readonly NullableDecimalColumn HighValue3 = new NullableDecimalColumn("HighValue3", 18, 3);
             internal readonly BitColumn HasRange = new BitColumn("HasRange");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
@@ -295,9 +295,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
             internal readonly NullableIntColumn QuantityCodeId2 = new NullableIntColumn("QuantityCodeId2");
-            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
-            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
-            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 3);
+            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 3);
+            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 3);
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -696,8 +696,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly DateTimeOffsetColumn StartDateTime = new DateTimeOffsetColumn("StartDateTime", 7);
-            internal readonly DateTimeOffsetColumn EndDateTime = new DateTimeOffsetColumn("EndDateTime", 7);
+            internal readonly DateTimeOffsetColumn StartDateTime = new DateTimeOffsetColumn("StartDateTime", 3);
+            internal readonly DateTimeOffsetColumn EndDateTime = new DateTimeOffsetColumn("EndDateTime", 3);
             internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, DateTimeSearchParamTableTypeRow rowData)
@@ -747,9 +747,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
-            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
-            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 3);
+            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 3);
+            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 3);
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SingleValue, LowValue, HighValue};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, NumberSearchParamTableTypeRow rowData)
             {
@@ -800,9 +800,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
             internal readonly NullableIntColumn QuantityCodeId = new NullableIntColumn("QuantityCodeId");
-            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
-            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
-            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 3);
+            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 3);
+            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 3);
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, QuantitySearchParamTableTypeRow rowData)
             {
@@ -1079,8 +1079,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
-            internal readonly DateTimeOffsetColumn StartDateTime2 = new DateTimeOffsetColumn("StartDateTime2", 7);
-            internal readonly DateTimeOffsetColumn EndDateTime2 = new DateTimeOffsetColumn("EndDateTime2", 7);
+            internal readonly DateTimeOffsetColumn StartDateTime2 = new DateTimeOffsetColumn("StartDateTime2", 3);
+            internal readonly DateTimeOffsetColumn EndDateTime2 = new DateTimeOffsetColumn("EndDateTime2", 3);
             internal readonly BitColumn IsLongerThanADay2 = new BitColumn("IsLongerThanADay2");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenDateTimeCompositeSearchParamTableTypeRow rowData)
@@ -1146,12 +1146,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
-            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
-            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
-            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
-            internal readonly NullableDecimalColumn SingleValue3 = new NullableDecimalColumn("SingleValue3", 18, 6);
-            internal readonly NullableDecimalColumn LowValue3 = new NullableDecimalColumn("LowValue3", 18, 6);
-            internal readonly NullableDecimalColumn HighValue3 = new NullableDecimalColumn("HighValue3", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 3);
+            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 3);
+            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 3);
+            internal readonly NullableDecimalColumn SingleValue3 = new NullableDecimalColumn("SingleValue3", 18, 3);
+            internal readonly NullableDecimalColumn LowValue3 = new NullableDecimalColumn("LowValue3", 18, 3);
+            internal readonly NullableDecimalColumn HighValue3 = new NullableDecimalColumn("HighValue3", 18, 3);
             internal readonly BitColumn HasRange = new BitColumn("HasRange");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenNumberNumberCompositeSearchParamTableTypeRow rowData)
@@ -1247,9 +1247,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
             internal readonly NullableIntColumn QuantityCodeId2 = new NullableIntColumn("QuantityCodeId2");
-            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
-            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
-            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 3);
+            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 3);
+            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 3);
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, SystemId2, QuantityCodeId2, SingleValue2, LowValue2, HighValue2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenQuantityCompositeSearchParamTableTypeRow rowData)
             {

@@ -244,7 +244,7 @@ CREATE TABLE dbo.ResourceWriteClaim
     ClaimValue nvarchar(128) NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
-CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
+CREATE CLUSTERED INDEX IXC_ResourceWriteClaim on dbo.ResourceWriteClaim
 (
     ResourceSurrogateId,
     ClaimTypeId
@@ -332,25 +332,21 @@ CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
 ON dbo.ReferenceSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    ReferenceResourceId,
-    ReferenceResourceTypeId,
-    BaseUri,
-    ReferenceResourceVersion
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
 ON dbo.ReferenceSearchParam
 (
     SearchParamId,
-    ReferenceResourceTypeId,
     ReferenceResourceId,
-    BaseUri,
-    ReferenceResourceVersion
+    ReferenceResourceTypeId,
+    BaseUri
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    ReferenceResourceVersion
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
@@ -382,9 +378,7 @@ CREATE CLUSTERED INDEX IXC_TokenSearchParam
 ON dbo.TokenSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code,
-    SystemId
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
@@ -426,8 +420,7 @@ CREATE CLUSTERED INDEX IXC_TokenText
 ON dbo.TokenText
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Text
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
@@ -525,8 +518,7 @@ CREATE CLUSTERED INDEX IXC_UriSearchParam
 ON dbo.UriSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Uri
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
@@ -558,9 +550,9 @@ GO
 CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
-    SingleValue decimal(18,6) NULL,
-    LowValue decimal(18,6) NULL,
-    HighValue decimal(18,6) NULL
+    SingleValue decimal(18,3) NULL,
+    LowValue decimal(18,3) NULL,
+    HighValue decimal(18,3) NULL
 )
 
 CREATE TABLE dbo.NumberSearchParam
@@ -568,9 +560,9 @@ CREATE TABLE dbo.NumberSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SingleValue decimal(18,6) NULL,
-    LowValue decimal(18,6) SPARSE NULL,
-    HighValue decimal(18,6) SPARSE NULL,
+    SingleValue decimal(18,3) NULL,
+    LowValue decimal(18,3) SPARSE NULL,
+    HighValue decimal(18,3) SPARSE NULL,
     IsHistory bit NOT NULL
 )
 
@@ -578,8 +570,7 @@ CREATE CLUSTERED INDEX IXC_NumberSearchParam
 ON dbo.NumberSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    SingleValue
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
@@ -633,9 +624,9 @@ CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     QuantityCodeId int NULL,
-    SingleValue decimal(18,6) NULL,
-    LowValue decimal(18,6) NULL,
-    HighValue decimal(18,6) NULL
+    SingleValue decimal(18,3) NULL,
+    LowValue decimal(18,3) NULL,
+    HighValue decimal(18,3) NULL
 )
 
 CREATE TABLE dbo.QuantitySearchParam
@@ -645,19 +636,17 @@ CREATE TABLE dbo.QuantitySearchParam
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     QuantityCodeId int NULL,
-    SingleValue decimal(18,6) NULL,
-    LowValue decimal(18,6) SPARSE NULL,
-    HighValue decimal(18,6) SPARSE NULL,
+    SingleValue decimal(18,3) NULL,
+    LowValue decimal(18,3) SPARSE NULL,
+    HighValue decimal(18,3) SPARSE NULL,
     IsHistory bit NOT NULL
 )
 
-CREATE CLUSTERED INDEX QuantitySearchParam
+CREATE CLUSTERED INDEX IXC_QuantitySearchParam
 ON dbo.QuantitySearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    QuantityCodeId,
-    SingleValue
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
@@ -713,8 +702,8 @@ GO
 CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
-    StartDateTime datetimeoffset(7) NOT NULL,
-    EndDateTime datetimeoffset(7) NOT NULL,
+    StartDateTime datetimeoffset(3) NOT NULL,
+    EndDateTime datetimeoffset(3) NOT NULL,
     IsLongerThanADay bit NOT NULL
 )
 
@@ -723,8 +712,8 @@ CREATE TABLE dbo.DateTimeSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    StartDateTime datetime2(7) NOT NULL,
-    EndDateTime datetime2(7) NOT NULL,
+    StartDateTime datetime2(3) NOT NULL,
+    EndDateTime datetime2(3) NOT NULL,
     IsLongerThanADay bit NOT NULL,
     IsHistory bit NOT NULL
 )
@@ -733,9 +722,7 @@ CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
 ON dbo.DateTimeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    StartDateTime,
-    EndDateTime
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
@@ -828,9 +815,7 @@ CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
 ON dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    ReferenceResourceId1,
-    Code2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
@@ -881,9 +866,7 @@ CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
 ON dbo.TokenTokenCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    Code2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
@@ -913,8 +896,8 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    StartDateTime2 datetimeoffset(7) NOT NULL,
-    EndDateTime2 datetimeoffset(7) NOT NULL,
+    StartDateTime2 datetimeoffset(3) NOT NULL,
+    EndDateTime2 datetimeoffset(3) NOT NULL,
     IsLongerThanADay2 bit NOT NULL
 )
 
@@ -925,8 +908,8 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    StartDateTime2 datetime2(7) NOT NULL,
-    EndDateTime2 datetime2(7) NOT NULL,
+    StartDateTime2 datetime2(3) NOT NULL,
+    EndDateTime2 datetime2(3) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
@@ -935,10 +918,7 @@ CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
 ON dbo.TokenDateTimeCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    StartDateTime2,
-    EndDateTime2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
@@ -1022,9 +1002,9 @@ CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
-    SingleValue2 decimal(18,6) NULL,
-    LowValue2 decimal(18,6) NULL,
-    HighValue2 decimal(18,6) NULL
+    SingleValue2 decimal(18,3) NULL,
+    LowValue2 decimal(18,3) NULL,
+    HighValue2 decimal(18,3) NULL
 )
 
 CREATE TABLE dbo.TokenQuantityCompositeSearchParam
@@ -1036,9 +1016,9 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
-    SingleValue2 decimal(18,6) NULL,
-    LowValue2 decimal(18,6) NULL,
-    HighValue2 decimal(18,6) NULL,
+    SingleValue2 decimal(18,3) NULL,
+    LowValue2 decimal(18,3) NULL,
+    HighValue2 decimal(18,3) NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -1046,9 +1026,7 @@ CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
 ON dbo.TokenQuantityCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    SingleValue2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
@@ -1135,9 +1113,7 @@ CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
 ON dbo.TokenStringCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    Text2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
@@ -1189,12 +1165,12 @@ CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    SingleValue2 decimal(18,6) NULL,
-    LowValue2 decimal(18,6) NULL,
-    HighValue2 decimal(18,6) NULL,
-    SingleValue3 decimal(18,6) NULL,
-    LowValue3 decimal(18,6) NULL,
-    HighValue3 decimal(18,6) NULL,
+    SingleValue2 decimal(18,3) NULL,
+    LowValue2 decimal(18,3) NULL,
+    HighValue2 decimal(18,3) NULL,
+    SingleValue3 decimal(18,3) NULL,
+    LowValue3 decimal(18,3) NULL,
+    HighValue3 decimal(18,3) NULL,
     HasRange bit NOT NULL
 )
 
@@ -1205,12 +1181,12 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    SingleValue2 decimal(18,6) NULL,
-    LowValue2 decimal(18,6) NULL,
-    HighValue2 decimal(18,6) NULL,
-    SingleValue3 decimal(18,6) NULL,
-    LowValue3 decimal(18,6) NULL,
-    HighValue3 decimal(18,6) NULL,
+    SingleValue2 decimal(18,3) NULL,
+    LowValue2 decimal(18,3) NULL,
+    HighValue2 decimal(18,3) NULL,
+    SingleValue3 decimal(18,3) NULL,
+    LowValue3 decimal(18,3) NULL,
+    HighValue3 decimal(18,3) NULL,
     HasRange bit NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
@@ -1219,10 +1195,7 @@ CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    SingleValue2,
-    SingleValue3
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
@@ -1230,7 +1203,8 @@ ON dbo.TokenNumberNumberCompositeSearchParam
 (
     SearchParamId,
     Code1,
-    SingleValue2
+    SingleValue2,
+    SingleValue3
 )
 INCLUDE
 (
