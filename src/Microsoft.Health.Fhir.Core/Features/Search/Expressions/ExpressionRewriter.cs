@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 destination = new List<TExpression>();
                 for (int j = 0; j < count; j++)
                 {
-                    destination[j] = source[j];
+                    destination.Add(source[j]);
                 }
             }
         }

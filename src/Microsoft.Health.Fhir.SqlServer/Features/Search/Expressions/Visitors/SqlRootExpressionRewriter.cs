@@ -39,15 +39,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 Expression childExpression = expression.Expressions[i];
                 if (TryGetNormalizedGenerator(childExpression, out var normalizedGenerator))
                 {
-                    if (normalizedPredicates == null)
-                    {
-                        normalizedPredicates = new List<TableExpression>();
-                        denormalizedPredicates = new List<Expression>();
-                        for (int j = 0; j < i; j++)
-                        {
-                            denormalizedPredicates.Add(expression.Expressions[j]);
-                        }
-                    }
+                    EnsureAllocatedAndPopulated(ref denormalizedPredicates, expression.Expressions, i);
+                    EnsureAllocatedAndPopulated(ref normalizedPredicates, Array.Empty<TableExpression>(), 0);
 
                     normalizedPredicates.Add(new TableExpression(normalizedGenerator, childExpression));
                 }

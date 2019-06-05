@@ -58,14 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 if (found)
                 {
-                    if (newTableExpressions == null)
-                    {
-                        newTableExpressions = new List<TableExpression>();
-                        for (int j = 0; j < i; j++)
-                        {
-                            newTableExpressions.Add(expression.TableExpressions[j]);
-                        }
-                    }
+                    EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
 
                     newTableExpressions.Add(tableExpression);
                     newTableExpressions.Add((TableExpression)tableExpression.AcceptVisitor(this, context));

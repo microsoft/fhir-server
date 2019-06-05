@@ -36,15 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 Expression childExpression = expression.Expressions[i];
                 if (childExpression is MultiaryExpression childMultiary && childMultiary.MultiaryOperation == expression.MultiaryOperation)
                 {
-                    if (newExpressions == null)
-                    {
-                        newExpressions = new List<Expression>();
-                        for (var j = 0; j < i; j++)
-                        {
-                            newExpressions.Add(expression.Expressions[j]);
-                        }
-                    }
-
+                    EnsureAllocatedAndPopulated(ref newExpressions, expression.Expressions, i);
                     newExpressions.AddRange(childMultiary.Expressions);
                 }
                 else

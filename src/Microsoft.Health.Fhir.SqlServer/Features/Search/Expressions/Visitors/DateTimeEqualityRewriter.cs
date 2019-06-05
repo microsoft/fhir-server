@@ -49,14 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     right.BinaryOperator == BinaryOperator.LessThanOrEqual &&
                     left.ComponentIndex == right.ComponentIndex)
                 {
-                    if (newExpressions == null)
-                    {
-                        newExpressions = new List<Expression>();
-                        for (int j = 0; j < i; j++)
-                        {
-                            newExpressions.Add(expression.Expressions[j]);
-                        }
-                    }
+                    EnsureAllocatedAndPopulated(ref newExpressions, expression.Expressions, i);
 
                     newExpressions.Add(left);
                     newExpressions.Add(Expression.LessThanOrEqual(left.FieldName, right.ComponentIndex, right.Value));

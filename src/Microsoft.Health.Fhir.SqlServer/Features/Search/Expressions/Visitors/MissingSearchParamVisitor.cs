@@ -30,14 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 if (tableExpression.NormalizedPredicate.AcceptVisitor(Scout.Instance, null))
                 {
-                    if (newTableExpressions == null)
-                    {
-                        newTableExpressions = new List<TableExpression>();
-                        for (int j = 0; j < i; j++)
-                        {
-                            newTableExpressions.Add(expression.TableExpressions[j]);
-                        }
-                    }
+                    EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
 
                     if (expression.TableExpressions.Count == 1)
                     {
