@@ -5,22 +5,17 @@
 
 namespace Microsoft.Health.Fhir.ValueSets
 {
-    public static class SearchParamType
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1720: Identifiers should not contain type names", Justification = "Specified in the FHIR spec")]
+    public enum SearchParamType
     {
-        public const string Number = "Number";
-
-        public const string Date = "Date";
-
-        public const string Str = "String";
-
-        public const string Token = "Token";
-
-        public const string Reference = "Reference";
-
-        public const string Quantity = "Quantity";
-
-        public const string Uri = "Uri";
-
-        public const string Composite = "Composite";
+        Number,
+        Date,
+        String,
+        Token,
+        Reference,
+        Quantity,
+        Uri,
+        Composite,
+        Special,
     }
 }
