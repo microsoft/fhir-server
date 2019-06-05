@@ -10,7 +10,9 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
@@ -42,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _conformanceConfiguration = conformanceConfiguration.Value;
         }
 
-        public override async Task<ITypedElement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken))
+        public override async Task<ResourceElement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
             if (_capabilityStatement == null)
             {
@@ -69,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
             }
 
-            return _capabilityStatement.ToTypedElement();
+            return new ResourceElement(_capabilityStatement.ToTypedElement());
         }
 
         public void Dispose()

@@ -19,6 +19,12 @@ namespace Microsoft.Health.Fhir.Core.Models
     public class ResourceElement
     {
         private readonly Lazy<EvaluationContext> _context;
+        private List<string> _nonDomainTypes = new List<string>
+            {
+                "Bundle",
+                "Parameters",
+                "Binary",
+            };
 
         public ResourceElement(ITypedElement instance)
         {
@@ -45,6 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public string VersionId => Scalar<string>("Resource.meta.versionId");
 
+        public bool IsDomainResource => !_nonDomainTypes.Contains(InstanceType, StringComparer.OrdinalIgnoreCase);
+
         public DateTimeOffset? LastUpdated
         {
             get
@@ -63,18 +71,6 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             object scalar = Instance.Scalar(fhirPath, _context.Value);
             return (T)scalar;
-        }
-
-        public bool IsDomainResource()
-        {
-            var nonDomainTypes = new List<string>
-            {
-                "Bundle",
-                "Parameters",
-                "Binary",
-            };
-
-            return !nonDomainTypes.Contains(InstanceType, StringComparer.OrdinalIgnoreCase);
         }
     }
 }

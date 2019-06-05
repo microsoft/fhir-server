@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
             if (context.PropertyValue is ResourceElement resourceElement)
             {
-                if (resourceElement.IsDomainResource())
+                if (resourceElement.IsDomainResource)
                 {
                     foreach (ValidationFailure validationFailure in ValidateResource(resourceElement))
                     {
@@ -39,12 +39,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 }
                 else if (resourceElement.InstanceType.Equals("Bundle", System.StringComparison.OrdinalIgnoreCase))
                 {
-                    var domainResources = resourceElement.Instance.Select("Bundle.entry.resource")
-                        .Select(e => new ResourceElement(e)).Where(r => r.IsDomainResource());
-
-                    foreach (ValidationFailure validationFailure in domainResources.SelectMany(ValidateResource))
+                    var bundleEntries = resourceElement.Instance.Select("Bundle.entry.resource");
+                    if (bundleEntries != null)
                     {
-                        yield return validationFailure;
+                        var domainResources = bundleEntries.Select(e => new ResourceElement(e)).Where(r => r.IsDomainResource);
+                        foreach (ValidationFailure validationFailure in domainResources.SelectMany(ValidateResource))
+                        {
+                            yield return validationFailure;
+                        }
                     }
                 }
             }
@@ -54,27 +56,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         {
             EnsureArg.IsNotNull(domainResource, nameof(domainResource));
 
-            string propertyName = "text.div";
+            const string fhirPath = "text.div";
 
-            var xhtml = domainResource.Scalar<string>(propertyName);
+            var xhtml = domainResource.Scalar<string>(fhirPath);
             if (string.IsNullOrEmpty(xhtml))
             {
                 yield break;
             }
 
             var errors = _narrativeHtmlSanitizer.Validate(xhtml);
-            var fullPropertyName = domainResource.InstanceType + "." + propertyName;
+            var fullFhirPath = domainResource.InstanceType + "." + fhirPath;
 
             foreach (var error in errors)
             {
                 yield return new FhirValidationFailure(
-                    fullPropertyName,
+                    fullFhirPath,
                     error,
                     new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueType.Structure,
                         OperationOutcomeConstants.IssueSeverity.Error,
                         error,
-                        location: new[] { fullPropertyName }));
+                        location: new[] { fullFhirPath }));
             }
         }
     }

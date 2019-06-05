@@ -14,8 +14,10 @@ using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
 using Xunit;
@@ -36,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var configured = Substitute.For<IConfiguredConformanceProvider>();
             configured
                 .GetCapabilityStatementAsync()
-                .Returns(mockedCapabilities.ToTypedElement());
+                .Returns(new ResourceElement(mockedCapabilities.ToTypedElement()));
 
             var urlResolver = Substitute.For<IUrlResolver>();
             urlResolver.ResolveMetadataUrl(Arg.Any<bool>()).Returns(new Uri("http://localhost/metadata"));
