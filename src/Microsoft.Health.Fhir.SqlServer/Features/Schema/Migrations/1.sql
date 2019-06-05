@@ -550,9 +550,9 @@ GO
 CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
-    SingleValue decimal(18,3) NULL,
-    LowValue decimal(18,3) NULL,
-    HighValue decimal(18,3) NULL
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NULL,
+    HighValue decimal(18,6) NULL
 )
 
 CREATE TABLE dbo.NumberSearchParam
@@ -560,9 +560,9 @@ CREATE TABLE dbo.NumberSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SingleValue decimal(18,3) NULL,
-    LowValue decimal(18,3) SPARSE NULL,
-    HighValue decimal(18,3) SPARSE NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) SPARSE NULL,
+    HighValue decimal(18,6) SPARSE NULL,
     IsHistory bit NOT NULL
 )
 
@@ -624,9 +624,9 @@ CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     QuantityCodeId int NULL,
-    SingleValue decimal(18,3) NULL,
-    LowValue decimal(18,3) NULL,
-    HighValue decimal(18,3) NULL
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NULL,
+    HighValue decimal(18,6) NULL
 )
 
 CREATE TABLE dbo.QuantitySearchParam
@@ -636,9 +636,9 @@ CREATE TABLE dbo.QuantitySearchParam
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     QuantityCodeId int NULL,
-    SingleValue decimal(18,3) NULL,
-    LowValue decimal(18,3) SPARSE NULL,
-    HighValue decimal(18,3) SPARSE NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) SPARSE NULL,
+    HighValue decimal(18,6) SPARSE NULL,
     IsHistory bit NOT NULL
 )
 
@@ -702,8 +702,8 @@ GO
 CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
-    StartDateTime datetimeoffset(3) NOT NULL,
-    EndDateTime datetimeoffset(3) NOT NULL,
+    StartDateTime datetimeoffset(7) NOT NULL,
+    EndDateTime datetimeoffset(7) NOT NULL,
     IsLongerThanADay bit NOT NULL
 )
 
@@ -712,8 +712,8 @@ CREATE TABLE dbo.DateTimeSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    StartDateTime datetime2(3) NOT NULL,
-    EndDateTime datetime2(3) NOT NULL,
+    StartDateTime datetime2(7) NOT NULL,
+    EndDateTime datetime2(7) NOT NULL,
     IsLongerThanADay bit NOT NULL,
     IsHistory bit NOT NULL
 )
@@ -896,8 +896,8 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    StartDateTime2 datetimeoffset(3) NOT NULL,
-    EndDateTime2 datetimeoffset(3) NOT NULL,
+    StartDateTime2 datetimeoffset(7) NOT NULL,
+    EndDateTime2 datetimeoffset(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL
 )
 
@@ -908,8 +908,8 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    StartDateTime2 datetime2(3) NOT NULL,
-    EndDateTime2 datetime2(3) NOT NULL,
+    StartDateTime2 datetime2(7) NOT NULL,
+    EndDateTime2 datetime2(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
@@ -1002,9 +1002,9 @@ CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
-    SingleValue2 decimal(18,3) NULL,
-    LowValue2 decimal(18,3) NULL,
-    HighValue2 decimal(18,3) NULL
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NULL,
+    HighValue2 decimal(18,6) NULL
 )
 
 CREATE TABLE dbo.TokenQuantityCompositeSearchParam
@@ -1016,9 +1016,9 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
-    SingleValue2 decimal(18,3) NULL,
-    LowValue2 decimal(18,3) NULL,
-    HighValue2 decimal(18,3) NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NULL,
+    HighValue2 decimal(18,6) NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -1165,12 +1165,12 @@ CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    SingleValue2 decimal(18,3) NULL,
-    LowValue2 decimal(18,3) NULL,
-    HighValue2 decimal(18,3) NULL,
-    SingleValue3 decimal(18,3) NULL,
-    LowValue3 decimal(18,3) NULL,
-    HighValue3 decimal(18,3) NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NULL,
+    HighValue2 decimal(18,6) NULL,
+    SingleValue3 decimal(18,6) NULL,
+    LowValue3 decimal(18,6) NULL,
+    HighValue3 decimal(18,6) NULL,
     HasRange bit NOT NULL
 )
 
@@ -1181,12 +1181,12 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    SingleValue2 decimal(18,3) NULL,
-    LowValue2 decimal(18,3) NULL,
-    HighValue2 decimal(18,3) NULL,
-    SingleValue3 decimal(18,3) NULL,
-    LowValue3 decimal(18,3) NULL,
-    HighValue3 decimal(18,3) NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NULL,
+    HighValue2 decimal(18,6) NULL,
+    SingleValue3 decimal(18,6) NULL,
+    LowValue3 decimal(18,6) NULL,
+    HighValue3 decimal(18,6) NULL,
     HasRange bit NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
