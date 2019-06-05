@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// visitor has run. The problem with this expression is that it can be very expensive because of the unbound ranges
     /// that have no relation to one another. One way we can optimize this is to notice that the vast majority of datetime ranges in
     /// the database will be less than a day. This means that for most of the data, we can apply a fixed range on DateTimeStart, knowing
-    /// that it will never be greater than (X - 1 day) in addition to always being less than Y. We can create a filtered nonclustered
+    /// that it will greater than (X - 1 day) in addition to always being less than Y. We can create a filtered nonclustered
     /// index where the range is greater than one day. Over this index, we'll do the original query, but it will be on a much smaller
     /// set of row.
     /// </summary>
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return Expression.And(
                     Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, left.ComponentIndex, false),
                     new BinaryExpression(left.BinaryOperator, FieldName.DateTimeEnd, left.ComponentIndex, left.Value),
-                    new BinaryExpression(left.BinaryOperator, FieldName.DateTimeStart, left.ComponentIndex, ((DateTimeOffset)right.Value).AddTicks(-TimeSpan.TicksPerDay)),
+                    new BinaryExpression(left.BinaryOperator, FieldName.DateTimeStart, left.ComponentIndex, ((DateTimeOffset)left.Value).AddTicks(-TimeSpan.TicksPerDay)),
                     new BinaryExpression(right.BinaryOperator, FieldName.DateTimeStart, right.ComponentIndex, right.Value));
             }
 
