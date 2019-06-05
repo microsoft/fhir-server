@@ -23,8 +23,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.ValueSets", "src\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj", "{2C4E1934-0AD7-4410-91F7-957F265D7C7B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests.E2E", "test\Microsoft.Health.Fhir.Tests.E2E\Microsoft.Health.Fhir.Tests.E2E.csproj", "{398527F7-5A8E-430F-AE3B-2E0C08B70F42}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests.Integration", "test\Microsoft.Health.Fhir.Tests.Integration\Microsoft.Health.Fhir.Tests.Integration.csproj", "{567D8DB0-B734-4B66-9626-A64BA490C0BA}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.CosmosDb.UnitTests", "src\Microsoft.Health.Fhir.CosmosDb.UnitTests\Microsoft.Health.Fhir.CosmosDb.UnitTests.csproj", "{C015551C-0009-49CE-8C8D-B206BED0BB42}"
@@ -106,12 +104,19 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Share
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Web", "src\Microsoft.Health.Fhir.R4.Web\Microsoft.Health.Fhir.R4.Web.csproj", "{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Tests.E2E.Shared", "test\Microsoft.Health.Fhir.Tests.E2E.Shared\Microsoft.Health.Fhir.Tests.E2E.Shared.shproj", "{A898CC57-69D0-4454-BB70-784C138A05BF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Tests.E2E.Stu3", "test\Microsoft.Health.Fhir.Tests.E2E.Stu3\Microsoft.Health.Fhir.Tests.E2E.Stu3.csproj", "{49DA2851-2A19-4969-AE87-94837BACBE7D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Tests.E2E.R4", "test\Microsoft.Health.Fhir.Tests.E2E.R4\Microsoft.Health.Fhir.Tests.E2E.R4.csproj", "{7F2B9209-2C50-42ED-961B-A09CC8A26A07}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{1495bba7-07b8-47ca-b2ed-511003b57667}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems*{295745e2-4dd3-4aab-908d-b3dee976bf0e}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Api\Microsoft.Health.Fhir.Shared.Api.projitems*{4b4abb04-42ba-461c-a202-e480a2ae538e}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.projitems*{934ca8bb-b0a7-4187-bf4d-c937fbba1777}*SharedItemsImports = 13
+		test\Microsoft.Health.Fhir.Tests.E2E.Shared\Microsoft.Health.Fhir.Tests.E2E.Shared.projitems*{a898cc57-69d0-4454-bb70-784c138a05bf}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Core.UnitTests\Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems*{df7fb46c-281a-48c9-a86e-f1f9314636e0}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Api.UnitTests\Microsoft.Health.Fhir.Shared.Api.UnitTests.projitems*{fcbad356-8af3-41b0-b578-eaaef6a5d365}*SharedItemsImports = 13
 	EndGlobalSection
@@ -152,10 +157,6 @@ Global
 		{2C4E1934-0AD7-4410-91F7-957F265D7C7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C4E1934-0AD7-4410-91F7-957F265D7C7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C4E1934-0AD7-4410-91F7-957F265D7C7B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{398527F7-5A8E-430F-AE3B-2E0C08B70F42}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{398527F7-5A8E-430F-AE3B-2E0C08B70F42}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{398527F7-5A8E-430F-AE3B-2E0C08B70F42}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{398527F7-5A8E-430F-AE3B-2E0C08B70F42}.Release|Any CPU.Build.0 = Release|Any CPU
 		{567D8DB0-B734-4B66-9626-A64BA490C0BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{567D8DB0-B734-4B66-9626-A64BA490C0BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{567D8DB0-B734-4B66-9626-A64BA490C0BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -252,6 +253,14 @@ Global
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49DA2851-2A19-4969-AE87-94837BACBE7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49DA2851-2A19-4969-AE87-94837BACBE7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49DA2851-2A19-4969-AE87-94837BACBE7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49DA2851-2A19-4969-AE87-94837BACBE7D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -265,7 +274,6 @@ Global
 		{DCDE987F-0B50-4233-8661-6B5A251E7CAE} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{83F1D0BE-F8C4-4244-BB79-B77D92B8F092} = {7457B218-2651-49B5-BED8-22233889516A}
 		{2C4E1934-0AD7-4410-91F7-957F265D7C7B} = {7457B218-2651-49B5-BED8-22233889516A}
-		{398527F7-5A8E-430F-AE3B-2E0C08B70F42} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 		{567D8DB0-B734-4B66-9626-A64BA490C0BA} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 		{C015551C-0009-49CE-8C8D-B206BED0BB42} = {7457B218-2651-49B5-BED8-22233889516A}
 		{E2C2B117-32CD-449F-A4A8-4C8BA874D693} = {9DC49B6B-EBFC-44F6-B65F-8931078B630D}
@@ -300,9 +308,12 @@ Global
 		{734CAC7F-D979-4639-8067-A0875C0691F2} = {D6F23CE5-CCF6-4B52-9BEB-72294756E6C6}
 		{934CA8BB-B0A7-4187-BF4D-C937FBBA1777} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
+		{A898CC57-69D0-4454-BB70-784C138A05BF} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
+		{49DA2851-2A19-4969-AE87-94837BACBE7D} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 EndGlobal

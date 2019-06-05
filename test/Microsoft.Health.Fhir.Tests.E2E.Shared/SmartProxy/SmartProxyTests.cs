@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
         public async Task GivenPatientIdAndSmartAppUrl_WhenLaunchingApp_LaunchSequenceAndSignIn()
         {
             // There is no remote FHIR server. Skip test
-            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TestEnvironmentUrl")))
+            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionModifier}")))
             {
                 return;
             }

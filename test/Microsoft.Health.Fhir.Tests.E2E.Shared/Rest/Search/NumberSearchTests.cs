@@ -50,9 +50,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("eb5.0001", 0, 1, 2)]
         public async Task GivenANumberSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Immunization, $"dose-sequence={queryValue}");
+            Bundle bundle = await Client.SearchAsync(ResourceType.RiskAssessment, $"probability={queryValue}");
 
-            Immunization[] expected = expectedIndices.Select(i => Fixture.Immunizations[i]).ToArray();
+            RiskAssessment[] expected = expectedIndices.Select(i => Fixture.RiskAssessments[i]).ToArray();
 
             ValidateBundle(bundle, expected);
         }

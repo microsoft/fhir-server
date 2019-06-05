@@ -22,6 +22,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private const string ObservationWithTPMTHaplotypeOne = "ObservationWithTPMTHaplotypeOne";
         private const string ObservationWithBloodPressure = "ObservationWithBloodPressure";
 
+        private const string DocumentReferenceExample = "DocumentReference-example";
+        private const string DocumentReferenceExample002 = "DocumentReference-example-002";
+
         public CompositeSearchTests(CompositeSearchTestFixture fixture)
             : base(fixture)
         {
@@ -48,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("combo-code-value-quantity=8480-6$60")] // Not match: Observation.component[0].code against Observation.component[1].valueQuantity
         public async Task GivenACompositeSearchParameterWithTokenAndQuantity_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
-            await SearchAndValidate(queryValue, expectedObservationNames);
+            await SearchAndValidateObservations(queryValue, expectedObservationNames);
         }
 
         [Theory]
@@ -58,19 +61,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("code-value-string=http://snomed.info/sct|162806009$red")]
         public async Task GivenACompositeSearchParameterWithTokenAndString_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
-            await SearchAndValidate(queryValue, expectedObservationNames);
+            await SearchAndValidateObservations(queryValue, expectedObservationNames);
         }
 
         [Theory]
-        [InlineData("related=Observation/example-TPMT-haplotype-one$http://hl7.org/fhir/observation-relationshiptypes|derived-from", ObservationWithTPMTDiplotype)]
-        [InlineData("related=Observation/example-TPMT-haplotype-one$derived-from", ObservationWithTPMTDiplotype)]
-        [InlineData("related=Sequence/example-TPMT-one$derived-from", ObservationWithTPMTHaplotypeOne)]
-        [InlineData("related=Observation/example-TPMT-haplotype-one,Sequence/example-TPMT-one$derived-from", ObservationWithTPMTDiplotype, ObservationWithTPMTHaplotypeOne)]
-        [InlineData("related=Observation/example-TPMT-haplotype-three$derived-from")]
-        [InlineData("related=Observation/example-TPMT-haplotype-one$sequel-to")]
-        public async Task GivenACompositeSearchParameterWithTokenAndReference_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
+        [InlineData("relationship=DocumentReference/example-appends$http://hl7.org/fhir/document-relationship-type|appends", DocumentReferenceExample)]
+        [InlineData("relationship=DocumentReference/example-appends$appends", DocumentReferenceExample)]
+        [InlineData("relationship=DocumentReference/example-appends$replaces")]
+        [InlineData("relationship=DocumentReference/example-replaces$replaces", DocumentReferenceExample002)]
+        ////[InlineData("relationship=DocumentReference/example-appends$appends,DocumentReference/example-replaces$replaces", DocumentReferenceExample, DocumentReferenceExample002)]
+        ////[InlineData("relationship=DocumentReference/example-appends,DocumentReference/example-replaces$replaces", DocumentReferenceExample, DocumentReferenceExample002)]
+        public async Task GivenACompositeSearchParameterWithTokenAndReference_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedDocumentReferenceNames)
         {
-            await SearchAndValidate(queryValue, expectedObservationNames);
+            await SearchAndValidateDocumentReferences(queryValue, expectedDocumentReferenceNames);
         }
 
         [Theory]
@@ -89,23 +92,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("combo-code-value-concept=169895004$http://loinc.org/la|LA6725-1")] // Not match: Observation.code[1] against Observation.component[4].valueCodeableConcept.coding[0]
         public async Task GivenACompositeSearchParameterWithTokenAndToken_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
-            await SearchAndValidate(queryValue, expectedObservationNames);
+            await SearchAndValidateObservations(queryValue, expectedObservationNames);
         }
 
-        private async Task SearchAndValidate(string queryValue, string[] expectedObservationNames)
+        private async Task SearchAndValidateObservations(string queryValue, string[] expectedObservationNames)
         {
-            Bundle bundle = await SearchAsync(queryValue);
+            Bundle bundle = await SearchAsync(ResourceType.Observation, queryValue);
 
             Observation[] expected = expectedObservationNames.Select(name => Fixture.Observations[name]).ToArray();
 
             ValidateBundle(bundle, expected);
         }
 
-        private async Task<Bundle> SearchAsync(string queryValue)
+        private async Task SearchAndValidateDocumentReferences(string queryValue, string[] expectedDocumentReferenceNames)
+        {
+            Bundle bundle = await SearchAsync(ResourceType.DocumentReference, queryValue);
+
+            DocumentReference[] expected = expectedDocumentReferenceNames.Select(name => Fixture.DocumentReferences[name]).ToArray();
+
+            ValidateBundle(bundle, expected);
+        }
+
+        private async Task<Bundle> SearchAsync(ResourceType resourceType, string queryValue)
         {
             // Append the test session id.
             return await Client.SearchAsync(
-                ResourceType.Observation,
+                resourceType,
                 $"identifier={Fixture.TestSessionId}&{queryValue}");
         }
     }

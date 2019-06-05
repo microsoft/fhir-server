@@ -3566,77 +3566,91 @@
   },
   {
     "fullUrl" : "http://hl7.org/fhir/SearchParameter/clinical-patient",
-    "resource" : {
-      "resourceType" : "SearchParameter",
-      "id" : "clinical-patient",
-      "extension" : [{
-        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-        "valueCode" : "trial-use"
-      }],
-      "url" : "http://hl7.org/fhir/SearchParameter/clinical-patient",
-      "version" : "4.0.0",
-      "name" : "patient",
-      "status" : "draft",
-      "experimental" : false,
-      "date" : "2018-12-27T22:37:54+11:00",
-      "publisher" : "Health Level Seven International (Patient Care)",
-      "contact" : [{
-        "telecom" : [{
-          "system" : "url",
-          "value" : "http://hl7.org/fhir"
-        }]
-      },
-      {
-        "telecom" : [{
-          "system" : "url",
-          "value" : "http://www.hl7.org/Special/committees/patientcare/index.cfm"
-        }]
-      }],
-      "description" : "Multiple Resources: \r\n\r\n* [AllergyIntolerance](allergyintolerance.html): Who the sensitivity is for\r\n* [CarePlan](careplan.html): Who the care plan is for\r\n* [CareTeam](careteam.html): Who care team is for\r\n* [ClinicalImpression](clinicalimpression.html): Patient or group assessed\r\n* [Composition](composition.html): Who and/or what the composition is about\r\n* [Condition](condition.html): Who has the condition?\r\n* [Consent](consent.html): Who the consent applies to\r\n* [DetectedIssue](detectedissue.html): Associated patient\r\n* [DeviceRequest](devicerequest.html): Individual the service is ordered for\r\n* [DeviceUseStatement](deviceusestatement.html): Search by subject - a patient\r\n* [DiagnosticReport](diagnosticreport.html): The subject of the report if a patient\r\n* [DocumentManifest](documentmanifest.html): The subject of the set of documents\r\n* [DocumentReference](documentreference.html): Who/what is the subject of the document\r\n* [Encounter](encounter.html): The patient or group present at the encounter\r\n* [EpisodeOfCare](episodeofcare.html): The patient who is the focus of this episode of care\r\n* [FamilyMemberHistory](familymemberhistory.html): The identity of a subject to list family member history items for\r\n* [Flag](flag.html): The identity of a subject to list flags for\r\n* [Goal](goal.html): Who this goal is intended for\r\n* [ImagingStudy](imagingstudy.html): Who the study is about\r\n* [Immunization](immunization.html): The patient for the vaccination record\r\n* [List](list.html): If all resources have the same subject\r\n* [MedicationAdministration](medicationadministration.html): The identity of a patient to list administrations  for\r\n* [MedicationDispense](medicationdispense.html): The identity of a patient to list dispenses  for\r\n* [MedicationRequest](medicationrequest.html): Returns prescriptions for a specific patient\r\n* [MedicationStatement](medicationstatement.html): Returns statements for a specific patient.\r\n* [NutritionOrder](nutritionorder.html): The identity of the person who requires the diet, formula or nutritional supplement\r\n* [Observation](observation.html): The subject that the observation is about (if patient)\r\n* [Procedure](procedure.html): Search by subject - a patient\r\n* [RiskAssessment](riskassessment.html): Who/what does assessment apply to?\r\n* [ServiceRequest](servicerequest.html): Search by subject - a patient\r\n* [SupplyDelivery](supplydelivery.html): Patient for whom the item is supplied\r\n* [VisionPrescription](visionprescription.html): The identity of a patient to list dispenses for\r\n",
-      "code" : "patient",
-      "base" : ["AllergyIntolerance",
-      "CarePlan",
-      "CareTeam",
-      "ClinicalImpression",
-      "Composition",
-      "Condition",
-      "Consent",
-      "DetectedIssue",
-      "DeviceRequest",
-      "DeviceUseStatement",
-      "DiagnosticReport",
-      "DocumentManifest",
-      "DocumentReference",
-      "Encounter",
-      "EpisodeOfCare",
-      "FamilyMemberHistory",
-      "Flag",
-      "Goal",
-      "ImagingStudy",
-      "Immunization",
-      "List",
-      "MedicationAdministration",
-      "MedicationDispense",
-      "MedicationRequest",
-      "MedicationStatement",
-      "NutritionOrder",
-      "Observation",
-      "Procedure",
-      "RiskAssessment",
-      "ServiceRequest",
-      "SupplyDelivery",
-      "VisionPrescription"],
-      "type" : "reference",
-      "expression" : "AllergyIntolerance.patient | CarePlan.subject.where(resolve() is Patient) | CareTeam.subject.where(resolve() is Patient) | ClinicalImpression.subject.where(resolve() is Patient) | Composition.subject.where(resolve() is Patient) | Condition.subject.where(resolve() is Patient) | Consent.patient | DetectedIssue.patient | DeviceRequest.subject.where(resolve() is Patient) | DeviceUseStatement.subject | DiagnosticReport.subject.where(resolve() is Patient) | DocumentManifest.subject.where(resolve() is Patient) | DocumentReference.subject.where(resolve() is Patient) | Encounter.subject.where(resolve() is Patient) | EpisodeOfCare.patient | FamilyMemberHistory.patient | Flag.subject.where(resolve() is Patient) | Goal.subject.where(resolve() is Patient) | ImagingStudy.subject.where(resolve() is Patient) | Immunization.patient | List.subject.where(resolve() is Patient) | MedicationAdministration.subject.where(resolve() is Patient) | MedicationDispense.subject.where(resolve() is Patient) | MedicationRequest.subject.where(resolve() is Patient) | MedicationStatement.subject.where(resolve() is Patient) | NutritionOrder.patient | Observation.subject.where(resolve() is Patient) | Procedure.subject.where(resolve() is Patient) | RiskAssessment.subject.where(resolve() is Patient) | ServiceRequest.subject.where(resolve() is Patient) | SupplyDelivery.patient | VisionPrescription.patient",
-      "xpath" : "f:AllergyIntolerance/f:patient | f:CarePlan/f:subject | f:CareTeam/f:subject | f:ClinicalImpression/f:subject | f:Composition/f:subject | f:Condition/f:subject | f:Consent/f:patient | f:DetectedIssue/f:patient | f:DeviceRequest/f:subject | f:DeviceUseStatement/f:subject | f:DiagnosticReport/f:subject | f:DocumentManifest/f:subject | f:DocumentReference/f:subject | f:Encounter/f:subject | f:EpisodeOfCare/f:patient | f:FamilyMemberHistory/f:patient | f:Flag/f:subject | f:Goal/f:subject | f:ImagingStudy/f:subject | f:Immunization/f:patient | f:List/f:subject | f:MedicationAdministration/f:subject | f:MedicationDispense/f:subject | f:MedicationRequest/f:subject | f:MedicationStatement/f:subject | f:NutritionOrder/f:patient | f:Observation/f:subject | f:Procedure/f:subject | f:RiskAssessment/f:subject | f:ServiceRequest/f:subject | f:SupplyDelivery/f:patient | f:VisionPrescription/f:patient",
-      "xpathUsage" : "normal",
-      "target" : ["Patient",
-      "Group"],
-      "multipleOr" : true,
-      "multipleAnd" : true,
-      "modifier" : ["missing",
-      "type",
-      "identifier"]
+    "resource": {
+        "resourceType": "SearchParameter",
+        "id": "clinical-patient",
+        "extension": [
+            {
+                "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+                "valueCode": "trial-use"
+            }
+        ],
+        "url": "http://hl7.org/fhir/SearchParameter/clinical-patient",
+        "version": "4.0.0",
+        "name": "patient",
+        "status": "draft",
+        "experimental": false,
+        "date": "2018-12-27T22:37:54+11:00",
+        "publisher": "Health Level Seven International (Patient Care)",
+        "contact": [
+            {
+                "telecom": [
+                    {
+                        "system": "url",
+                        "value": "http://hl7.org/fhir"
+                    }
+                ]
+            },
+            {
+                "telecom": [
+                    {
+                        "system": "url",
+                        "value": "http://www.hl7.org/Special/committees/patientcare/index.cfm"
+                    }
+                ]
+            }
+        ],
+        "description": "Multiple Resources: \r\n\r\n* [AllergyIntolerance](allergyintolerance.html): Who the sensitivity is for\r\n* [CarePlan](careplan.html): Who the care plan is for\r\n* [CareTeam](careteam.html): Who care team is for\r\n* [ClinicalImpression](clinicalimpression.html): Patient or group assessed\r\n* [Composition](composition.html): Who and/or what the composition is about\r\n* [Condition](condition.html): Who has the condition?\r\n* [Consent](consent.html): Who the consent applies to\r\n* [DetectedIssue](detectedissue.html): Associated patient\r\n* [DeviceRequest](devicerequest.html): Individual the service is ordered for\r\n* [DeviceUseStatement](deviceusestatement.html): Search by subject - a patient\r\n* [DiagnosticReport](diagnosticreport.html): The subject of the report if a patient\r\n* [DocumentManifest](documentmanifest.html): The subject of the set of documents\r\n* [DocumentReference](documentreference.html): Who/what is the subject of the document\r\n* [Encounter](encounter.html): The patient or group present at the encounter\r\n* [EpisodeOfCare](episodeofcare.html): The patient who is the focus of this episode of care\r\n* [FamilyMemberHistory](familymemberhistory.html): The identity of a subject to list family member history items for\r\n* [Flag](flag.html): The identity of a subject to list flags for\r\n* [Goal](goal.html): Who this goal is intended for\r\n* [ImagingStudy](imagingstudy.html): Who the study is about\r\n* [Immunization](immunization.html): The patient for the vaccination record\r\n* [List](list.html): If all resources have the same subject\r\n* [MedicationAdministration](medicationadministration.html): The identity of a patient to list administrations  for\r\n* [MedicationDispense](medicationdispense.html): The identity of a patient to list dispenses  for\r\n* [MedicationRequest](medicationrequest.html): Returns prescriptions for a specific patient\r\n* [MedicationStatement](medicationstatement.html): Returns statements for a specific patient.\r\n* [NutritionOrder](nutritionorder.html): The identity of the person who requires the diet, formula or nutritional supplement\r\n* [Observation](observation.html): The subject that the observation is about (if patient)\r\n* [Procedure](procedure.html): Search by subject - a patient\r\n* [RiskAssessment](riskassessment.html): Who/what does assessment apply to?\r\n* [ServiceRequest](servicerequest.html): Search by subject - a patient\r\n* [SupplyDelivery](supplydelivery.html): Patient for whom the item is supplied\r\n* [VisionPrescription](visionprescription.html): The identity of a patient to list dispenses for\r\n",
+        "code": "patient",
+        "base": [
+            "AllergyIntolerance",
+            "CarePlan",
+            "CareTeam",
+            "ClinicalImpression",
+            "Composition",
+            "Condition",
+            "Consent",
+            "DetectedIssue",
+            "DeviceRequest",
+            "DeviceUseStatement",
+            "DiagnosticReport",
+            "DocumentManifest",
+            "DocumentReference",
+            "Encounter",
+            "EpisodeOfCare",
+            "FamilyMemberHistory",
+            "Flag",
+            "Goal",
+            "ImagingStudy",
+            "Immunization",
+            "List",
+            "MedicationAdministration",
+            "MedicationDispense",
+            "MedicationRequest",
+            "MedicationStatement",
+            "NutritionOrder",
+            "Observation",
+            "Procedure",
+            "RiskAssessment",
+            "ServiceRequest",
+            "SupplyDelivery",
+            "VisionPrescription"
+        ],
+        "type": "reference",
+        "expression": "AllergyIntolerance.patient | CarePlan.subject | CareTeam.subject | ClinicalImpression.subject | Composition.subject | Condition.subject | Consent.patient | DetectedIssue.patient | DeviceRequest.subject | DeviceUseStatement.subject | DiagnosticReport.subject | DocumentManifest.subject | DocumentReference.subject | Encounter.subject | EpisodeOfCare.patient | FamilyMemberHistory.patient | Flag.subject | Goal.subject | ImagingStudy.subject | Immunization.patient | List.subject | MedicationAdministration.subject | MedicationDispense.subject | MedicationRequest.subject | MedicationStatement.subject | NutritionOrder.patient | Observation.subject | Procedure.subject | RiskAssessment.subject | ServiceRequest.subject | SupplyDelivery.patient | VisionPrescription.patient",
+        "xpath": "f:AllergyIntolerance/f:patient | f:CarePlan/f:subject | f:CareTeam/f:subject | f:ClinicalImpression/f:subject | f:Composition/f:subject | f:Condition/f:subject | f:Consent/f:patient | f:DetectedIssue/f:patient | f:DeviceRequest/f:subject | f:DeviceUseStatement/f:subject | f:DiagnosticReport/f:subject | f:DocumentManifest/f:subject | f:DocumentReference/f:subject | f:Encounter/f:subject | f:EpisodeOfCare/f:patient | f:FamilyMemberHistory/f:patient | f:Flag/f:subject | f:Goal/f:subject | f:ImagingStudy/f:subject | f:Immunization/f:patient | f:List/f:subject | f:MedicationAdministration/f:subject | f:MedicationDispense/f:subject | f:MedicationRequest/f:subject | f:MedicationStatement/f:subject | f:NutritionOrder/f:patient | f:Observation/f:subject | f:Procedure/f:subject | f:RiskAssessment/f:subject | f:ServiceRequest/f:subject | f:SupplyDelivery/f:patient | f:VisionPrescription/f:patient",
+        "xpathUsage": "normal",
+        "target": [
+            "Patient",
+            "Group"
+        ],
+        "multipleOr": true,
+        "multipleAnd": true,
+        "modifier": [
+            "missing",
+            "type",
+            "identifier"
+        ]
     }
   },
   {
@@ -24263,11 +24277,11 @@
       "modifier" : ["missing"],
       "component" : [{
         "definition" : "http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto",
-        "expression" : "code"
+        "expression" : "target"
       },
       {
         "definition" : "http://hl7.org/fhir/SearchParameter/DocumentReference-relation",
-        "expression" : "target"
+        "expression" : "code"
       }]
     }
   },
