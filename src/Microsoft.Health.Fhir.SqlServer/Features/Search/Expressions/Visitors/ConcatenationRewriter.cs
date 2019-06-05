@@ -14,12 +14,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal abstract class ConcatenationRewriter : SqlExpressionRewriterWithDefaultInitialContext<object>
     {
-        private readonly IExpressionVisitor<object, bool> _scout;
+        private readonly IExpressionVisitor<object, bool> _booleanScout;
+        private readonly ExpressionRewriter<object> _rewritingScout;
 
         protected ConcatenationRewriter(IExpressionVisitor<object, bool> scout)
         {
             EnsureArg.IsNotNull(scout, nameof(scout));
-            _scout = scout;
+            _booleanScout = scout;
+        }
+
+        protected ConcatenationRewriter(ExpressionRewriter<object> scout)
+        {
+            EnsureArg.IsNotNull(scout, nameof(scout));
+            _rewritingScout = scout;
         }
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
@@ -33,8 +40,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             for (var i = 0; i < expression.TableExpressions.Count; i++)
             {
                 TableExpression tableExpression = expression.TableExpressions[i];
+                bool found = false;
 
-                if (tableExpression.NormalizedPredicate.AcceptVisitor(_scout, null))
+                if (_rewritingScout != null)
+                {
+                    var newNormalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(_rewritingScout, null);
+                    if (!ReferenceEquals(newNormalizedPredicate, tableExpression.NormalizedPredicate))
+                    {
+                        found = true;
+                        tableExpression = new TableExpression(tableExpression.SearchParameterQueryGenerator, newNormalizedPredicate, tableExpression.DenormalizedPredicate);
+                    }
+                }
+                else
+                {
+                    found = tableExpression.NormalizedPredicate.AcceptVisitor(_booleanScout, null);
+                }
+
+                if (found)
                 {
                     if (newTableExpressions == null)
                     {

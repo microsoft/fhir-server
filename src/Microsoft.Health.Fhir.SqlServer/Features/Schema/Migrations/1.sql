@@ -714,7 +714,8 @@ CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     StartDateTime datetimeoffset(7) NOT NULL,
-    EndDateTime datetimeoffset(7) NOT NULL
+    EndDateTime datetimeoffset(7) NOT NULL,
+    IsLongerThanADay bit NOT NULL
 )
 
 CREATE TABLE dbo.DateTimeSearchParam
@@ -724,6 +725,7 @@ CREATE TABLE dbo.DateTimeSearchParam
     SearchParamId smallint NOT NULL,
     StartDateTime datetime2(7) NOT NULL,
     EndDateTime datetime2(7) NOT NULL,
+    IsLongerThanADay bit NOT NULL,
     IsHistory bit NOT NULL
 )
 
@@ -745,7 +747,8 @@ ON dbo.DateTimeSearchParam
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    IsLongerThanADay
 )
 WHERE IsHistory = 0
 
@@ -758,9 +761,37 @@ ON dbo.DateTimeSearchParam
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    IsLongerThanADay
 )
 WHERE IsHistory = 0
+
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    StartDateTime,
+    EndDateTime
+)
+INCLUDE
+(
+    ResourceTypeId
+)
+WHERE IsHistory = 0 AND IsLongerThanADay = 1
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    EndDateTime,
+    StartDateTime
+)
+INCLUDE
+(
+    ResourceTypeId
+)
+WHERE IsHistory = 0 AND IsLongerThanADay = 1
 
 GO
 
@@ -883,7 +914,8 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetimeoffset(7) NOT NULL,
-    EndDateTime2 datetimeoffset(7) NOT NULL
+    EndDateTime2 datetimeoffset(7) NOT NULL,
+    IsLongerThanADay2 bit NOT NULL
 )
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
@@ -895,6 +927,7 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
+    IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -919,7 +952,8 @@ ON dbo.TokenDateTimeCompositeSearchParam
 INCLUDE
 (
     ResourceTypeId,
-    SystemId1
+    SystemId1,
+    IsLongerThanADay2
 )
 
 WHERE IsHistory = 0
@@ -936,9 +970,43 @@ ON dbo.TokenDateTimeCompositeSearchParam
 INCLUDE
 (
     ResourceTypeId,
-    SystemId1
+    SystemId1,
+    IsLongerThanADay2
 )
 WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long
+ON dbo.TokenDateTimeCompositeSearchParam
+(
+    SearchParamId,
+    Code1,
+    StartDateTime2,
+    EndDateTime2
+)
+INCLUDE
+(
+    ResourceTypeId,
+    SystemId1
+)
+
+WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
+WITH (DATA_COMPRESSION = PAGE)
+
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long
+ON dbo.TokenDateTimeCompositeSearchParam
+(
+    SearchParamId,
+    Code1,
+    EndDateTime2,
+    StartDateTime2
+)
+INCLUDE
+(
+    ResourceTypeId,
+    SystemId1
+)
+WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE)
 
 GO
@@ -1530,8 +1598,8 @@ AS
     FROM @quantitySearchParams
 
     INSERT INTO dbo.DateTimeSearchParam
-        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsHistory)
-    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, 0
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0
     FROM @dateTimeSearchParms
 
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
@@ -1545,8 +1613,8 @@ AS
     FROM @tokenTokenCompositeSearchParams
 
     INSERT INTO dbo.TokenDateTimeCompositeSearchParam
-        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsHistory)
-    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, 0
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, 0
     FROM @tokenDateTimeCompositeSearchParams
 
     INSERT INTO dbo.TokenQuantityCompositeSearchParam

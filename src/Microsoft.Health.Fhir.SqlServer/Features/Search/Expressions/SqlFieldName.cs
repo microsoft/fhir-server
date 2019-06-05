@@ -16,5 +16,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         public const FieldName NumberHigh = (FieldName)104;
         public const FieldName QuantityLow = (FieldName)105;
         public const FieldName QuantityHigh = (FieldName)108;
+        public const FieldName DateTimeIsLongerThanADay = (FieldName)109;
     }
 }

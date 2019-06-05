@@ -10,11 +10,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public enum BinaryOperator
     {
-        Equal,
-        GreaterThan,
-        GreaterThanOrEqual,
-        LessThan,
-        LessThanOrEqual,
-        NotEqual,
+        Equal = 0,
+        GreaterThan = 1,
+        GreaterThanOrEqual = 2,
+        LessThan = 3,
+        LessThanOrEqual = 4,
+        NotEqual = 5,
     }
 }

@@ -76,22 +76,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 var argument = inputArray[index];
                 var rewrittenArgument = (TExpression)argument.AcceptVisitor(this, context);
+
                 if (!ReferenceEquals(rewrittenArgument, argument))
                 {
-                    if (outputArray == null)
-                    {
-                        outputArray = new TExpression[inputArray.Count];
-                        for (int i = 0; i < inputArray.Count; i++)
-                        {
-                            outputArray[i] = inputArray[i];
-                        }
-                    }
+                    EnsureAllocatedAndPopulated(ref outputArray, inputArray, index);
+                }
 
+                if (outputArray != null)
+                {
                     outputArray[index] = rewrittenArgument;
                 }
             }
 
             return outputArray ?? inputArray;
+        }
+
+        protected static void EnsureAllocatedAndPopulated<TExpression>(ref TExpression[] destination, IReadOnlyList<TExpression> source, int count)
+            where TExpression : Expression
+        {
+            if (destination == null)
+            {
+                destination = new TExpression[source.Count];
+                for (int j = 0; j < count; j++)
+                {
+                    destination[j] = source[j];
+                }
+            }
+        }
+
+        protected static void EnsureAllocatedAndPopulated<TExpression>(ref List<TExpression> destination, IReadOnlyList<TExpression> source, int count)
+            where TExpression : Expression
+        {
+            if (destination == null)
+            {
+                destination = new List<TExpression>();
+                for (int j = 0; j < count; j++)
+                {
+                    destination[j] = source[j];
+                }
+            }
         }
     }
 }
