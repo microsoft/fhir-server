@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -220,6 +221,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.Equal(queryParameters, options.UnsupportedSearchParams);
+        }
+
+        [Fact]
+        public void GivenASearchParamWithEmptyKey_WhenCreated_ThenExceptionThrown()
+        {
+            const ResourceType resourceType = ResourceType.Patient;
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(string.Empty, "city"),
+            };
+
+            RequestNotValidException exception = Assert.Throws<RequestNotValidException>(() =>
+                CreateSearchOptions(
+                    resourceType: resourceType.ToString(),
+                    queryParameters: queryParameters));
+            Assert.Same(Core.Resources.SearchParameterKeyRequired, exception.Message);
+        }
+
+        [Fact]
+        public void GivenMultipleSearchParamsWithEmptyKey_WhenCreated_ThenExceptionThrown()
+        {
+            const ResourceType resourceType = ResourceType.Patient;
+
+            var queryParameters = new[]
+            {
+                Tuple.Create("patient", "city"),
+                Tuple.Create(string.Empty, "anotherCity"),
+            };
+
+            RequestNotValidException exception = Assert.Throws<RequestNotValidException>(() =>
+                CreateSearchOptions(
+                    resourceType: resourceType.ToString(),
+                    queryParameters: queryParameters));
+            Assert.Same(Core.Resources.SearchParameterKeyRequired, exception.Message);
         }
 
         [Fact]
