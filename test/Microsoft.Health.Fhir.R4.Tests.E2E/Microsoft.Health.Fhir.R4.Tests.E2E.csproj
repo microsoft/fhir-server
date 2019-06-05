@@ -44,7 +44,7 @@
     </None>
   </ItemGroup>
 
-  <Import Project="..\Microsoft.Health.Fhir.Tests.E2E.Shared\Microsoft.Health.Fhir.Tests.E2E.Shared.projitems" Label="Shared" />
+  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems" Label="Shared" />
   <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="Microsoft.AspNetCore.Mvc.Testing.targets" />
 

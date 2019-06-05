@@ -17,6 +17,6 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Core.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Common")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.E2E.Stu3")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.E2E.R4")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Tests.E2E")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Tests.E2E")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Integration")]
