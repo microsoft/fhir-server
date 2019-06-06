@@ -57,9 +57,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 T result = FhirClient.CreateResourcesAsync<T>(() =>
                 {
-                    T observation = Samples.GetJsonSample<T>(testFileName);
+                    T resource = Samples.GetJsonSample<T>(testFileName);
 
-                    switch (observation)
+                    switch (resource)
                     {
                         case Observation o:
                             o.Identifier.Add(new Identifier(null, TestSessionId));
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             break;
                     }
 
-                    return observation;
+                    return resource;
                 }).Result;
 
                 resultDictionary.Add(testFileName, result);

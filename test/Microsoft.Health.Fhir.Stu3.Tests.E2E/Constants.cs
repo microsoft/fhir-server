@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E
 {
     public static class Constants
     {
-        public const string TestEnvironmentVariableVersionModifier = "";
+        public const string TestEnvironmentVariableVersionSuffix = "";
     }
 }

@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
             Thread.Sleep(500);  // put a small gap between since and the first edits
-            ////_createdResource.Resource.Comment = "Changed by E2E test";
+            _createdResource.Resource.Text = new Narrative { Div = "Changed by E2E test" };
 
             var updatedResource = Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
 
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var obsHistory = readResponse.Resource.Entry[0].Resource as Observation;
 
             Assert.NotNull(obsHistory);
-            ////Assert.Contains("Changed by E2E test", obsHistory.Comment);
+            Assert.Contains("Changed by E2E test", obsHistory.Text.Div);
 
             FhirResponse<Bundle> selfLinkResponse = Client.SearchAsync(readResponse.Resource.SelfLink.ToString()).Result;
 
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             obsHistory = selfLinkResponse.Resource.Entry[0].Resource as Observation;
 
             Assert.NotNull(obsHistory);
-            ////Assert.Contains("Changed by E2E test", obsHistory.Comment);
+            Assert.Contains("Changed by E2E test", obsHistory.Text.Div);
         }
 
         [Fact(Skip ="History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Thread.Sleep(500);  // put a small gap between since and the first edits
 
-            ////_createdResource.Resource.Comment = "Changed by E2E test";
+            _createdResource.Resource.Text = new Narrative { Div = "Changed by E2E test" };
             Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
             FhirResponse<Resource> newPatient = Client.CreateAsync(Samples.GetDefaultPatient().ToPoco()).GetAwaiter().GetResult();
 
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.NotNull(obsHistory);
             Assert.NotNull(patientHistory);
-            ////Assert.Contains("Changed by E2E test", obsHistory.Comment);
+            Assert.Contains("Changed by E2E test", obsHistory.Text.Div);
             Assert.Equal(newPatient.Resource.Id, patientHistory.Id);
 
             if (newPatient?.Resource != null)
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Thread.Sleep(500);  // put a small gap between since and the first edits
 
             // First make a few edits
-            ////_createdResource.Resource.Comment = "Changed by E2E test";
+            _createdResource.Resource.Text = new Narrative { Div = "Changed by E2E test" };
             await Client.UpdateAsync<Observation>(_createdResource);
             newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient().ToPoco()));
             newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco()));
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // The batch test does not work reliably on local Cosmos DB Emulator
             // Skip the test if this is local
             // There is no remote FHIR server. Skip test
-            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionModifier}")))
+            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}")))
             {
                 return;
             }
@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var newResources = new List<Resource>();
 
             // First make 11 edits
-            ////_createdResource.Resource.Comment = "Changed by E2E test";
+            _createdResource.Resource.Text = new Narrative { Div = "Changed by E2E test" };
             await Client.UpdateAsync<Observation>(_createdResource);
             newResources.Add(await Client.CreateAsync(Samples.GetDefaultPatient().ToPoco()));
             newResources.Add(await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco()));
@@ -253,8 +253,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public void WhenGettingSystemHistory_GivenAValueForSinceAfterAllModificatons_TheServerShouldReturnAnEmptyResult()
         {
-            ////_createdResource.Resource.Comment = "Changed by E2E test";
-
+            _createdResource.Resource.Text = new Narrative { Div = "Changed by E2E test" };
             var updatedResource = Client.UpdateAsync<Observation>(_createdResource).GetAwaiter().GetResult();
 
             // ensure that the server has fully processed the PUT
@@ -270,7 +269,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public void WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithNoModifications_TheServerShouldReturnAnEmptyResult()
         {
-            ////_createdResource.Resource.Comment = "Changed by E2E test";
+            _createdResource.Resource.Text = new Narrative { Div = "Changed by E2E test" };
             var updatedResource = Client.UpdateAsync<Observation>(_createdResource).Result;
 
             // ensure that the server has fully processed the PUT
