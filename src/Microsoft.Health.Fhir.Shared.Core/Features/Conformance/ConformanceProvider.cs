@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             await _configuredConformanceProvider.GetCapabilityStatementAsync(cancellationToken);
 
                         _capabilityStatement =
-                            generated.Intersect(configured.ToPoco() as CapabilityStatement, _conformanceConfiguration.UseStrictConformance);
+                            generated.Intersect(configured.ToPoco<CapabilityStatement>(), _conformanceConfiguration.UseStrictConformance);
 
                         _capabilityStatement.UrlElement = new FhirUri(_urlResolver.ResolveMetadataUrl(false));
                     }

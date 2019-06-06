@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             }
 
             var typedStatement = await _conformanceProvider.GetCapabilityStatementAsync();
-            CapabilityStatement statement = typedStatement.ToPoco() as CapabilityStatement;
+            CapabilityStatement statement = typedStatement.ToPoco<CapabilityStatement>();
 
             return _supportedFormats.GetOrAdd(resourceFormat, format =>
             {

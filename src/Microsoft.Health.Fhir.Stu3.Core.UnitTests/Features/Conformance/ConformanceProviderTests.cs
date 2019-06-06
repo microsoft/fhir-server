@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 Options.Create(config));
 
             var typedCapabilityStatement = await provider.GetCapabilityStatementAsync();
-            var capabilityStatement = typedCapabilityStatement.ToPoco() as CapabilityStatement;
+            var capabilityStatement = typedCapabilityStatement.ToPoco<CapabilityStatement>();
 
             Assert.NotNull(capabilityStatement.Software);
             Assert.Equal("Microsoft FHIR Server", capabilityStatement.Software.Name);
