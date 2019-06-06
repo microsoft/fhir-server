@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (expression.MultiaryOperation == MultiaryOperator.Or)
             {
-                context.StringBuilder.Append(")");
+                context.StringBuilder.Append(')');
             }
 
             context.StringBuilder.AppendLine();
@@ -67,9 +67,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
-        private static string EscapeValueForLike(string value)
+        private static bool TryEscapeValueForLike(ref string value)
         {
-            return LikeEscapingRegex.Replace(value, "!$0");
+            var escapedValue = LikeEscapingRegex.Replace(value, "!$0");
+            if (escapedValue != value)
+            {
+                value = escapedValue;
+                return true;
+            }
+
+            return false;
         }
 
         protected SqlQueryGenerator VisitSimpleBinary(BinaryOperator binaryOperator, SqlQueryGenerator context, Column column, int? componentIndex, object value)
@@ -109,15 +116,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1);
 
+            bool needsEscaping = false;
             switch (expression.StringOperator)
             {
                 case StringOperator.Contains:
-                    SqlParameter containsParameter = context.Parameters.AddParameter(column, $"%{EscapeValueForLike(value)}%");
-                    context.StringBuilder.Append(" LIKE ").Append(containsParameter.ParameterName).Append(" ESCAPE '!'");
+                    needsEscaping = TryEscapeValueForLike(ref value);
+                    SqlParameter containsParameter = context.Parameters.AddParameter(column, $"%{value}%");
+                    context.StringBuilder.Append(" LIKE ").Append(containsParameter.ParameterName);
                     break;
                 case StringOperator.EndsWith:
-                    SqlParameter endWithParameter = context.Parameters.AddParameter(column, $"%{EscapeValueForLike(value)}");
-                    context.StringBuilder.Append(" LIKE ").Append(endWithParameter.ParameterName).Append(" ESCAPE '!'");
+                    needsEscaping = TryEscapeValueForLike(ref value);
+                    SqlParameter endWithParameter = context.Parameters.AddParameter(column, $"%{value}");
+                    context.StringBuilder.Append(" LIKE ").Append(endWithParameter.ParameterName);
                     break;
                 case StringOperator.Equals:
                     SqlParameter equalsParameter = context.Parameters.AddParameter(column, value);
@@ -133,11 +143,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     context.StringBuilder.Append(" NOT ");
                     goto case StringOperator.StartsWith;
                 case StringOperator.StartsWith:
-                    SqlParameter startsWithParameter = context.Parameters.AddParameter(column, $"{EscapeValueForLike(value)}%");
-                    context.StringBuilder.Append(" LIKE ").Append(startsWithParameter.ParameterName).Append(" ESCAPE '!'");
+                    needsEscaping = TryEscapeValueForLike(ref value);
+                    SqlParameter startsWithParameter = context.Parameters.AddParameter(column, $"{value}%");
+                    context.StringBuilder.Append(" LIKE ").Append(startsWithParameter.ParameterName);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(expression.StringOperator.ToString());
+            }
+
+            if (needsEscaping)
+            {
+                context.StringBuilder.Append(" ESCAPE '!'");
             }
 
             if (column.IsAcentSensitive == null || column.IsCaseSensitive == null ||

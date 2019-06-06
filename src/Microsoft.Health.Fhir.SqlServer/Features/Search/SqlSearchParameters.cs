@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         public const string ResourceSurrogateIdParameterName = "_resourceSurrogateId";
 
-        public static readonly Uri ResourceSurrogateIdUri = new Uri("http://hl7.org/fhir/SearchParameter/Resource-surrogateId");
+        public static readonly Uri ResourceSurrogateIdUri = new Uri("http://fhirserverforazure.microsoft.com/fhir/SearchParameter/Resource-surrogateid");
 
         public static readonly SearchParameterInfo ResourceSurrogateIdParameter = new SearchParameterInfo(ResourceSurrogateIdParameterName, ResourceSurrogateIdUri, SearchParamType.Number, null);
     }

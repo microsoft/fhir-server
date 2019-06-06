@@ -12,9 +12,9 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Turns predicates over _ka
+    /// Turns predicates over _lastUpdated to be over ResourceSurrogateId
     /// </summary>
-    internal class LastUpdatedToResourceSurrogateIdRewriter : SqlExpressionRewriterWithDefaultInitialContext<object>
+    internal class LastUpdatedToResourceSurrogateIdRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
         internal static readonly LastUpdatedToResourceSurrogateIdRewriter Instance = new LastUpdatedToResourceSurrogateIdRewriter();
 

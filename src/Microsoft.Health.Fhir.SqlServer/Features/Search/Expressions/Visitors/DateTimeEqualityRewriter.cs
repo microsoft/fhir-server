@@ -15,12 +15,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// It looks specifically for this pattern because it is what we emit in the core layer for an equals search over a date parameter.
     /// This rewriting constrains the range scan over the index (DateTimeStart, DateTimeEnd).
     /// </summary>
-    internal class DateTimeEqualityRewriter : ExpressionRewriterWithDefaultInitialContext<object>
+    internal class DateTimeEqualityRewriter : ExpressionRewriterWithInitialContext<object>
     {
         internal static readonly DateTimeEqualityRewriter Instance = new DateTimeEqualityRewriter();
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
+            // include composites because they may contain dates.
+
             if (expression.Parameter.Type == SearchParamType.Date ||
                 expression.Parameter.Type == SearchParamType.Composite)
             {

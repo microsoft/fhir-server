@@ -16,12 +16,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SqlQueryGenerator VisitCompartment(CompartmentSearchExpression expression, SqlQueryGenerator context)
         {
-            byte compartmentId = context.Model.GetCompartmentId(expression.CompartmentType);
+            byte compartmentTypeId = context.Model.GetCompartmentTypeId(expression.CompartmentType);
 
             context.StringBuilder
                 .Append(V1.CompartmentAssignment.CompartmentTypeId)
                 .Append(" = ")
-                .Append(context.Parameters.AddParameter(V1.CompartmentAssignment.CompartmentTypeId, compartmentId))
+                .Append(context.Parameters.AddParameter(V1.CompartmentAssignment.CompartmentTypeId, compartmentTypeId))
                 .AppendLine()
                 .Append("AND ")
                 .Append(V1.CompartmentAssignment.ReferenceResourceId)

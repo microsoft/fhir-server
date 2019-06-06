@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 version.ToString(CultureInfo.InvariantCulture),
                                 _model.GetResourceTypeName(resourceTypeId),
                                 new RawResource(rawResource, FhirResourceFormat.Json),
-                                new ResourceRequest(default(Uri), requestMethod),
+                                new ResourceRequest(requestMethod),
                                 new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                 isDeleted,
                                 null,
@@ -205,6 +205,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     .Append(p.SqlDbType)
                     .Append(p.Value is string ? $"({p.Size})" : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
                     .Append(" = ")
+                    .Append(p.SqlDbType == SqlDbType.NChar || p.SqlDbType == SqlDbType.NText || p.SqlDbType == SqlDbType.NVarChar ? "N" : null)
                     .Append(p.Value is string || p.Value is DateTime ? $"'{p.Value}'" : p.Value.ToString())
                     .AppendLine(";");
             }

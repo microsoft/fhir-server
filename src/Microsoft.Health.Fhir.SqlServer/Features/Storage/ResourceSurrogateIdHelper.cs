@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
-    /// The resource surrogate ID is actually the modification datetime with a "uniquifier" added to it by the database.
+    /// The resource surrogate ID is actually the last modified datetime with a "uniquifier" added to it by the database.
     /// The DateTime is truncated to millisecond precision, turned into its 100ns ticks representation, and then left bit-shifted by 3.
     /// </summary>
     internal static class ResourceSurrogateIdHelper
