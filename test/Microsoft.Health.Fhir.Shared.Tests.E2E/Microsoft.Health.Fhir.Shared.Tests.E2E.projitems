@@ -61,9 +61,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyBadRequestTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyTestFixture.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
