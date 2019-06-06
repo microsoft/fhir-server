@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return expression;
         }
 
-        private class Scout : ExpressionRewriterWithDefaultInitialContext<object>
+        private class Scout : ExpressionRewriterWithInitialContext<object>
         {
             public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
             {

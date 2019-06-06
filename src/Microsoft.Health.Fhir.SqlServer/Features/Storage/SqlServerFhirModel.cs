@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _searchParamUriToId[searchParamUri];
         }
 
-        public byte GetCompartmentId(string compartmentType)
+        public byte GetCompartmentTypeId(string compartmentType)
         {
             ThrowIfNotInitialized();
             return _compartmentTypeToId[compartmentType];

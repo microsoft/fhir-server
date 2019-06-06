@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// For example, probability=gt0.8&amp;probability=lt0.9 will end up as separate table expressions,
     /// but the query will be more efficient if they are combined.
     /// </summary>
-    internal class TableExpressionCombiner : SqlExpressionRewriterWithDefaultInitialContext<object>
+    internal class TableExpressionCombiner : SqlExpressionRewriterWithInitialContext<object>
     {
         internal static readonly TableExpressionCombiner Instance = new TableExpressionCombiner();
 

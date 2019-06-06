@@ -1263,7 +1263,7 @@ GO
 -- PARAMETERS
 --     @baseResourceSurrogateId
 --         * A bigint to which a value between [0, 80000) is added, forming a unique ResourceSurrogateId.
---         * This value should be the current UTC datetime, truncated to millisecnd precision, with its 100ns ticks component bitshifted left by 3.
+--         * This value should be the current UTC datetime, truncated to millisecond precision, with its 100ns ticks component bitshifted left by 3.
 --     @resourceTypeId
 --         * The ID of the resource type (See ResourceType table)
 --     @resourceid

@@ -54,11 +54,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return parameter;
         }
 
-        private string NextParameterName() => $"@p{_parameters.Count}";
-
         public SqlParameter AddParameter(object value)
         {
             return _parameters.AddWithValue(NextParameterName(), value);
         }
+
+        private string NextParameterName() => $"@p{_parameters.Count}";
     }
 }
