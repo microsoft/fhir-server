@@ -86,25 +86,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
 
                 // TODO: For now, always restart from the beginning. We will support resume in another work item.
-                exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
+                _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
 
-                ExportJobProgress progress = exportJobRecord.Progress;
+                ExportJobProgress progress = _exportJobRecord.Progress;
 
                 // Current page will be used to organize a set of search results into a group so that they can be committed together.
-                uint currentPage = progress.Page;
+                uint currentBatchId = progress.Page;
 
                 // The first item is placeholder for continuation token so that it can be updated efficiently later.
                 var queryParameters = new Tuple<string, string>[]
                 {
                     null,
                     Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
-                    Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
+                    Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
                 };
 
                 // Process the export if:
                 // 1. There is continuation token, which means there is more resource to be exported.
                 // 2. There is no continuation token but the page is 0, which means it's the initial export.
-                while (progress.ContinuationToken != null || (progress.ContinuationToken == null && progress.Page == 0))
+                while (progress.ContinuationToken != null || progress.Page == 0)
                 {
                     // Commit the changes if necessary.
                     if (progress.Page != 0 && progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
@@ -114,17 +114,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         // Update the job record.
                         await UpdateJobRecord(_exportJobRecord, cancellationToken);
 
-                        currentPage = progress.Page;
+                        currentBatchId = progress.Page;
                     }
 
                     // Set the continuation token.
                     queryParameters[0] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
 
-                    SearchResult searchResult = await _searchService.SearchAsync(exportJobRecord.ResourceType, queryParameters, cancellationToken);
+                    SearchResult searchResult = await _searchService.SearchAsync(_exportJobRecord.ResourceType, queryParameters, cancellationToken);
 
                     foreach (ResourceWrapper resourceWrapper in searchResult.Results)
                     {
-                        await ProcessResourceWrapperAsync(resourceWrapper, currentPage, cancellationToken);
+                        await ProcessResourceWrapperAsync(resourceWrapper, currentBatchId, cancellationToken);
                     }
 
                     if (searchResult.ContinuationToken == null)
@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
 
             // Increment the file information.
-            exportFileInfo.Increment(bytesToWrite.Length);
+            exportFileInfo.IncrementCount(bytesToWrite.Length);
         }
     }
 }

@@ -48,10 +48,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.CommitedBytes)]
         public long CommittedBytes { get; private set; }
 
-        public void Increment(int numberOfBytes)
+        public void IncrementCount(int numberOfBytes)
         {
-            CommittedBytes += numberOfBytes;
             Count++;
+            CommittedBytes += numberOfBytes;
         }
     }
 }

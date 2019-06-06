@@ -32,9 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ContinuationToken = continuationToken;
         }
 
-        public SearchResult(int? totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
+        public SearchResult(int totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
         {
-            EnsureArg.IsNotNull(totalCount, nameof(totalCount));
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
 
             Results = Enumerable.Empty<ResourceWrapper>();
