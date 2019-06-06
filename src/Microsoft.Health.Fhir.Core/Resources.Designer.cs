@@ -313,6 +313,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The given connection settings is not base64 encoded..
+        /// </summary>
+        internal static string InvalidConnectionSettings {
+            get {
+                return ResourceManager.GetString("InvalidConnectionSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The continuation token is invalid..
         /// </summary>
         internal static string InvalidContinuationToken {

@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Connect to the destination using appropriate client.
                 _exportDestinationClient = _exportDestinationClientFactory.Create(destinationInfo.DestinationType);
 
-                await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken);
+                await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
 
                 // TODO: For now, always restart from the beginning. We will support resume in another work item.
                 exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);

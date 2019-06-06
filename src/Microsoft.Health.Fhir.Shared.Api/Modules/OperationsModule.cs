@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -32,10 +33,13 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Transient()
                 .AsSelf();
 
-            services.Add<IExportDestinationClient>(sp => sp.GetRequiredService<AzureExportDestinationClient>())
+            services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<AzureExportDestinationClient>())
                 .Transient()
-                .AsSelf()
-                .AsFactory();
+                .AsSelf();
+
+            services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<InMemoryExportDestinationClient>())
+                .Transient()
+                .AsSelf();
 
             services.Add<ExportJobTask>()
                 .Transient()

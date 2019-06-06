@@ -25,20 +25,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
 
         public string DestinationType => "azure-block-blob";
 
-        public async Task ConnectAsync(string connectionSettings, CancellationToken cancellationToken)
+        public async Task ConnectAsync(string connectionSettings, CancellationToken cancellationToken, string containerId = null)
         {
             EnsureArg.IsNotNullOrWhiteSpace(connectionSettings, nameof(connectionSettings));
 
-            CloudStorageAccount cloudAccount = null;
-            if (!CloudStorageAccount.TryParse(connectionSettings, out cloudAccount))
+            string decodedConnectionString;
+            try
             {
-                throw new CantConnectToDestinationException();
+                decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
+            }
+            catch (FormatException)
+            {
+                throw new DestinationConnectionException(Resources.InvalidConnectionSettings);
+            }
+
+            if (!CloudStorageAccount.TryParse(decodedConnectionString, out CloudStorageAccount cloudAccount))
+            {
+                throw new DestinationConnectionException(Resources.CantConnectToDestination);
             }
 
             _blobClient = cloudAccount.CreateCloudBlobClient();
 
-            // We will need to accept a container name/reference instead of using root container.
-            _blobContainer = _blobClient.GetRootContainerReference();
+            // Use root container if no container id has been provided.
+            if (string.IsNullOrWhiteSpace(containerId))
+            {
+                _blobContainer = _blobClient.GetRootContainerReference();
+            }
+            else
+            {
+                _blobContainer = _blobClient.GetContainerReference(containerId);
+            }
+
             await _blobContainer.CreateIfNotExistsAsync();
         }
 
@@ -74,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         {
             CheckIfClientIsConnected();
 
+            var uploadAndCommitTasks = new List<Task>();
             foreach (KeyValuePair<(Uri, uint), Stream> mapping in _streamMappings)
             {
                 Stream stream = mapping.Value;
@@ -84,10 +102,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
                 CloudBlockBlobWrapper blobWrapper = _uriToBlobMapping[mapping.Key.Item1];
 
                 var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(mapping.Key.Item2.ToString("d6")));
-                await blobWrapper.UploadBlockAsync(blockId, mapping.Value, md5Hash: null, cancellationToken);
-
-                await blobWrapper.CommitBlockListAsync(cancellationToken);
+                uploadAndCommitTasks.Add(Task.Run(async () =>
+                {
+                    await blobWrapper.UploadBlockAsync(blockId, mapping.Value, md5Hash: null, cancellationToken);
+                    await blobWrapper.CommitBlockListAsync(cancellationToken);
+                }));
             }
+
+            await Task.WhenAll(uploadAndCommitTasks);
 
             // We can clear the stream mappings once we commit everything in memory.
             _streamMappings.Clear();
@@ -97,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         {
             if (_blobClient == null)
             {
-                throw new DestinationClientNotConnectedException();
+                throw new DestinationConnectionException(Resources.DestinationClientNotConnected);
             }
         }
     }

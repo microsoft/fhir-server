@@ -20,8 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
     /// </summary>
     public class CloudBlockBlobWrapper
     {
-        private HashSet<string> _existingBlockIds;
-        private CloudBlockBlob _cloudBlob;
+        private readonly List<string> _existingBlockIds;
+        private readonly CloudBlockBlob _cloudBlob;
 
         public CloudBlockBlobWrapper(CloudBlockBlob blockBlob)
         {
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
 
             // For now we assume that the blockblob we are using is always new. If it is an existing one,
             // we will have to get the existing list of block ids.
-            _existingBlockIds = new HashSet<string>();
+            _existingBlockIds = new List<string>();
         }
 
         public async Task UploadBlockAsync(string blockId, Stream data, string md5Hash, CancellationToken cancellationToken)

@@ -8,10 +8,10 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
 {
-    public class DestinationClientNotConnectedException : FhirException
+    public class DestinationConnectionException : FhirException
     {
-        public DestinationClientNotConnectedException()
-            : base(string.Format(Resources.DestinationClientNotConnected))
+        public DestinationConnectionException(string message)
+            : base(message)
         {
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
