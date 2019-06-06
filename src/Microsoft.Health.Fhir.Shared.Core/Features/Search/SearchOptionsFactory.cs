@@ -76,11 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     // TODO: We need to handle format parameter.
                 }
-                else if (string.IsNullOrWhiteSpace(query.Item1))
-                {
-                    throw new RequestNotValidException(Core.Resources.SearchParameterKeyRequired);
-                }
-                else if (string.IsNullOrWhiteSpace(query.Item2))
+                else if (string.IsNullOrWhiteSpace(query.Item1) || string.IsNullOrWhiteSpace(query.Item2))
                 {
                     // Query parameter with empty value is not supported.
                     unsupportedSearchParameters.Add(query);

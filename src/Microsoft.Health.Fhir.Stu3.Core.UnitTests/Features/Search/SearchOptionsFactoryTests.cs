@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -224,38 +223,81 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenASearchParamWithEmptyKey_WhenCreated_ThenExceptionThrown()
+        public void GivenASearchParameterWithEmptyKey_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
-            const ResourceType resourceType = ResourceType.Patient;
-
             var queryParameters = new[]
             {
                 Tuple.Create(string.Empty, "city"),
             };
 
-            RequestNotValidException exception = Assert.Throws<RequestNotValidException>(() =>
-                CreateSearchOptions(
-                    resourceType: resourceType.ToString(),
-                    queryParameters: queryParameters));
-            Assert.Same(Core.Resources.SearchParameterKeyRequired, exception.Message);
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters: queryParameters);
+            Assert.NotNull(options);
+            Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams);
         }
 
         [Fact]
-        public void GivenMultipleSearchParamsWithEmptyKey_WhenCreated_ThenExceptionThrown()
+        public void GivenSearchParametersWithEmptyKey_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
-            const ResourceType resourceType = ResourceType.Patient;
-
             var queryParameters = new[]
             {
                 Tuple.Create("patient", "city"),
                 Tuple.Create(string.Empty, "anotherCity"),
             };
 
-            RequestNotValidException exception = Assert.Throws<RequestNotValidException>(() =>
-                CreateSearchOptions(
-                    resourceType: resourceType.ToString(),
-                    queryParameters: queryParameters));
-            Assert.Same(Core.Resources.SearchParameterKeyRequired, exception.Message);
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            Assert.NotNull(options);
+            Assert.Equal(1, options.UnsupportedSearchParams.Count);
+            Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams);
+        }
+
+        [Fact]
+        public void GivenSearchParametersWithEmptyKeyEmptyValue_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        {
+            var queryParameters = new[]
+            {
+                Tuple.Create(" ", "city"),
+                Tuple.Create(string.Empty, string.Empty),
+            };
+
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            Assert.NotNull(options);
+            Assert.NotNull(options.UnsupportedSearchParams);
+            Assert.Equal(2, options.UnsupportedSearchParams.Count);
+            Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams.Take(1));
+            Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams.Skip(1).Take(1));
+        }
+
+        [Fact]
+        public void GivenSearchParametersWithEmptyKeyEmptyValueWithAnotherValidParameter_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        {
+            var queryParameters = new[]
+            {
+                Tuple.Create("patient", "city"),
+                Tuple.Create(string.Empty, string.Empty),
+            };
+
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            Assert.NotNull(options);
+            Assert.NotNull(options.UnsupportedSearchParams);
+            Assert.Equal(1, options.UnsupportedSearchParams.Count);
+            Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams);
+        }
+
+        [Fact]
+        public void GivenSearchParametersWithEmptyKeyEmptyValueWithAnotherInvalidParameter_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        {
+            var queryParameters = new[]
+            {
+                Tuple.Create(string.Empty, "city"),
+                Tuple.Create(string.Empty, string.Empty),
+            };
+
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            Assert.NotNull(options);
+            Assert.NotNull(options.UnsupportedSearchParams);
+            Assert.Equal(2, options.UnsupportedSearchParams.Count);
+            Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams.Take(1));
+            Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams.Skip(1).Take(1));
         }
 
         [Fact]
