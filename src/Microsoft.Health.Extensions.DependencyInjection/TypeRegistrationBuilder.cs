@@ -66,7 +66,7 @@ namespace Microsoft.Health.Extensions.DependencyInjection
         /// <returns>The registration builder</returns>
         public TypeRegistrationBuilder AsFactory<T>()
         {
-            var factoryMethod = _factoryGenericMethod.MakeGenericMethod(typeof(T));
+            var factoryMethod = _factoryGenericMethod.MakeGenericMethod(typeof(T), _firstRegisteredType ?? _type);
 
             factoryMethod.Invoke(null, new object[] { _serviceCollection });
 
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Extensions.DependencyInjection
         /// <returns>The registration builder</returns>
         public TypeRegistrationBuilder AsFactory()
         {
-            var factoryMethod = _factoryGenericMethod.MakeGenericMethod(_type);
+            var factoryMethod = _factoryGenericMethod.MakeGenericMethod(_type, _firstRegisteredType ?? _type);
 
             factoryMethod.Invoke(null, new object[] { _serviceCollection });
 

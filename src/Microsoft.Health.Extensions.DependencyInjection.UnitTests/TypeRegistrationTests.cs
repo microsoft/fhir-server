@@ -332,6 +332,27 @@ namespace Microsoft.Health.Extensions.DependencyInjection.UnitTests
             Assert.All(_collection, sd => Assert.Equal(typeof(List<string>), (sd as ServiceDescriptorWithMetadata)?.Metadata));
         }
 
+        [Fact]
+        public void GivenTwoService_WhenRegisteringWithAFactory_ThenIEnumerableCanResolveBoth()
+        {
+            _collection.Add(x => new string[0])
+                .Transient()
+                .AsSelf()
+                .AsFactory<IEnumerable<string>>();
+
+            _collection.Add(x => new List<string>())
+                .Transient()
+                .AsSelf()
+                .AsFactory<IEnumerable<string>>();
+
+            var ioc = _collection.BuildServiceProvider();
+
+            var resolvedServices = ioc.GetService<IEnumerable<Func<IEnumerable<string>>>>();
+
+            Assert.IsType<string[]>(resolvedServices.First().Invoke());
+            Assert.IsType<List<string>>(resolvedServices.Last().Invoke());
+        }
+
         private class TestScope : IScoped<IList<string>>
         {
             public TestScope(IList<string> value)

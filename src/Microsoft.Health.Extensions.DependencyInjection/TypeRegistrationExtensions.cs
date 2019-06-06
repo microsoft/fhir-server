@@ -58,16 +58,29 @@ namespace Microsoft.Health.Extensions.DependencyInjection
         /// <param name="serviceCollection">The service collection.</param>
         public static void AddFactory<T>(this IServiceCollection serviceCollection)
         {
+            AddFactory<T, T>(serviceCollection);
+        }
+
+        /// <summary>
+        /// Adds a service that allows a factory to be injected that resolves the specified type (Func{T}).
+        /// This is useful where the type being resolved should be as-needed, or multiple instances need to be created
+        /// </summary>
+        /// <typeparam name="TReturn">Type of service to be returned</typeparam>
+        /// <typeparam name="TImplementation">Type of service to be registered</typeparam>
+        /// <param name="serviceCollection">The service collection.</param>
+        public static void AddFactory<TReturn, TImplementation>(this IServiceCollection serviceCollection)
+        {
             EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
 
-            Type typeArguments = typeof(T);
-            Type factoryFunc = typeof(Func<>).MakeGenericType(typeArguments);
+            Type typeArgumentReturn = typeof(TReturn);
+            Type typeArgumentImpl = typeof(TImplementation);
+            Type factoryFunc = typeof(Func<>).MakeGenericType(typeArgumentReturn);
 
             MethodInfo factoryMethod = typeof(TypeRegistrationExtensions).GetMethod(nameof(Factory), BindingFlags.NonPublic | BindingFlags.Static);
 
             Debug.Assert(factoryMethod != null, $"{nameof(Factory)} was not found.");
 
-            MethodInfo implFactoryMethod = factoryMethod.MakeGenericMethod(typeArguments);
+            MethodInfo implFactoryMethod = factoryMethod.MakeGenericMethod(typeArgumentReturn, typeArgumentImpl);
             Delegate implDelegate = implFactoryMethod.CreateDelegate(typeof(Func<IServiceProvider, object>), null);
 
             serviceCollection.AddTransient(factoryFunc, (Func<IServiceProvider, object>)implDelegate);
@@ -95,9 +108,9 @@ namespace Microsoft.Health.Extensions.DependencyInjection
             serviceCollection.AddTransient(typeof(IScoped<>), typeof(Scoped<>));
         }
 
-        private static object Factory<T>(IServiceProvider provider)
+        private static object Factory<TReturn, TImplementation>(IServiceProvider provider)
         {
-            Func<T> factory = provider.GetService<T>;
+            Func<TReturn> factory = () => (TReturn)(object)provider.GetService<TImplementation>();
             return factory;
         }
 
