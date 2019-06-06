@@ -203,7 +203,7 @@
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
   <data name="InvalidConnectionSettings" xml:space="preserve">
-    <value>The given connection settings is not base64 encoded.</value>
+    <value>The given connection settings is not in proper format.</value>
   </data>
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The continuation token is invalid.</value>

@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
             {
                 decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
             }
-            catch (FormatException)
+            catch (Exception)
             {
                 throw new DestinationConnectionException(Resources.InvalidConnectionSettings);
             }

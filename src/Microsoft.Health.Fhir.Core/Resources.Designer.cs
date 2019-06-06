@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The given connection settings is not base64 encoded..
+        ///   Looks up a localized string similar to The given connection settings is not in proper format..
         /// </summary>
         internal static string InvalidConnectionSettings {
             get {
