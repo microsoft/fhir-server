@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// Turns an expression with a :missing=true search parameter expression and turns it into a
     /// <see cref="TableExpressionKind.NotExists"/> table expression with the condition negated
     /// </summary>
-    internal class MissingSearchParamVisitor : SqlExpressionRewriterWithDefaultInitialContext<object>
+    internal class MissingSearchParamVisitor : SqlExpressionRewriterWithInitialContext<object>
     {
         internal static readonly MissingSearchParamVisitor Instance = new MissingSearchParamVisitor();
 

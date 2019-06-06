@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// <summary>
     /// Constructs a <see cref="SqlRootExpression"/> by partitioning predicates into normalized and denormalized predicates.
     /// </summary>
-    internal class SqlRootExpressionRewriter : ExpressionRewriterWithDefaultInitialContext<int>
+    internal class SqlRootExpressionRewriter : ExpressionRewriterWithInitialContext<int>
     {
         private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
 

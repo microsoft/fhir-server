@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     public abstract class ExpressionRewriterWithInitialContext<TContext> : ExpressionRewriter<TContext>, IExpressionVisitorWithInitialContext<TContext, Expression>
     {
-        public abstract TContext InitialContext { get; }
+        public virtual TContext InitialContext => default;
     }
 }

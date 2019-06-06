@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         public void GivenARawResourceOfUnknownType_WhenDeserializing_ThenANotSupportedExceptionIsThrown()
         {
             var raw = new RawResource("{}", FhirResourceFormat.Unknown);
-            var wrapper = new ResourceWrapper("id1", "version1", "Observation", raw, new ResourceRequest("http://fhir", HttpMethod.Post), Clock.UtcNow, false, null, null, null);
+            var wrapper = new ResourceWrapper("id1", "version1", "Observation", raw, new ResourceRequest(HttpMethod.Post, "http://fhir"), Clock.UtcNow, false, null, null, null);
 
             Assert.Throws<NotSupportedException>(() => Deserializers.ResourceDeserializer.Deserialize(wrapper));
         }
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var observation = Samples.GetDefaultObservation()
                 .UpdateId("id1");
 
-            var wrapper = new ResourceWrapper(observation, _rawResourceFactory.Create(observation), new ResourceRequest("http://fhir", HttpMethod.Post), false, null, null, null);
+            var wrapper = new ResourceWrapper(observation, _rawResourceFactory.Create(observation), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
 
             var newObject = Deserializers.ResourceDeserializer.Deserialize(wrapper);
 

@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// These are predicates on the ResoruceSurrogateId and ResourceType columns. The idea is to make these
     /// queries as selective as possible.
     /// </summary>
-    internal class DenormalizedPredicateRewriter : ExpressionRewriterWithDefaultInitialContext<object>, ISqlExpressionVisitor<object, Expression>
+    internal class DenormalizedPredicateRewriter : ExpressionRewriterWithInitialContext<object>, ISqlExpressionVisitor<object, Expression>
     {
         public static readonly DenormalizedPredicateRewriter Instance = new DenormalizedPredicateRewriter();
 

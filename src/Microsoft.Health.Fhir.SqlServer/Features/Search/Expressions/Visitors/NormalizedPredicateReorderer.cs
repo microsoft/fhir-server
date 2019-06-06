@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// <summary>
     /// Reorders table expressions by expected selectivity. Most selective are moved to the front.
     /// </summary>
-    internal class NormalizedPredicateReorderer : SqlExpressionRewriterWithDefaultInitialContext<object>
+    internal class NormalizedPredicateReorderer : SqlExpressionRewriterWithInitialContext<object>
     {
         public static readonly NormalizedPredicateReorderer Instance = new NormalizedPredicateReorderer();
 
