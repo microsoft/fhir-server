@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    public abstract class ExpressionRewriterWithDefaultInitialContext<TContext> : ExpressionRewriterWithInitialContext<TContext>
+    internal abstract class SqlExpressionRewriterWithInitialContext<TContext> : SqlExpressionRewriter<TContext>, IExpressionVisitorWithInitialContext<TContext, Expression>
     {
-        public override TContext InitialContext => default;
+        public virtual TContext InitialContext => default;
     }
 }

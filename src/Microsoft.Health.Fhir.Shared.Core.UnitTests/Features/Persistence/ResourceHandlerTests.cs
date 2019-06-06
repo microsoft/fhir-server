@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             return new ResourceWrapper(
                 resource,
                 _rawResourceFactory.Create(resource),
-                new ResourceRequest("http://fhir", HttpMethod.Post),
+                new ResourceRequest(HttpMethod.Post, "http://fhir"),
                 isDeleted,
                 null,
                 null,
@@ -335,7 +335,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             return Substitute.For<ResourceWrapper>(
                 resource,
                 _rawResourceFactory.Create(resource),
-                new ResourceRequest("http://fhir", HttpMethod.Put),
+                new ResourceRequest(HttpMethod.Put, "http://fhir"),
                 isDeleted,
                 null,
                 null,

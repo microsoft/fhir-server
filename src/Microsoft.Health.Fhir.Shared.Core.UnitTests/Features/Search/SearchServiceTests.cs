@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private readonly TestSearchService _searchService;
         private readonly RawResourceFactory _rawResourceFactory;
-        private readonly ResourceRequest _resourceRequest = new ResourceRequest("http://fhir", HttpMethod.Post);
+        private readonly ResourceRequest _resourceRequest = new ResourceRequest(HttpMethod.Post, "http://fhir");
         private readonly string _correlationId;
         private readonly IFhirDataStore _fhirDataStore;
 

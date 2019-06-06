@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public NormalizedSearchParameterQueryGenerator VisitBinary(BinaryExpression expression, object context)
         {
-            throw new InvalidOperationException("Should not get here");
+            throw new InvalidOperationException("Not expecting a BinaryExpression under a Token search param.");
         }
 
         public NormalizedSearchParameterQueryGenerator VisitChained(ChainedExpression expression, object context)

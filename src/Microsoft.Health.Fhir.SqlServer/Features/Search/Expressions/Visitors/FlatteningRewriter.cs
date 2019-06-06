@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// (And (And a b) (And c d)) -> (And a b c d)
     /// (And a) -> a
     /// </summary>
-    internal class FlatteningRewriter : ExpressionRewriterWithDefaultInitialContext<object>
+    internal class FlatteningRewriter : ExpressionRewriterWithInitialContext<object>
     {
         public static readonly FlatteningRewriter Instance = new FlatteningRewriter();
 

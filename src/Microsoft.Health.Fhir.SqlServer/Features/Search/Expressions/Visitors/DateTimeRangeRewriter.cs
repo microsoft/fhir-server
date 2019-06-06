@@ -15,12 +15,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// (And (FieldGreaterThanOrEqual DateTimeStart x) (FieldLessThanOrEqual DateTimeEnd y) (FieldLessThanOrEqual DateTimeStart y)).
     /// This rewriting constrains the range scan over the index (DateTimeStart, DateTimeEnd).
     /// </summary>
-    internal class DateTimeRangeRewriter : ExpressionRewriterWithDefaultInitialContext<object>
+    internal class DateTimeRangeRewriter : ExpressionRewriterWithInitialContext<object>
     {
         internal static readonly DateTimeRangeRewriter Instance = new DateTimeRangeRewriter();
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
+            // _lastUpdated is not stored as a range so this transformation does not apply.
+
+            // include composites because they may contain dates.
+
             if ((expression.Parameter.Type == SearchParamType.Date
                  && expression.Parameter.Name != SearchParameterNames.LastUpdated) ||
                 expression.Parameter.Type == SearchParamType.Composite)

@@ -70,8 +70,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else
             {
-                StringBuilder.Append("SELECT ")
-                    .Append("r.").Append(V1.Resource.ResourceTypeId).Append(", ")
+                StringBuilder.Append("SELECT ");
+
+                if (expression.TableExpressions.Count == 0)
+                {
+                    StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") ");
+                }
+
+                StringBuilder.Append("r.").Append(V1.Resource.ResourceTypeId).Append(", ")
                     .Append("r.").Append(V1.Resource.ResourceId).Append(", ")
                     .Append("r.").Append(V1.Resource.Version).Append(", ")
                     .Append("r.").Append(V1.Resource.IsDeleted).Append(", ")
@@ -106,8 +112,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!searchOptions.CountOnly)
             {
-                StringBuilder.Append("ORDER BY r.").Append(V1.Resource.ResourceSurrogateId).Append(" ASC");
+                StringBuilder.Append("ORDER BY r.").Append(V1.Resource.ResourceSurrogateId).AppendLine(" ASC");
             }
+
+            StringBuilder.Append("OPTION(RECOMPILE)");
 
             return null;
         }
@@ -200,7 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Top:
-                    StringBuilder.Append("SELECT DISTINCT TOP ").Append(context.MaxItemCount + 1).AppendLine(" Sid1 ")
+                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1 ")
                         .Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1))
                         .AppendLine("ORDER BY Sid1 ASC");
 

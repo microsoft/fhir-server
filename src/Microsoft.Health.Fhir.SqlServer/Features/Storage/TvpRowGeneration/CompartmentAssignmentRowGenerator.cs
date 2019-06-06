@@ -85,11 +85,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 return;
             }
 
-            _patientCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.Patient);
-            _encounterCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.Encounter);
-            _relatedPersonCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.RelatedPerson);
-            _practitionerCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.Practitioner);
-            _deviceCompartmentId = _model.GetCompartmentId(KnownCompartmentTypes.Device);
+            _patientCompartmentId = _model.GetCompartmentTypeId(KnownCompartmentTypes.Patient);
+            _encounterCompartmentId = _model.GetCompartmentTypeId(KnownCompartmentTypes.Encounter);
+            _relatedPersonCompartmentId = _model.GetCompartmentTypeId(KnownCompartmentTypes.RelatedPerson);
+            _practitionerCompartmentId = _model.GetCompartmentTypeId(KnownCompartmentTypes.Practitioner);
+            _deviceCompartmentId = _model.GetCompartmentTypeId(KnownCompartmentTypes.Device);
 
             Volatile.Write(ref _initialized, true);
         }
