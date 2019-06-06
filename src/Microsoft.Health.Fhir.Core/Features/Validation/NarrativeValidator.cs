@@ -37,9 +37,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                         yield return validationFailure;
                     }
                 }
-                else if (resourceElement.InstanceType.Equals("Bundle", System.StringComparison.OrdinalIgnoreCase))
+                else if (resourceElement.InstanceType.Equals(KnownResourceTypes.Bundle, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    var bundleEntries = resourceElement.Instance.Select("Bundle.entry.resource");
+                    var bundleEntries = resourceElement.Instance.Select(KnownFhirPaths.BundleEntries);
                     if (bundleEntries != null)
                     {
                         var domainResources = bundleEntries.Select(e => new ResourceElement(e)).Where(r => r.IsDomainResource);
@@ -56,16 +56,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         {
             EnsureArg.IsNotNull(domainResource, nameof(domainResource));
 
-            const string fhirPath = "text.div";
-
-            var xhtml = domainResource.Scalar<string>(fhirPath);
+            var xhtml = domainResource.Scalar<string>(KnownFhirPaths.ResourceNarrative);
             if (string.IsNullOrEmpty(xhtml))
             {
                 yield break;
             }
 
             var errors = _narrativeHtmlSanitizer.Validate(xhtml);
-            var fullFhirPath = domainResource.InstanceType + "." + fhirPath;
+            var fullFhirPath = domainResource.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
 
             foreach (var error in errors)
             {

@@ -33,11 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.PropertyValue is ResourceElement typedElement)
+            if (context.PropertyValue is ResourceElement resourceElement)
             {
                 var results = new List<ValidationResult>();
 
-                if (!_modelAttributeValidator.TryValidate(typedElement, results, recurse: false))
+                if (!_modelAttributeValidator.TryValidate(resourceElement, results, recurse: false))
                 {
                     foreach (var error in results)
                     {
