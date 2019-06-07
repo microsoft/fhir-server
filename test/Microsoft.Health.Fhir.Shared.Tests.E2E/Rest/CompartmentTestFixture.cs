@@ -25,8 +25,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Device Device { get; private set; }
 
-        public DeviceComponent DeviceComponent { get; private set; }
-
         public Encounter Encounter { get; private set; }
 
         public Condition Condition { get; private set; }
@@ -34,6 +32,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task InitializeAsync()
         {
             // Create various resources.
+            Device = await FhirClient.CreateAsync(Samples.GetJsonSample<Device>("Device-d1"));
+
             Patient = await FhirClient.CreateAsync(Samples.GetJsonSample<Patient>("Patient-f001"));
 
             string patientReference = $"Patient/{Patient.Id}";
@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Observation observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
 
             observationToCreate.Subject.Reference = patientReference;
+
+            observationToCreate.Device = new ResourceReference($"Device/{Device.Id}");
 
             Observation = await FhirClient.CreateAsync(observationToCreate);
 
@@ -55,14 +57,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             conditionToCreate.Subject.Reference = patientReference;
 
             Condition = await FhirClient.CreateAsync(conditionToCreate);
-
-            Device = await FhirClient.CreateAsync(Samples.GetJsonSample<Device>("Device-d1"));
-
-            DeviceComponent deviceComponent = Samples.GetJsonSample<DeviceComponent>("DeviceComponent-For-Device-d1");
-
-            deviceComponent.Source.Reference = $"Device/{Device.Id}";
-
-            DeviceComponent = await FhirClient.CreateAsync(deviceComponent);
         }
 
         public Task DisposeAsync()

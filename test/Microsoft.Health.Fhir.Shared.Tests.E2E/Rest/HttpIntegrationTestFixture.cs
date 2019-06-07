@@ -56,10 +56,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             switch (dataStore)
             {
                 case DataStore.CosmosDb:
-                    environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
+                    environmentUrl = Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
                     break;
                 case DataStore.SqlServer:
-                    environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl_Sql");
+                    environmentUrl = Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}_Sql");
                     break;
             }
 

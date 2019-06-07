@@ -44,6 +44,7 @@
     </None>
   </ItemGroup>
 
+  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems" Label="Shared" />
   <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="Microsoft.AspNetCore.Mvc.Testing.targets" />
 
@@ -62,7 +63,7 @@
       <GlobalJsonContent>$([System.IO.File]::ReadAllText($(GlobalJsonPath)))</GlobalJsonContent>
       <ParsedSdkVersion><![CDATA[$([System.Text.RegularExpressions.Regex]::Match($(GlobalJsonContent), '"version"\s*:\s*"(\d+.\d+.\d+)"').Groups[1].Value)]]></ParsedSdkVersion>
     </PropertyGroup>
-  
+
     <Error Condition="$(NETCoreSdkVersion) != $(ParsedSdkVersion)" Text="The .NET SDK version required by $(GlobalJsonPath) is $(ParsedSdkVersion) but that version does not seem to be installed. In order to ensure consistent behavior, please install version $(ParsedSdkVersion) of the .NET SDK from https://dotnet.microsoft.com/download." />
   </Target>
 

@@ -16,7 +16,6 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json.Linq;
 using Task = System.Threading.Tasks.Task;
@@ -358,11 +357,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))
             {
-                var oauth = rest.Security?.GetExtension(Constants.SmartOAuthUriExtension);
+                var oauth = rest.Security?.GetExtension(Core.Features.Security.Constants.SmartOAuthUriExtension);
                 if (oauth != null)
                 {
-                    var tokenUrl = oauth.GetExtensionValue<FhirUri>(Constants.SmartOAuthUriExtensionToken).Value;
-                    var authorizeUrl = oauth.GetExtensionValue<FhirUri>(Constants.SmartOAuthUriExtensionAuthorize).Value;
+                    var tokenUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionToken).Value;
+                    var authorizeUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionAuthorize).Value;
 
                     SecuritySettings = (true, authorizeUrl, tokenUrl);
                     return;

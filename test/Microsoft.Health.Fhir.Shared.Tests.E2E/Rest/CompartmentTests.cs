@@ -23,10 +23,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenADeviceCompartment_WhenRetrievingDeviceComponents_ThenOnlyResourcesMatchingCompartmentShouldBeReturned()
         {
-            string searchUrl = $"Device/{Fixture.Device.Id}/DeviceComponent";
+            string searchUrl = $"Device/{Fixture.Device.Id}/Observation";
 
             Bundle bundle = await Client.SearchAsync(searchUrl);
-            ValidateBundle(bundle, searchUrl, Fixture.DeviceComponent);
+            ValidateBundle(bundle, searchUrl, Fixture.Observation);
         }
 
         [Fact]
