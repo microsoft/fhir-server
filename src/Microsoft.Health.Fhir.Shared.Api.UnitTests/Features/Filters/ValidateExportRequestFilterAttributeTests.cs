@@ -11,12 +11,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
@@ -30,6 +29,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private const string PreferHeaderName = "Prefer";
         private const string SupportedDestinationType = "AnySupportedDestinationType";
 
+        private readonly IExportDestinationClientFactory _exportDestinationClientFactory = Substitute.For<IExportDestinationClientFactory>();
+        private readonly ValidateExportRequestFilterAttribute _filter;
+
+        public ValidateExportRequestFilterAttributeTests()
+        {
+            _exportDestinationClientFactory.IsSupportedDestinationType(SupportedDestinationType).Returns(true);
+
+            _filter = new ValidateExportRequestFilterAttribute(_exportDestinationClientFactory);
+        }
+
         [Theory]
         [InlineData("application/fhir+xml")]
         [InlineData("application/xml")]
@@ -38,23 +47,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("*/*")]
         public void GiveARequestWithInvalidAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string acceptHeader)
         {
-            var filter = GetFilter();
             var context = CreateContextWithParams();
 
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, acceptHeader);
 
-            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [Fact]
         public void GiveARequestWithNoAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var filter = GetFilter();
             var context = CreateContextWithParams();
 
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
-            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [Theory]
@@ -63,41 +70,37 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("*")]
         public void GiveARequestWithInvalidPreferHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string preferHeader)
         {
-            var filter = GetFilter();
             var context = CreateContextWithParams();
 
             context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
 
-            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [Fact]
         public void GiveARequestWithNoPreferHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var filter = GetFilter();
             var context = CreateContextWithParams();
 
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
 
-            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [Fact]
         public void GiveARequestWithValidAcceptAndPreferHeader_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
-            var filter = GetFilter();
             var context = CreateContextWithParams();
 
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
-            filter.OnActionExecuting(context);
+            _filter.OnActionExecuting(context);
         }
 
         [Fact]
         public void GivenARequestWithCorrectHeadersAndMissingDestinationTypeParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var filter = GetFilter();
             var queryParams = new Dictionary<string, StringValues>()
             {
                 { KnownQueryParameterNames.DestinationConnectionSettings, "destination" },
@@ -108,13 +111,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
-            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [Fact]
         public void GivenARequestWithCorrectHeadersAndMissingDestinationConnectionParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var filter = GetFilter();
             var queryParams = new Dictionary<string, StringValues>()
             {
                 { KnownQueryParameterNames.DestinationType, SupportedDestinationType },
@@ -125,13 +127,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
-            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [Fact]
         public void GivenARequestWithCorrectHeadersAndDestinationTypeThatIsNotSupported_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var filter = GetFilter();
             var queryParams = new Dictionary<string, StringValues>()
             {
                 { KnownQueryParameterNames.DestinationType, "Azure" },
@@ -143,13 +144,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
-            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [Fact]
         public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParameter_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var filter = GetFilter();
             var queryParams = new Dictionary<string, StringValues>()
             {
                 { KnownQueryParameterNames.DestinationType, SupportedDestinationType },
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
-            Assert.Throws<RequestNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         private static ActionExecutingContext CreateContextWithParams(Dictionary<string, StringValues> queryParams = null)
@@ -182,26 +182,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             context.HttpContext.Request.Query = new QueryCollection(queryParams);
             return context;
-        }
-
-        private static ValidateExportRequestFilterAttribute GetFilter(ExportJobConfiguration exportJobConfig = null)
-        {
-            if (exportJobConfig == null)
-            {
-                exportJobConfig = new ExportJobConfiguration();
-                exportJobConfig.Enabled = true;
-                exportJobConfig.SupportedDestinations.Add(SupportedDestinationType);
-            }
-
-            var opConfig = new OperationsConfiguration()
-            {
-                Export = exportJobConfig,
-            };
-
-            IOptions<OperationsConfiguration> options = Substitute.For<IOptions<OperationsConfiguration>>();
-            options.Value.Returns(opConfig);
-
-            return new ValidateExportRequestFilterAttribute(options);
         }
     }
 }

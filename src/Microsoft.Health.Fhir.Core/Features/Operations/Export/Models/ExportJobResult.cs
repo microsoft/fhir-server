@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             RequestUri = requestUri;
             RequiresAccessToken = requiresAccessToken;
             Output = output;
-            Errors = errors;
+            Error = errors;
         }
 
         [JsonProperty("transactionTime")]
@@ -43,6 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public IList<ExportFileInfo> Output { get; }
 
         [JsonProperty("error")]
-        public IList<ExportFileInfo> Errors { get; }
+        public IList<ExportFileInfo> Error { get; }
     }
 }

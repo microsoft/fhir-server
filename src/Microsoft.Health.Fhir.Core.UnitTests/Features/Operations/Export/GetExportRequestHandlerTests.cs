@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly IMediator _mediator;
-        private const string CreateRequestUrl = "https://localhost/$export/";
+        private readonly Uri _createRequestUri = new Uri("https://localhost/$export/");
 
         public GetExportRequestHandlerTests()
         {
@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(result.JobResult.Output);
             Assert.NotEqual(default, result.JobResult.TransactionTime);
             Assert.NotNull(result.JobResult.RequestUri);
+            Assert.NotNull(result.JobResult.Error);
         }
 
         [Fact]
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus)
         {
-            var jobRecord = new ExportJobRecord(new Uri(CreateRequestUrl), "hash")
+            var jobRecord = new ExportJobRecord(_createRequestUri, "Patient", "hash")
             {
                 Status = jobStatus,
             };
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _fhirOperationDataStore.GetExportJobByIdAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
 
-            return await _mediator.GetExportStatusAsync(new Uri(CreateRequestUrl), jobRecord.Id);
+            return await _mediator.GetExportStatusAsync(_createRequestUri, jobRecord.Id);
         }
     }
 }

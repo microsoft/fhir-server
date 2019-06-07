@@ -52,7 +52,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("FhirServer:CosmosDb").Bind(cosmosCollectionConfiguration));
 
             services.Add<CosmosFhirDataStore>()
-                .Scoped()
+                .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
@@ -116,7 +116,7 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IFhirServerBuilder AddCosmosDbSearch(this IFhirServerBuilder fhirServerBuilder)
         {
             fhirServerBuilder.Services.Add<FhirCosmosSearchService>()
-                .Scoped()
+                .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
 

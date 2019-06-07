@@ -9,9 +9,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
-    public class CompartmentResourceResponse
+    public class SearchCompartmentResponse
     {
-        public CompartmentResourceResponse(ResourceElement bundle)
+        public SearchCompartmentResponse(ResourceElement bundle)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 

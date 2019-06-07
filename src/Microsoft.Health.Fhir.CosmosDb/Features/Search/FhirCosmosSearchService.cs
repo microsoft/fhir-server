@@ -11,7 +11,6 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
@@ -28,9 +27,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
-            IBundleFactory bundleFactory,
             IModelInfoProvider modelInfoProvider)
-            : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
+            : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
@@ -77,10 +75,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 using (documentCountQuery)
                 {
-                    return new SearchResult(Enumerable.Empty<ResourceWrapper>(), null)
-                    {
-                        TotalCount = (await documentCountQuery.ExecuteNextAsync<int>(cancellationToken)).Single(),
-                    };
+                    return new SearchResult(
+                        (await documentCountQuery.ExecuteNextAsync<int>(cancellationToken)).Single(),
+                        searchOptions.UnsupportedSearchParams);
                 }
             }
 
@@ -97,7 +94,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 FhirCosmosResourceWrapper[] wrappers = fetchedResults
                     .Select(r => r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
 
-                return new SearchResult(wrappers, fetchedResults.ResponseContinuation);
+                return new SearchResult(
+                    wrappers,
+                    searchOptions.UnsupportedSearchParams,
+                    fetchedResults.ResponseContinuation);
             }
         }
     }

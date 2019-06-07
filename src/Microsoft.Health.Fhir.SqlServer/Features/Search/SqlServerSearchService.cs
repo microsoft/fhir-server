@@ -38,14 +38,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
-            IBundleFactory bundleFactory,
             IFhirDataStore fhirDataStore,
             IModelInfoProvider modelInfoProvider,
             SqlServerFhirModel model,
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             SqlServerDataStoreConfiguration configuration,
             ILogger<SqlServerSearchService> logger)
-            : base(searchOptionsFactory, bundleFactory, fhirDataStore, modelInfoProvider)
+            : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -124,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         if (searchOptions.CountOnly)
                         {
                             await reader.ReadAsync(cancellationToken);
-                            return new SearchResult(Array.Empty<ResourceWrapper>(), null) { TotalCount = reader.GetInt32(0) };
+                            return new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
                         }
 
                         var resources = new List<ResourceWrapper>(searchOptions.MaxItemCount);
@@ -175,7 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         // call NextResultAsync to get the info messages
                         await reader.NextResultAsync(cancellationToken);
 
-                        return new SearchResult(resources, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null);
+                        return new SearchResult(resources, searchOptions.UnsupportedSearchParams, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null);
                     }
                 }
             }

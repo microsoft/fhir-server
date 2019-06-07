@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.NotNull(response);
             Assert.NotEmpty(response.JobId);
 
-            SecretWrapper secret = await _secretStore.GetSecretAsync($"Export-Destination-{response.JobId}");
+            SecretWrapper secret = await _secretStore.GetSecretAsync($"Export-Destination-{response.JobId}", _cancellationToken);
 
             Assert.NotNull(secret);
         }
