@@ -8,8 +8,8 @@ using System.Linq;
 using EnsureThat;
 using FluentValidation.Results;
 using FluentValidation.Validators;
+using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             {
                 if (resourceElement.IsDomainResource)
                 {
-                    foreach (ValidationFailure validationFailure in ValidateResource(resourceElement))
+                    foreach (ValidationFailure validationFailure in ValidateResource(resourceElement.Instance))
                     {
                         yield return validationFailure;
                     }
@@ -43,8 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     var bundleEntries = resourceElement.Instance.Select(KnownFhirPaths.BundleEntries);
                     if (bundleEntries != null)
                     {
-                        var domainResources = bundleEntries.Select(e => e.ToResourceElement()).Where(r => r.IsDomainResource);
-                        foreach (ValidationFailure validationFailure in domainResources.SelectMany(ValidateResource))
+                        foreach (ValidationFailure validationFailure in bundleEntries.SelectMany(ValidateResource))
                         {
                             yield return validationFailure;
                         }
@@ -53,18 +52,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             }
         }
 
-        private IEnumerable<ValidationFailure> ValidateResource(ResourceElement domainResource)
+        private IEnumerable<ValidationFailure> ValidateResource(ITypedElement typedElement)
         {
-            EnsureArg.IsNotNull(domainResource, nameof(domainResource));
+            EnsureArg.IsNotNull(typedElement, nameof(typedElement));
 
-            var xhtml = domainResource.Scalar<string>(KnownFhirPaths.ResourceNarrative);
+            var xhtml = typedElement.Scalar(KnownFhirPaths.ResourceNarrative) as string;
             if (string.IsNullOrEmpty(xhtml))
             {
                 yield break;
             }
 
             var errors = _narrativeHtmlSanitizer.Validate(xhtml);
-            var fullFhirPath = domainResource.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
+            var fullFhirPath = typedElement.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
 
             foreach (var error in errors)
             {

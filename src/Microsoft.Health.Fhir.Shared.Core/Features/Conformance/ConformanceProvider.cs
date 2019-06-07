@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
             }
 
-            return _capabilityStatement.ToTypedElement().ToResourceElement();
+            return _capabilityStatement.ToResourceElement();
         }
 
         public void Dispose()

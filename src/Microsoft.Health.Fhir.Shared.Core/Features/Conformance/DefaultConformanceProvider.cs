@@ -10,7 +10,6 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -47,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 _builderActions.ForEach(action => action(_capabilityStatement));
             }
 
-            return _capabilityStatement.ToTypedElement().ToResourceElement();
+            return _capabilityStatement.ToResourceElement();
         }
 
         public void ConfigureOptionalCapabilities(Action<CapabilityStatement> builder)
