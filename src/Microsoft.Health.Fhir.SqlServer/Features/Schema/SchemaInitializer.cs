@@ -163,11 +163,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                         }
                     }
                 }
+            }
 
-                // now switch to the target database
-                string originalDatabase = connection.Database;
-                connection.ChangeDatabase(databaseName);
+            // now switch to the target database
 
+            using (var connection = new SqlConnection(_sqlServerDataStoreConfiguration.ConnectionString))
+            {
                 bool canInitialize;
                 using (var command = new SqlCommand("SELECT count(*) FROM fn_my_permissions (NULL, 'DATABASE') WHERE permission_name = 'CREATE TABLE'", connection))
                 {
@@ -179,8 +180,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                     _logger.LogWarning("Insufficient permissions to create tables in the database");
                 }
 
-                // switch back to master to release the connection to the database, because applying the migrations often requires exclusive access
-                connection.ChangeDatabase(originalDatabase);
                 return canInitialize;
             }
         }
