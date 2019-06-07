@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     outcome.JobRecord.RequestUri,
                     requiresAccessToken: false,
                     outcome.JobRecord.Output,
-                    outcome.JobRecord.Errors);
+                    outcome.JobRecord.Error);
 
                 exportResponse = new GetExportResponse(HttpStatusCode.OK, jobResult);
             }

@@ -34,8 +34,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _deserializer = deserializer;
         }
 
-        public ResourceElement CreateSearchBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParameters, SearchResult result)
+        public ResourceElement CreateSearchBundle(SearchResult result)
         {
+            EnsureArg.IsNotNull(result, nameof(result));
+
             // Create the bundle from the result.
             var bundle = new Bundle();
 
@@ -43,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(r =>
                 {
-                    var resource = _deserializer.Deserialize(r);
+                    ResourceElement resource = _deserializer.Deserialize(r);
 
                     return new Bundle.EntryComponent
                     {
@@ -63,13 +65,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (result.ContinuationToken != null)
                 {
                     bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                        unsupportedSearchParameters,
+                        result.UnsupportedSearchParameters,
                         result.ContinuationToken);
                 }
             }
 
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(unsupportedSearchParameters);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.Searchset;
@@ -82,8 +84,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return bundle.ToResourceElement();
         }
 
-        public ResourceElement CreateHistoryBundle(IEnumerable<Tuple<string, string>> unsupportedSearchParameters, SearchResult result)
+        public ResourceElement CreateHistoryBundle(SearchResult result)
         {
+            EnsureArg.IsNotNull(result, nameof(result));
+
             // Create the bundle from the result.
             var bundle = new Bundle();
 
@@ -101,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         Request = new Bundle.RequestComponent
                         {
                             Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,
-                            Url = r.Request?.Url?.ToString(),
+                            Url = hasVerb ? $"{resource.InstanceType}/{(httpVerb == Bundle.HTTPVerb.POST ? null : resource.Id)}" : null,
                         },
                         Response = new Bundle.ResponseComponent
                         {
@@ -116,13 +120,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (result.ContinuationToken != null)
                 {
                     bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                        unsupportedSearchParameters,
+                        result.UnsupportedSearchParameters,
                         result.ContinuationToken);
                 }
             }
 
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(unsupportedSearchParameters);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = Bundle.BundleType.History;

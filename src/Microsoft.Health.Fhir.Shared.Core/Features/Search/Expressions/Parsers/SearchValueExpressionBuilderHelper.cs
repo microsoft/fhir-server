@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             switch (_modifier)
             {
                 case null:
-                    _outputExpression = Expression.Equals(FieldName.Uri, _componentIndex, uri.Uri);
+                    _outputExpression = Expression.StringEquals(FieldName.Uri, _componentIndex, uri.Uri, false);
                     break;
                 case SearchModifierCode.Above:
                     _outputExpression = Expression.And(

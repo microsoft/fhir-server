@@ -8,12 +8,11 @@ using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -27,18 +26,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     {
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
-        private readonly HashSet<string> _supportedDestinationTypes;
 
-        // For now we will use a hardcoded list to determine what query parameters we will
+        private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
+
+        // For now we will use a hard-coded list to determine what query parameters we will
         // allow for export requests. In the future, once we add export and other operations
         // to the capabilities statement, we can derive this list from there (via the ConformanceProvider).
         private readonly HashSet<string> _supportedQueryParams;
 
-        public ValidateExportRequestFilterAttribute(IOptions<OperationsConfiguration> operationsConfig)
+        public ValidateExportRequestFilterAttribute(IExportDestinationClientFactory exportDestinationClientFactory)
         {
-            EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
+            EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
 
-            _supportedDestinationTypes = new HashSet<string>(operationsConfig.Value.Export.SupportedDestinations, StringComparer.Ordinal);
+            _exportDestinationClientFactory = exportDestinationClientFactory;
+
             _supportedQueryParams = new HashSet<string>(StringComparer.Ordinal)
             {
                 KnownQueryParameterNames.DestinationType,
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             if (!queryCollection.TryGetValue(KnownQueryParameterNames.DestinationType, out StringValues destinationTypeValue)
                || string.IsNullOrWhiteSpace(destinationTypeValue)
-               || !_supportedDestinationTypes.Contains(destinationTypeValue))
+               || !_exportDestinationClientFactory.IsSupportedDestinationType(destinationTypeValue))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedParameterValue, KnownQueryParameterNames.DestinationType));
             }

@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new CompartmentResourceRequest(compartmentType, compartmentId, resourceType, queries), cancellationToken);
+            var result = await mediator.Send(new SearchCompartmentRequest(compartmentType, compartmentId, resourceType, queries), cancellationToken);
 
             return result.Bundle;
         }

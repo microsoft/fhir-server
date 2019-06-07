@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>a898cc57-69d0-4454-bb70-784c138a05bf</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.E2E</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\AuthenticationSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirClient.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirClientExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirResponse{T}.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\TestApplication.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\TestApplications.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\TestUser.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Common\TestUsers.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\StartupWithTraceAuditLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\TraceAuditLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BasicAuthTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\CorsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\CreateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\DeleteTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ExceptionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\HealthTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\HistoryTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\QuantitySearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\QuantitySearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ReferenceSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ReferenceSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchTestsBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Sql\SchemaTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\SuppressExecutionContextHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
+    <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

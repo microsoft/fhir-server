@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class CreateExportRequest : IRequest<CreateExportResponse>
     {
-        public CreateExportRequest(Uri requestUri, string destinationType, string destinationConnectionString)
+        public CreateExportRequest(Uri requestUri, string destinationType, string destinationConnectionString, string resourceType = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
@@ -20,10 +20,13 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 
             RequestUri = requestUri;
             DestinationInfo = new DestinationInfo(destinationType, destinationConnectionString);
+            ResourceType = resourceType;
         }
 
         public Uri RequestUri { get; }
 
         public DestinationInfo DestinationInfo { get; }
+
+        public string ResourceType { get; }
     }
 }

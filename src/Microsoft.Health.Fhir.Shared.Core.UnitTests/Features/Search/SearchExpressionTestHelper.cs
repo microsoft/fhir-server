@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         internal static void ValidateResourceTypeSearchParameterExpression(Expression expression, string typeName)
         {
-            ValidateSearchParameterExpression(expression, SearchParameterNames.ResourceType, e => ValidateBinaryExpression(e, FieldName.TokenCode, BinaryOperator.Equal, typeName));
+            ValidateSearchParameterExpression(expression, SearchParameterNames.ResourceType, e => ValidateStringExpression(e, FieldName.TokenCode, StringOperator.Equals, typeName, false));
         }
 
         public static void ValidateChainedExpression(
