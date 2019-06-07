@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     var bundleEntries = resourceElement.Instance.Select(KnownFhirPaths.BundleEntries);
                     if (bundleEntries != null)
                     {
-                        var domainResources = bundleEntries.Select(e => e.ToResourceElement());
+                        var domainResources = bundleEntries.Select(e => e.ToResourceElement()).Where(r => r.IsDomainResource);
                         foreach (ValidationFailure validationFailure in domainResources.SelectMany(ValidateResource))
                         {
                             yield return validationFailure;
@@ -53,18 +53,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             }
         }
 
-        private IEnumerable<ValidationFailure> ValidateResource(ResourceElement resourceElement)
+        private IEnumerable<ValidationFailure> ValidateResource(ResourceElement domainResource)
         {
-            EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
+            EnsureArg.IsNotNull(domainResource, nameof(domainResource));
 
-            var xhtml = resourceElement.Scalar<string>(KnownFhirPaths.ResourceNarrative);
+            var xhtml = domainResource.Scalar<string>(KnownFhirPaths.ResourceNarrative);
             if (string.IsNullOrEmpty(xhtml))
             {
                 yield break;
             }
 
             var errors = _narrativeHtmlSanitizer.Validate(xhtml);
-            var fullFhirPath = resourceElement.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
+            var fullFhirPath = domainResource.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
 
             foreach (var error in errors)
             {
