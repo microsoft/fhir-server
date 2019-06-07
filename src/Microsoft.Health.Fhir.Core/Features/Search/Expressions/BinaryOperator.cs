@@ -7,6 +7,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
     /// Represents the binary operator.
+    /// Note that we rely on the relative order of the values in DateTimeBoundedRangeRewriter.
     /// </summary>
     public enum BinaryOperator
     {
