@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType).Returns(new SearchParameter { Name = SearchParameterNames.ResourceType });
+            searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType).Returns(new SearchParameter { Name = SearchParameterNames.ResourceType }.ToInfo());
 
             _factory = new SearchOptionsFactory(
                 _expressionParser,
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Null(options.ContinuationToken);
             Assert.Equal(10, options.MaxItemCount);
-            ValidateSearchParameterExpression(options.Expression, SearchParameterNames.ResourceType, e => ValidateBinaryExpression(e, FieldName.TokenCode, BinaryOperator.Equal, DefaultResourceType));
+            ValidateResourceTypeSearchParameterExpression(options.Expression, DefaultResourceType);
         }
 
         [Fact]

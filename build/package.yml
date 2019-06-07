@@ -1,14 +1,13 @@
 steps:
 
   # Package web
-  
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet publish web'
-    inputs:
-      command: publish
-      projects: '**/Microsoft.Health.Fhir.Web.csproj'
-      arguments: '--runtime win10-x64 --output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildnumber)'
-      publishWebProjects: false
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.Stu3.Web.csproj'
+
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.R4.Web.csproj'
 
   - task: DotNetCoreCLI@2
     displayName: 'dotnet publish Integration Tests'

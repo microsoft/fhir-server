@@ -4,5 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Resources;
+using System.Runtime.CompilerServices;
 
 [assembly: NeutralResourcesLanguage("en-us")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Api.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api.UnitTests")]

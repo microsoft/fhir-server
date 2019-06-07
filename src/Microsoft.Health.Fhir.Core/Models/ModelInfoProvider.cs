@@ -71,6 +71,12 @@ namespace Microsoft.Health.Fhir.Core.Models
             return _modelInfoProvider.GetResourceTypeNames();
         }
 
+        public static string[] GetCompartmentTypeNames()
+        {
+            EnsureProvider();
+            return _modelInfoProvider.GetCompartmentTypeNames();
+        }
+
         public static Type GetTypeForFhirType(string resourceType)
         {
             EnsureProvider();

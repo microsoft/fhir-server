@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [Fact]
         public void GivenACompositeExceedingNumberOfComponents_WhenBuilt_ThenInvalidSearchOperationExceptionShouldBeThrown()
         {
-            SearchParameter searchParameter = CreateCompositeSearchParameter(new ComponentComponent());
+            SearchParameterInfo searchParameter = CreateCompositeSearchParameter(new ComponentComponent());
 
             Assert.Throws<InvalidSearchOperationException>(() => _parser.Parse(searchParameter, null, "a$b$c"));
         }
@@ -127,29 +128,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             var codeUri = new Uri("http://code");
             var quantityUri = new Uri("http://quantity");
 
-            SearchParameter searchParameter = CreateCompositeSearchParameter(
-                new ComponentComponent()
+            SearchParameterInfo searchParameter = CreateCompositeSearchParameter(
+                new ComponentComponent
                 {
                     Definition = new ResourceReference(codeUri.ToString()).GetComponentDefinition(),
                 },
-                new ComponentComponent()
+                new ComponentComponent
                 {
                     Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 });
 
             _searchParameterDefinitionManager.GetSearchParameter(codeUri).Returns(
-                new SearchParameter()
+                new SearchParameter
                 {
                     Name = "code",
                     Type = SearchParamType.Token,
-                });
+                }.ToInfo());
 
             _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(
-                new SearchParameter()
+                new SearchParameter
                 {
                     Name = "quantity",
                     Type = SearchParamType.Quantity,
-                });
+                }.ToInfo());
 
             Validate(
                 searchParameter,
@@ -187,22 +188,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             var quantityUri = new Uri("http://quantity");
 
-            SearchParameter searchParameter = CreateCompositeSearchParameter(
-                new ComponentComponent()
+            SearchParameterInfo searchParameter = CreateCompositeSearchParameter(
+                new ComponentComponent
                 {
                     Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 },
-                new ComponentComponent()
+                new ComponentComponent
                 {
                     Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 });
 
             _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(
-                new SearchParameter()
+                new SearchParameter
                 {
                     Name = "quantity",
                     Type = SearchParamType.Quantity,
-                });
+                }.ToInfo());
 
             Validate(
                 searchParameter,
@@ -231,22 +232,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             var quantityUri = new Uri("http://quantity");
 
-            SearchParameter searchParameter = CreateCompositeSearchParameter(
-                new ComponentComponent()
+            SearchParameterInfo searchParameter = CreateCompositeSearchParameter(
+                new ComponentComponent
                 {
                     Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 },
-                new ComponentComponent()
+                new ComponentComponent
                 {
                     Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
                 });
 
             _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(
-                new SearchParameter()
+                new SearchParameter
                 {
                     Name = "quantity",
                     Type = SearchParamType.Quantity,
-                });
+                }.ToInfo());
 
             Assert.Throws<InvalidSearchOperationException>(
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Composite), modifier, "10|s|c$10|s|c"));
@@ -713,20 +714,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Token),
                 SearchModifierCode.Text,
                 input,
-                e => ValidateStringExpression(e, FieldName.TokenText, StringOperator.Contains, input, true));
+                e => ValidateStringExpression(e, FieldName.TokenText, StringOperator.StartsWith, input, true));
         }
 
         [Theory]
         [MemberData(nameof(GetNoneTokenSearchParamTypeAsMemberData))]
         public void GivenASearchParameterThatDoesNotSupportTextModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated(SearchParamType searchParameterType)
         {
-            var searchParameter = new SearchParameter()
+            var searchParameter = new SearchParameter
             {
                 Name = "test",
                 Type = searchParameterType,
             };
 
-            Assert.Throws<InvalidSearchOperationException>(() => _parser.Parse(searchParameter, SearchModifierCode.Text, "test"));
+            Assert.Throws<InvalidSearchOperationException>(() => _parser.Parse(searchParameter.ToInfo(), SearchModifierCode.Text, "test"));
         }
 
         [Fact]
@@ -811,7 +812,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Uri),
                 null,
                 input,
-                e => ValidateBinaryExpression(e, FieldName.Uri, BinaryOperator.Equal, input));
+                e => ValidateStringExpression(e, FieldName.Uri, StringOperator.Equals, input, false));
         }
 
         [Fact]
@@ -860,18 +861,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Uri), modifier, "test"));
         }
 
-        private SearchParameter CreateSearchParameter(SearchParamType searchParameterType)
+        private SearchParameterInfo CreateSearchParameter(SearchParamType searchParameterType)
         {
-            return new SearchParameter()
+            return new SearchParameter
             {
                 Name = DefaultParamName,
                 Type = searchParameterType,
-            };
+            }.ToInfo();
         }
 
-        private SearchParameter CreateCompositeSearchParameter(params ComponentComponent[] components)
+        private SearchParameterInfo CreateCompositeSearchParameter(params ComponentComponent[] components)
         {
-            var searchParameter = new SearchParameter()
+            var searchParameter = new SearchParameter
             {
                 Name = DefaultParamName,
                 Type = SearchParamType.Composite,
@@ -879,11 +880,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             searchParameter.Component.AddRange(components);
 
-            return searchParameter;
+            return searchParameter.ToInfo();
         }
 
         private void Validate(
-            SearchParameter searchParameter,
+            SearchParameterInfo searchParameter,
             SearchModifierCode? modifier,
             string value,
             Action<Expression> valueValidator)

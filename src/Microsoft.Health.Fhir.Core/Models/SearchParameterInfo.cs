@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -13,14 +14,35 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         public SearchParameterInfo(
             string name,
-            Uri url,
-            string searchParamType,
-            ICollection<SearchParameterComponentInfo> components)
+            Uri url = null,
+            string searchParamType = null,
+            IReadOnlyList<SearchParameterComponentInfo> components = null,
+            string expression = null,
+            IReadOnlyCollection<string> targetResourceTypes = null)
+            : this(
+                name,
+                url,
+                Enum.TryParse<SearchParamType>(searchParamType, out var type) ? (SearchParamType?)type : null,
+                components,
+                expression,
+                targetResourceTypes)
+        {
+        }
+
+        public SearchParameterInfo(
+            string name,
+            Uri url = null,
+            SearchParamType? searchParamType = null,
+            IReadOnlyList<SearchParameterComponentInfo> components = null,
+            string expression = null,
+            IReadOnlyCollection<string> targetResourceTypes = null)
             : this(name)
         {
             Url = url;
             Type = searchParamType;
             Component = components;
+            Expression = expression;
+            TargetResourceTypes = targetResourceTypes;
         }
 
         public SearchParameterInfo(string name)
@@ -34,10 +56,14 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public string Code { get; }
 
+        public string Expression { get; }
+
+        public IReadOnlyCollection<string> TargetResourceTypes { get; } = Array.Empty<string>();
+
         public Uri Url { get; }
 
-        public string Type { get; }
+        public SearchParamType? Type { get; }
 
-        public ICollection<SearchParameterComponentInfo> Component { get; }
+        public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
     }
 }

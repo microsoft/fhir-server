@@ -1,0 +1,23 @@
+{
+  "profiles": {
+    "Microsoft.Health.Fhir.Web Stu3 - CosmosDb": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+        "DataStore": "CosmosDb",
+        "ASPNETCORE_ENVIRONMENT": "development"
+      },
+      "applicationUrl": "https://localhost:44348/"
+    },
+    "Microsoft.Health.Fhir.Web Stu3 - SqlServer": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "SqlServer:Initialize": "true",
+        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+        "DataStore": "SqlServer",
+        "ASPNETCORE_ENVIRONMENT": "development"
+      },
+      "applicationUrl": "https://localhost:44348/"
+    }
+  }
+}

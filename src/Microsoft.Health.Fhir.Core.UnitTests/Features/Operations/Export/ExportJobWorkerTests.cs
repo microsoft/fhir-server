@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Export;
 using NSubstitute;
 using Xunit;
 
@@ -150,7 +151,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private ExportJobOutcome CreateExportJobOutcome()
         {
-            return new ExportJobOutcome(new ExportJobRecord(new Uri($"http://localhost/ExportJob/"), "hash"), WeakETag.FromVersionId("0"));
+            var exportRequest = new CreateExportRequest(new Uri($"http://localhost/ExportJob/"), "destinationType", "destinationConnection");
+            return new ExportJobOutcome(new ExportJobRecord(exportRequest.RequestUri, "Patient", "hash"), WeakETag.FromVersionId("0"));
         }
     }
 }

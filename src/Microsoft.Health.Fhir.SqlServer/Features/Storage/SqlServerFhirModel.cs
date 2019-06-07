@@ -11,13 +11,13 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private ConcurrentDictionary<string, int> _systemToId;
         private ConcurrentDictionary<string, int> _quantityCodeToId;
         private Dictionary<string, byte> _claimNameToId;
-        private Dictionary<CompartmentType, byte> _compartmentTypeToId;
+        private Dictionary<string, byte> _compartmentTypeToId;
 
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
@@ -81,6 +81,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _resourceTypeToId[resourceTypeName];
         }
 
+        public bool TryGetResourceTypeId(string resourceTypeName, out short id)
+        {
+            ThrowIfNotInitialized();
+            return _resourceTypeToId.TryGetValue(resourceTypeName, out id);
+        }
+
+        public string GetResourceTypeName(short resourceTypeId)
+        {
+            ThrowIfNotInitialized();
+            return _resourceTypeIdToTypeName[resourceTypeId];
+        }
+
         public byte GetClaimTypeId(string claimTypeName)
         {
             ThrowIfNotInitialized();
@@ -93,13 +105,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _searchParamUriToId[searchParamUri];
         }
 
-        public byte GetCompartmentId(CompartmentType compartmentType)
+        public byte GetCompartmentTypeId(string compartmentType)
         {
             ThrowIfNotInitialized();
             return _compartmentTypeToId[compartmentType];
         }
 
-        public int GetSystem(string system)
+        public bool TryGetSystemId(string system, out int systemId)
+        {
+            ThrowIfNotInitialized();
+            return _systemToId.TryGetValue(system, out systemId);
+        }
+
+        public int GetSystemId(string system)
         {
             ThrowIfNotInitialized();
 
@@ -107,12 +125,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
         }
 
-        public int GetQuantityCode(string code)
+        public int GetQuantityCodeId(string code)
         {
             ThrowIfNotInitialized();
 
             V1.QuantityCodeTable quantityCodeTable = V1.QuantityCode;
             return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
+        }
+
+        public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
+        {
+            ThrowIfNotInitialized();
+            return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
         public ValueTask EnsureInitialized() => _initializationOperation.EnsureInitialized();
@@ -124,6 +148,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogError($"The current version of the database is not available. Unable in initialize {nameof(SqlServerFhirModel)}.");
                 throw new ServiceUnavailableException();
             }
+
+            var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
+
+            _logger.LogInformation("Initializing {Server} {Database}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog);
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
@@ -172,10 +200,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
-                    string commaSeparatedResourceTypes = string.Join(",", ModelInfo.SupportedResources);
+                    string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
                     string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
-                    string commaSeparatedCompartmentTypes = string.Join(',', Enum.GetNames(typeof(CompartmentType)));
+                    string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
 
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
@@ -190,7 +218,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
-                        var compartmentTypeToId = new Dictionary<CompartmentType, byte>();
+                        var compartmentTypeToId = new Dictionary<string, byte>();
 
                         // result set 1
                         while (reader.Read())
@@ -225,7 +253,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         while (reader.Read())
                         {
                             (byte id, string compartmentName) = reader.ReadRow(V1.CompartmentType.CompartmentTypeId, V1.CompartmentType.Name);
-                            compartmentTypeToId.Add(Enum.Parse<CompartmentType>(compartmentName), id);
+                            compartmentTypeToId.Add(compartmentName, id);
                         }
 
                         // result set 5
