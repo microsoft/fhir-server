@@ -27,7 +27,7 @@ using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
-    /// A test fixture which hosts the target web project in an in-memory server.
+    /// A test fixture which hosts the target web project in an in-process test server.
     /// Code adapted from https://docs.microsoft.com/en-us/aspnet/core/mvc/controllers/testing#integration-testing
     /// </summary>
     /// <typeparam name="TStartup">The target web project startup</typeparam>
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 environmentUrl = "http://localhost/";
 
-                StartInMemoryServer(targetProjectParentDirectory, dataStore);
+                StartInProcessTestServer(targetProjectParentDirectory, dataStore);
 
                 _messageHandler = Server.CreateHandler();
                 IsUsingInProcTestServer = true;
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public HttpClient CreateHttpClient()
             => new HttpClient(new SessionMessageHandler(_messageHandler)) { BaseAddress = new Uri(_environmentUrl) };
 
-        private void StartInMemoryServer(string targetProjectParentDirectory, DataStore dataStore)
+        private void StartInProcessTestServer(string targetProjectParentDirectory, DataStore dataStore)
         {
             var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
