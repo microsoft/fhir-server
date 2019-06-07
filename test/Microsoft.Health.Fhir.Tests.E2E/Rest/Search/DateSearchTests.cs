@@ -11,7 +11,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class DateSearchTests : SearchTestsBase<DateSearchTestFixture>
     {
         public DateSearchTests(DateSearchTestFixture fixture)

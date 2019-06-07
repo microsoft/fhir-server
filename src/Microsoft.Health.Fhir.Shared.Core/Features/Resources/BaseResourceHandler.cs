@@ -46,7 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 resource.Meta = new Meta();
             }
 
-            resource.Meta.LastUpdated = Clock.UtcNow;
+            // store with millisecond precision
+            resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
 
             ResourceWrapper resourceWrapper = _resourceWrapperFactory.Create(resource.ToResourceElement(), deleted);
 

@@ -12,7 +12,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CompositeSearchTests : SearchTestsBase<CompositeSearchTestFixture>
     {
         private const string ObservationWith1MinuteApgarScore = "ObservationWith1MinuteApgarScore";

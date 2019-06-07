@@ -15,7 +15,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -33,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
-        private static readonly Encoding ResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
+        internal static readonly Encoding ResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
 
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
@@ -93,12 +92,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     V1.UpsertResource.PopulateCommand(
                         command,
+                        baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                         resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
                         resourceId: resource.ResourceId,
                         eTag: weakETag == null ? null : (int?)etag,
                         allowCreate: allowCreate,
                         isDeleted: resource.IsDeleted,
-                        updatedDateTime: resource.LastModified,
                         keepHistory: keepHistory,
                         requestMethod: resource.Request.Method,
                         rawResource: stream,
@@ -122,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         switch (e.Number)
                         {
                             case SqlErrorCodes.NotFound:
-                                throw new MethodNotAllowedException(Resources.ResourceCreationNotAllowed);
+                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             case SqlErrorCodes.PreconditionFailed:
                                 throw new ResourceConflictException(weakETag);
                             default:
@@ -170,9 +169,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         var resourceTable = V1.Resource;
 
-                        (int version, DateTime lastModified, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                            resourceTable.ResourceSurrogateId,
                             resourceTable.Version,
-                            resourceTable.LastUpdated,
                             resourceTable.IsDeleted,
                             resourceTable.IsHistory,
                             resourceTable.RawResource);
@@ -192,7 +191,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.ResourceType,
                             new RawResource(rawResource, FhirResourceFormat.Json),
                             null,
-                            new DateTimeOffset(lastModified, TimeSpan.Zero),
+                            new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,
                             searchIndices: null,
                             compartmentIndices: null,

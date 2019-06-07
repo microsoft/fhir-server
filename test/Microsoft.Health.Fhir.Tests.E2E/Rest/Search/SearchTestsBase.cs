@@ -52,6 +52,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         protected void ValidateBundle(Bundle bundle, params Resource[] expectedResources)
         {
             Assert.NotNull(bundle);
+
+            bundle.Entry.Sort((a, b) => string.CompareOrdinal(a.Resource.Id, b.Resource.Id));
+            Array.Sort(expectedResources, (a, b) => string.CompareOrdinal(a.Id, b.Id));
+
             Assert.Collection(
                 bundle.Entry.Select(e => e.Resource),
                 expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
