@@ -4,12 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Data;
 using System.Data.SqlClient;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Configs;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
@@ -72,7 +72,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             {
                 connection.Open();
 
-                var procedure = V1.SelectCurrentSchemaVersion;
+                string procedureSchema = "dbo";
+                string procedureName = "SelectCurrentSchemaVersion";
 
                 bool procedureExists;
                 using (var checkProcedureExistsCommand = connection.CreateCommand())
@@ -80,22 +81,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                     checkProcedureExistsCommand.CommandText = @"
                         SELECT 1
                         FROM sys.procedures p
-                        INNER JOIN sys.schemas t on p.schema_id = t.schema_id
-                        WHERE (t.name + '.' + p.name) = @procedureName";
+                        INNER JOIN sys.schemas s on p.schema_id = s.schema_id
+                        WHERE s.name = @schemaName AND p.name = @procedureName";
 
-                    checkProcedureExistsCommand.Parameters.AddWithValue("@procedureName", procedure.ProcedureName);
+                    checkProcedureExistsCommand.Parameters.AddWithValue("@schemaName", procedureSchema);
+                    checkProcedureExistsCommand.Parameters.AddWithValue("@procedureName", procedureName);
                     procedureExists = checkProcedureExistsCommand.ExecuteScalar() != null;
                 }
 
                 if (!procedureExists)
                 {
-                    _logger.LogInformation("Procedure to select the schemaversion was not found. This must be a new database.");
+                    _logger.LogInformation("Procedure to select the schema version was not found. This must be a new database.");
                 }
                 else
                 {
                     using (var command = connection.CreateCommand())
                     {
-                        procedure.PopulateCommand(command);
+                        command.CommandText = $"{procedureSchema}.{procedureName}";
+                        command.CommandType = CommandType.StoredProcedure;
+
                         _schemaInformation.Current = (SchemaVersion?)(int?)command.ExecuteScalar();
                     }
                 }
