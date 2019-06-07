@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
@@ -108,7 +107,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     Argument(
                         LiteralExpression(parameter.Value == null ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)));
 
-                arguments.AddRange(GetDataTypeSpecificConstructorArguments(parameter.DataType));
+                arguments.AddRange(GetDataTypeSpecificConstructorArguments(parameter.DataType, null));
             }
             else
             {

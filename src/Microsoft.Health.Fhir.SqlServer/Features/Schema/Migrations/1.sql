@@ -126,7 +126,7 @@ GO
 CREATE TABLE dbo.SearchParam
 (
     SearchParamId smallint IDENTITY(1,1) NOT NULL,
-    Uri varchar(128) NOT NULL
+    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam ON dbo.SearchParam
@@ -137,7 +137,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam ON dbo.SearchParam
 CREATE TABLE dbo.ResourceType
 (
     ResourceTypeId smallint IDENTITY(1,1) NOT NULL,
-    Name nvarchar(50) NOT NULL
+    Name nvarchar(50) COLLATE Latin1_General_100_CS_AS  NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType on dbo.ResourceType
@@ -161,7 +161,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_System ON dbo.System
 CREATE TABLE dbo.QuantityCode
 (
     QuantityCodeId int IDENTITY(1,1) NOT NULL,
-    Value nvarchar(256) NOT NULL
+    Value nvarchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
@@ -176,11 +176,10 @@ CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
 CREATE TABLE dbo.Resource
 (
     ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) NOT NULL,
+    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version int NOT NULL,
     IsHistory bit NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
-    LastUpdated datetime2(7) NOT NULL,
     IsDeleted bit NOT NULL,
     RequestMethod varchar(10) NULL,
     RawResource varbinary(max) NOT NULL
@@ -210,10 +209,12 @@ INCLUDE -- We want the query in UpsertResource, which is done with UPDLOCK AND H
 )
 WHERE IsHistory = 0
 
-CREATE NONCLUSTERED INDEX IX_Resource_LastUpdated ON dbo.Resource
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId ON dbo.Resource
 (
-    LastUpdated
+    ResourceTypeId,
+    ResourceSurrogateId
 )
+WHERE IsHistory = 0 AND IsDeleted = 0
 
 /*************************************************************
     Capture claims on write
@@ -222,7 +223,7 @@ CREATE NONCLUSTERED INDEX IX_Resource_LastUpdated ON dbo.Resource
 CREATE TABLE dbo.ClaimType
 (
     ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
-    Name varchar(128) NOT NULL
+    Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
@@ -243,7 +244,7 @@ CREATE TABLE dbo.ResourceWriteClaim
     ClaimValue nvarchar(128) NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
-CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
+CREATE CLUSTERED INDEX IXC_ResourceWriteClaim on dbo.ResourceWriteClaim
 (
     ResourceSurrogateId,
     ClaimTypeId
@@ -256,7 +257,7 @@ CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
 CREATE TABLE dbo.CompartmentType
 (
     CompartmentTypeId tinyint IDENTITY(1,1) NOT NULL,
-    Name varchar(128) NOT NULL
+    Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
@@ -267,7 +268,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
 CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE
 (
     CompartmentTypeId tinyint NOT NULL,
-    ReferenceResourceId varchar(64) NOT NULL
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.CompartmentAssignment
@@ -275,7 +276,7 @@ CREATE TABLE dbo.CompartmentAssignment
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     CompartmentTypeId tinyint NOT NULL,
-    ReferenceResourceId varchar(64) NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -309,9 +310,9 @@ GO
 CREATE TYPE dbo.ReferenceSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
-    BaseUri varchar(128) NULL,
+    BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId smallint NOT NULL,
-    ReferenceResourceId varchar(64) NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL
 )
 
@@ -320,9 +321,9 @@ CREATE TABLE dbo.ReferenceSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    BaseUri varchar(128) NULL,
+    BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId smallint NOT NULL,
-    ReferenceResourceId varchar(64) NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
@@ -331,25 +332,21 @@ CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
 ON dbo.ReferenceSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    ReferenceResourceId,
-    ReferenceResourceTypeId,
-    BaseUri,
-    ReferenceResourceVersion
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
 ON dbo.ReferenceSearchParam
 (
     SearchParamId,
-    ReferenceResourceTypeId,
     ReferenceResourceId,
-    BaseUri,
-    ReferenceResourceVersion
+    ReferenceResourceTypeId,
+    BaseUri
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    ReferenceResourceVersion
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
@@ -364,7 +361,7 @@ CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
-    Code varchar(128) NOT NULL
+    Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.TokenSearchParam
@@ -373,7 +370,7 @@ CREATE TABLE dbo.TokenSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
-    Code varchar(128) NOT NULL,
+    Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -381,9 +378,7 @@ CREATE CLUSTERED INDEX IXC_TokenSearchParam
 ON dbo.TokenSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code,
-    SystemId
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
@@ -425,8 +420,7 @@ CREATE CLUSTERED INDEX IXC_TokenText
 ON dbo.TokenText
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Text
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
@@ -524,8 +518,7 @@ CREATE CLUSTERED INDEX IXC_UriSearchParam
 ON dbo.UriSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Uri
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
@@ -577,8 +570,7 @@ CREATE CLUSTERED INDEX IXC_NumberSearchParam
 ON dbo.NumberSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    SingleValue
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
@@ -650,13 +642,11 @@ CREATE TABLE dbo.QuantitySearchParam
     IsHistory bit NOT NULL
 )
 
-CREATE CLUSTERED INDEX QuantitySearchParam
+CREATE CLUSTERED INDEX IXC_QuantitySearchParam
 ON dbo.QuantitySearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    QuantityCodeId,
-    SingleValue
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
@@ -713,7 +703,8 @@ CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     StartDateTime datetimeoffset(7) NOT NULL,
-    EndDateTime datetimeoffset(7) NOT NULL
+    EndDateTime datetimeoffset(7) NOT NULL,
+    IsLongerThanADay bit NOT NULL
 )
 
 CREATE TABLE dbo.DateTimeSearchParam
@@ -723,6 +714,7 @@ CREATE TABLE dbo.DateTimeSearchParam
     SearchParamId smallint NOT NULL,
     StartDateTime datetime2(7) NOT NULL,
     EndDateTime datetime2(7) NOT NULL,
+    IsLongerThanADay bit NOT NULL,
     IsHistory bit NOT NULL
 )
 
@@ -730,9 +722,7 @@ CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
 ON dbo.DateTimeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    StartDateTime,
-    EndDateTime
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
@@ -744,7 +734,8 @@ ON dbo.DateTimeSearchParam
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    IsLongerThanADay
 )
 WHERE IsHistory = 0
 
@@ -757,9 +748,37 @@ ON dbo.DateTimeSearchParam
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    IsLongerThanADay
 )
 WHERE IsHistory = 0
+
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    StartDateTime,
+    EndDateTime
+)
+INCLUDE
+(
+    ResourceTypeId
+)
+WHERE IsHistory = 0 AND IsLongerThanADay = 1
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    EndDateTime,
+    StartDateTime
+)
+INCLUDE
+(
+    ResourceTypeId
+)
+WHERE IsHistory = 0 AND IsLongerThanADay = 1
 
 GO
 
@@ -770,12 +789,12 @@ GO
 CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
-    BaseUri1 varchar(128) NULL,
+    BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId1 smallint NOT NULL,
-    ReferenceResourceId1 varchar(64) NOT NULL,
+    ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) NOT NULL
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
@@ -783,12 +802,12 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    BaseUri1 varchar(128) NULL,
+    BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId1 smallint NOT NULL,
-    ReferenceResourceId1 varchar(64) NOT NULL,
+    ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) NOT NULL,
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -796,9 +815,7 @@ CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
 ON dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    ReferenceResourceId1,
-    Code2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
@@ -828,9 +845,9 @@ CREATE TYPE dbo.TokenTokenCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) NOT NULL
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 CREATE TABLE dbo.TokenTokenCompositeSearchParam
@@ -839,9 +856,9 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) NOT NULL,
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -849,9 +866,7 @@ CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
 ON dbo.TokenTokenCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    Code2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
@@ -880,9 +895,10 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetimeoffset(7) NOT NULL,
-    EndDateTime2 datetimeoffset(7) NOT NULL
+    EndDateTime2 datetimeoffset(7) NOT NULL,
+    IsLongerThanADay2 bit NOT NULL
 )
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
@@ -891,9 +907,10 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
+    IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
@@ -901,10 +918,7 @@ CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
 ON dbo.TokenDateTimeCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    StartDateTime2,
-    EndDateTime2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
@@ -918,7 +932,8 @@ ON dbo.TokenDateTimeCompositeSearchParam
 INCLUDE
 (
     ResourceTypeId,
-    SystemId1
+    SystemId1,
+    IsLongerThanADay2
 )
 
 WHERE IsHistory = 0
@@ -935,9 +950,43 @@ ON dbo.TokenDateTimeCompositeSearchParam
 INCLUDE
 (
     ResourceTypeId,
-    SystemId1
+    SystemId1,
+    IsLongerThanADay2
 )
 WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long
+ON dbo.TokenDateTimeCompositeSearchParam
+(
+    SearchParamId,
+    Code1,
+    StartDateTime2,
+    EndDateTime2
+)
+INCLUDE
+(
+    ResourceTypeId,
+    SystemId1
+)
+
+WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
+WITH (DATA_COMPRESSION = PAGE)
+
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long
+ON dbo.TokenDateTimeCompositeSearchParam
+(
+    SearchParamId,
+    Code1,
+    EndDateTime2,
+    StartDateTime2
+)
+INCLUDE
+(
+    ResourceTypeId,
+    SystemId1
+)
+WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE)
 
 GO
@@ -950,7 +999,7 @@ CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
     SingleValue2 decimal(18,6) NULL,
@@ -964,7 +1013,7 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
     SingleValue2 decimal(18,6) NULL,
@@ -977,9 +1026,7 @@ CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
 ON dbo.TokenQuantityCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    SingleValue2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
@@ -1045,7 +1092,7 @@ CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
@@ -1056,7 +1103,7 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_CI_AI NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NULL,
     IsHistory bit NOT NULL,
@@ -1066,9 +1113,7 @@ CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
 ON dbo.TokenStringCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    Text2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
@@ -1119,7 +1164,7 @@ CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,
@@ -1135,7 +1180,7 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,
@@ -1150,10 +1195,7 @@ CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    SingleValue2,
-    SingleValue3
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
@@ -1161,7 +1203,8 @@ ON dbo.TokenNumberNumberCompositeSearchParam
 (
     SearchParamId,
     Code1,
-    SingleValue2
+    SingleValue2,
+    SingleValue3
 )
 INCLUDE
 (
@@ -1192,15 +1235,18 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
-    Sequence for generating surrogate IDs for resources
+    Sequence for generating unique 12.5ns "tick" components that are added
+    to a base ID based on the timestamp to form a unique resource surrogate ID
 **************************************************************/
 
-CREATE SEQUENCE dbo.ResourceSurrogateIdSequence
-        AS BIGINT
+CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
+        AS int
         START WITH 0
         INCREMENT BY 1
-        NO CYCLE
-        CACHE 50
+        MINVALUE 0
+        MAXVALUE 79999
+        CYCLE
+        CACHE 1000000
 GO
 
 /*************************************************************
@@ -1215,6 +1261,9 @@ GO
 --     Creates or updates (including marking deleted) a FHIR resource
 --
 -- PARAMETERS
+--     @baseResourceSurrogateId
+--         * A bigint to which a value between [0, 80000) is added, forming a unique ResourceSurrogateId.
+--         * This value should be the current UTC datetime, truncated to millisecond precision, with its 100ns ticks component bitshifted left by 3.
 --     @resourceTypeId
 --         * The ID of the resource type (See ResourceType table)
 --     @resourceid
@@ -1268,12 +1317,12 @@ GO
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
 CREATE PROCEDURE dbo.UpsertResource
+    @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
     @allowCreate bit,
     @isDeleted bit,
-    @updatedDateTime datetimeoffset(7),
     @keepHistory bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
@@ -1470,12 +1519,12 @@ AS
         END
     END
 
-    DECLARE @resourceSurrogateId bigint = NEXT VALUE FOR dbo.ResourceSurrogateIdSequence
+    DECLARE @resourceSurrogateId bigint = @baseResourceSurrogateId + (NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence)
 
     INSERT INTO dbo.Resource
-        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, LastUpdated, IsDeleted, RequestMethod, RawResource)
+        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource)
     VALUES
-        (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, CONVERT(datetime2(7), @updatedDateTime), @isDeleted, @requestMethod, @rawResource)
+        (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, @isDeleted, @requestMethod, @rawResource)
 
     INSERT INTO dbo.ResourceWriteClaim
         (ResourceSurrogateId, ClaimTypeId, ClaimValue)
@@ -1523,8 +1572,8 @@ AS
     FROM @quantitySearchParams
 
     INSERT INTO dbo.DateTimeSearchParam
-        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsHistory)
-    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, 0
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0
     FROM @dateTimeSearchParms
 
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
@@ -1538,8 +1587,8 @@ AS
     FROM @tokenTokenCompositeSearchParams
 
     INSERT INTO dbo.TokenDateTimeCompositeSearchParam
-        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsHistory)
-    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, 0
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, 0
     FROM @tokenDateTimeCompositeSearchParams
 
     INSERT INTO dbo.TokenQuantityCompositeSearchParam
@@ -1587,12 +1636,12 @@ AS
     SET NOCOUNT ON
 
     IF (@version IS NULL) BEGIN
-        SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
     END
     ELSE BEGIN
-        SELECT Version, LastUpdated, IsDeleted, IsHistory, RawResource
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND Version = @version
     END

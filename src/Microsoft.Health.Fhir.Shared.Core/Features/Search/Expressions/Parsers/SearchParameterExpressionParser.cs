@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
                 }
 
-                outputExpression = Expression.Contains(FieldName.TokenText, null, value, true);
+                outputExpression = Expression.StartsWith(FieldName.TokenText, null, value, true);
             }
             else
             {
