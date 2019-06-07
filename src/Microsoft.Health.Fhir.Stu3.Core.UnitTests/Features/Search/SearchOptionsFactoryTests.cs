@@ -14,7 +14,7 @@ using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressi
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     /// <summary>
-    /// Test class for R3 Search Expressions
+    /// Test class for STU3 Search Expressions
     /// </summary>
     public partial class SearchOptionsFactoryTests
     {
