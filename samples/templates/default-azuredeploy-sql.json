@@ -129,6 +129,13 @@
             "metadata": {
                 "description": "Only applies when specifying Repository Url"
             }
+        },
+        "sqlServerRegionOverride": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Override for the sql server location to be different than the resource group"
+            }
         }
     },
     "variables": {
@@ -161,7 +168,8 @@
             "PROJECT": "[concat('src/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web/Microsoft.Health.Fhir.', parameters('fhirVersion'), '.Web.csproj')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), if(variables('deploySourceCode'), variables('kuduFhirServerConfigProperties'), variables('emptyFhirServerConfigProperties')))]",
-        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]"
+        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
+        "sqlServerRegion": "[if(empty(parameters('sqlServerRegionOverride')), resourceGroup().location, parameters('sqlServerRegionOverride'))]"
     },
     "resources": [
         {
@@ -263,7 +271,7 @@
             "name": "[variables('serviceName')]",
             "type": "Microsoft.Sql/servers",
             "apiVersion": "2015-05-01-preview",
-            "location": "[resourceGroup().location]",
+            "location": "[variables('sqlServerRegion')]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
@@ -278,7 +286,7 @@
                     "dependsOn": [
                         "[variables('serviceName')]"
                     ],
-                    "location": "[resourceGroup().location]",
+                    "location": "[variables('sqlServerRegion')]",
                     "tags": {
                         "FhirServerSolution": "[parameters('solutionType')]"
                     },
@@ -298,7 +306,7 @@
                     "dependsOn": [
                         "[variables('serviceName')]"
                     ],
-                    "location": "[resourceGroup().location]",
+                    "location": "[variables('sqlServerRegion')]",
                     "name": "AllowAllWindowsAzureIps",
                     "properties": {
                         "endIpAddress": "0.0.0.0",
