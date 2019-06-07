@@ -87,17 +87,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             SqlRootExpression expression = (SqlRootExpression)searchExpression
-                                 ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
-                                 .AcceptVisitor(DateTimeRangeRewriter.Instance)
-                                 .AcceptVisitor(FlatteningRewriter.Instance)
-                                 .AcceptVisitor(_sqlRootExpressionRewriter)
-                                 .AcceptVisitor(NormalizedPredicateReorderer.Instance)
-                                 .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
-                                 .AcceptVisitor(StringOverflowRewriter.Instance)
-                                 .AcceptVisitor(NumericRangeRewriter.Instance)
-                                 .AcceptVisitor(MissingSearchParamVisitor.Instance)
-                                 .AcceptVisitor(TopRewriter.Instance, searchOptions)
-                             ?? SqlRootExpression.WithDenormalizedExpressions();
+                                               ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
+                                               .AcceptVisitor(DateTimeEqualityRewriter.Instance)
+                                               .AcceptVisitor(FlatteningRewriter.Instance)
+                                               .AcceptVisitor(_sqlRootExpressionRewriter)
+                                               .AcceptVisitor(TableExpressionCombiner.Instance)
+                                               .AcceptVisitor(NormalizedPredicateReorderer.Instance)
+                                               .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
+                                               .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
+                                               .AcceptVisitor(StringOverflowRewriter.Instance)
+                                               .AcceptVisitor(NumericRangeRewriter.Instance)
+                                               .AcceptVisitor(MissingSearchParamVisitor.Instance)
+                                               .AcceptVisitor(TopRewriter.Instance, searchOptions)
+                                           ?? SqlRootExpression.WithDenormalizedExpressions();
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {

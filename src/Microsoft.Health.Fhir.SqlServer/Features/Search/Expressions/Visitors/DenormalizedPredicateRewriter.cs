@@ -40,14 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         case SqlSearchParameters.ResourceSurrogateIdParameterName:
                         case SearchParameterNames.ResourceType:
                             extractedDenormalizedExpression = extractedDenormalizedExpression == null ? currentExpression : Expression.And(extractedDenormalizedExpression, currentExpression);
-                            if (newDenormalizedPredicates == null)
-                            {
-                                newDenormalizedPredicates = new List<Expression>();
-                                for (int j = 0; j < i; j++)
-                                {
-                                    newDenormalizedPredicates.Add(expression.DenormalizedExpressions[j]);
-                                }
-                            }
+                            EnsureAllocatedAndPopulated(ref newDenormalizedPredicates, expression.DenormalizedExpressions, i);
 
                             break;
                         default:

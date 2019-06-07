@@ -83,6 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly DateTime2Column StartDateTime = new DateTime2Column("StartDateTime", 7);
             internal readonly DateTime2Column EndDateTime = new DateTime2Column("EndDateTime", 7);
+            internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -256,6 +257,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly DateTime2Column StartDateTime2 = new DateTime2Column("StartDateTime2", 7);
             internal readonly DateTime2Column EndDateTime2 = new DateTime2Column("EndDateTime2", 7);
+            internal readonly BitColumn IsLongerThanADay2 = new BitColumn("IsLongerThanADay2");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -696,22 +698,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly DateTimeOffsetColumn StartDateTime = new DateTimeOffsetColumn("StartDateTime", 7);
             internal readonly DateTimeOffsetColumn EndDateTime = new DateTimeOffsetColumn("EndDateTime", 7);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, StartDateTime, EndDateTime};
+            internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, DateTimeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 StartDateTime.Set(record, 1, rowData.StartDateTime);
                 EndDateTime.Set(record, 2, rowData.EndDateTime);
+                IsLongerThanADay.Set(record, 3, rowData.IsLongerThanADay);
             }
         }
 
         internal struct DateTimeSearchParamTableTypeRow
         {
-            internal DateTimeSearchParamTableTypeRow(System.Int16 SearchParamId, System.DateTimeOffset StartDateTime, System.DateTimeOffset EndDateTime)
+            internal DateTimeSearchParamTableTypeRow(System.Int16 SearchParamId, System.DateTimeOffset StartDateTime, System.DateTimeOffset EndDateTime, System.Boolean IsLongerThanADay)
             {
                 this.SearchParamId = SearchParamId;
                 this.StartDateTime = StartDateTime;
                 this.EndDateTime = EndDateTime;
+                this.IsLongerThanADay = IsLongerThanADay;
             }
 
             internal System.Int16 SearchParamId
@@ -725,6 +730,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal System.DateTimeOffset EndDateTime
+            {
+                get;
+            }
+
+            internal System.Boolean IsLongerThanADay
             {
                 get;
             }
@@ -1071,7 +1081,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly DateTimeOffsetColumn StartDateTime2 = new DateTimeOffsetColumn("StartDateTime2", 7);
             internal readonly DateTimeOffsetColumn EndDateTime2 = new DateTimeOffsetColumn("EndDateTime2", 7);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2};
+            internal readonly BitColumn IsLongerThanADay2 = new BitColumn("IsLongerThanADay2");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenDateTimeCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
@@ -1079,18 +1090,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 Code1.Set(record, 2, rowData.Code1);
                 StartDateTime2.Set(record, 3, rowData.StartDateTime2);
                 EndDateTime2.Set(record, 4, rowData.EndDateTime2);
+                IsLongerThanADay2.Set(record, 5, rowData.IsLongerThanADay2);
             }
         }
 
         internal struct TokenDateTimeCompositeSearchParamTableTypeRow
         {
-            internal TokenDateTimeCompositeSearchParamTableTypeRow(System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.DateTimeOffset StartDateTime2, System.DateTimeOffset EndDateTime2)
+            internal TokenDateTimeCompositeSearchParamTableTypeRow(System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.DateTimeOffset StartDateTime2, System.DateTimeOffset EndDateTime2, System.Boolean IsLongerThanADay2)
             {
                 this.SearchParamId = SearchParamId;
                 this.SystemId1 = SystemId1;
                 this.Code1 = Code1;
                 this.StartDateTime2 = StartDateTime2;
                 this.EndDateTime2 = EndDateTime2;
+                this.IsLongerThanADay2 = IsLongerThanADay2;
             }
 
             internal System.Int16 SearchParamId
@@ -1114,6 +1127,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal System.DateTimeOffset EndDateTime2
+            {
+                get;
+            }
+
+            internal System.Boolean IsLongerThanADay2
             {
                 get;
             }
