@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class AttributeValidator : IPropertyValidator
     {
-        public PropertyValidatorOptions Options { get; set; } = PropertyValidatorOptions.Empty;
+        public PropertyValidatorOptions Options { get; } = new PropertyValidatorOptions();
 
         public IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
         {
