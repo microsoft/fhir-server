@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -123,12 +122,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var contentRoot = GetProjectPath(targetProjectParentDirectory, typeof(TStartup));
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
             var exportPath = Path.GetFullPath("exporttestconfiguration.json");
-            var dataStoreConfiguration = new Dictionary<string, string> { { "DataStore", dataStore.ToString() } };
 
-            if (dataStore == DataStore.SqlServer)
-            {
-                dataStoreConfiguration.Add("SqlServer:Initialize", "true");
-            }
+            var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(contentRoot, "Properties", "launchSettings.json")));
+
+            var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
             var builder = WebHost.CreateDefaultBuilder()
                 .UseContentRoot(contentRoot)
@@ -137,7 +134,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json");
                     configurationBuilder.AddJsonFile(corsPath);
                     configurationBuilder.AddJsonFile(exportPath);
-                    configurationBuilder.AddInMemoryCollection(dataStoreConfiguration);
+                    configurationBuilder.AddInMemoryCollection(configuration);
                 })
                 .UseStartup(typeof(TStartup))
                 .ConfigureServices(serviceCollection =>
