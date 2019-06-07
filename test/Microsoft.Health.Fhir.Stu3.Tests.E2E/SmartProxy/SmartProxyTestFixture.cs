@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
     {
         public SmartProxyTestFixture()
         {
-            string environmentUrl = Environment.GetEnvironmentVariable("TestEnvironmentUrl");
+            string environmentUrl = Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
 
             // Only set up test fixture if running against remote server
             if (!string.IsNullOrWhiteSpace(environmentUrl))
