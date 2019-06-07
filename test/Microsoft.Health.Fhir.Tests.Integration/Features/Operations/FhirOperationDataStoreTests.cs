@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Xunit;
@@ -22,6 +23,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
     {
         private IFhirOperationDataStore _operationDataStore;
         private IFhirStorageTestHelper _testHelper;
+
+        private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), "destinationType", "destinationConnection");
 
         public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {
@@ -42,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenANewExportRequest_WhenCreatingExportJob_ThenGetsJobCreated()
         {
-            var jobRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), "hash");
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.ResourceType, "hash");
 
             ExportJobOutcome outcome = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
@@ -209,7 +212,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ExportJobRecord(new Uri($"http://localhost"), "hash");
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, "Patient", "hash");
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
@@ -242,7 +245,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             Assert.Equal(expected.SchemaVersion, actual.SchemaVersion);
             Assert.Equal(expected.StartTime, actual.StartTime);
             Assert.Equal(expected.Status, actual.Status);
-            Assert.Equal(expected.NumberOfConsecutiveFailures, actual.NumberOfConsecutiveFailures);
             Assert.Equal(expected.QueuedTime, actual.QueuedTime);
         }
     }

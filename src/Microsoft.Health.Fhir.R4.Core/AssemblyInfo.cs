@@ -12,5 +12,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Api.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Core.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Common")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.E2E")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Tests.E2E")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Integration")]

@@ -16,5 +16,6 @@ namespace Microsoft.Health.Fhir.ValueSets
         Quantity,
         Uri,
         Composite,
+        Special,
     }
 }

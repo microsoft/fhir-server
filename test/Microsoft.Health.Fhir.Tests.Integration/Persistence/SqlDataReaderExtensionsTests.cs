@@ -5,7 +5,6 @@
 
 using System;
 using System.Data.SqlClient;
-using System.Diagnostics;
 using System.Linq;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Xunit;

@@ -24,7 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public abstract class SearchService : ISearchService, IProvideCapability
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
-        private readonly IBundleFactory _bundleFactory;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IModelInfoProvider _modelInfoProvider;
 
@@ -32,46 +31,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Initializes a new instance of the <see cref="SearchService"/> class.
         /// </summary>
         /// <param name="searchOptionsFactory">The search options factory.</param>
-        /// <param name="bundleFactory">The bundle factory</param>
         /// <param name="fhirDataStore">The data store</param>
         /// <param name="modelInfoProvider">The model info provider</param>
-        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
+        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchOptionsFactory = searchOptionsFactory;
-            _bundleFactory = bundleFactory;
             _fhirDataStore = fhirDataStore;
             _modelInfoProvider = modelInfoProvider;
         }
 
         /// <inheritdoc />
-        public async Task<ResourceElement> SearchAsync(
+        public async Task<SearchResult> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            CancellationToken cancellationToken = default(CancellationToken))
+            CancellationToken cancellationToken)
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
 
             // Execute the actual search.
-            SearchResult result = await SearchInternalAsync(searchOptions, cancellationToken);
-
-            return _bundleFactory.CreateSearchBundle(searchOptions.UnsupportedSearchParams, result);
+            return await SearchInternalAsync(searchOptions, cancellationToken);
         }
 
         /// <inheritdoc />
-        public async Task<ResourceElement> SearchCompartmentAsync(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, CancellationToken cancellationToken)
+        public async Task<SearchResult> SearchCompartmentAsync(
+            string compartmentType,
+            string compartmentId,
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellationToken)
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters);
 
             // Execute the actual search.
-            SearchResult result = await SearchInternalAsync(searchOptions, cancellationToken);
-
-            return _bundleFactory.CreateSearchBundle(searchOptions.UnsupportedSearchParams, result);
+            return await SearchInternalAsync(searchOptions, cancellationToken);
         }
 
-        public async Task<ResourceElement> SearchHistoryAsync(
+        public async Task<SearchResult> SearchHistoryAsync(
             string resourceType,
             string resourceId,
             PartialDateTime at,
@@ -164,10 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
             }
 
-            SearchOptions searchOptions =
-                !string.IsNullOrEmpty(resourceType)
-                    ? _searchOptionsFactory.Create(resourceType, queryParameters)
-                    : _searchOptionsFactory.Create(queryParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
 
             SearchResult searchResult = await SearchHistoryInternalAsync(searchOptions, cancellationToken);
 
@@ -184,9 +179,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            return _bundleFactory.CreateHistoryBundle(
-                unsupportedSearchParams: null,
-                result: searchResult);
+            return searchResult;
         }
 
         /// <summary>

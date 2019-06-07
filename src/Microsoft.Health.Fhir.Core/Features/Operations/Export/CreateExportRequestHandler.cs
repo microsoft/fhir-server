@@ -23,9 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
-        private IClaimsExtractor _claimsExtractor;
-        private IFhirOperationDataStore _fhirOperationDataStore;
-        private ISecretStore _secretStore;
+        private readonly IClaimsExtractor _claimsExtractor;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly ISecretStore _secretStore;
 
         public CreateExportRequestHandler(IClaimsExtractor claimsExtractor, IFhirOperationDataStore fhirOperationDataStore, ISecretStore secretStore)
         {
@@ -70,10 +70,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var uriBuilder = new UriBuilder(request.RequestUri);
                 uriBuilder.Query = queryParameters.ToString();
 
-                var jobRecord = new ExportJobRecord(uriBuilder.Uri, hash, requestorClaims);
+                var jobRecord = new ExportJobRecord(uriBuilder.Uri, request.ResourceType, hash, requestorClaims);
 
                 // Store the destination secret.
-                await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInfo.ToJson());
+                await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInfo.ToJson(), cancellationToken);
 
                 outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
             }

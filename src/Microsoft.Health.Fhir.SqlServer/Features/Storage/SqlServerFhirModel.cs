@@ -81,6 +81,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _resourceTypeToId[resourceTypeName];
         }
 
+        public bool TryGetResourceTypeId(string resourceTypeName, out short id)
+        {
+            ThrowIfNotInitialized();
+            return _resourceTypeToId.TryGetValue(resourceTypeName, out id);
+        }
+
+        public string GetResourceTypeName(short resourceTypeId)
+        {
+            ThrowIfNotInitialized();
+            return _resourceTypeIdToTypeName[resourceTypeId];
+        }
+
         public byte GetClaimTypeId(string claimTypeName)
         {
             ThrowIfNotInitialized();
@@ -93,13 +105,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _searchParamUriToId[searchParamUri];
         }
 
-        public byte GetCompartmentId(string compartmentType)
+        public byte GetCompartmentTypeId(string compartmentType)
         {
             ThrowIfNotInitialized();
             return _compartmentTypeToId[compartmentType];
         }
 
-        public int GetSystem(string system)
+        public bool TryGetSystemId(string system, out int systemId)
+        {
+            ThrowIfNotInitialized();
+            return _systemToId.TryGetValue(system, out systemId);
+        }
+
+        public int GetSystemId(string system)
         {
             ThrowIfNotInitialized();
 
@@ -107,12 +125,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
         }
 
-        public int GetQuantityCode(string code)
+        public int GetQuantityCodeId(string code)
         {
             ThrowIfNotInitialized();
 
             V1.QuantityCodeTable quantityCodeTable = V1.QuantityCode;
             return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
+        }
+
+        public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
+        {
+            ThrowIfNotInitialized();
+            return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
         public ValueTask EnsureInitialized() => _initializationOperation.EnsureInitialized();
@@ -124,6 +148,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogError($"The current version of the database is not available. Unable in initialize {nameof(SqlServerFhirModel)}.");
                 throw new ServiceUnavailableException();
             }
+
+            var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
+
+            _logger.LogInformation("Initializing {Server} {Database}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog);
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {

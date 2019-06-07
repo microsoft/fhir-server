@@ -7,7 +7,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    internal static class Constants
+    public static class Constants
     {
         private static readonly CodingInfo RestfulSecurityServiceOAuthCodeableConcept = new CodingInfo("http://hl7.org/fhir/ValueSet/restful-security-service", "OAuth");
         public const string SmartOAuthUriExtension = "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris";

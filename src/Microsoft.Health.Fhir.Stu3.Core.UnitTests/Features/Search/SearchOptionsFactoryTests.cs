@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Null(options.ContinuationToken);
             Assert.Equal(10, options.MaxItemCount);
-            ValidateSearchParameterExpression(options.Expression, SearchParameterNames.ResourceType, e => ValidateBinaryExpression(e, FieldName.TokenCode, BinaryOperator.Equal, DefaultResourceType));
+            ValidateResourceTypeSearchParameterExpression(options.Expression, DefaultResourceType);
         }
 
         [Fact]
