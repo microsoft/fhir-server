@@ -79,15 +79,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unable to connect to given destination..
-        /// </summary>
-        internal static string CantConnectToDestination {
-            get {
-                return ResourceManager.GetString("CantConnectToDestination", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to CapabilityStatement must have only a single item in the &apos;Rest&apos; collection..
         /// </summary>
         internal static string CapabilityStatementSingleRestItem {
@@ -223,15 +214,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The destination client is not connected to the destination end point..
-        /// </summary>
-        internal static string DestinationClientNotConnected {
-            get {
-                return ResourceManager.GetString("DestinationClientNotConnected", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Parameter {0} cannot a be a value in the future..
         /// </summary>
         internal static string HistoryParameterBeforeCannotBeFuture {
@@ -309,15 +291,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidBooleanConfigSetting {
             get {
                 return ResourceManager.GetString("InvalidBooleanConfigSetting", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The given connection settings is not in proper format..
-        /// </summary>
-        internal static string InvalidConnectionSettings {
-            get {
-                return ResourceManager.GetString("InvalidConnectionSettings", resourceCulture);
             }
         }
         

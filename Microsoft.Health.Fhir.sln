@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28729.10
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.645
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8AD2A324-DAB5-4380-94A5-31F7D817C384}"
 EndProject
@@ -105,6 +105,8 @@ EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Web", "src\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.shproj", "{934CA8BB-B0A7-4187-BF4D-C937FBBA1777}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Web", "src\Microsoft.Health.Fhir.R4.Web\Microsoft.Health.Fhir.R4.Web.csproj", "{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Azure", "src\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj", "{6A804695-44D9-4335-B559-9E9A0DAB1102}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -252,6 +254,10 @@ Global
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

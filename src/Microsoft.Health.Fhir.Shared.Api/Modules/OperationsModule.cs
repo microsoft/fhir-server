@@ -29,14 +29,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Transient()
                 .AsSelf();
 
-            services.Add<AzureExportDestinationClient>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<AzureExportDestinationClient>())
-                .Transient()
-                .AsSelf();
-
             services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<InMemoryExportDestinationClient>())
                 .Transient()
                 .AsSelf();

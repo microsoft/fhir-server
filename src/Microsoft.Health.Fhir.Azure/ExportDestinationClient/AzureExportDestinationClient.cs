@@ -12,8 +12,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
     public class AzureExportDestinationClient : IExportDestinationClient
     {

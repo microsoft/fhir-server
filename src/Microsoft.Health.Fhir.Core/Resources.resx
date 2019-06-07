@@ -123,9 +123,6 @@
   <data name="AuthorizationPermissionDefinitionInvalid" xml:space="preserve">
     <value>The authorization permission definition contains one or more invalid entries.</value>
   </data>
-  <data name="CantConnectToDestination" xml:space="preserve">
-    <value>Unable to connect to given destination.</value>
-  </data>
   <data name="CapabilityStatementSingleRestItem" xml:space="preserve">
     <value>CapabilityStatement must have only a single item in the 'Rest' collection.</value>
   </data>
@@ -172,9 +169,6 @@
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
   </data>
-  <data name="DestinationClientNotConnected" xml:space="preserve">
-    <value>The destination client is not connected to the destination end point.</value>
-  </data>
   <data name="HistoryParameterBeforeCannotBeFuture" xml:space="preserve">
     <value>Parameter {0} cannot a be a value in the future.</value>
   </data>
@@ -201,9 +195,6 @@
   </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
-  </data>
-  <data name="InvalidConnectionSettings" xml:space="preserve">
-    <value>The given connection settings is not in proper format.</value>
   </data>
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The continuation token is invalid.</value>

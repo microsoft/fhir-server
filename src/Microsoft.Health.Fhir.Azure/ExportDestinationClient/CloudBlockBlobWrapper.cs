@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
     /// <summary>
     /// A wrapper class around <see cref="CloudBlockBlob"/> that also keeps track of the list of existing
