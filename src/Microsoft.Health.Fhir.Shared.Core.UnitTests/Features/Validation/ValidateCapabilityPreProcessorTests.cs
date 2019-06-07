@@ -8,11 +8,11 @@ using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
 using Xunit;
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, new[] { CapabilityStatement.TypeRestfulInteraction.Read });
 
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(new ResourceElement(statement.ToTypedElement()));
+            _conformanceProvider.GetCapabilityStatementAsync().Returns(statement.ToTypedElement().ToResourceElement());
         }
 
         [Fact]

@@ -9,6 +9,7 @@ using EnsureThat;
 using FluentValidation.Results;
 using FluentValidation.Validators;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     var bundleEntries = resourceElement.Instance.Select(KnownFhirPaths.BundleEntries);
                     if (bundleEntries != null)
                     {
-                        var domainResources = bundleEntries.Select(e => new ResourceElement(e)).Where(r => r.IsDomainResource);
+                        var domainResources = bundleEntries.Select(e => e.ToResourceElement());
                         foreach (ValidationFailure validationFailure in domainResources.SelectMany(ValidateResource))
                         {
                             yield return validationFailure;
@@ -52,18 +53,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             }
         }
 
-        private IEnumerable<ValidationFailure> ValidateResource(ResourceElement domainResource)
+        private IEnumerable<ValidationFailure> ValidateResource(ResourceElement resourceElement)
         {
-            EnsureArg.IsNotNull(domainResource, nameof(domainResource));
+            EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            var xhtml = domainResource.Scalar<string>(KnownFhirPaths.ResourceNarrative);
+            var xhtml = resourceElement.Scalar<string>(KnownFhirPaths.ResourceNarrative);
             if (string.IsNullOrEmpty(xhtml))
             {
                 yield break;
             }
 
             var errors = _narrativeHtmlSanitizer.Validate(xhtml);
-            var fullFhirPath = domainResource.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
+            var fullFhirPath = resourceElement.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
 
             foreach (var error in errors)
             {

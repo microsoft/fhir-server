@@ -20,9 +20,9 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             };
 
             _conformanceProvider = Substitute.For<IConformanceProvider>();
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(new ResourceElement(_statement.ToTypedElement()));
+            _conformanceProvider.GetCapabilityStatementAsync().Returns(_statement.ToTypedElement().ToResourceElement());
         }
 
         [Theory]
