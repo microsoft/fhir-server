@@ -92,12 +92,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     V1.UpsertResource.PopulateCommand(
                         command,
+                        baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                         resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
                         resourceId: resource.ResourceId,
                         eTag: weakETag == null ? null : (int?)etag,
                         allowCreate: allowCreate,
                         isDeleted: resource.IsDeleted,
-                        updatedDateTime: resource.LastModified,
                         keepHistory: keepHistory,
                         requestMethod: resource.Request.Method,
                         rawResource: stream,
@@ -169,9 +169,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         var resourceTable = V1.Resource;
 
-                        (int version, DateTime lastModified, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                            resourceTable.ResourceSurrogateId,
                             resourceTable.Version,
-                            resourceTable.LastUpdated,
                             resourceTable.IsDeleted,
                             resourceTable.IsHistory,
                             resourceTable.RawResource);
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.ResourceType,
                             new RawResource(rawResource, FhirResourceFormat.Json),
                             null,
-                            new DateTimeOffset(lastModified, TimeSpan.Zero),
+                            new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,
                             searchIndices: null,
                             compartmentIndices: null,

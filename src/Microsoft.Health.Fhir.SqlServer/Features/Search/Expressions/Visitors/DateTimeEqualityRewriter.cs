@@ -4,29 +4,26 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Rewrites (And (FieldGreaterThanOrEqual DateTimeStart x) (FieldLessThanOrEqual DateTimeStart y)) to
+    /// Rewrites (And (FieldGreaterThanOrEqual DateTimeStart x) (FieldLessThanOrEqual DateTimeEnd y)) to
     /// (And (FieldGreaterThanOrEqual DateTimeStart x) (FieldLessThanOrEqual DateTimeEnd y) (FieldLessThanOrEqual DateTimeStart y)).
+    /// It looks specifically for this pattern because it is what we emit in the core layer for an equals search over a date parameter.
     /// This rewriting constrains the range scan over the index (DateTimeStart, DateTimeEnd).
     /// </summary>
-    internal class DateTimeRangeRewriter : ExpressionRewriterWithInitialContext<object>
+    internal class DateTimeEqualityRewriter : ExpressionRewriterWithInitialContext<object>
     {
-        internal static readonly DateTimeRangeRewriter Instance = new DateTimeRangeRewriter();
+        internal static readonly DateTimeEqualityRewriter Instance = new DateTimeEqualityRewriter();
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
-            // _lastUpdated is not stored as a range so this transformation does not apply.
-
             // include composites because they may contain dates.
 
-            if ((expression.Parameter.Type == SearchParamType.Date
-                 && expression.Parameter.Name != SearchParameterNames.LastUpdated) ||
+            if (expression.Parameter.Type == SearchParamType.Date ||
                 expression.Parameter.Type == SearchParamType.Composite)
             {
                 return base.VisitSearchParameter(expression, context);
@@ -54,14 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     right.BinaryOperator == BinaryOperator.LessThanOrEqual &&
                     left.ComponentIndex == right.ComponentIndex)
                 {
-                    if (newExpressions == null)
-                    {
-                        newExpressions = new List<Expression>();
-                        for (int j = 0; j < i; j++)
-                        {
-                            newExpressions.Add(expression.Expressions[j]);
-                        }
-                    }
+                    EnsureAllocatedAndPopulated(ref newExpressions, expression.Expressions, i);
 
                     newExpressions.Add(left);
                     newExpressions.Add(Expression.LessThanOrEqual(left.FieldName, right.ComponentIndex, right.Value));

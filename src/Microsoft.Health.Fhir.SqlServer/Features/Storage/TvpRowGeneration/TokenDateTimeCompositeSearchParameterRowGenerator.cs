@@ -30,7 +30,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     token1Row.SystemId,
                     token1Row.Code,
                     token2Row.StartDateTime,
-                    token2Row.EndDateTime);
+                    token2Row.EndDateTime,
+                    token2Row.IsLongerThanADay);
 
                 return true;
             }
