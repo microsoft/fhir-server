@@ -244,7 +244,7 @@ CREATE TABLE dbo.ResourceWriteClaim
     ClaimValue nvarchar(128) NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
 
-CREATE CLUSTERED INDEX IXC_LastModifiedClaim on dbo.ResourceWriteClaim
+CREATE CLUSTERED INDEX IXC_ResourceWriteClaim on dbo.ResourceWriteClaim
 (
     ResourceSurrogateId,
     ClaimTypeId
@@ -332,25 +332,21 @@ CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
 ON dbo.ReferenceSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    ReferenceResourceId,
-    ReferenceResourceTypeId,
-    BaseUri,
-    ReferenceResourceVersion
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
 ON dbo.ReferenceSearchParam
 (
     SearchParamId,
-    ReferenceResourceTypeId,
     ReferenceResourceId,
-    BaseUri,
-    ReferenceResourceVersion
+    ReferenceResourceTypeId,
+    BaseUri
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    ReferenceResourceVersion
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
@@ -382,9 +378,7 @@ CREATE CLUSTERED INDEX IXC_TokenSearchParam
 ON dbo.TokenSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code,
-    SystemId
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
@@ -426,8 +420,7 @@ CREATE CLUSTERED INDEX IXC_TokenText
 ON dbo.TokenText
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Text
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
@@ -525,8 +518,7 @@ CREATE CLUSTERED INDEX IXC_UriSearchParam
 ON dbo.UriSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Uri
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
@@ -578,8 +570,7 @@ CREATE CLUSTERED INDEX IXC_NumberSearchParam
 ON dbo.NumberSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    SingleValue
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
@@ -651,13 +642,11 @@ CREATE TABLE dbo.QuantitySearchParam
     IsHistory bit NOT NULL
 )
 
-CREATE CLUSTERED INDEX QuantitySearchParam
+CREATE CLUSTERED INDEX IXC_QuantitySearchParam
 ON dbo.QuantitySearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    QuantityCodeId,
-    SingleValue
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
@@ -733,9 +722,7 @@ CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
 ON dbo.DateTimeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    StartDateTime,
-    EndDateTime
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
@@ -828,9 +815,7 @@ CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
 ON dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    ReferenceResourceId1,
-    Code2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
@@ -881,9 +866,7 @@ CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
 ON dbo.TokenTokenCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    Code2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
@@ -935,10 +918,7 @@ CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
 ON dbo.TokenDateTimeCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    StartDateTime2,
-    EndDateTime2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
@@ -1046,9 +1026,7 @@ CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
 ON dbo.TokenQuantityCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    SingleValue2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
@@ -1135,9 +1113,7 @@ CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
 ON dbo.TokenStringCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    Text2
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
@@ -1219,10 +1195,7 @@ CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
     ResourceSurrogateId,
-    SearchParamId,
-    Code1,
-    SingleValue2,
-    SingleValue3
+    SearchParamId
 )
 
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
@@ -1230,7 +1203,8 @@ ON dbo.TokenNumberNumberCompositeSearchParam
 (
     SearchParamId,
     Code1,
-    SingleValue2
+    SingleValue2,
+    SingleValue3
 )
 INCLUDE
 (
