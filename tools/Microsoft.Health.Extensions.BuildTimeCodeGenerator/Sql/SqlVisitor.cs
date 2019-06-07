@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 {
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 
             return TypeExtensions.CreateGenericTypeFromGenericTypeDefinition(
                 typeof(IEnumerable<>).ToTypeSyntax(true),
-                SyntaxFactory.IdentifierName(GetRowStructNameForTableType(dataType.Name)));
+                IdentifierName(GetRowStructNameForTableType(dataType.Name)));
         }
 
         /// <summary>
@@ -150,32 +151,39 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         /// <returns>The field.</returns>
         protected static FieldDeclarationSyntax CreateStaticFieldForClass(string className, string fieldName)
         {
-            return SyntaxFactory.FieldDeclaration(
-                    SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName(className))
-                        .AddVariables(SyntaxFactory.VariableDeclarator(fieldName)
+            return FieldDeclaration(
+                    VariableDeclaration(IdentifierName(className))
+                        .AddVariables(VariableDeclarator(fieldName)
                             .WithInitializer(
-                                SyntaxFactory.EqualsValueClause(
-                                    SyntaxFactory.ObjectCreationExpression(
-                                        SyntaxFactory.IdentifierName(className)).AddArgumentListArguments()))))
-                .AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword), SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword));
+                                EqualsValueClause(
+                                    ObjectCreationExpression(
+                                        IdentifierName(className)).AddArgumentListArguments()))))
+                .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword), Token(SyntaxKind.StaticKeyword));
         }
 
         /// <summary>
         /// Gets the arguments for SQL database types, like the length, precision, and scale.
         /// </summary>
         /// <param name="dataType">The column data type</param>
+        /// <param name="collation">The column collation, if any</param>
         /// <returns>The type arguments</returns>
-        protected static IEnumerable<ArgumentSyntax> GetDataTypeSpecificConstructorArguments(DataTypeReference dataType)
+        protected static IEnumerable<ArgumentSyntax> GetDataTypeSpecificConstructorArguments(DataTypeReference dataType, Identifier collation)
         {
             if (dataType is ParameterizedDataTypeReference parameterizedDataType)
             {
-                return parameterizedDataType.Parameters.Select(p => SyntaxFactory.Argument(
-                    SyntaxFactory.LiteralExpression(
-                        SyntaxKind.NumericLiteralExpression,
-                        SyntaxFactory.Literal(p.LiteralType == LiteralType.Max ? -1 : int.Parse(p.Value)))));
+                foreach (var parameter in parameterizedDataType.Parameters)
+                {
+                    yield return Argument(
+                        LiteralExpression(
+                            SyntaxKind.NumericLiteralExpression,
+                            Literal(parameter.LiteralType == LiteralType.Max ? -1 : int.Parse(parameter.Value))));
+                }
             }
 
-            return Array.Empty<ArgumentSyntax>();
+            if (collation != null)
+            {
+                yield return Argument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(collation.Value)));
+            }
         }
 
         /// <summary>
@@ -212,22 +220,22 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
         {
             string normalizedSqlDbType = Enum.Parse<SqlDbType>(column.DataType.Name.BaseIdentifier.Value, true).ToString();
 
-            IdentifierNameSyntax typeName = SyntaxFactory.IdentifierName($"{(IsColumnNullable(column) ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
+            IdentifierNameSyntax typeName = IdentifierName($"{(IsColumnNullable(column) ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
 
-            return SyntaxFactory.FieldDeclaration(
-                    SyntaxFactory.VariableDeclaration(typeName)
-                        .AddVariables(SyntaxFactory.VariableDeclarator($"{column.ColumnIdentifier.Value}")
+            return FieldDeclaration(
+                    VariableDeclaration(typeName)
+                        .AddVariables(VariableDeclarator($"{column.ColumnIdentifier.Value}")
                             .WithInitializer(
-                                SyntaxFactory.EqualsValueClause(
-                                    SyntaxFactory.ObjectCreationExpression(
+                                EqualsValueClause(
+                                    ObjectCreationExpression(
                                             typeName)
                                         .AddArgumentListArguments(
-                                            SyntaxFactory.Argument(
-                                                SyntaxFactory.LiteralExpression(
+                                            Argument(
+                                                LiteralExpression(
                                                     SyntaxKind.StringLiteralExpression,
-                                                    SyntaxFactory.Literal(column.ColumnIdentifier.Value))))
-                                        .AddArgumentListArguments(GetDataTypeSpecificConstructorArguments(column.DataType).ToArray())))))
-                .AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword), SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
+                                                    Literal(column.ColumnIdentifier.Value))))
+                                        .AddArgumentListArguments(GetDataTypeSpecificConstructorArguments(column.DataType, column.Collation).ToArray())))))
+                .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.ReadOnlyKeyword));
         }
     }
 }

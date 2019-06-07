@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
             row = new V1.TokenSearchParamTableTypeRow(
                 searchParamId,
-                searchValue.System == null ? (int?)null : Model.GetSystem(searchValue.System),
+                searchValue.System == null ? (int?)null : Model.GetSystemId(searchValue.System),
                 searchValue.Code);
 
             return true;

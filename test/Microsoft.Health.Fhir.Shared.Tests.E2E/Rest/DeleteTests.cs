@@ -20,7 +20,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class DeleteTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         public DeleteTests(HttpIntegrationTestFixture<Startup> fixture)

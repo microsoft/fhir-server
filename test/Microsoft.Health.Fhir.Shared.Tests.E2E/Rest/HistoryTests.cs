@@ -21,8 +21,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
-    [CollectionDefinition("History", DisableParallelization=true)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [CollectionDefinition("History", DisableParallelization = true)]
     [Collection("History")]
     public class HistoryTests : IClassFixture<HttpIntegrationTestFixture<Startup>>, IDisposable
     {
@@ -93,7 +93,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains("Changed by E2E test", obsHistory.Text.Div);
         }
 
-        [Fact(Skip ="History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)] // History tests are unstable at the moment due to Cosmos DB issue with continuation tokens
+        [Fact]
         public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithModifications_TheServerShouldOnlyCorrectResources()
         {
             var since = await GetStartTimeForHistoryTest();
@@ -138,14 +139,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact(Skip = "History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)] // History tests are unstable at the moment due to Cosmos DB issue with continuation tokens
+        [Fact]
         public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeCloseToLastModifiedTime_TheServerShouldNotMissRecords()
         {
             var since = await GetStartTimeForHistoryTest();
 
             var newResources = new List<Resource>();
-
-            Thread.Sleep(500);  // put a small gap between since and the first edits
 
             // First make a few edits
             _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
@@ -189,20 +189,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact(Skip = "History tests are unstable at the moment due to Cosmos DB issue with continuation tokens")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)] // History tests are unstable at the moment due to Cosmos DB issue with continuation tokens
+        [Fact]
         public async Task WhenGettingSystemHistory_GivenAQueryThatReturnsMoreThan10Results_TheServerShouldBatchTheResponse()
         {
-            // The batch test does not work reliably on local Cosmos DB Emulator
-            // Skip the test if this is local
-            // There is no remote FHIR server. Skip test
-            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}")))
-            {
-                return;
-            }
-
             var since = await GetStartTimeForHistoryTest();
-
-            Thread.Sleep(500);  // put a small gap between since and the first edits
 
             var newResources = new List<Resource>();
 
@@ -313,24 +304,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// <returns>DateIimeOffset set to a good value for _since</returns>
         private async Task<DateTimeOffset> GetStartTimeForHistoryTest()
         {
-            Thread.Sleep(500);
-            var since = DateTime.UtcNow;
-
-            for (int i = 0; i < 10; i++)
-            {
-                var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
-                FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history?_since=" + sinceUriString);
-
-                if (readResponse.Resource.Entry.Count == 0)
-                {
-                    break;
-                }
-
-                Thread.Sleep(1000);
-                since = DateTime.UtcNow;
-            }
-
-            return since;
+            FhirResponse<Resource> response = await Client.CreateAsync(Samples.GetDefaultPatient().ToPoco());
+            await Task.Delay(10);
+            return response.Resource.Meta.LastUpdated.Value.AddMilliseconds(1);
         }
 
         public void Dispose()

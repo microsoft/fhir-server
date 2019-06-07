@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         Request = new Bundle.RequestComponent
                         {
                             Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,
-                            Url = r.Request?.Url?.ToString(),
+                            Url = hasVerb ? $"{resource.InstanceType}/{(httpVerb == Bundle.HTTPVerb.POST ? null : resource.Id)}" : null,
                         },
                         Response = new Bundle.ResponseComponent
                         {
