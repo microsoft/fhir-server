@@ -33,11 +33,6 @@ namespace Microsoft.Extensions.DependencyInjection
                     provider.GetService<IConfiguration>().GetSection("SqlServer").Bind(config);
                     configureAction?.Invoke(config);
 
-                    if (string.IsNullOrWhiteSpace(config.ConnectionString))
-                    {
-                        config.ConnectionString = LocalDatabase.DefaultConnectionString;
-                    }
-
                     return config;
                 })
                 .Singleton()
