@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.KeyVault.Configs
+namespace Microsoft.Health.Fhir.Azure.KeyVault.Configs
 {
     public class KeyVaultConfiguration
     {

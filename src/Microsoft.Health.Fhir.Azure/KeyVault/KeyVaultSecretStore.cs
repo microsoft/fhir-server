@@ -11,7 +11,7 @@ using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.KeyVault.Models;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 
-namespace Microsoft.Health.Fhir.KeyVault
+namespace Microsoft.Health.Fhir.Azure.KeyVault
 {
     /// <summary>
     /// Implementation of <see cref="ISecretStore"/> that uses Azure Key Vault underneath.
