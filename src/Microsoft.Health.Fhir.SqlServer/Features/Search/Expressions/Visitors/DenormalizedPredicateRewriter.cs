@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0)
+            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0 || expression.TableExpressions.All(t => t.Kind == TableExpressionKind.ChainAnchor))
             {
                 return expression;
             }
@@ -56,13 +57,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count);
-            foreach (var firstTableExpression in expression.TableExpressions)
+            foreach (var tableExpression in expression.TableExpressions)
             {
-                Expression newDenormalizedPredicate = firstTableExpression.DenormalizedPredicate == null
-                    ? extractedDenormalizedExpression
-                    : Expression.And(firstTableExpression.DenormalizedPredicate, extractedDenormalizedExpression);
+                if (tableExpression.Kind == TableExpressionKind.ChainAnchor)
+                {
+                    newTableExpressions.Add(tableExpression);
+                }
+                else
+                {
+                    Expression newDenormalizedPredicate = tableExpression.DenormalizedPredicate == null
+                        ? extractedDenormalizedExpression
+                        : Expression.And(tableExpression.DenormalizedPredicate, extractedDenormalizedExpression);
 
-                newTableExpressions.Add(new TableExpression(firstTableExpression.SearchParameterQueryGenerator, firstTableExpression.NormalizedPredicate, newDenormalizedPredicate, firstTableExpression.Kind));
+                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, tableExpression.NormalizedPredicate, newDenormalizedPredicate, tableExpression.Kind));
+                }
             }
 
             return new SqlRootExpression(newTableExpressions, newDenormalizedPredicates);

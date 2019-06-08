@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         }
                     }
 
-                    return new[] { new TableExpression(g.Key.queryGenerator, Expression.SearchParameter(g.Key.searchParameter, Expression.And(childExpressions))) };
+                    return new[] { new TableExpression(g.Key.queryGenerator, Expression.SearchParameter(g.Key.searchParameter, Expression.And(childExpressions)), null, TableExpressionKind.Normal) };
                 }).ToList();
 
             return new SqlRootExpression(newTableExpressions, expression.DenormalizedExpressions);

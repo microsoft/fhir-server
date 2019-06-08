@@ -37,5 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// Represents a table expression that applies a TOP operator over its predecessor.
         /// </summary>
         Top,
+
+        ChainAnchor,
     }
 }
