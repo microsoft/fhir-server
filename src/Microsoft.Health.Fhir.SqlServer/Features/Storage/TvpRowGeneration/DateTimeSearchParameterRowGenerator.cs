@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -30,7 +31,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             row = new V1.DateTimeSearchParamTableTypeRow(
                 searchParamId,
                 searchValue.Start,
-                searchValue.End);
+                searchValue.End,
+                (searchValue.Start - searchValue.End).Ticks > TimeSpan.TicksPerDay);
 
             return true;
         }

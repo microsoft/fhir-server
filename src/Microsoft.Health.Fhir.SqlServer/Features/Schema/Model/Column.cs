@@ -436,10 +436,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
     public abstract class StringColumn : Column<string>
     {
-        public StringColumn(string name, SqlDbType type, bool nullable, int length)
+        public StringColumn(string name, SqlDbType type, bool nullable, int length, string collation = null)
             : base(name, type, nullable, length)
         {
+            Collation = collation;
+            if (collation != null)
+            {
+                IsAcentSensitive = collation.Contains("_AS", StringComparison.OrdinalIgnoreCase);
+                IsCaseSensitive = collation.Contains("_CS", StringComparison.OrdinalIgnoreCase);
+            }
         }
+
+        public string Collation { get; }
+
+        public bool? IsCaseSensitive { get; }
+
+        public bool? IsAcentSensitive { get; }
 
         public override string Read(SqlDataReader reader, int ordinal)
         {
@@ -461,16 +473,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
     public class NVarCharColumn : StringColumn
     {
-        public NVarCharColumn(string name, int length)
-            : base(name, SqlDbType.NVarChar, false, length)
+        public NVarCharColumn(string name, int length, string collation = null)
+            : base(name, SqlDbType.NVarChar, false, length, collation)
         {
         }
     }
 
     public class VarCharColumn : StringColumn
     {
-        public VarCharColumn(string name, int length)
-            : base(name, SqlDbType.VarChar, false, length)
+        public VarCharColumn(string name, int length, string collation = null)
+            : base(name, SqlDbType.VarChar, false, length, collation)
         {
         }
     }
@@ -522,16 +534,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
     public class NullableNVarCharColumn : StringColumn
     {
-        public NullableNVarCharColumn(string name, int length)
-            : base(name, SqlDbType.NVarChar, true, length)
+        public NullableNVarCharColumn(string name, int length, string collation = null)
+            : base(name, SqlDbType.NVarChar, true, length, collation)
         {
         }
     }
 
     public class NullableVarCharColumn : StringColumn
     {
-        public NullableVarCharColumn(string name, int length)
-            : base(name, SqlDbType.VarChar, true, length)
+        public NullableVarCharColumn(string name, int length, string collation = null)
+            : base(name, SqlDbType.VarChar, true, length, collation)
         {
         }
     }

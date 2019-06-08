@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     ResourceElement resource = x.ArgAt<ResourceElement>(0);
 
-                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource), new ResourceRequest("http://fhir", HttpMethod.Post), x.ArgAt<bool>(1), null, null, null);
+                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null);
                 });
 
             var collection = new ServiceCollection();
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
         {
-            var instant = DateTimeOffset.Now;
+            var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
             using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
             {
                 var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));

@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly TestSearchService _searchService;
         private readonly RawResourceFactory _rawResourceFactory;
         private readonly ResourceRequest _resourceRequest = new ResourceRequest("http://fhir", HttpMethod.Post);
+        private readonly string _correlationId;
+        private readonly IFhirDataStore _fhirDataStore;
 
         private readonly IReadOnlyList<Tuple<string, string>> _queryParameters = new Tuple<string, string>[0];
         private readonly IReadOnlyList<Tuple<string, string>> _unsupportedQueryParameters = new Tuple<string, string>[0];

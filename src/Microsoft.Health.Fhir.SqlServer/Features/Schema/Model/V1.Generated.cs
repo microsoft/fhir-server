@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly TinyIntColumn ClaimTypeId = new TinyIntColumn("ClaimTypeId");
-            internal readonly VarCharColumn Name = new VarCharColumn("Name", 128);
+            internal readonly VarCharColumn Name = new VarCharColumn("Name", 128, "Latin1_General_100_CS_AS");
         }
 
         internal class CompartmentAssignmentTable : Table
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly TinyIntColumn CompartmentTypeId = new TinyIntColumn("CompartmentTypeId");
-            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64);
+            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64, "Latin1_General_100_CS_AS");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly TinyIntColumn CompartmentTypeId = new TinyIntColumn("CompartmentTypeId");
-            internal readonly VarCharColumn Name = new VarCharColumn("Name", 128);
+            internal readonly VarCharColumn Name = new VarCharColumn("Name", 128, "Latin1_General_100_CS_AS");
         }
 
         internal class DateTimeSearchParamTable : Table
@@ -83,6 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly DateTime2Column StartDateTime = new DateTime2Column("StartDateTime", 7);
             internal readonly DateTime2Column EndDateTime = new DateTime2Column("EndDateTime", 7);
+            internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -108,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly IntColumn QuantityCodeId = new IntColumn("QuantityCodeId");
-            internal readonly NVarCharColumn Value = new NVarCharColumn("Value", 256);
+            internal readonly NVarCharColumn Value = new NVarCharColumn("Value", 256, "Latin1_General_100_CS_AS");
         }
 
         internal class QuantitySearchParamTable : Table
@@ -137,9 +138,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NullableVarCharColumn BaseUri = new NullableVarCharColumn("BaseUri", 128);
+            internal readonly NullableVarCharColumn BaseUri = new NullableVarCharColumn("BaseUri", 128, "Latin1_General_100_CS_AS");
             internal readonly SmallIntColumn ReferenceResourceTypeId = new SmallIntColumn("ReferenceResourceTypeId");
-            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64);
+            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn ReferenceResourceVersion = new NullableIntColumn("ReferenceResourceVersion");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
@@ -153,12 +154,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NullableVarCharColumn BaseUri1 = new NullableVarCharColumn("BaseUri1", 128);
+            internal readonly NullableVarCharColumn BaseUri1 = new NullableVarCharColumn("BaseUri1", 128, "Latin1_General_100_CS_AS");
             internal readonly SmallIntColumn ReferenceResourceTypeId1 = new SmallIntColumn("ReferenceResourceTypeId1");
-            internal readonly VarCharColumn ReferenceResourceId1 = new VarCharColumn("ReferenceResourceId1", 64);
+            internal readonly VarCharColumn ReferenceResourceId1 = new VarCharColumn("ReferenceResourceId1", 64, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn ReferenceResourceVersion1 = new NullableIntColumn("ReferenceResourceVersion1");
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
-            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128);
+            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128, "Latin1_General_100_CS_AS");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -169,11 +170,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
-            internal readonly VarCharColumn ResourceId = new VarCharColumn("ResourceId", 64);
+            internal readonly VarCharColumn ResourceId = new VarCharColumn("ResourceId", 64, "Latin1_General_100_CS_AS");
             internal readonly IntColumn Version = new IntColumn("Version");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
-            internal readonly DateTime2Column LastUpdated = new DateTime2Column("LastUpdated", 7);
             internal readonly BitColumn IsDeleted = new BitColumn("IsDeleted");
             internal readonly NullableVarCharColumn RequestMethod = new NullableVarCharColumn("RequestMethod", 10);
             internal readonly VarBinaryColumn RawResource = new VarBinaryColumn("RawResource", -1);
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
-            internal readonly NVarCharColumn Name = new NVarCharColumn("Name", 50);
+            internal readonly NVarCharColumn Name = new NVarCharColumn("Name", 50, "Latin1_General_100_CS_AS");
         }
 
         internal class ResourceWriteClaimTable : Table
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128);
+            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128, "Latin1_General_100_CS_AS");
         }
 
         internal class StringSearchParamTable : Table
@@ -229,8 +229,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256);
-            internal readonly NullableNVarCharColumn TextOverflow = new NullableNVarCharColumn("TextOverflow", -1);
+            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256, "Latin1_General_100_CI_AI_SC");
+            internal readonly NullableNVarCharColumn TextOverflow = new NullableNVarCharColumn("TextOverflow", -1, "Latin1_General_100_CI_AI_SC");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -254,9 +254,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly DateTime2Column StartDateTime2 = new DateTime2Column("StartDateTime2", 7);
             internal readonly DateTime2Column EndDateTime2 = new DateTime2Column("EndDateTime2", 7);
+            internal readonly BitColumn IsLongerThanADay2 = new BitColumn("IsLongerThanADay2");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -270,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
             internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
             internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
@@ -291,7 +292,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
             internal readonly NullableIntColumn QuantityCodeId2 = new NullableIntColumn("QuantityCodeId2");
             internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
@@ -310,7 +311,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
-            internal readonly VarCharColumn Code = new VarCharColumn("Code", 128);
+            internal readonly VarCharColumn Code = new VarCharColumn("Code", 128, "Latin1_General_100_CS_AS");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -324,9 +325,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
-            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256);
-            internal readonly NullableNVarCharColumn TextOverflow2 = new NullableNVarCharColumn("TextOverflow2", -1);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
+            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256, "Latin1_General_CI_AI");
+            internal readonly NullableNVarCharColumn TextOverflow2 = new NullableNVarCharColumn("TextOverflow2", -1, "Latin1_General_CI_AI");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -339,7 +340,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400);
+            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400, "Latin1_General_CI_AI");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -353,9 +354,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
-            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128);
+            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128, "Latin1_General_100_CS_AS");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -368,7 +369,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
             internal readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256);
+            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256, "Latin1_General_100_CS_AS");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
@@ -427,12 +428,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
+            private readonly ParameterDefinition<System.Int64> _baseResourceSurrogateId = new ParameterDefinition<System.Int64>("@baseResourceSurrogateId", global::System.Data.SqlDbType.BigInt, false);
             private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>("@resourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
             private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>("@resourceId", global::System.Data.SqlDbType.VarChar, false, 64);
             private readonly ParameterDefinition<System.Nullable<System.Int32>> _eTag = new ParameterDefinition<System.Nullable<System.Int32>>("@eTag", global::System.Data.SqlDbType.Int, true);
             private readonly ParameterDefinition<System.Boolean> _allowCreate = new ParameterDefinition<System.Boolean>("@allowCreate", global::System.Data.SqlDbType.Bit, false);
             private readonly ParameterDefinition<System.Boolean> _isDeleted = new ParameterDefinition<System.Boolean>("@isDeleted", global::System.Data.SqlDbType.Bit, false);
-            private readonly ParameterDefinition<System.DateTimeOffset> _updatedDateTime = new ParameterDefinition<System.DateTimeOffset>("@updatedDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
             private readonly ParameterDefinition<System.Boolean> _keepHistory = new ParameterDefinition<System.Boolean>("@keepHistory", global::System.Data.SqlDbType.Bit, false);
             private readonly ParameterDefinition<System.String> _requestMethod = new ParameterDefinition<System.String>("@requestMethod", global::System.Data.SqlDbType.VarChar, false, 10);
             private readonly ParameterDefinition<global::System.IO.Stream> _rawResource = new ParameterDefinition<global::System.IO.Stream>("@rawResource", global::System.Data.SqlDbType.VarBinary, false, -1);
@@ -452,16 +453,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly TokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenQuantityCompositeSearchParams = new TokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenQuantityCompositeSearchParams");
             private readonly TokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenStringCompositeSearchParams = new TokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenStringCompositeSearchParams");
             private readonly TokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenNumberNumberCompositeSearchParams = new TokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenNumberNumberCompositeSearchParams");
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> compartmentAssignments, global::System.Collections.Generic.IEnumerable<ReferenceSearchParamTableTypeRow> referenceSearchParams, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> tokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> tokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> stringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> numberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> quantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> uriSearchParams, global::System.Collections.Generic.IEnumerable<DateTimeSearchParamTableTypeRow> dateTimeSearchParms, global::System.Collections.Generic.IEnumerable<ReferenceTokenCompositeSearchParamTableTypeRow> referenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenTokenCompositeSearchParamTableTypeRow> tokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenDateTimeCompositeSearchParamTableTypeRow> tokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenQuantityCompositeSearchParamTableTypeRow> tokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenStringCompositeSearchParamTableTypeRow> tokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> tokenNumberNumberCompositeSearchParams)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int64 baseResourceSurrogateId, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> compartmentAssignments, global::System.Collections.Generic.IEnumerable<ReferenceSearchParamTableTypeRow> referenceSearchParams, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> tokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> tokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> stringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> numberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> quantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> uriSearchParams, global::System.Collections.Generic.IEnumerable<DateTimeSearchParamTableTypeRow> dateTimeSearchParms, global::System.Collections.Generic.IEnumerable<ReferenceTokenCompositeSearchParamTableTypeRow> referenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenTokenCompositeSearchParamTableTypeRow> tokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenDateTimeCompositeSearchParamTableTypeRow> tokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenQuantityCompositeSearchParamTableTypeRow> tokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenStringCompositeSearchParamTableTypeRow> tokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> tokenNumberNumberCompositeSearchParams)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpsertResource";
+                _baseResourceSurrogateId.AddParameter(command.Parameters, baseResourceSurrogateId);
                 _resourceTypeId.AddParameter(command.Parameters, resourceTypeId);
                 _resourceId.AddParameter(command.Parameters, resourceId);
                 _eTag.AddParameter(command.Parameters, eTag);
                 _allowCreate.AddParameter(command.Parameters, allowCreate);
                 _isDeleted.AddParameter(command.Parameters, isDeleted);
-                _updatedDateTime.AddParameter(command.Parameters, updatedDateTime);
                 _keepHistory.AddParameter(command.Parameters, keepHistory);
                 _requestMethod.AddParameter(command.Parameters, requestMethod);
                 _rawResource.AddParameter(command.Parameters, rawResource);
@@ -483,9 +484,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _tokenNumberNumberCompositeSearchParams.AddParameter(command.Parameters, tokenNumberNumberCompositeSearchParams);
             }
 
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.DateTimeOffset updatedDateTime, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, UpsertResourceTableValuedParameters tableValuedParameters)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int64 baseResourceSurrogateId, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, UpsertResourceTableValuedParameters tableValuedParameters)
             {
-                PopulateCommand(command, resourceTypeId: resourceTypeId, resourceId: resourceId, eTag: eTag, allowCreate: allowCreate, isDeleted: isDeleted, updatedDateTime: updatedDateTime, keepHistory: keepHistory, requestMethod: requestMethod, rawResource: rawResource, resourceWriteClaims: tableValuedParameters.ResourceWriteClaims, compartmentAssignments: tableValuedParameters.CompartmentAssignments, referenceSearchParams: tableValuedParameters.ReferenceSearchParams, tokenSearchParams: tableValuedParameters.TokenSearchParams, tokenTextSearchParams: tableValuedParameters.TokenTextSearchParams, stringSearchParams: tableValuedParameters.StringSearchParams, numberSearchParams: tableValuedParameters.NumberSearchParams, quantitySearchParams: tableValuedParameters.QuantitySearchParams, uriSearchParams: tableValuedParameters.UriSearchParams, dateTimeSearchParms: tableValuedParameters.DateTimeSearchParms, referenceTokenCompositeSearchParams: tableValuedParameters.ReferenceTokenCompositeSearchParams, tokenTokenCompositeSearchParams: tableValuedParameters.TokenTokenCompositeSearchParams, tokenDateTimeCompositeSearchParams: tableValuedParameters.TokenDateTimeCompositeSearchParams, tokenQuantityCompositeSearchParams: tableValuedParameters.TokenQuantityCompositeSearchParams, tokenStringCompositeSearchParams: tableValuedParameters.TokenStringCompositeSearchParams, tokenNumberNumberCompositeSearchParams: tableValuedParameters.TokenNumberNumberCompositeSearchParams);
+                PopulateCommand(command, baseResourceSurrogateId: baseResourceSurrogateId, resourceTypeId: resourceTypeId, resourceId: resourceId, eTag: eTag, allowCreate: allowCreate, isDeleted: isDeleted, keepHistory: keepHistory, requestMethod: requestMethod, rawResource: rawResource, resourceWriteClaims: tableValuedParameters.ResourceWriteClaims, compartmentAssignments: tableValuedParameters.CompartmentAssignments, referenceSearchParams: tableValuedParameters.ReferenceSearchParams, tokenSearchParams: tableValuedParameters.TokenSearchParams, tokenTextSearchParams: tableValuedParameters.TokenTextSearchParams, stringSearchParams: tableValuedParameters.StringSearchParams, numberSearchParams: tableValuedParameters.NumberSearchParams, quantitySearchParams: tableValuedParameters.QuantitySearchParams, uriSearchParams: tableValuedParameters.UriSearchParams, dateTimeSearchParms: tableValuedParameters.DateTimeSearchParms, referenceTokenCompositeSearchParams: tableValuedParameters.ReferenceTokenCompositeSearchParams, tokenTokenCompositeSearchParams: tableValuedParameters.TokenTokenCompositeSearchParams, tokenDateTimeCompositeSearchParams: tableValuedParameters.TokenDateTimeCompositeSearchParams, tokenQuantityCompositeSearchParams: tableValuedParameters.TokenQuantityCompositeSearchParams, tokenStringCompositeSearchParams: tableValuedParameters.TokenStringCompositeSearchParams, tokenNumberNumberCompositeSearchParams: tableValuedParameters.TokenNumberNumberCompositeSearchParams);
             }
         }
 
@@ -660,7 +661,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly TinyIntColumn CompartmentTypeId = new TinyIntColumn("CompartmentTypeId");
-            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64);
+            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{CompartmentTypeId, ReferenceResourceId};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, CompartmentAssignmentTableTypeRow rowData)
             {
@@ -697,22 +698,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly DateTimeOffsetColumn StartDateTime = new DateTimeOffsetColumn("StartDateTime", 7);
             internal readonly DateTimeOffsetColumn EndDateTime = new DateTimeOffsetColumn("EndDateTime", 7);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, StartDateTime, EndDateTime};
+            internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, DateTimeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 StartDateTime.Set(record, 1, rowData.StartDateTime);
                 EndDateTime.Set(record, 2, rowData.EndDateTime);
+                IsLongerThanADay.Set(record, 3, rowData.IsLongerThanADay);
             }
         }
 
         internal struct DateTimeSearchParamTableTypeRow
         {
-            internal DateTimeSearchParamTableTypeRow(System.Int16 SearchParamId, System.DateTimeOffset StartDateTime, System.DateTimeOffset EndDateTime)
+            internal DateTimeSearchParamTableTypeRow(System.Int16 SearchParamId, System.DateTimeOffset StartDateTime, System.DateTimeOffset EndDateTime, System.Boolean IsLongerThanADay)
             {
                 this.SearchParamId = SearchParamId;
                 this.StartDateTime = StartDateTime;
                 this.EndDateTime = EndDateTime;
+                this.IsLongerThanADay = IsLongerThanADay;
             }
 
             internal System.Int16 SearchParamId
@@ -726,6 +730,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal System.DateTimeOffset EndDateTime
+            {
+                get;
+            }
+
+            internal System.Boolean IsLongerThanADay
             {
                 get;
             }
@@ -856,9 +865,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NullableVarCharColumn BaseUri = new NullableVarCharColumn("BaseUri", 128);
+            internal readonly NullableVarCharColumn BaseUri = new NullableVarCharColumn("BaseUri", 128, "Latin1_General_100_CS_AS");
             internal readonly SmallIntColumn ReferenceResourceTypeId = new SmallIntColumn("ReferenceResourceTypeId");
-            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64);
+            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn ReferenceResourceVersion = new NullableIntColumn("ReferenceResourceVersion");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ReferenceSearchParamTableTypeRow rowData)
@@ -915,12 +924,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NullableVarCharColumn BaseUri1 = new NullableVarCharColumn("BaseUri1", 128);
+            internal readonly NullableVarCharColumn BaseUri1 = new NullableVarCharColumn("BaseUri1", 128, "Latin1_General_100_CS_AS");
             internal readonly SmallIntColumn ReferenceResourceTypeId1 = new SmallIntColumn("ReferenceResourceTypeId1");
-            internal readonly VarCharColumn ReferenceResourceId1 = new VarCharColumn("ReferenceResourceId1", 64);
+            internal readonly VarCharColumn ReferenceResourceId1 = new VarCharColumn("ReferenceResourceId1", 64, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn ReferenceResourceVersion1 = new NullableIntColumn("ReferenceResourceVersion1");
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
-            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128);
+            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ReferenceTokenCompositeSearchParamTableTypeRow rowData)
             {
@@ -1025,8 +1034,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256);
-            internal readonly NullableNVarCharColumn TextOverflow = new NullableNVarCharColumn("TextOverflow", -1);
+            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256, "Latin1_General_100_CI_AI_SC");
+            internal readonly NullableNVarCharColumn TextOverflow = new NullableNVarCharColumn("TextOverflow", -1, "Latin1_General_100_CI_AI_SC");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Text, TextOverflow};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, StringSearchParamTableTypeRow rowData)
             {
@@ -1069,10 +1078,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly DateTimeOffsetColumn StartDateTime2 = new DateTimeOffsetColumn("StartDateTime2", 7);
             internal readonly DateTimeOffsetColumn EndDateTime2 = new DateTimeOffsetColumn("EndDateTime2", 7);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2};
+            internal readonly BitColumn IsLongerThanADay2 = new BitColumn("IsLongerThanADay2");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenDateTimeCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
@@ -1080,18 +1090,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 Code1.Set(record, 2, rowData.Code1);
                 StartDateTime2.Set(record, 3, rowData.StartDateTime2);
                 EndDateTime2.Set(record, 4, rowData.EndDateTime2);
+                IsLongerThanADay2.Set(record, 5, rowData.IsLongerThanADay2);
             }
         }
 
         internal struct TokenDateTimeCompositeSearchParamTableTypeRow
         {
-            internal TokenDateTimeCompositeSearchParamTableTypeRow(System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.DateTimeOffset StartDateTime2, System.DateTimeOffset EndDateTime2)
+            internal TokenDateTimeCompositeSearchParamTableTypeRow(System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.DateTimeOffset StartDateTime2, System.DateTimeOffset EndDateTime2, System.Boolean IsLongerThanADay2)
             {
                 this.SearchParamId = SearchParamId;
                 this.SystemId1 = SystemId1;
                 this.Code1 = Code1;
                 this.StartDateTime2 = StartDateTime2;
                 this.EndDateTime2 = EndDateTime2;
+                this.IsLongerThanADay2 = IsLongerThanADay2;
             }
 
             internal System.Int16 SearchParamId
@@ -1118,6 +1130,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
                 get;
             }
+
+            internal System.Boolean IsLongerThanADay2
+            {
+                get;
+            }
         }
 
         private class TokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<TokenNumberNumberCompositeSearchParamTableTypeRow>
@@ -1128,7 +1145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
             internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
             internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
@@ -1227,7 +1244,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
             internal readonly NullableIntColumn QuantityCodeId2 = new NullableIntColumn("QuantityCodeId2");
             internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
@@ -1310,7 +1327,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
-            internal readonly VarCharColumn Code = new VarCharColumn("Code", 128);
+            internal readonly VarCharColumn Code = new VarCharColumn("Code", 128, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId, Code};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenSearchParamTableTypeRow rowData)
             {
@@ -1353,9 +1370,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
-            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256);
-            internal readonly NullableNVarCharColumn TextOverflow2 = new NullableNVarCharColumn("TextOverflow2", -1);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
+            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256, "Latin1_General_100_CI_AI_SC");
+            internal readonly NullableNVarCharColumn TextOverflow2 = new NullableNVarCharColumn("TextOverflow2", -1, "Latin1_General_100_CI_AI_SC");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, Text2, TextOverflow2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenStringCompositeSearchParamTableTypeRow rowData)
             {
@@ -1411,7 +1428,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400);
+            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400, "Latin1_General_CI_AI");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Text};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenTextTableTypeRow rowData)
             {
@@ -1447,9 +1464,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
-            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128);
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
-            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128);
+            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, SystemId2, Code2};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenTokenCompositeSearchParamTableTypeRow rowData)
             {
@@ -1505,7 +1522,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
-            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256);
+            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Uri};
             protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, UriSearchParamTableTypeRow rowData)
             {
