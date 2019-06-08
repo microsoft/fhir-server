@@ -163,6 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                         }
                     }
                 }
+            }
 
             // now switch to the target database
 
