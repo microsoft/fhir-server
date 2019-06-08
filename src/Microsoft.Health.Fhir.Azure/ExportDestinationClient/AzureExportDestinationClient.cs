@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             CheckIfClientIsConnected();
 
             CloudBlockBlob blockBlob = _blobContainer.GetBlockBlobReference(fileName);
+            blockBlob.Properties.ContentType = "application/fhir+ndjson";
             _uriToBlobMapping.Add(blockBlob.Uri, new CloudBlockBlobWrapper(blockBlob));
 
             return Task.FromResult(blockBlob.Uri);
@@ -113,6 +114,11 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             await Task.WhenAll(uploadAndCommitTasks);
 
             // We can clear the stream mappings once we commit everything in memory.
+            foreach (Stream memStream in _streamMappings.Values)
+            {
+                memStream.Dispose();
+            }
+
             _streamMappings.Clear();
         }
 
