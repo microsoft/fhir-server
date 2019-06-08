@@ -169,6 +169,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 
             using (var connection = new SqlConnection(_sqlServerDataStoreConfiguration.ConnectionString))
             {
+                connection.Open();
+
                 bool canInitialize;
                 using (var command = new SqlCommand("SELECT count(*) FROM fn_my_permissions (NULL, 'DATABASE') WHERE permission_name = 'CREATE TABLE'", connection))
                 {
