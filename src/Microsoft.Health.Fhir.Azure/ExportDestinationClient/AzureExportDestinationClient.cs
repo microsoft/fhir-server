@@ -106,19 +106,16 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(mapping.Key.Item2.ToString("d6")));
                 uploadAndCommitTasks.Add(Task.Run(async () =>
                 {
-                    await blobWrapper.UploadBlockAsync(blockId, mapping.Value, md5Hash: null, cancellationToken);
+                    await blobWrapper.UploadBlockAsync(blockId, stream, md5Hash: null, cancellationToken);
                     await blobWrapper.CommitBlockListAsync(cancellationToken);
+
+                    stream.Dispose();
                 }));
             }
 
             await Task.WhenAll(uploadAndCommitTasks);
 
             // We can clear the stream mappings once we commit everything in memory.
-            foreach (Stream memStream in _streamMappings.Values)
-            {
-                memStream.Dispose();
-            }
-
             _streamMappings.Clear();
         }
 
