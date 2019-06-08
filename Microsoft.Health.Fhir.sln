@@ -104,7 +104,13 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Share
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Web", "src\Microsoft.Health.Fhir.R4.Web\Microsoft.Health.Fhir.R4.Web.csproj", "{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Azure", "src\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj", "{6A804695-44D9-4335-B559-9E9A0DAB1102}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.E2E", "test\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.shproj", "{A898CC57-69D0-4454-BB70-784C138A05BF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Stu3.Tests.E2E", "test\Microsoft.Health.Fhir.Stu3.Tests.E2E\Microsoft.Health.Fhir.Stu3.Tests.E2E.csproj", "{49DA2851-2A19-4969-AE87-94837BACBE7D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Tests.E2E", "test\Microsoft.Health.Fhir.R4.Tests.E2E\Microsoft.Health.Fhir.R4.Tests.E2E.csproj", "{7F2B9209-2C50-42ED-961B-A09CC8A26A07}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Azure", "src\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj", "{6A804695-44D9-4335-B559-9E9A0DAB1102}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -249,6 +255,14 @@ Global
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8B173BA3-2018-4BB7-B32A-D4A9FC7984EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49DA2851-2A19-4969-AE87-94837BACBE7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49DA2851-2A19-4969-AE87-94837BACBE7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49DA2851-2A19-4969-AE87-94837BACBE7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49DA2851-2A19-4969-AE87-94837BACBE7D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Release|Any CPU.Build.0 = Release|Any CPU
 		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Release|Any CPU.ActiveCfg = Release|Any CPU
