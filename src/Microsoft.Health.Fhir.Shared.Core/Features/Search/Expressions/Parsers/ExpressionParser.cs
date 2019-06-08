@@ -102,7 +102,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 $"The {nameof(currentIndex)} is invalid.");
 
             PathSegment path = paths[currentIndex];
-            string currentPath = path.Path;
             string targetResourceType = path.ModifierOrResourceType;
 
             // We have more paths after this so this is a chained expression.
@@ -136,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     {
                         return Expression.Chained(
                             resourceType,
-                            currentPath,
+                            searchParameter,
                             targetType,
                             Parse(
                                 targetType,

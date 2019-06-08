@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             string value = "Seattle";
 
             // Setup the search parameters.
-            SetupReferenceSearchParameter(
+            SearchParameterInfo referenceSearchParameter = SetupReferenceSearchParameter(
                 sourceResourceType,
                 param1,
                 targetResourceType);
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 chainedExpression => ValidateChainedExpression(
                     chainedExpression,
                     sourceResourceType,
-                    param1,
+                    referenceSearchParameter,
                     targetResourceType.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
         }
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             string value = "Seattle";
 
             // Setup the search parameters.
-            SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
+            SearchParameterInfo referenceSearchParameter = SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
 
             var expectedTargets = targetResourceTypes.Select(targetResourceType =>
             {
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                         ValidateChainedExpression(
                             chainedExpression,
                             sourceResourceType,
-                            param1,
+                            referenceSearchParameter,
                             expected.TargetResourceType.ToString(),
                             actualSearchExpression => Assert.Equal(expected.Expression, actualSearchExpression)));
                 })
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             string value = "Seattle";
 
             // Setup the search parameters.
-            SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
+            SearchParameterInfo referenceSearchParameter = SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
 
             Expression[] expectedExpressions = targetResourceTypes.Select(targetResourceType =>
             {
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 chainedExpression => ValidateChainedExpression(
                     chainedExpression,
                     sourceResourceType,
-                    param1,
+                    referenceSearchParameter,
                     ResourceType.Organization.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpressions[0], actualSearchExpression)));
         }
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             string value = "Lewis";
 
             // Setup the search parameters.
-            SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
+            SearchParameterInfo referenceSearchParameter = SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
 
             // Setup the Organization to not support this search param.
             _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Organization.ToString(), param2)
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 chainedExpression => ValidateChainedExpression(
                     chainedExpression,
                     sourceResourceType,
-                    param1,
+                    referenceSearchParameter,
                     ResourceType.Practitioner.ToString(),
                     actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
         }
@@ -209,8 +209,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             string value = "Microsoft";
 
             // Setup the search parameters.
-            SetupReferenceSearchParameter(sourceResourceType, param1, firstTargetResourceType);
-            SetupReferenceSearchParameter(firstTargetResourceType, param2, secondTargetResourceType);
+            SearchParameterInfo referenceSearchParameter1 = SetupReferenceSearchParameter(sourceResourceType, param1, firstTargetResourceType);
+            SearchParameterInfo referenceSearchParameter2 = SetupReferenceSearchParameter(firstTargetResourceType, param2, secondTargetResourceType);
 
             SearchParameterInfo searchParameter = SetupSearchParameter(secondTargetResourceType, param3);
 
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                  chainedExpression => ValidateChainedExpression(
                      chainedExpression,
                      sourceResourceType,
-                     param1,
+                     referenceSearchParameter1,
                      firstTargetResourceType.ToString(),
                      nestedExpression => ValidateMultiaryExpression(
                          nestedExpression,
@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                          nestedChainedExpression => ValidateChainedExpression(
                              nestedChainedExpression,
                              firstTargetResourceType,
-                             param2,
+                             referenceSearchParameter2,
                              secondTargetResourceType.ToString(),
                              actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)))));
         }
@@ -349,15 +349,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             return searchParameter;
         }
 
-        private void SetupReferenceSearchParameter(ResourceType resourceType, string paramName, params ResourceType[] targetResourceTypes)
+        private SearchParameterInfo SetupReferenceSearchParameter(ResourceType resourceType, string paramName, params ResourceType[] targetResourceTypes)
         {
+            SearchParameterInfo referenceSearchParam = new SearchParameter
+            {
+                Name = paramName,
+                Type = SearchParamType.Reference,
+                Target = targetResourceTypes.Cast<ResourceType?>(),
+            }.ToInfo();
+
             _searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(
-                new SearchParameter
-                {
-                    Name = paramName,
-                    Type = SearchParamType.Reference,
-                    Target = targetResourceTypes.Cast<ResourceType?>(),
-                }.ToInfo());
+                referenceSearchParam);
+
+            return referenceSearchParam;
         }
 
         private Expression SetupExpression(SearchParameterInfo searchParameter, string value)
