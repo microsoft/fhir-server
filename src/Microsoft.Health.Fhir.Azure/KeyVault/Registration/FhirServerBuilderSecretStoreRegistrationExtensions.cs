@@ -9,10 +9,10 @@ using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Azure.KeyVault;
+using Microsoft.Health.Fhir.Azure.KeyVault.Configs;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.KeyVault;
-using Microsoft.Health.Fhir.KeyVault.Configs;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
