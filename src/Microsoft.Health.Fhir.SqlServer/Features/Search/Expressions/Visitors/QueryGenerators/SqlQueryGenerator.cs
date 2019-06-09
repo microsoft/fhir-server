@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return null;
         }
 
-        private string TableExpressionName(int id) => "cte" + id;
+        private static string TableExpressionName(int id) => "cte" + id;
 
         public object VisitTable(TableExpression tableExpression, SearchOptions context)
         {
@@ -134,13 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendHistoryClause(delimited);
 
-                        int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
-
-                        if (predecessorIndex >= 0)
-                        {
-                            delimited.BeginDelimitedElement();
-                            StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(predecessorIndex)).Append(")");
-                        }
+                        AppendIntersectionWithPredecessor(delimited, tableExpression);
 
                         if (tableExpression.DenormalizedPredicate != null)
                         {
@@ -212,11 +206,71 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .AppendLine("ORDER BY Sid1 ASC");
 
                     break;
+
+                case TableExpressionKind.ChainAnchor:
+                    var chainedExpression = (ChainedExpression)tableExpression.NormalizedPredicate;
+
+                    StringBuilder.Append("SELECT ref.").Append(V1.ReferenceSearchParam.ResourceSurrogateId).Append(" AS Sid1, r.").Append(V1.Resource.ResourceSurrogateId).AppendLine(" AS Sid2")
+                        .Append("FROM ").Append(V1.ReferenceSearchParam).AppendLine(" ref")
+                        .Append("INNER JOIN ").Append(V1.Resource).AppendLine(" r");
+
+                    using (var delimited = StringBuilder.BeginDelimitedOnClause())
+                    {
+                        delimited.BeginDelimitedElement().Append("ref.").Append(V1.ReferenceSearchParam.ReferenceResourceTypeId)
+                            .Append(" = r.").Append(V1.Resource.ResourceTypeId);
+
+                        delimited.BeginDelimitedElement().Append("ref.").Append(V1.ReferenceSearchParam.ReferenceResourceId)
+                            .Append(" = r.").Append(V1.Resource.ResourceId);
+                    }
+
+                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                    {
+                        delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.SearchParamId).Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(chainedExpression.ReferenceSearchParameter.Url)));
+
+                        AppendHistoryClause(delimited, "r");
+                        AppendHistoryClause(delimited, "ref");
+
+                        delimited.BeginDelimitedElement().Append("ref.").Append(V1.ReferenceSearchParam.ResourceTypeId)
+                            .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(chainedExpression.ResourceType)));
+
+                        delimited.BeginDelimitedElement().Append("ref.").Append(V1.ReferenceSearchParam.ReferenceResourceTypeId)
+                            .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(chainedExpression.TargetResourceType)));
+
+                        AppendIntersectionWithPredecessor(delimited, tableExpression, "ref");
+
+                        if (tableExpression.DenormalizedPredicate != null)
+                        {
+                            delimited.BeginDelimitedElement();
+                            tableExpression.DenormalizedPredicate?.AcceptVisitor(this, context);
+                        }
+                    }
+
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(tableExpression.Kind.ToString());
             }
 
             return null;
+        }
+
+        private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, TableExpression tableExpression, string tableAlias = null)
+        {
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+
+            if (predecessorIndex >= 0)
+            {
+                delimited.BeginDelimitedElement();
+
+                string columnToSelect = (tableExpression.Kind == TableExpressionKind.ChainAnchor ? tableExpression.ChainLevel - 1 : tableExpression.ChainLevel) == 0 ? "Sid1" : "Sid2";
+
+                if (tableAlias != null)
+                {
+                    StringBuilder.Append(tableAlias).Append('.');
+                }
+
+                StringBuilder.Append(V1.Resource.ResourceSurrogateId).Append(" IN (SELECT ").Append(columnToSelect)
+                    .Append(" FROM ").Append(TableExpressionName(predecessorIndex)).Append(")");
+            }
         }
 
         private int FindRestrictingPredecessorTableExpressionIndex()
@@ -228,6 +282,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     case TableExpressionKind.NotExists:
                     case TableExpressionKind.Normal:
+                    case TableExpressionKind.ChainAnchor:
                         return currentIndex - 1;
                     case TableExpressionKind.Concatenation:
                         return FindImpl(currentIndex - 1);
@@ -248,11 +303,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited)
+        private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
             if (!_isHistorySearch)
             {
-                delimited.BeginDelimitedElement().Append(V1.Resource.IsHistory).Append(" = 0");
+                delimited.BeginDelimitedElement();
+                if (tableAlias != null)
+                {
+                    StringBuilder.Append(tableAlias).Append('.');
+                }
+
+                StringBuilder.Append(V1.Resource.IsHistory).Append(" = 0");
             }
         }
 
