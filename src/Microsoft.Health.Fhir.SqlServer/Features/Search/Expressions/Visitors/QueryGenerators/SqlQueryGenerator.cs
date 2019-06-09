@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (searchOptions.CountOnly)
             {
-                StringBuilder.AppendLine("SELECT COUNT(*)");
+                StringBuilder.AppendLine("SELECT COUNT(DISTINCT ").Append(V1.Resource.ResourceSurrogateId, resourceTableAlias).Append(")");
             }
             else
             {
@@ -279,6 +279,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                         delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ReferenceResourceTypeId, referenceTableAlias)
                             .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(chainedExpression.TargetResourceType)));
+
+                        if (tableExpression.ChainLevel == 1)
+                        {
+                            // if > 1, the intersection is handled by the JOIN
+                            AppendIntersectionWithPredecessor(delimited, tableExpression, referenceTableAlias);
+                        }
 
                         if (tableExpression.DenormalizedPredicate != null)
                         {
