@@ -3,13 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
@@ -58,19 +56,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             // Parse the expression.
             Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
-            ValidateMultiaryExpression(
+            ValidateChainedExpression(
                 expression,
-                MultiaryOperator.Or,
-                chainedExpression => ValidateChainedExpression(
-                    chainedExpression,
-                    sourceResourceType,
-                    referenceSearchParameter,
-                    targetResourceType.ToString(),
-                    actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
+                sourceResourceType,
+                referenceSearchParameter,
+                targetResourceType.ToString(),
+                actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression));
         }
 
         [Fact]
-        public void GivenAChainedParameterPointingToMultipleResourceTypes_WhenParsed_ThenCorrectExpressionShouldBeCreated()
+        public void GivenAChainedParameterPointingToMultipleResourceTypes_WhenParsed_Throws()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
             ResourceType[] targetResourceTypes = new[] { ResourceType.Organization, ResourceType.Practitioner };
@@ -82,35 +77,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             string value = "Seattle";
 
             // Setup the search parameters.
-            SearchParameterInfo referenceSearchParameter = SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
-
-            var expectedTargets = targetResourceTypes.Select(targetResourceType =>
-            {
-                SearchParameterInfo searchParameter = SetupSearchParameter(targetResourceType, param2);
-
-                Expression expectedExpression = SetupExpression(searchParameter, value);
-
-                return new { TargetResourceType = targetResourceType, Expression = expectedExpression };
-            })
-            .ToArray();
+            SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
-
-            ValidateMultiaryExpression(
-                expression,
-                MultiaryOperator.Or,
-                expectedTargets.Select(expected =>
-                {
-                    return (Action<Expression>)(chainedExpression =>
-                        ValidateChainedExpression(
-                            chainedExpression,
-                            sourceResourceType,
-                            referenceSearchParameter,
-                            expected.TargetResourceType.ToString(),
-                            actualSearchExpression => Assert.Equal(expected.Expression, actualSearchExpression)));
-                })
-                .ToArray());
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType.ToString(), key, value));
         }
 
         [Fact]
@@ -132,25 +102,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SearchParameterInfo referenceSearchParameter = SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
 
             Expression[] expectedExpressions = targetResourceTypes.Select(targetResourceType =>
-            {
-                SearchParameterInfo searchParameter = SetupSearchParameter(targetResourceType, param2);
+                {
+                    SearchParameterInfo searchParameter = SetupSearchParameter(targetResourceType, param2);
 
-                return SetupExpression(searchParameter, value);
-            })
-            .ToArray();
+                    return SetupExpression(searchParameter, value);
+                })
+                .ToArray();
 
             // Parse the expression.
             Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
-            ValidateMultiaryExpression(
+            ValidateChainedExpression(
                 expression,
-                MultiaryOperator.Or,
-                chainedExpression => ValidateChainedExpression(
-                    chainedExpression,
-                    sourceResourceType,
-                    referenceSearchParameter,
-                    ResourceType.Organization.ToString(),
-                    actualSearchExpression => Assert.Equal(expectedExpressions[0], actualSearchExpression)));
+                sourceResourceType,
+                referenceSearchParameter,
+                ResourceType.Organization.ToString(),
+                actualSearchExpression => Assert.Equal(expectedExpressions[0], actualSearchExpression));
         }
 
         [Fact]
@@ -183,15 +150,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             // Parse the expression.
             Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
-            ValidateMultiaryExpression(
+            ValidateChainedExpression(
                 expression,
-                MultiaryOperator.Or,
-                chainedExpression => ValidateChainedExpression(
-                    chainedExpression,
-                    sourceResourceType,
-                    referenceSearchParameter,
-                    ResourceType.Practitioner.ToString(),
-                    actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
+                sourceResourceType,
+                referenceSearchParameter,
+                ResourceType.Practitioner.ToString(),
+                actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression));
         }
 
         [Fact]
@@ -219,23 +183,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             // Parse the expression.
             Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
 
-            ValidateMultiaryExpression(
-                 expression,
-                 MultiaryOperator.Or,
-                 chainedExpression => ValidateChainedExpression(
-                     chainedExpression,
-                     sourceResourceType,
-                     referenceSearchParameter1,
-                     firstTargetResourceType.ToString(),
-                     nestedExpression => ValidateMultiaryExpression(
-                         nestedExpression,
-                         MultiaryOperator.Or,
-                         nestedChainedExpression => ValidateChainedExpression(
-                             nestedChainedExpression,
-                             firstTargetResourceType,
-                             referenceSearchParameter2,
-                             secondTargetResourceType.ToString(),
-                             actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)))));
+            ValidateChainedExpression(
+                expression,
+                sourceResourceType,
+                referenceSearchParameter1,
+                firstTargetResourceType.ToString(),
+                nestedExpression => ValidateChainedExpression(
+                    nestedExpression,
+                    firstTargetResourceType,
+                    referenceSearchParameter2,
+                    secondTargetResourceType.ToString(),
+                    actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
         }
 
         [Fact]
