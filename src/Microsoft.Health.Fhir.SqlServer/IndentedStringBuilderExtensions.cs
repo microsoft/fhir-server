@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-
 namespace Microsoft.Health.Fhir.SqlServer
 {
     internal static class IndentedStringBuilderExtensions

@@ -37,12 +37,23 @@ namespace Microsoft.Health.Fhir.SqlServer
         /// <returns>A scope to be disposed when the indentation level is to be restored</returns>
         internal IndentedScope Indent() => new IndentedScope(this);
 
-        [Obsolete("Use overload with table alias instead")]
+        /// <summary>
+        /// Appends a column name to this instance.
+        /// </summary>
+        /// <param name="column">The column</param>
+        /// <returns>This instance</returns>
+        [Obsolete("Use overload with table alias instead")] // Catch calls an raise compiler warnings.
         public IndentedStringBuilder Append(Column column)
         {
             return Append(column, null);
         }
 
+        /// <summary>
+        /// Appends a column name to this instance.
+        /// </summary>
+        /// <param name="column">The column</param>
+        /// <param name="tableAlias">The table alias to quality the column reference with</param>
+        /// <returns>This instance</returns>
         public IndentedStringBuilder Append(Column column, string tableAlias)
         {
             if (!string.IsNullOrEmpty(tableAlias))
@@ -53,12 +64,23 @@ namespace Microsoft.Health.Fhir.SqlServer
             return Append(column.ToString());
         }
 
-        [Obsolete("Use overload with table alias instead")]
+        /// <summary>
+        /// Appends a column name to this instance.
+        /// </summary>
+        /// <param name="column">The column</param>
+        /// <returns>This instance</returns>
+        [Obsolete("Use overload with table alias instead")] // Catch calls an raise compiler warnings.
         public IndentedStringBuilder AppendLine(Column column)
         {
             return AppendLine(column, null);
         }
 
+        /// <summary>
+        /// Appends a column name to this instance.
+        /// </summary>
+        /// <param name="column">The column</param>
+        /// <param name="tableAlias">The table alias to quality the column reference with</param>
+        /// <returns>This instance</returns>
         public IndentedStringBuilder AppendLine(Column column, string tableAlias)
         {
             if (!string.IsNullOrEmpty(tableAlias))
