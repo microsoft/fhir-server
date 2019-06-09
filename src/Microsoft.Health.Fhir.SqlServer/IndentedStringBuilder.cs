@@ -8,6 +8,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text;
 using EnsureThat;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer
 {
@@ -35,6 +36,38 @@ namespace Microsoft.Health.Fhir.SqlServer
         /// </summary>
         /// <returns>A scope to be disposed when the indentation level is to be restored</returns>
         internal IndentedScope Indent() => new IndentedScope(this);
+
+        [Obsolete("Use overload with table alias instead")]
+        public IndentedStringBuilder Append(Column column)
+        {
+            return Append(column, null);
+        }
+
+        public IndentedStringBuilder Append(Column column, string tableAlias)
+        {
+            if (!string.IsNullOrEmpty(tableAlias))
+            {
+                Append(tableAlias).Append('.');
+            }
+
+            return Append(column.ToString());
+        }
+
+        [Obsolete("Use overload with table alias instead")]
+        public IndentedStringBuilder AppendLine(Column column)
+        {
+            return AppendLine(column, null);
+        }
+
+        public IndentedStringBuilder AppendLine(Column column, string tableAlias)
+        {
+            if (!string.IsNullOrEmpty(tableAlias))
+            {
+                Append(tableAlias).Append('.');
+            }
+
+            return AppendLine(column.ToString());
+        }
 
         /// <summary>
         /// Similar to <see cref="StringBuilder.AppendJoin{T}(string,IEnumerable{T})"/>, but without needing to build up intermediate strings.

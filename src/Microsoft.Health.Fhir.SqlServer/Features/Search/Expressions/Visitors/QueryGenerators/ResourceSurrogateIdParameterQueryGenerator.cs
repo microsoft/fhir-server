@@ -10,7 +10,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal class ResourceSurrogateIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
     {
-        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        public static readonly ResourceSurrogateIdParameterQueryGenerator Instance = new ResourceSurrogateIdParameterQueryGenerator();
+
+        public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
             VisitSimpleBinary(expression.BinaryOperator, context, V1.Resource.ResourceSurrogateId, expression.ComponentIndex, expression.Value);
             return context;

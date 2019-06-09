@@ -10,7 +10,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal class ResourceIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
     {
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        public static readonly ResourceIdParameterQueryGenerator Instance = new ResourceIdParameterQueryGenerator();
+
+        public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
             VisitSimpleString(expression, context, V1.Resource.ResourceId, expression.Value);
 

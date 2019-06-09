@@ -5,26 +5,27 @@
 
 using System;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal abstract class SearchParameterQueryGenerator : DefaultExpressionVisitor<SqlQueryGenerator, SqlQueryGenerator>
+    internal abstract class SearchParameterQueryGenerator : DefaultExpressionVisitor<SearchParameterQueryGeneratorContext, SearchParameterQueryGeneratorContext>
     {
         private const string DefaultCaseInsensitiveCollation = "Latin1_General_100_CI_AI_SC";
         private const string DefaultCaseSensitiveCollation = "Latin1_General_100_CS_AS";
 
         private static readonly Regex LikeEscapingRegex = new Regex("[%!\\[\\]_]", RegexOptions.Compiled);
 
-        public override SqlQueryGenerator VisitSearchParameter(SearchParameterExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
             SmallIntColumn searchParamIdColumn = V1.SearchParam.SearchParamId;
 
             context.StringBuilder
-                .Append(searchParamIdColumn)
+                .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
                 .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
                 .Append("AND ");
@@ -32,20 +33,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return expression.Expression.AcceptVisitor(this, context);
         }
 
-        public override SqlQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitMissingSearchParameter(MissingSearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
+            Debug.Assert(!expression.IsMissing, "IsMissing=true expressions should have been rewritten");
+
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
             SmallIntColumn searchParamIdColumn = V1.SearchParam.SearchParamId;
 
             context.StringBuilder
-                .Append(searchParamIdColumn)
+                .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
                 .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName);
 
             return context;
         }
 
-        public override SqlQueryGenerator VisitMultiary(MultiaryExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitMultiary(MultiaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
             if (expression.MultiaryOperation == MultiaryOperator.Or)
             {
@@ -79,9 +82,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return false;
         }
 
-        protected SqlQueryGenerator VisitSimpleBinary(BinaryOperator binaryOperator, SqlQueryGenerator context, Column column, int? componentIndex, object value)
+        protected SearchParameterQueryGeneratorContext VisitSimpleBinary(BinaryOperator binaryOperator, SearchParameterQueryGeneratorContext context, Column column, int? componentIndex, object value)
         {
-            context.StringBuilder.Append(column).Append(componentIndex + 1);
+            context.StringBuilder.Append(column, context.TableAlias).Append(componentIndex + 1);
 
             switch (binaryOperator)
             {
@@ -112,9 +115,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
-        protected SqlQueryGenerator VisitSimpleString(StringExpression expression, SqlQueryGenerator context, StringColumn column, string value)
+        protected SearchParameterQueryGeneratorContext VisitSimpleString(StringExpression expression, SearchParameterQueryGeneratorContext context, StringColumn column, string value)
         {
-            context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1);
+            context.StringBuilder.Append(column, context.TableAlias).Append(expression.ComponentIndex + 1);
 
             bool needsEscaping = false;
             switch (expression.StringOperator)
@@ -166,14 +169,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
-        protected static SqlQueryGenerator VisitMissingFieldImpl(MissingFieldExpression expression, SqlQueryGenerator context, FieldName expectedFieldName, Column column)
+        protected static SearchParameterQueryGeneratorContext VisitMissingFieldImpl(MissingFieldExpression expression, SearchParameterQueryGeneratorContext context, FieldName expectedFieldName, Column column)
         {
             if (expression.FieldName != expectedFieldName)
             {
                 throw new InvalidOperationException($"Unexpected missing field {expression.FieldName}");
             }
 
-            context.StringBuilder.Append(column).Append(expression.ComponentIndex + 1).Append(" IS NULL");
+            context.StringBuilder.Append(column, context.TableAlias).Append(expression.ComponentIndex + 1).Append(" IS NULL");
             return context;
         }
     }
