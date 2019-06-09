@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Concatenation:
-                    StringBuilder.Append("SELECT Sid1 FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+                    StringBuilder.Append("SELECT * FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
                     StringBuilder.AppendLine("UNION ALL");
 
                     goto case TableExpressionKind.Normal;
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     break;
 
-                case TableExpressionKind.ChainAnchor:
+                case TableExpressionKind.Chain:
                     var chainedExpression = (ChainedExpression)tableExpression.NormalizedPredicate;
 
                     string referenceTableAlias = "ref";
@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 delimited.BeginDelimitedElement();
 
-                string columnToSelect = (tableExpression.Kind == TableExpressionKind.ChainAnchor ? tableExpression.ChainLevel - 1 : tableExpression.ChainLevel) == 0 ? "Sid1" : "Sid2";
+                string columnToSelect = (tableExpression.Kind == TableExpressionKind.Chain ? tableExpression.ChainLevel - 1 : tableExpression.ChainLevel) == 0 ? "Sid1" : "Sid2";
 
                 StringBuilder.Append(V1.Resource.ResourceSurrogateId, tableAlias).Append(" IN (SELECT ").Append(columnToSelect)
                     .Append(" FROM ").Append(TableExpressionName(predecessorIndex)).Append(")");
@@ -330,7 +330,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     case TableExpressionKind.NotExists:
                     case TableExpressionKind.Normal:
-                    case TableExpressionKind.ChainAnchor:
+                    case TableExpressionKind.Chain:
                         return currentIndex - 1;
                     case TableExpressionKind.Concatenation:
                         return FindImpl(currentIndex - 1);

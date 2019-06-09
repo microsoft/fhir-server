@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     EnsureAllocatedAndPopulated(ref denormalizedPredicates, expression.Expressions, i);
                     EnsureAllocatedAndPopulated(ref normalizedPredicates, Array.Empty<TableExpression>(), 0);
 
-                    normalizedPredicates.Add(new TableExpression(normalizedGenerator, childExpression, null, tableExpressionKind, tableExpressionKind == TableExpressionKind.ChainAnchor ? 1 : 0));
+                    normalizedPredicates.Add(new TableExpression(normalizedGenerator, childExpression, null, tableExpressionKind, tableExpressionKind == TableExpressionKind.Chain ? 1 : 0));
                 }
                 else
                 {
@@ -74,14 +74,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private Expression ConvertNonMultiary(Expression expression)
         {
             return TryGetNormalizedGenerator(expression, out var generator, out var kind)
-                ? SqlRootExpression.WithTableExpressions(new TableExpression(generator, normalizedPredicate: expression, denormalizedPredicate: null, kind, chainLevel: kind == TableExpressionKind.ChainAnchor ? 1 : 0))
+                ? SqlRootExpression.WithTableExpressions(new TableExpression(generator, normalizedPredicate: expression, denormalizedPredicate: null, kind, chainLevel: kind == TableExpressionKind.Chain ? 1 : 0))
                 : SqlRootExpression.WithDenormalizedExpressions(expression);
         }
 
         private bool TryGetNormalizedGenerator(Expression expression, out NormalizedSearchParameterQueryGenerator normalizedGenerator, out TableExpressionKind kind)
         {
             normalizedGenerator = expression.AcceptVisitor(_normalizedSearchParameterQueryGeneratorFactory);
-            kind = normalizedGenerator is ChainAnchorQueryGenerator ? TableExpressionKind.ChainAnchor : TableExpressionKind.Normal;
+            kind = normalizedGenerator is ChainAnchorQueryGenerator ? TableExpressionKind.Chain : TableExpressionKind.Normal;
             return normalizedGenerator != null;
         }
     }

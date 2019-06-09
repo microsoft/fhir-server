@@ -12,6 +12,11 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Flattens chained expressions into <see cref="SqlRootExpression"/>'s <see cref="SqlRootExpression.TableExpressions"/> list.
+    /// The expression within a chained expression is promoted to a top-level table expression, but we keep track of the height
+    /// via the <see cref="TableExpression.ChainLevel"/>.
+    /// </summary>
     internal class ChainFlatteningRewriter : SqlExpressionRewriterWithInitialContext<(TableExpression containingTableExpression, int chainLevel)>
     {
         private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
@@ -32,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                                           ChainAnchorQueryGenerator.Instance,
                                           expression,
                                           null,
-                                          TableExpressionKind.ChainAnchor,
+                                          TableExpressionKind.Chain,
                                           context.chainLevel);
 
                 Expression visitedExpression = expression.Expression.AcceptVisitor(this, (null, context.chainLevel + 1));
@@ -60,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     ChainAnchorQueryGenerator.Instance,
                     expression,
                     denormalizedPredicate: normalizedParameterQueryGenerator == null ? expression.Expression : null,
-                    TableExpressionKind.ChainAnchor,
+                    TableExpressionKind.Chain,
                     context.chainLevel);
             }
 
@@ -80,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             for (var i = 0; i < expression.TableExpressions.Count; i++)
             {
                 TableExpression tableExpression = expression.TableExpressions[i];
-                if (tableExpression.Kind != TableExpressionKind.ChainAnchor)
+                if (tableExpression.Kind != TableExpressionKind.Chain)
                 {
                     newTableExpressions?.Add(tableExpression);
                     continue;

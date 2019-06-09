@@ -38,6 +38,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// </summary>
         Top,
 
-        ChainAnchor,
+        /// <summary>
+        /// Represents a table expression that serves as the JOIN between a resource and target reference
+        /// in a chained search.
+        /// </summary>
+        Chain,
     }
 }
