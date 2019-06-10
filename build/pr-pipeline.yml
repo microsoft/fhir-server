@@ -201,7 +201,7 @@ stages:
     - task: AzureRmWebAppDeployment@3
       displayName: 'Azure App Service Deploy'
       inputs:
-        azureSubscription: '$(Parameters.ConnectedServiceName)'
+        azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
         Package: '$(System.DefaultWorkingDirectory)/**/deploy/*Stu3*.zip'
@@ -216,7 +216,7 @@ stages:
     - task: AzureRmWebAppDeployment@3
       displayName: 'Azure App Service Deploy'
       inputs:
-        azureSubscription: '$(Parameters.ConnectedServiceName)'
+        azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
         Package: '$(System.DefaultWorkingDirectory)/**/deploy/*Stu3*.zip'
@@ -231,7 +231,7 @@ stages:
     - task: AzureRmWebAppDeployment@3
       displayName: 'Azure App Service Deploy'
       inputs:
-        azureSubscription: '$(Parameters.ConnectedServiceName)'
+        azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
         Package: '$(System.DefaultWorkingDirectory)/**/deploy/*R4*.zip'
@@ -246,7 +246,7 @@ stages:
     - task: AzureRmWebAppDeployment@3
       displayName: 'Azure App Service Deploy'
       inputs:
-        azureSubscription: '$(Parameters.ConnectedServiceName)'
+        azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
         Package: '$(System.DefaultWorkingDirectory)/**/deploy/*R4*.zip'
