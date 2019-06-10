@@ -1,7 +1,6 @@
 trigger:
   branches:
-    include: 'personal/brpoll/yaml-build'
-
+    include: ['personal/brpoll/yaml-build']
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
 stages:
@@ -14,44 +13,52 @@ stages:
     pool:
       vmImage: 'vs2017-win2016'
     steps:
+    - template: build.yml
   - job: Linux
     pool:
       vmImage: 'ubuntu-16.04'
     steps:
+    - template: build.yml
       parameters:
         packageArtifacts: false
-
 - stage: preReqs
-  jobs: AzureAd
+  jobs:
   - job: install
     steps:
-    - powershell: |
-      Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
-      Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
-      displayName: 'Install AzureAD'
-    - powershell: |
-      $pr = $env:BUILD_SOURCEBRANCH.split('/')[2]
-      $deploymentName = "$env:RESOURCEGROUPROOT-$pr"
-      
-      Write-Host "##vso[task.setvariable variable=PullRequestId;isOutput=true]$pr"
-      Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentName;isOutput=true]$deploymentName"
-      Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameR4;isOutput=true]$deploymentName-r4"
-      Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameSql;isOutput=true]$deploymentName-sql"
-      Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameR4Sql;isOutput=true]$deploymentName-r4-sql"
-      Write-Host "##vso[task.setvariable variable=PullRequestId;isOutput=true]OSS PR $pr"
-      Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl;isOutput=true]https://$deploymentName.azurewebsites.net"
-      Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql;isOutput=true]https://$deploymentName-sql.azurewebsites.net"
-      Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4;isOutput=true]https://$deploymentName-r4.azurewebsites.net"
-      Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql;isOutput=true]https://$deploymentName-r4-sql.azurewebsites.net"
-      Write-Host "##vso[task.setvariable variable=TestClientUrl;isOutput=true]https://$deploymentName-client/"
-      Write-Host "##vso[task.setvariable variable=TestEnvironmentName;isOutput=true]OSS PR$pr" 
-      displayName: 'Set Variables'
     - task: AzureKeyVault@1
       displayName: 'Azure Key Vault: resolute-oss-tenant-info'
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: 'resolute-oss-tenant-info'
-
+    - task: PowerShell@2
+      displayName: 'Install AzureAD'
+      inputs:
+        pwsh: true
+        targetType: Inline
+        script: |
+          Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+          Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
+    - task: PowerShell@2
+      displayName: 'Set Variables'
+      inputs:
+        pwsh: true
+        targetType: Inline
+        script: |
+          $pr = $env:BUILD_SOURCEBRANCH.split('/')[2]
+          $deploymentName = "$env:RESOURCEGROUPROOT-$pr"
+          
+          Write-Host "##vso[task.setvariable variable=PullRequestId;isOutput=true]$pr"
+          Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentName;isOutput=true]$deploymentName"
+          Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameR4;isOutput=true]$deploymentName-r4"
+          Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameSql;isOutput=true]$deploymentName-sql"
+          Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameR4Sql;isOutput=true]$deploymentName-r4-sql"
+          Write-Host "##vso[task.setvariable variable=PullRequestId;isOutput=true]OSS PR $pr"
+          Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl;isOutput=true]https://$deploymentName.azurewebsites.net"
+          Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql;isOutput=true]https://$deploymentName-sql.azurewebsites.net"
+          Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4;isOutput=true]https://$deploymentName-r4.azurewebsites.net"
+          Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql;isOutput=true]https://$deploymentName-r4-sql.azurewebsites.net"
+          Write-Host "##vso[task.setvariable variable=TestClientUrl;isOutput=true]https://$deploymentName-client/"
+          Write-Host "##vso[task.setvariable variable=TestEnvironmentName;isOutput=true]OSS PR$pr" 
 - stage: provisionEnvironment
   dependsOn: preReqs
   variables:
@@ -63,188 +70,187 @@ stages:
     resourceGroupRoot: 'msh-fhir-pr'
     AppServicePlanName: 'msh-fhir-pr-southcentralus'
     TestEnvironmentUrl: $[ dependencies.preReqs.outputs['TestEnvironmentSql'] ]
-  steps:
-  - task: AzurePowerShell@3
-    displayName: 'Deploy ARM template & Setup AAD environment'
-    inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
-      ScriptType: InlineScript
-      Inline: |
-      Add-Type -AssemblyName System.Web
-      New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
-      
-      $deployPath = "$(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy"
-      $roles = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testauthenvironment.json")).roles
-      $flattenedRoles = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $roles -PathPrefix "FhirServer:Security:Authorization:Roles"
-      
-      $cors = (ConvertFrom-Json (Get-Content -Raw "$deployPath/corstestconfiguration.json"))
-      $flattenedCors = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
-      
-      $export= (ConvertFrom-Json (Get-Content -Raw "$deployPath/exporttestconfiguration.json"))
-      $flattenedExport = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $export
-      
-      $additionalProperties = $flattenedRoles + $flattenedCors + $flattenedExport
-      
-      $additionalProperties["SqlServer:DeleteAllDataOnStartup"] = "true"
-      
-      $templateParameters = @{
-        appServicePlanResourceGroup = "$(resourceGroupRoot)"
-        appServicePlanName = "$(AppServicePlanName)"
-        serviceName = "$(DeploymentEnvironmentName)"
-        securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
-        repositoryUrl = "" 
-        securityAuthenticationAudience = "$(TestEnvironmentUrl)"
-        additionalFhirServerConfigProperties = $additionalProperties 
-        enableAadSmartOnFhirProxy = $true
-      }
-      
-      # Deploy CosmosDb environment
-      New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
-      
-      # Deploy R4 CosmosDb environment
-      $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
-      New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
-      
-      # Deploy SqlServer environment
-      $sap = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
-      Write-Host "##vso[task.setvariable variable=SqlAdminPassword]$sap"
-      $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
-      $templateParameters["solutionType"] = "FhirServerSqlServer"
-      $templateParameters["sqlAdminPassword"] = $sap
-      New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
-      
-      # Deploy R4 SqlServer
-      $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
-      New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
-      
-      $tenantId = "$(tenant-id)"
-      
-      # Get admin token
-      $username = "$(tenant-admin-user-name)"
-      $password_raw = "$(tenant-admin-user-password)"
-      $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
-      $adminCredential = New-Object PSCredential $username,$password
-        
-      $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
-      $resource = "https://graph.windows.net/"
-        
-      $body = @{
-          grant_type = "password"
-          username   = $username
-          password   = $password_raw
-          resource   = $resource 
-          client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
-      }
-        
-      $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
-      $token = $response.access_token
-      
-      Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
-      
-      Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServer/FhirServer.psd1
-      Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
-      
-      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
-      
-      foreach($user in $output.environmentUsers)
-      {
-          Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
+  jobs:
+  - job: deploy
+    steps:
+    - task: AzurePowerShell@3
+      displayName: 'Deploy ARM template & Setup AAD environment'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        ScriptType: InlineScript
+        Inline: |
+          Add-Type -AssemblyName System.Web
+          New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
           
-          $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
-          Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id;isOutput=true]$($user.upn)"
-          Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret;isOutput=true]$($secret.SecretValueText)"
-      }
-      
-      foreach($clientApp in $output.environmentClientApplications)
-      {
-          Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
-          $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
-      
-          Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id;isOutput=true]$($clientApp.AppId)"
-          Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret;isOutput=true]$($secret.SecretValueText)"
-          Write-Host "##vso[task.setvariable variable=TestClientSecret;isOutput=true]$($secret.SecretValueText)"
-      }
-      azurePowerShellVersion: LatestVersion
-  - task: AzurePowerShell@3
-    displayName: 'Azure Set Data Store Variables'
-    inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
-      ScriptType: InlineScript
-      Inline: |
-      $c = Get-AzureRmResource -ResourceGroupName $(DeploymentEnvironmentName) -ResourceType "Microsoft.DocumentDb/databaseAccounts" -ResourceName $(DeploymentEnvironmentName)
-      $k = Invoke-AzureRmResourceAction -Action listKeys -ResourceId $c.ResourceId -Force
-      $ho = $c.Properties.documentEndpoint
-      $ke = $k.primaryMasterKey
-      Write-Host "##vso[task.setvariable variable=DataStore--Host;isOutput=true]$ho"
-      Write-Host "##vso[task.setvariable variable=DataStore--Key;isOutput=true]$ke"
-      
-      $sqlConnectionString = "Server=tcp:$(DeploymentEnvironmentNameSql).database.windows.net,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=fhirAdmin;Password=$(SqlAdminPassword);MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=3000;"
-      
-      Write-Host "##vso[task.setvariable variable=SqlServer--ConnectionString;isOutput=true]$sqlConnectionString"
-      preferredAzurePowerShellVersion: 5.1.1
-
+          $deployPath = "$(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy"
+          $roles = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testauthenvironment.json")).roles
+          $flattenedRoles = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $roles -PathPrefix "FhirServer:Security:Authorization:Roles"
+          
+          $cors = (ConvertFrom-Json (Get-Content -Raw "$deployPath/corstestconfiguration.json"))
+          $flattenedCors = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
+          
+          $export= (ConvertFrom-Json (Get-Content -Raw "$deployPath/exporttestconfiguration.json"))
+          $flattenedExport = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $export
+          
+          $additionalProperties = $flattenedRoles + $flattenedCors + $flattenedExport
+          
+          $additionalProperties["SqlServer:DeleteAllDataOnStartup"] = "true"
+          
+          $templateParameters = @{
+            appServicePlanResourceGroup = "$(resourceGroupRoot)"
+            appServicePlanName = "$(AppServicePlanName)"
+            serviceName = "$(DeploymentEnvironmentName)"
+            securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
+            repositoryUrl = "" 
+            securityAuthenticationAudience = "$(TestEnvironmentUrl)"
+            additionalFhirServerConfigProperties = $additionalProperties 
+            enableAadSmartOnFhirProxy = $true
+          }
+          
+          # Deploy CosmosDb environment
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+          
+          # Deploy R4 CosmosDb environment
+          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+          
+          # Deploy SqlServer environment
+          $sap = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
+          Write-Host "##vso[task.setvariable variable=SqlAdminPassword]$sap"
+          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
+          $templateParameters["solutionType"] = "FhirServerSqlServer"
+          $templateParameters["sqlAdminPassword"] = $sap
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+          
+          # Deploy R4 SqlServer
+          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+          
+          $tenantId = "$(tenant-id)"
+          
+          # Get admin token
+          $username = "$(tenant-admin-user-name)"
+          $password_raw = "$(tenant-admin-user-password)"
+          $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
+          $adminCredential = New-Object PSCredential $username,$password
+            
+          $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
+          $resource = "https://graph.windows.net/"
+            
+          $body = @{
+              grant_type = "password"
+              username   = $username
+              password   = $password_raw
+              resource   = $resource 
+              client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
+          }
+            
+          $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+          $token = $response.access_token
+          
+          Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
+          
+          Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServer/FhirServer.psd1
+          Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
+          
+          $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
+          
+          foreach($user in $output.environmentUsers)
+          {
+              Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
+              
+              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
+              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id;isOutput=true]$($user.upn)"
+              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret;isOutput=true]$($secret.SecretValueText)"
+          }
+          
+          foreach($clientApp in $output.environmentClientApplications)
+          {
+              Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
+              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
+          
+              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id;isOutput=true]$($clientApp.AppId)"
+              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret;isOutput=true]$($secret.SecretValueText)"
+              Write-Host "##vso[task.setvariable variable=TestClientSecret;isOutput=true]$($secret.SecretValueText)"
+          }
+        azurePowerShellVersion: LatestVersion
+    - task: AzurePowerShell@3
+      displayName: 'Azure Set Data Store Variables'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        ScriptType: InlineScript
+        Inline: |
+          $c = Get-AzureRmResource -ResourceGroupName $(DeploymentEnvironmentName) -ResourceType "Microsoft.DocumentDb/databaseAccounts" -ResourceName $(DeploymentEnvironmentName)
+          $k = Invoke-AzureRmResourceAction -Action listKeys -ResourceId $c.ResourceId -Force
+          $ho = $c.Properties.documentEndpoint
+          $ke = $k.primaryMasterKey
+          Write-Host "##vso[task.setvariable variable=DataStore--Host;isOutput=true]$ho"
+          Write-Host "##vso[task.setvariable variable=DataStore--Key;isOutput=true]$ke"
+          
+          $sqlConnectionString = "Server=tcp:$(DeploymentEnvironmentNameSql).database.windows.net,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=fhirAdmin;Password=$(SqlAdminPassword);MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=3000;"
+          
+          Write-Host "##vso[task.setvariable variable=SqlServer--ConnectionString;isOutput=true]$sqlConnectionString"
+        preferredAzurePowerShellVersion: 5.1.1
 - stage: deployStu3
   variables:
     WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentName'] ]
-    WebAppKind: 'Web App'
   dependsOn: provisionAAD
-  steps:
-  - task: AzureRmWebAppDeployment@3
-    displayName: 'Azure App Service Deploy'
-    inputs:
-      azureSubscription: '$(Parameters.ConnectedServiceName)'
-      appType: '$(WebAppKind)'
-      WebAppName: '$(WebAppName)'
-      Package: '$(System.DefaultWorkingDirectory)/**/deploy/*Stu3*.zip'
-      TakeAppOfflineFlag: true
-  
-- stage: deployR4
-  dependsOn: provisionAAD
-  variables:
-    WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentNameR4'] ]
-    WebAppKind: 'Web App'
-  dependsOn: provisionAAD
-  steps:
-  - task: AzureRmWebAppDeployment@3
-    displayName: 'Azure App Service Deploy'
-    inputs:
-      azureSubscription: '$(Parameters.ConnectedServiceName)'
-      appType: '$(WebAppKind)'
-      WebAppName: '$(WebAppName)'
-      Package: '$(System.DefaultWorkingDirectory)/**/deploy/*R4*.zip'
-      TakeAppOfflineFlag: true
-      
+  jobs:
+  - job: 'deploy'
+    steps:
+    - task: AzureRmWebAppDeployment@3
+      displayName: 'Azure App Service Deploy'
+      inputs:
+        azureSubscription: '$(Parameters.ConnectedServiceName)'
+        appType: 'app'
+        WebAppName: '$(WebAppName)'
+        Package: '$(System.DefaultWorkingDirectory)/**/deploy/*Stu3*.zip'
+        TakeAppOfflineFlag: true
 - stage: deployStu3Sql
   variables:
     WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentNameSql'] ]
-    WebAppKind: 'Web App'
   dependsOn: provisionAAD
-  steps:
-  - task: AzureRmWebAppDeployment@3
-    displayName: 'Azure App Service Deploy'
-    inputs:
-      azureSubscription: '$(Parameters.ConnectedServiceName)'
-      appType: '$(WebAppKind)'
-      WebAppName: '$(WebAppName)'
-      Package: '$(System.DefaultWorkingDirectory)/**/deploy/*Stu3*.zip'
-      TakeAppOfflineFlag: true
-  
-- stage: deployR4Sql
-  dependsOn: provisionAAD
+  jobs:
+  - job: 'deploy'
+    steps:
+    - task: AzureRmWebAppDeployment@3
+      displayName: 'Azure App Service Deploy'
+      inputs:
+        azureSubscription: '$(Parameters.ConnectedServiceName)'
+        appType: 'app'
+        WebAppName: '$(WebAppName)'
+        Package: '$(System.DefaultWorkingDirectory)/**/deploy/*Stu3*.zip'
+        TakeAppOfflineFlag: true
+- stage: deployR4
   variables:
-    WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentNameR4Sql'] ]
-    WebAppKind: 'Web App'
+    WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentName'] ]
   dependsOn: provisionAAD
-  steps:
-  - task: AzureRmWebAppDeployment@3
-    displayName: 'Azure App Service Deploy'
-    inputs:
-      azureSubscription: '$(Parameters.ConnectedServiceName)'
-      appType: '$(WebAppKind)'
-      WebAppName: '$(WebAppName)'
-      Package: '$(System.DefaultWorkingDirectory)/**/deploy/*R4*.zip'
-      TakeAppOfflineFlag: true
-
+  jobs:
+  - job: 'deploy'
+    steps:
+    - task: AzureRmWebAppDeployment@3
+      displayName: 'Azure App Service Deploy'
+      inputs:
+        azureSubscription: '$(Parameters.ConnectedServiceName)'
+        appType: 'app'
+        WebAppName: '$(WebAppName)'
+        Package: '$(System.DefaultWorkingDirectory)/**/deploy/*R4*.zip'
+        TakeAppOfflineFlag: true
+- stage: deployR4Sql
+  variables:
+    WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentNameSql'] ]
+  dependsOn: provisionAAD
+  jobs:
+  - job: 'deploy'
+    steps:
+    - task: AzureRmWebAppDeployment@3
+      displayName: 'Azure App Service Deploy'
+      inputs:
+        azureSubscription: '$(Parameters.ConnectedServiceName)'
+        appType: 'app'
+        WebAppName: '$(WebAppName)'
+        Package: '$(System.DefaultWorkingDirectory)/**/deploy/*R4*.zip'
+        TakeAppOfflineFlag: true
 - stage: integrationTest
   dependsOn:
   - deployStu3
@@ -260,19 +266,22 @@ stages:
   jobs:
   - job: RunTests
     steps:
-    - powershell: |
-      $env:CosmosDb:Host = "$(DataStore--Host)"
-      $env:CosmosDb:Key = "$(DataStore--Key)"
-      $env:SqlServer:ConnectionString = "$(SqlServer--ConnectionString)"
-      
-      $env:TestEnvironmentUrl = "$(TestEnvironmentUrl)"
-      $env:TestEnvironmentName = "$(TestEnvironmentName)"
-      
-      $env:Resource = "$(TestEnvironmentUrl)"
-      
-      gci -Path $(System.ArtifactsDirectory) -Include *Tests*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
-      failOnStderr: true
-      displayName: 'Run Integration Tests'
+    - task: PowerShell@2
+      displayName: 'Set Variables'
+      inputs:
+        pwsh: true
+        targetType: Inline
+        script: |
+          $env:CosmosDb:Host = "$(DataStore--Host)"
+          $env:CosmosDb:Key = "$(DataStore--Key)"
+          $env:SqlServer:ConnectionString = "$(SqlServer--ConnectionString)"
+          
+          $env:TestEnvironmentUrl = "$(TestEnvironmentUrl)"
+          $env:TestEnvironmentName = "$(TestEnvironmentName)"
+          
+          $env:Resource = "$(TestEnvironmentUrl)"
+          
+          gci -Path $(System.ArtifactsDirectory) -Include *Tests*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
   - job: publishResults
     steps:
     - task: PublishTestResults@2
@@ -282,47 +291,49 @@ stages:
         testResultsFiles: '**\*TestOutput.xml'
         mergeTestResults: true
       condition: succeededOrFailed()
-
 - stage: cleanup
   variables:
-    DeploymentEnvironmentName: '$[ dependencies.preReqs.outputs['DeploymentEnvironmentName'] ]'
-    tenant-admin-service-principal-name: 
+    DeploymentEnvironmentName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentName'] ]
   dependsOn:
   - integrationTest
   jobs:
     - job: DeleteResourceGroup
-    steps:
-    - task: AzurePowerShell@3
-      displayName: 'Delete resource group'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        ScriptType: InlineScript
-        Inline: 'Get-AzureRmResourceGroup -Name $(DeploymentEnvironmentName) | Remove-AzureRmResourceGroup -Verbose -Force'
-        preferredAzurePowerShellVersion: 5.1.1
+      steps:
+      - task: AzurePowerShell@3
+        displayName: 'Delete resource group'
+        inputs:
+          azureSubscription: 'Microsoft Health Open Source Subscription'
+          ScriptType: InlineScript
+          Inline: 'Get-AzureRmResourceGroup -Name $(DeploymentEnvironmentName) | Remove-AzureRmResourceGroup -Verbose -Force'
+          preferredAzurePowerShellVersion: 5.1.1
     - job: cleanupAad
-    steps:
-    - powershell: |
-      $clientId = "$(tenant-admin-service-principal-name)"
-      $clientSecret = "$(tenant-admin-service-principal-password)"
-      $tenantId = "$(tenant-id)"
-        
-      $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
-      $resource = "https://graph.windows.net/"
-        
-      $body = @{
-          grant_type    = "client_credentials"
-          client_id     = $clientId
-          client_secret = $clientSecret
-          resource      = $resource
-      }
-        
-      $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
-      $token = $response.access_token
-      
-      Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $clientId
-      
-      Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServer/FhirServer.psd1
-      Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
-      
-      Remove-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName)
-      displayName: 'Delete AAD apps'
+      steps:
+      - task: PowerShell@2
+        inputs:
+          pwsh: true
+          targetType: Inline
+          script: |
+            $clientId = "$(tenant-admin-service-principal-name)"
+            $clientSecret = "$(tenant-admin-service-principal-password)"
+            $tenantId = "$(tenant-id)"
+              
+            $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
+            $resource = "https://graph.windows.net/"
+              
+            $body = @{
+                grant_type    = "client_credentials"
+                client_id     = $clientId
+                client_secret = $clientSecret
+                resource      = $resource
+            }
+              
+            $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+            $token = $response.access_token
+            
+            Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $clientId
+            
+            Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServer/FhirServer.psd1
+            Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
+            
+            Remove-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName)
+        displayName: 'Delete AAD apps'
