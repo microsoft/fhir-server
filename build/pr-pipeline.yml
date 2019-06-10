@@ -3,6 +3,7 @@ trigger:
     include: ['personal/brpoll/yaml-build']
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
+    windowsVmImage: 'vs2017-win2016'
 stages:
 - stage: buildAndUnitTests
   variables:
@@ -11,7 +12,7 @@ stages:
   jobs:
   - job: Windows
     pool:
-      vmImage: 'vs2017-win2016'
+      vmImage: '$(windowsVmImage)'
     steps:
     - template: build.yml
   - job: Linux
@@ -24,6 +25,8 @@ stages:
 - stage: preReqs
   jobs:
   - job: install
+    pool:
+      vmImage: '$(windowsVmImage)'
     steps:
     - task: AzureKeyVault@1
       displayName: 'Azure Key Vault: resolute-oss-tenant-info'
