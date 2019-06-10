@@ -12,7 +12,7 @@ stages:
   jobs:
   - job: Windows
     pool:
-      vmImage: '$(windowsVmImage)'
+      vmImage: $(windowsVmImage)
     steps:
     - template: build.yml
   - job: Linux
@@ -26,7 +26,7 @@ stages:
   jobs:
   - job: install
     pool:
-      vmImage: '$(windowsVmImage)'
+      vmImage: $(windowsVmImage)
     steps:
     - task: AzureKeyVault@1
       displayName: 'Azure Key Vault: resolute-oss-tenant-info'
