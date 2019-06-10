@@ -10,7 +10,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
-    /// Provides R4 specific tests.
+    /// Provides STU3 specific tests.
     /// </summary>
     public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
