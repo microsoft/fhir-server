@@ -4,7 +4,7 @@ trigger:
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
 stages:
-- stage: buildAndUnitTests
+- stage: 'Build and unit tests'
   variables:
     buildConfiguration: 'Release'
     name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
@@ -21,7 +21,8 @@ stages:
     - template: build.yml
       parameters:
         packageArtifacts: false
-- stage: preReqs
+- stage: 'Setup release prerequisites'
+  dependsOn: []
   jobs:
   - job: install
     pool:
@@ -32,14 +33,6 @@ stages:
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: 'resolute-oss-tenant-info'
-    - task: PowerShell@2
-      displayName: 'Install AzureAD'
-      inputs:
-        pwsh: true
-        targetType: Inline
-        script: |
-          Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
-          Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
     - task: PowerShell@2
       displayName: 'Set Variables'
       inputs:
@@ -312,11 +305,11 @@ stages:
           preferredAzurePowerShellVersion: 5.1.1
     - job: cleanupAad
       steps:
-      - task: PowerShell@2
+      - task: AzurePowerShell@3
         inputs:
-          pwsh: true
-          targetType: Inline
-          script: |
+          azureSubscription: 'Microsoft Health Open Source Subscription'
+          ScriptType: InlineScript
+          Inline: |
             $clientId = "$(tenant-admin-service-principal-name)"
             $clientSecret = "$(tenant-admin-service-principal-password)"
             $tenantId = "$(tenant-id)"
