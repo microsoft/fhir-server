@@ -59,7 +59,6 @@ stages:
 - stage: provisionEnvironment
   dependsOn: preReqs
   variables:
-    DeploymentEnvironmentName: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentName'] ]
     DeploymentEnvironmentNameR4: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameR4'] ]
     DeploymentEnvironmentNameSql: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
     DeploymentEnvironmentNameR4Sql: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameR4Sql'] ]
@@ -79,7 +78,7 @@ stages:
         ScriptType: InlineScript
         Inline: |
           Add-Type -AssemblyName System.Web
-          New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+          New-AzureRmResourceGroup -Name "$($env:DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
           
           $deployPath = "$(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy"
           $roles = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testauthenvironment.json")).roles
@@ -98,7 +97,7 @@ stages:
           $templateParameters = @{
             appServicePlanResourceGroup = "$(resourceGroupRoot)"
             appServicePlanName = "$(AppServicePlanName)"
-            serviceName = "$(DeploymentEnvironmentName)"
+            serviceName = "$($env:DeploymentEnvironmentName)"
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             repositoryUrl = "" 
             securityAuthenticationAudience = "$(TestEnvironmentUrl)"
@@ -107,11 +106,11 @@ stages:
           }
           
           # Deploy CosmosDb environment
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
           
           # Deploy R4 CosmosDb environment
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
           
           # Deploy SqlServer environment
           $sap = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
@@ -119,11 +118,11 @@ stages:
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
           $templateParameters["solutionType"] = "FhirServerSqlServer"
           $templateParameters["sqlAdminPassword"] = $sap
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
           
           # Deploy R4 SqlServer
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
           
           $tenantId = "$(tenant-id)"
           
@@ -152,21 +151,21 @@ stages:
           Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServer/FhirServer.psd1
           Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
           
-          $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
+          $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/testauthenvironment.json -EnvironmentName $($env:DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
           
           foreach($user in $output.environmentUsers)
           {
-              Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
+              Write-Host "Retrieving '$($user.environmentId)-password' from  '$($env:DeploymentEnvironmentName)-ts'"
               
-              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
+              $secret = Get-AzureKeyVaultSecret -VaultName $($env:DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
               Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id;isOutput=true]$($user.upn)"
               Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret;isOutput=true]$($secret.SecretValueText)"
           }
           
           foreach($clientApp in $output.environmentClientApplications)
           {
-              Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
-              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
+              Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$($env:DeploymentEnvironmentName)-ts'"
+              $secret = Get-AzureKeyVaultSecret -VaultName $($env:DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
           
               Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id;isOutput=true]$($clientApp.AppId)"
               Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret;isOutput=true]$($secret.SecretValueText)"
