@@ -21,7 +21,7 @@ stages:
     - template: build.yml
       parameters:
         packageArtifacts: false
-- stage: SetupReleasePrerequisites
+- stage: preReqs
   dependsOn: []
   jobs:
   - job: install
