@@ -194,7 +194,7 @@ stages:
 - stage: deployStu3
   variables:
     WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentName'] ]
-  dependsOn: provisionAAD
+  dependsOn: provisionEnvironment
   jobs:
   - job: 'deploy'
     steps:
@@ -209,7 +209,7 @@ stages:
 - stage: deployStu3Sql
   variables:
     WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentNameSql'] ]
-  dependsOn: provisionAAD
+  dependsOn: provisionEnvironment
   jobs:
   - job: 'deploy'
     steps:
@@ -224,7 +224,7 @@ stages:
 - stage: deployR4
   variables:
     WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentName'] ]
-  dependsOn: provisionAAD
+  dependsOn: provisionEnvironment
   jobs:
   - job: 'deploy'
     steps:
@@ -239,7 +239,7 @@ stages:
 - stage: deployR4Sql
   variables:
     WebAppName: $[ dependencies.preReqs.outputs['DeploymentEnvironmentNameSql'] ]
-  dependsOn: provisionAAD
+  dependsOn: provisionEnvironment
   jobs:
   - job: 'deploy'
     steps:
