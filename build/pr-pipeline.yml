@@ -59,14 +59,14 @@ stages:
 - stage: provisionEnvironment
   dependsOn: preReqs
   variables:
-    DeploymentEnvironmentName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
-    DeploymentEnvironmentNameR4: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameR4'] ]
-    DeploymentEnvironmentNameSql: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
-    DeploymentEnvironmentNameR4Sql: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameR4Sql'] ]
+    DeploymentEnvironmentName: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentName'] ]
+    DeploymentEnvironmentNameR4: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameR4'] ]
+    DeploymentEnvironmentNameSql: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
+    DeploymentEnvironmentNameR4Sql: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameR4Sql'] ]
     ResourceGroupRegion: 'South Central US'
     resourceGroupRoot: 'msh-fhir-pr'
     AppServicePlanName: 'msh-fhir-pr-southcentralus'
-    TestEnvironmentUrl: $[ dependencies.install.outputs['setVariables.TestEnvironmentSql'] ]
+    TestEnvironmentUrl: $[ dependencies.preReqs.install.outputs['setVariables.TestEnvironmentSql'] ]
   jobs:
   - job: deploy
     pool:
