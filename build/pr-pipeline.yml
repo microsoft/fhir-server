@@ -4,7 +4,7 @@ trigger:
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
 stages:
-- stage: 'Build and unit tests'
+- stage: BuildUnitTests
   variables:
     buildConfiguration: 'Release'
     name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
@@ -21,7 +21,7 @@ stages:
     - template: build.yml
       parameters:
         packageArtifacts: false
-- stage: 'Setup release prerequisites'
+- stage: SetupReleasePrerequisites
   dependsOn: []
   jobs:
   - job: install
