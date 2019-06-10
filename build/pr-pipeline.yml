@@ -3,7 +3,6 @@ trigger:
     include: ['personal/brpoll/yaml-build']
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
-    windowsVmImage: 'vs2017-win2016'
 stages:
 - stage: buildAndUnitTests
   variables:
@@ -12,7 +11,7 @@ stages:
   jobs:
   - job: Windows
     pool:
-      vmImage: $(windowsVmImage)
+      vmImage: 'vs2017-win2016'
     steps:
     - template: build.yml
   - job: Linux
@@ -26,7 +25,7 @@ stages:
   jobs:
   - job: install
     pool:
-      vmImage: $(windowsVmImage)
+      vmImage: 'vs2017-win2016'
     steps:
     - task: AzureKeyVault@1
       displayName: 'Azure Key Vault: resolute-oss-tenant-info'
@@ -75,6 +74,8 @@ stages:
     TestEnvironmentUrl: $[ dependencies.preReqs.outputs['TestEnvironmentSql'] ]
   jobs:
   - job: deploy
+    pool:
+      vmImage: 'vs2017-win2016'
     steps:
     - task: AzurePowerShell@3
       displayName: 'Deploy ARM template & Setup AAD environment'
