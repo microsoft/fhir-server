@@ -36,6 +36,7 @@ stages:
         KeyVaultName: 'resolute-oss-tenant-info'
     - task: PowerShell@2
       displayName: 'Set Variables'
+      name: setVariables
       inputs:
         pwsh: true
         targetType: Inline
@@ -58,14 +59,14 @@ stages:
 - stage: provisionEnvironment
   dependsOn: preReqs
   variables:
-    DeploymentEnvironmentName: $[ dependencies.install.outputs['DeploymentEnvironmentName'] ]
-    DeploymentEnvironmentNameR4: $[ dependencies.install.outputs['DeploymentEnvironmentNameR4'] ]
-    DeploymentEnvironmentNameSql: $[ dependencies.install.outputs['DeploymentEnvironmentNameSql'] ]
-    DeploymentEnvironmentNameR4Sql: $[ dependencies.install.outputs['DeploymentEnvironmentNameR4Sql'] ]
+    DeploymentEnvironmentName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
+    DeploymentEnvironmentNameR4: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameR4'] ]
+    DeploymentEnvironmentNameSql: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
+    DeploymentEnvironmentNameR4Sql: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameR4Sql'] ]
     ResourceGroupRegion: 'South Central US'
     resourceGroupRoot: 'msh-fhir-pr'
     AppServicePlanName: 'msh-fhir-pr-southcentralus'
-    TestEnvironmentUrl: $[ dependencies.install.outputs['TestEnvironmentSql'] ]
+    TestEnvironmentUrl: $[ dependencies.install.outputs['setVariables.TestEnvironmentSql'] ]
   jobs:
   - job: deploy
     pool:
@@ -191,7 +192,7 @@ stages:
         preferredAzurePowerShellVersion: 5.1.1
 - stage: deployStu3
   variables:
-    WebAppName: $[ dependencies.install.outputs['DeploymentEnvironmentName'] ]
+    WebAppName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
   dependsOn: 
   - provisionEnvironment
   - BuildUnitTests
@@ -208,7 +209,7 @@ stages:
         TakeAppOfflineFlag: true
 - stage: deployStu3Sql
   variables:
-    WebAppName: $[ dependencies.install.outputs['DeploymentEnvironmentNameSql'] ]
+    WebAppName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
   dependsOn: 
   - provisionEnvironment
   - BuildUnitTests
@@ -225,7 +226,7 @@ stages:
         TakeAppOfflineFlag: true
 - stage: deployR4
   variables:
-    WebAppName: $[ dependencies.install.outputs['DeploymentEnvironmentName'] ]
+    WebAppName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
   dependsOn: 
   - provisionEnvironment
   - BuildUnitTests
@@ -242,7 +243,7 @@ stages:
         TakeAppOfflineFlag: true
 - stage: deployR4Sql
   variables:
-    WebAppName: $[ dependencies.install.outputs['DeploymentEnvironmentNameSql'] ]
+    WebAppName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
   dependsOn: 
   - provisionEnvironment
   - BuildUnitTests
@@ -264,11 +265,11 @@ stages:
   - deployR4
   - deployR4Sql
   variables:
-    DataStore--Host: $[ dependencies.install.outputs['DataStore--Host'] ]
-    DataStore--Key: $[ dependencies.install.outputs['DataStore--Key'] ]
-    TestEnvironmentUrl: $[ dependencies.install.outputs['TestEnvironmentUrl'] ]
-    TestEnvironmentName: $[ dependencies.install.outputs['TestEnvironmentName'] ]
-    SqlServer--ConnectionString: $[ dependencies.install.outputs['SqlServer--ConnectionString'] ]
+    DataStore--Host: $[ dependencies.install.outputs['setVariables.DataStore--Host'] ]
+    DataStore--Key: $[ dependencies.install.outputs['setVariables.DataStore--Key'] ]
+    TestEnvironmentUrl: $[ dependencies.install.outputs['setVariables.TestEnvironmentUrl'] ]
+    TestEnvironmentName: $[ dependencies.install.outputs['setVariables.TestEnvironmentName'] ]
+    SqlServer--ConnectionString: $[ dependencies.install.outputs['setVariables.SqlServer--ConnectionString'] ]
   jobs:
   - job: RunTests
     steps:
@@ -299,7 +300,7 @@ stages:
       condition: succeededOrFailed()
 - stage: cleanup
   variables:
-    DeploymentEnvironmentName: $[ dependencies.install.outputs['DeploymentEnvironmentName'] ]
+    DeploymentEnvironmentName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
   dependsOn:
   - integrationTest
   jobs:
