@@ -221,7 +221,7 @@ stages:
         azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
-        Package: '$(Build.ArtifactStagingDirectory)/**/deploy/*Stu3*.zip'
+        Package: '$(Build.ArtifactStagingDirectory)/deploy/*Stu3*.zip'
         TakeAppOfflineFlag: true
 - stage: deployStu3Sql
   variables:
