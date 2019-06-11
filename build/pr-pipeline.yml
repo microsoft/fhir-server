@@ -205,6 +205,13 @@ stages:
   - provisionEnvironment
   - BuildUnitTests
   jobs:
+  - job: 'downloadArtificacts'
+    steps:
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
   - job: 'deploy'
     steps:
     - task: AzureRmWebAppDeployment@3
