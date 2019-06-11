@@ -85,6 +85,8 @@ stages:
         ScriptType: InlineScript
         Inline: |
           Add-Type -AssemblyName System.Web
+          Install-Module AzureAD 
+          
           New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
 
           $roles = (ConvertFrom-Json (Get-Content -Raw "$(System.DefaultWorkingDirectory)/testauthenvironment.json")).roles
