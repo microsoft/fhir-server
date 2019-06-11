@@ -213,7 +213,7 @@ stages:
         azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
-        Package: '$(System.DefaultWorkingDirectory)/**/deploy/*Stu3*.zip'
+        Package: '$(Build.ArtifactStagingDirectory)/**/deploy/*Stu3*.zip'
         TakeAppOfflineFlag: true
 - stage: deployStu3Sql
   variables:
@@ -230,7 +230,7 @@ stages:
         azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
-        Package: '$(System.DefaultWorkingDirectory)/**/deploy/*Stu3*.zip'
+        Package: '$(Build.ArtifactStagingDirectory)/**/deploy/*Stu3*.zip'
         TakeAppOfflineFlag: true
 - stage: deployR4
   variables:
@@ -247,7 +247,7 @@ stages:
         azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
-        Package: '$(System.DefaultWorkingDirectory)/**/deploy/*R4*.zip'
+        Package: '$(Build.ArtifactStagingDirectory)/**/deploy/*R4*.zip'
         TakeAppOfflineFlag: true
 - stage: deployR4Sql
   variables:
@@ -264,7 +264,7 @@ stages:
         azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
-        Package: '$(System.DefaultWorkingDirectory)/**/deploy/*R4*.zip'
+        Package: '$(Build.ArtifactStagingDirectory)/**/deploy/*R4*.zip'
         TakeAppOfflineFlag: true
 - stage: integrationTest
   dependsOn:
