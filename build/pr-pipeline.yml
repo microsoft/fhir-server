@@ -65,6 +65,7 @@ stages:
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
     DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
     AppServicePlanName: 'msh-fhir-pr-southcentralus'
+    ResourceGroupRegion: 'South Central US'
     TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
   jobs:
   - job: deploy
