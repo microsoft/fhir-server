@@ -3,25 +3,8 @@ trigger:
     include: ['personal/brpoll/yaml-build']
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
+    resourceGroupRoot: 'msh-fhir-pr'
 stages:
-- stage: BuildUnitTests
-  displayName: 'Build and unit tests'
-  variables:
-    buildConfiguration: 'Release'
-    name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
-  jobs:
-  - job: Windows
-    pool:
-      vmImage: 'vs2017-win2016'
-    steps:
-    - template: build.yml
-  - job: Linux
-    pool:
-      vmImage: 'ubuntu-16.04'
-    steps:
-    - template: build.yml
-      parameters:
-        packageArtifacts: false
 - stage: preReqs
   dependsOn: []
   jobs:
@@ -56,16 +39,33 @@ stages:
           Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql;isOutput=true]https://$deploymentName-r4-sql.azurewebsites.net"
           Write-Host "##vso[task.setvariable variable=TestClientUrl;isOutput=true]https://$deploymentName-client/"
           Write-Host "##vso[task.setvariable variable=TestEnvironmentName;isOutput=true]OSS PR$pr" 
+- stage: BuildUnitTests
+  displayName: 'Build and unit tests'
+  variables:
+    buildConfiguration: 'Release'
+    name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+  jobs:
+  - job: Windows
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+    - template: build.yml
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+    - template: build.yml
+      parameters:
+        packageArtifacts: false
 - stage: provisionEnvironment
   dependsOn: preReqs
   variables:
-    DeploymentEnvironmentNameR4: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameR4'] ]
-    DeploymentEnvironmentNameSql: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
-    DeploymentEnvironmentNameR4Sql: $[ dependencies.preReqs.install.outputs['setVariables.DeploymentEnvironmentNameR4Sql'] ]
-    ResourceGroupRegion: 'South Central US'
-    resourceGroupRoot: 'msh-fhir-pr'
+    DeploymentEnvironmentName: '$(resourceGroupRoot)-11'
+    DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
+    DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
+    DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
     AppServicePlanName: 'msh-fhir-pr-southcentralus'
-    TestEnvironmentUrl: $[ dependencies.preReqs.install.outputs['setVariables.TestEnvironmentSql'] ]
+    TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
   jobs:
   - job: deploy
     pool:
@@ -78,7 +78,7 @@ stages:
         ScriptType: InlineScript
         Inline: |
           Add-Type -AssemblyName System.Web
-          New-AzureRmResourceGroup -Name "$($env:DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+          New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
           
           $deployPath = "$(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy"
           $roles = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testauthenvironment.json")).roles
