@@ -40,6 +40,7 @@ stages:
           Write-Host "##vso[task.setvariable variable=TestClientUrl;isOutput=true]https://$deploymentName-client/"
           Write-Host "##vso[task.setvariable variable=TestEnvironmentName;isOutput=true]OSS PR$pr" 
 - stage: BuildUnitTests
+  dependsOn: []
   displayName: 'Build and unit tests'
   variables:
     buildConfiguration: 'Release'
@@ -81,15 +82,14 @@ stages:
           Add-Type -AssemblyName System.Web
           New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
           
-          $deployPath = "$(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy"
-          $roles = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testauthenvironment.json")).roles
-          $flattenedRoles = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $roles -PathPrefix "FhirServer:Security:Authorization:Roles"
+          $roles = (ConvertFrom-Json (Get-Content -Raw "$(System.DefaultWorkingDirectory)/testauthenvironment.json")).roles
+          $flattenedRoles = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $roles -PathPrefix "FhirServer:Security:Authorization:Roles"
           
-          $cors = (ConvertFrom-Json (Get-Content -Raw "$deployPath/corstestconfiguration.json"))
-          $flattenedCors = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
+          $cors = (ConvertFrom-Json (Get-Content -Raw "$(System.DefaultWorkingDirectory)/test/Configuration/corstestconfiguration.json"))
+          $flattenedCors = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
           
-          $export= (ConvertFrom-Json (Get-Content -Raw "$deployPath/exporttestconfiguration.json"))
-          $flattenedExport = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $export
+          $export= (ConvertFrom-Json (Get-Content -Raw "$(System.DefaultWorkingDirectory)/test/Configuration/exporttestconfiguration.json"))
+          $flattenedExport = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $export
           
           $additionalProperties = $flattenedRoles + $flattenedCors + $flattenedExport
           
@@ -107,11 +107,11 @@ stages:
           }
           
           # Deploy CosmosDb environment
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
           
           # Deploy R4 CosmosDb environment
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
           
           # Deploy SqlServer environment
           $sap = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
@@ -119,11 +119,11 @@ stages:
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
           $templateParameters["solutionType"] = "FhirServerSqlServer"
           $templateParameters["sqlAdminPassword"] = $sap
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
           
           # Deploy R4 SqlServer
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzureRmResourceGroupDeployment -ResourceGroupName "$($env:DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
           
           $tenantId = "$(tenant-id)"
           
