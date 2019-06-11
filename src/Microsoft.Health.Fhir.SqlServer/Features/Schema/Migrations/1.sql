@@ -835,6 +835,22 @@ INCLUDE
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 
+
+CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ResourceTypeId_ReferenceResourceTypeId_ReferenceResourceId
+ON dbo.ReferenceSearchParam
+(
+	SearchParamId,
+	ResourceTypeId,
+	ReferenceResourceTypeId,
+	ReferenceResourceId
+)
+INCLUDE
+(
+    ReferenceResourceVersion,
+	BaseUri
+)
+WHERE IsHistory = 0
+
 GO
 
 /*************************************************************
