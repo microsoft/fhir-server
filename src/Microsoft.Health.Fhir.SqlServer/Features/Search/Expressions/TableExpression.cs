@@ -18,8 +18,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         public TableExpression(
             NormalizedSearchParameterQueryGenerator searchParameterQueryGenerator,
             Expression normalizedPredicate,
-            Expression denormalizedPredicate = null,
-            TableExpressionKind kind = TableExpressionKind.Normal)
+            Expression denormalizedPredicate,
+            TableExpressionKind kind,
+            int chainLevel = 0)
         {
             switch (normalizedPredicate)
             {
@@ -36,9 +37,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             NormalizedPredicate = normalizedPredicate;
             DenormalizedPredicate = denormalizedPredicate;
             Kind = kind;
+            ChainLevel = chainLevel;
         }
 
         public TableExpressionKind Kind { get; }
+
+        public int ChainLevel { get; }
 
         public NormalizedSearchParameterQueryGenerator SearchParameterQueryGenerator { get; }
 
@@ -58,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Table {SearchParameterQueryGenerator.Table} Normalized:{NormalizedPredicate} Denormalized:{DenormalizedPredicate})";
+            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{SearchParameterQueryGenerator?.Table} Normalized:{NormalizedPredicate} Denormalized:{DenormalizedPredicate})";
         }
     }
 }

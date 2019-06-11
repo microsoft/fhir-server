@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override Table Table => V1.QuantitySearchParam;
 
-        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
             NullableDecimalColumn valueColumn;
             NullableDecimalColumn nullCheckColumn;
@@ -35,11 +35,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            context.StringBuilder.Append(nullCheckColumn).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
+            context.StringBuilder.Append(nullCheckColumn, context.TableAlias).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
             return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
         }
 
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
             switch (expression.FieldName)
             {
@@ -49,12 +49,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.QuantityCodeId, expression.ComponentIndex, quantityCodeId);
                     }
 
-                    context.StringBuilder.Append(V1.QuantitySearchParam.QuantityCodeId)
+                    context.StringBuilder.Append(V1.QuantitySearchParam.QuantityCodeId, context.TableAlias)
                         .Append(" IN (SELECT ")
-                        .Append(V1.QuantityCode.QuantityCodeId)
+                        .Append(V1.QuantityCode.QuantityCodeId, null)
                         .Append(" FROM ").Append(V1.QuantityCode)
                         .Append(" WHERE ")
-                        .Append(V1.QuantityCode.Value)
+                        .Append(V1.QuantityCode.Value, null)
                         .Append(" = ")
                         .Append(context.Parameters.AddParameter(V1.QuantityCode.Value, expression.Value))
                         .Append(")");
@@ -67,12 +67,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.SystemId, expression.ComponentIndex, systemId);
                     }
 
-                    context.StringBuilder.Append(V1.QuantitySearchParam.SystemId)
+                    context.StringBuilder.Append(V1.QuantitySearchParam.SystemId, context.TableAlias)
                         .Append(" IN (SELECT ")
-                        .Append(V1.System.SystemId)
+                        .Append(V1.System.SystemId, null)
                         .Append(" FROM ").Append(V1.System)
                         .Append(" WHERE ")
-                        .Append(V1.System.Value)
+                        .Append(V1.System.Value, null)
                         .Append(" = ")
                         .Append(context.Parameters.AddParameter(V1.System.Value, expression.Value))
                         .Append(")");

@@ -18,17 +18,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _componentHandlers = componentHandlers;
         }
 
-        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
             return expression.AcceptVisitor(_componentHandlers[(int)expression.ComponentIndex], context);
         }
 
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
             return expression.AcceptVisitor(_componentHandlers[(int)expression.ComponentIndex], context);
         }
 
-        public override SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitMissingField(MissingFieldExpression expression, SearchParameterQueryGeneratorContext context)
         {
             return expression.AcceptVisitor(_componentHandlers[(int)expression.ComponentIndex], context);
         }

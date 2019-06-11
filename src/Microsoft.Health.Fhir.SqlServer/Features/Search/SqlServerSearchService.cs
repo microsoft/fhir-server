@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         private readonly SqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
+        private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
 
@@ -42,15 +43,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             IModelInfoProvider modelInfoProvider,
             SqlServerFhirModel model,
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
+            ChainFlatteningRewriter chainFlatteningRewriter,
             SqlServerDataStoreConfiguration configuration,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
+            EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
+            _chainFlatteningRewriter = chainFlatteningRewriter;
             _configuration = configuration;
             _logger = logger;
         }
@@ -91,9 +95,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
                                                .AcceptVisitor(TableExpressionCombiner.Instance)
-                                               .AcceptVisitor(NormalizedPredicateReorderer.Instance)
-                                               .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
                                                .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
+                                               .AcceptVisitor(NormalizedPredicateReorderer.Instance)
+                                               .AcceptVisitor(_chainFlatteningRewriter)
+                                               .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
                                                .AcceptVisitor(StringOverflowRewriter.Instance)
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)

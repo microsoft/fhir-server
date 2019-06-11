@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return tableExpression;
             }
 
-            return new TableExpression(tableExpression.SearchParameterQueryGenerator, normalizedPredicate, denormalizedPredicate);
+            return new TableExpression(tableExpression.SearchParameterQueryGenerator, normalizedPredicate, denormalizedPredicate, tableExpression.Kind);
         }
     }
 }

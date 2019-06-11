@@ -16,12 +16,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override Table Table => V1.TokenSearchParam;
 
-        public override SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitMissingField(MissingFieldExpression expression, SearchParameterQueryGeneratorContext context)
         {
             return VisitMissingFieldImpl(expression, context, FieldName.TokenSystem, V1.TokenSearchParam.SystemId);
         }
 
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
             Debug.Assert(expression.StringOperator == StringOperator.Equals, "Only equals is supported");
 
@@ -33,12 +33,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         return VisitSimpleBinary(BinaryOperator.Equal, context, V1.TokenSearchParam.SystemId, expression.ComponentIndex, systemId);
                     }
 
-                    context.StringBuilder.Append(V1.TokenSearchParam.SystemId)
+                    context.StringBuilder.Append(V1.TokenSearchParam.SystemId, context.TableAlias)
                         .Append(" IN (SELECT ")
-                        .Append(V1.System.SystemId)
+                        .Append(V1.System.SystemId, null)
                         .Append(" FROM ").Append(V1.System)
                         .Append(" WHERE ")
-                        .Append(V1.System.Value)
+                        .Append(V1.System.Value, null)
                         .Append(" = ")
                         .Append(context.Parameters.AddParameter(V1.System.Value, expression.Value))
                         .Append(")");

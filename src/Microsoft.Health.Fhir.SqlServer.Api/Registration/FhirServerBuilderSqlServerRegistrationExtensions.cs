@@ -91,6 +91,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<ChainFlatteningRewriter>()
+                .Singleton()
+                .AsSelf();
+
             return fhirServerBuilder;
         }
 
