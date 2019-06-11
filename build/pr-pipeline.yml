@@ -212,6 +212,7 @@ stages:
         buildType: 'current'
         downloadType: 'single'
         downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'deploy'
   - job: 'deploy'
     steps:
     - task: AzureRmWebAppDeployment@3
