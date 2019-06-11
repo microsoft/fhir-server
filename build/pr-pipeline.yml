@@ -4,6 +4,11 @@ trigger:
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
     resourceGroupRoot: 'msh-fhir-pr'
+    prNumber: '11'
+    DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
+    DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
+    DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
+    DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
 stages:
 # - stage: preReqs
 #   dependsOn: []
@@ -61,10 +66,6 @@ stages:
 - stage: provisionEnvironment
   dependsOn: []
   variables:
-    DeploymentEnvironmentName: '$(resourceGroupRoot)-11'
-    DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
-    DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
-    DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
     AppServicePlanName: 'msh-fhir-pr-southcentralus'
     ResourceGroupRegion: 'South Central US'
     TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
@@ -199,7 +200,7 @@ stages:
         preferredAzurePowerShellVersion: 5.1.1
 - stage: deployStu3
   variables:
-    WebAppName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
+    WebAppName: '$(DeploymentEnvironmentName)'
   dependsOn:
   - provisionEnvironment
   - BuildUnitTests
@@ -216,7 +217,7 @@ stages:
         TakeAppOfflineFlag: true
 - stage: deployStu3Sql
   variables:
-    WebAppName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
+    WebAppName: '$(DeploymentEnvironmentNameSql)'
   dependsOn:
   - provisionEnvironment
   - BuildUnitTests
@@ -233,7 +234,7 @@ stages:
         TakeAppOfflineFlag: true
 - stage: deployR4
   variables:
-    WebAppName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
+    WebAppName: '$(DeploymentEnvironmentNameR4)'
   dependsOn:
   - provisionEnvironment
   - BuildUnitTests
@@ -250,7 +251,7 @@ stages:
         TakeAppOfflineFlag: true
 - stage: deployR4Sql
   variables:
-    WebAppName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentNameSql'] ]
+    WebAppName: '$(DeploymentEnvironmentNameR4Sql)'
   dependsOn:
   - provisionEnvironment
   - BuildUnitTests
