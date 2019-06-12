@@ -316,6 +316,9 @@ stages:
         downloadType: 'single'
         downloadPath: '$(System.ArtifactsDirectory)'
         artifactName: 'deploy'
+    - task: DotNetCoreInstaller@0
+      inputs:
+        version: '2.2.103' 
     - task: PowerShell@2
       displayName: 'Set Variables'
       inputs:
