@@ -310,6 +310,12 @@ stages:
   - job: RunTests
     steps:
     - checkout: none
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'deploy'
     - task: PowerShell@2
       displayName: 'Set Variables'
       inputs:
