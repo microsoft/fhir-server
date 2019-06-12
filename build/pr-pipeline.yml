@@ -207,6 +207,7 @@ stages:
   jobs:
   - job: 'deploy'
     steps:
+    - checkout: none
     - task: DownloadBuildArtifacts@0
       inputs:
         buildType: 'current'
@@ -230,13 +231,20 @@ stages:
   jobs:
   - job: 'deploy'
     steps:
+    - checkout: none
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'deploy'
     - task: AzureRmWebAppDeployment@3
       displayName: 'Azure App Service Deploy'
       inputs:
         azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
-        Package: '$(Build.ArtifactStagingDirectory)/**/deploy/*Stu3*.zip'
+        Package: '$(Build.ArtifactStagingDirectory)/deploy/*Stu3*.zip'
         TakeAppOfflineFlag: true
 - stage: deployR4
   variables:
@@ -247,13 +255,20 @@ stages:
   jobs:
   - job: 'deploy'
     steps:
+    - checkout: none
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'deploy'
     - task: AzureRmWebAppDeployment@3
       displayName: 'Azure App Service Deploy'
       inputs:
         azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
-        Package: '$(Build.ArtifactStagingDirectory)/**/deploy/*R4*.zip'
+        Package: '$(Build.ArtifactStagingDirectory)/deploy/*R4*.zip'
         TakeAppOfflineFlag: true
 - stage: deployR4Sql
   variables:
@@ -264,13 +279,20 @@ stages:
   jobs:
   - job: 'deploy'
     steps:
+    - checkout: none
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'deploy'
     - task: AzureRmWebAppDeployment@3
       displayName: 'Azure App Service Deploy'
       inputs:
         azureSubscription: '$(ConnectedServiceName)'
         appType: 'app'
         WebAppName: '$(WebAppName)'
-        Package: '$(Build.ArtifactStagingDirectory)/**/deploy/*R4*.zip'
+        Package: '$(Build.ArtifactStagingDirectory)/deploy/*R4*.zip'
         TakeAppOfflineFlag: true
 - stage: integrationTest
   dependsOn:
@@ -287,6 +309,7 @@ stages:
   jobs:
   - job: RunTests
     steps:
+    - checkout: none
     - task: PowerShell@2
       displayName: 'Set Variables'
       inputs:
