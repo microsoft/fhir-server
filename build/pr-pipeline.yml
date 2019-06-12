@@ -315,7 +315,7 @@ stages:
         buildType: 'current'
         downloadType: 'single'
         downloadPath: '$(System.ArtifactsDirectory)'
-        artifactName: 'deploy'
+        artifactName: 'IntegrationTests'
     - task: DotNetCoreInstaller@0
       inputs:
         version: '2.2.103' 
