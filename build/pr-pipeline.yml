@@ -337,7 +337,7 @@ stages:
 
           $env:Resource = "$(TestEnvironmentUrl)"
 
-          gci -Path $(System.ArtifactsDirectory) -Include *Tests*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
+          gci -Path $(System.ArtifactsDirectory) -Include *Tests.E2E*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
   - job: publishResults
     steps:
     - task: PublishTestResults@2
