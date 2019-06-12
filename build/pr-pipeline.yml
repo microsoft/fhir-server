@@ -214,6 +214,7 @@ stages:
         downloadPath: '$(System.ArtifactsDirectory)'
         artifactName: 'deploy'
   - job: 'deploy'
+    dependsOn: 'downloadArtificacts'
     steps:
     - task: AzureRmWebAppDeployment@3
       displayName: 'Azure App Service Deploy'
