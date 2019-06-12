@@ -3,8 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
@@ -14,11 +18,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class StringOverflowRewriter : ConcatenationRewriter
     {
-        internal static readonly StringOverflowRewriter Instance = new StringOverflowRewriter();
-
-        private StringOverflowRewriter()
-            : base(new Scout())
+        public StringOverflowRewriter(ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            : base(new Scout(searchParameterDefinitionManager))
         {
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
         }
 
         public override Expression VisitString(StringExpression expression, object context)
@@ -28,18 +31,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private class Scout : DefaultExpressionVisitor<object, bool>
         {
-            internal Scout()
+            private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+
+            internal Scout(ISearchParameterDefinitionManager searchParameterDefinitionManager)
                 : base((accumulated, current) => accumulated || current)
             {
+                EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+                _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            }
+
+            public override bool VisitSearchParameter(SearchParameterExpression expression, object context)
+            {
+                if (expression.Parameter.Type == SearchParamType.String ||
+                    expression.Parameter.Type == SearchParamType.Composite)
+                {
+                    return expression.Expression.AcceptVisitor(this, expression.Parameter);
+                }
+
+                return false;
             }
 
             public override bool VisitString(StringExpression expression, object context)
             {
+                if (expression.ComponentIndex != null)
+                {
+                    // see if this is really a string search parameter, which is the only case
+                    // where we use an overflow field, as opposed to a string field on, say a URI search parameter.
+
+                    SearchParameterComponentInfo component = ((SearchParameterInfo)context).Component[expression.ComponentIndex.Value];
+                    SearchParameterInfo componentSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
+                    if (componentSearchParameter.Type != SearchParamType.String)
+                    {
+                        return false;
+                    }
+                }
+
                 switch (expression.StringOperator)
                 {
                     case StringOperator.Equals:
                     case StringOperator.NotStartsWith:
-                    case StringOperator.StartsWith:
                         if (expression.Value.Length < V1.StringSearchParam.Text.Metadata.MaxLength / 2)
                         {
                             return false;

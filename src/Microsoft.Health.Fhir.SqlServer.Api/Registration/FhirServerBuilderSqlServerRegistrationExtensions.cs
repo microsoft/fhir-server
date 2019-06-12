@@ -95,6 +95,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<StringOverflowRewriter>()
+                .Singleton()
+                .AsSelf();
+
             return fhirServerBuilder;
         }
 
