@@ -117,7 +117,7 @@ stages:
 
           # Deploy CosmosDb environment
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
-          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentName)" -UserPrincipalName 'PattiFuller@contoso.com' -PermissionsToSecrets set,delete,get -PassThru
+          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentName)" -ObjectId 10ae91de-9036-4280-8c86-294165015b9f -PermissionsToSecrets list,get
 
           # Deploy R4 CosmosDb environment
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
