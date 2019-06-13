@@ -10,6 +10,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -39,11 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public SearchOptions Create(IReadOnlyList<Tuple<string, string>> queryParameters)
-        {
-            return Create(null, queryParameters);
-        }
-
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
             return Create(null, null, resourceType, queryParameters);
@@ -51,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
-            var options = new SearchOptions();
+            var searchOptions = new SearchOptions();
 
             string continuationToken = null;
 
@@ -75,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     // TODO: We need to handle format parameter.
                 }
-                else if (string.IsNullOrWhiteSpace(query.Item2))
+                else if (string.IsNullOrWhiteSpace(query.Item1) || string.IsNullOrWhiteSpace(query.Item2))
                 {
                     // Query parameter with empty value is not supported.
                     unsupportedSearchParameters.Add(query);
@@ -97,16 +93,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            options.ContinuationToken = continuationToken;
+            searchOptions.ContinuationToken = continuationToken;
 
             // Check the item count.
             if (searchParams.Count != null)
             {
-                options.MaxItemCount = searchParams.Count.Value;
+                searchOptions.MaxItemCount = searchParams.Count.Value;
             }
 
             // Check to see if only the count should be returned
-            options.CountOnly = searchParams.Summary == SummaryType.Count;
+            searchOptions.CountOnly = searchParams.Summary == SummaryType.Count;
 
             // If the resource type is not specified, then the common
             // search parameters should be used.
@@ -122,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (!string.IsNullOrWhiteSpace(resourceType))
             {
-                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, resourceType)));
+                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
             searchExpressions.AddRange(searchParams.Parameters.Select(
@@ -160,11 +156,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (searchExpressions.Count == 1)
             {
-                options.Expression = searchExpressions[0];
+                searchOptions.Expression = searchExpressions[0];
             }
             else if (searchExpressions.Count > 1)
             {
-                options.Expression = Expression.And(searchExpressions.ToArray());
+                searchOptions.Expression = Expression.And(searchExpressions.ToArray());
             }
 
             if (unsupportedSearchParameters.Any())
@@ -173,9 +169,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // For now, we will ignore any unknown search parameters.
             }
 
-            options.UnsupportedSearchParams = unsupportedSearchParameters;
+            searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
 
-            return options;
+            return searchOptions;
         }
     }
 }

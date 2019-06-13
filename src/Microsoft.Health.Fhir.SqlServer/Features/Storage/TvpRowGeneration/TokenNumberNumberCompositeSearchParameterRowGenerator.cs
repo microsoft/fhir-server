@@ -26,17 +26,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 _numberRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row) &&
                 _numberRowGenerator.TryGenerateRow(default, searchValue.component3, out var token3Row))
             {
+                bool hasRange = token2Row.SingleValue == null || token3Row.SingleValue == null;
                 row = new V1.TokenNumberNumberCompositeSearchParamTableTypeRow(
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,
-                    token2Row.SingleValue,
-                    token2Row.LowValue,
-                    token2Row.HighValue,
-                    token3Row.SingleValue,
-                    token3Row.LowValue,
-                    token3Row.HighValue,
-                    HasRange: token2Row.SingleValue == null || token3Row.SingleValue == null);
+                    hasRange ? null : token2Row.SingleValue,
+                    token2Row.LowValue ?? token2Row.SingleValue,
+                    token2Row.HighValue ?? token2Row.SingleValue,
+                    hasRange ? null : token3Row.SingleValue,
+                    token3Row.LowValue ?? token3Row.SingleValue,
+                    token3Row.HighValue ?? token3Row.SingleValue,
+                    HasRange: hasRange);
 
                 return true;
             }

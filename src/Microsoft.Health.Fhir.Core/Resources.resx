@@ -132,6 +132,10 @@
   <data name="ChainedParameterNotSupported" xml:space="preserve">
     <value>The chained parameter is not supported.</value>
   </data>
+  <data name="ChainedParameterSpecifyType" xml:space="preserve">
+    <value>The reference search parameter '{0}' refers to multiple possible resource types. Please specify a type in the search expression: {1}</value>
+    <comment>{1}: space-delimited list of search examples.</comment>
+  </data>
   <data name="ComparatorNotSupported" xml:space="preserve">
     <value>Comparator '{0}' is not supported for search parameter '{1}'.</value>
   </data>
@@ -245,6 +249,10 @@
   <data name="OpenIdConfiguration" xml:space="preserve">
     <value>Failed to retrieve the OpenId configuration from the authentication provider.</value>
   </data>
+  <data name="OrDelimiter" xml:space="preserve">
+    <value> or </value>
+    <comment>Used as a list delimiter. Note the spaces.</comment>
+  </data>
   <data name="ReadHistoryDisabled" xml:space="preserve">
     <value>ReadHistory is disabled for resources of type '{0}'.</value>
   </data>
@@ -323,6 +331,10 @@
   </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>
+  </data>
+  <data name="UnsupportedDestinationTypeMessage" xml:space="preserve">
+    <value>The destination type '{0}' is not supported.</value>
+    <comment>{0} is the destination type (E.g., azure-blob).</comment>
   </data>
   <data name="UpdateRequestsRequireId" xml:space="preserve">
     <value>Resource id is required for updates.</value>

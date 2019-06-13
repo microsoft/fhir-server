@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
@@ -29,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _parser = parser;
         }
 
-        public override async Task<CapabilityStatement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken))
+        public override async Task<ResourceElement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
             if (_capabilityStatement == null)
             {
@@ -44,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 _builderActions.ForEach(action => action(_capabilityStatement));
             }
 
-            return _capabilityStatement;
+            return _capabilityStatement.ToResourceElement();
         }
 
         public void ConfigureOptionalCapabilities(Action<CapabilityStatement> builder)

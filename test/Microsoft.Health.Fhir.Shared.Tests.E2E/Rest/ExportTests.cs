@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private const string PreferHeaderName = "Prefer";
         private const string DestinationTypeQueryParamName = "_destinationType";
         private const string DestinationConnectionQueryParamName = "_destinationConnectionSettings";
-        private const string SupportedDestinationType = "AzureBlockBlob";
+        private const string SupportedDestinationType = "in-memory";
 
         public ExportTests(HttpIntegrationTestFixture<Startup> fixture)
         {

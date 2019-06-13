@@ -52,6 +52,8 @@
     <None Remove="TestFiles\R4\AuthConfigWithValidRoles.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
+    <None Remove="TestFiles\R4\BloodGlucose.json" />
+    <None Remove="TestFiles\R4\BloodPressure.json" />
     <None Remove="TestFiles\R4\Condition-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\Device-d1.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-002.json" />
@@ -105,6 +107,8 @@
     <EmbeddedResource Include="TestFiles\R4\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
+    <EmbeddedResource Include="TestFiles\R4\BloodGlucose.json" />
+    <EmbeddedResource Include="TestFiles\R4\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\R4\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-002.json" />

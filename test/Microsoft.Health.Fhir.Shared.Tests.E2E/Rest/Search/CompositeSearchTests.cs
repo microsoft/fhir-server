@@ -12,7 +12,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CompositeSearchTests : SearchTestsBase<CompositeSearchTestFixture>
     {
         private const string ObservationWith1MinuteApgarScore = "ObservationWith1MinuteApgarScore";
@@ -69,8 +69,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("relationship=DocumentReference/example-appends$appends", DocumentReferenceExample)]
         [InlineData("relationship=DocumentReference/example-appends$replaces")]
         [InlineData("relationship=DocumentReference/example-replaces$replaces", DocumentReferenceExample002)]
-        ////[InlineData("relationship=DocumentReference/example-appends$appends,DocumentReference/example-replaces$replaces", DocumentReferenceExample, DocumentReferenceExample002)]
-        ////[InlineData("relationship=DocumentReference/example-appends,DocumentReference/example-replaces$replaces", DocumentReferenceExample, DocumentReferenceExample002)]
+        [InlineData("relationship=DocumentReference/example-appends$appends,DocumentReference/example-replaces$replaces", DocumentReferenceExample, DocumentReferenceExample002, Skip = "https://github.com/microsoft/fhir-server/issues/523")]
+        [InlineData("relationship=DocumentReference/example-appends,DocumentReference/example-replaces$replaces", DocumentReferenceExample, DocumentReferenceExample002, Skip = "https://github.com/microsoft/fhir-server/issues/523")]
         public async Task GivenACompositeSearchParameterWithTokenAndReference_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedDocumentReferenceNames)
         {
             await SearchAndValidateDocumentReferences(queryValue, expectedDocumentReferenceNames);

@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 return expression;
             }
 
-            return new ChainedExpression(resourceType: expression.ResourceType, paramName: expression.ParamName, targetResourceType: expression.TargetResourceType, expression: visitedExpression);
+            return new ChainedExpression(resourceType: expression.ResourceType, referenceSearchParameter: expression.ReferenceSearchParameter, targetResourceType: expression.TargetResourceType, expression: visitedExpression);
         }
 
         public virtual Expression VisitMissingField(MissingFieldExpression expression, TContext context)
@@ -67,30 +67,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
-        private IReadOnlyList<Expression> VisitArray(IReadOnlyList<Expression> inputArray, TContext context)
+        protected IReadOnlyList<TExpression> VisitArray<TExpression>(IReadOnlyList<TExpression> inputArray, TContext context)
+            where TExpression : Expression
         {
-            Expression[] outputArray = null;
+            TExpression[] outputArray = null;
 
             for (var index = 0; index < inputArray.Count; index++)
             {
                 var argument = inputArray[index];
-                var rewrittenArgument = argument.AcceptVisitor(this, context);
+                var rewrittenArgument = (TExpression)argument.AcceptVisitor(this, context);
+
                 if (!ReferenceEquals(rewrittenArgument, argument))
                 {
-                    if (outputArray == null)
-                    {
-                        outputArray = new Expression[inputArray.Count];
-                        for (int i = 0; i < inputArray.Count; i++)
-                        {
-                            outputArray[i] = inputArray[i];
-                        }
-                    }
+                    EnsureAllocatedAndPopulated(ref outputArray, inputArray, index);
+                }
 
+                if (outputArray != null)
+                {
                     outputArray[index] = rewrittenArgument;
                 }
             }
 
             return outputArray ?? inputArray;
+        }
+
+        protected static void EnsureAllocatedAndPopulated<TExpression>(ref TExpression[] destination, IReadOnlyList<TExpression> source, int count)
+            where TExpression : Expression
+        {
+            if (destination == null)
+            {
+                destination = new TExpression[source.Count];
+                for (int j = 0; j < count; j++)
+                {
+                    destination[j] = source[j];
+                }
+            }
+        }
+
+        protected static void EnsureAllocatedAndPopulated<TExpression>(ref List<TExpression> destination, IReadOnlyList<TExpression> source, int count)
+            where TExpression : Expression
+        {
+            if (destination == null)
+            {
+                destination = new List<TExpression>();
+                for (int j = 0; j < count; j++)
+                {
+                    destination.Add(source[j]);
+                }
+            }
         }
     }
 }

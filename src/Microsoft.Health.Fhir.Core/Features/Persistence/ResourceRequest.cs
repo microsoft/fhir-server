@@ -17,22 +17,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
         }
 
-        public ResourceRequest(Uri url, string method)
+        public ResourceRequest(string method, Uri url = null)
         {
-            EnsureArg.IsNotNull(url, nameof(url));
             EnsureArg.IsNotNullOrEmpty(method, nameof(method));
 
             Url = url;
             Method = method;
         }
 
-        public ResourceRequest(string url, HttpMethod method)
-            : this(new Uri(url), method.ToString())
+        public ResourceRequest(HttpMethod method, string url = null)
+            : this(method.ToString(), url == null ? null : new Uri(url))
         {
         }
 
         public ResourceRequest(Uri url, HttpMethod method)
-            : this(url, method.ToString())
+            : this(method.ToString(), url)
         {
         }
 

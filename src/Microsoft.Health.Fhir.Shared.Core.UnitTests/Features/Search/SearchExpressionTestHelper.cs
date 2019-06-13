@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
@@ -23,20 +24,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         internal static void ValidateResourceTypeSearchParameterExpression(Expression expression, string typeName)
         {
-            ValidateSearchParameterExpression(expression, SearchParameterNames.ResourceType, e => ValidateBinaryExpression(e, FieldName.TokenCode, BinaryOperator.Equal, typeName));
+            ValidateSearchParameterExpression(expression, SearchParameterNames.ResourceType, e => ValidateStringExpression(e, FieldName.TokenCode, StringOperator.Equals, typeName, false));
         }
 
         public static void ValidateChainedExpression(
             Expression expression,
             Hl7.Fhir.Model.ResourceType resourceType,
-            string key,
+            SearchParameterInfo referenceSearchParam,
             string targetResourceType,
             Action<Expression> childExpressionValidator)
         {
             ChainedExpression chainedExpression = Assert.IsType<ChainedExpression>(expression);
 
             Assert.Equal(resourceType.ToString(), chainedExpression.ResourceType);
-            Assert.Equal(key, chainedExpression.ParamName);
+            Assert.Equal(referenceSearchParam, chainedExpression.ReferenceSearchParameter);
             Assert.Equal(targetResourceType, chainedExpression.TargetResourceType);
 
             childExpressionValidator(chainedExpression.Expression);
@@ -45,14 +46,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public static void ValidateChainedExpression(
             Expression expression,
             Type resourceType,
-            string key,
+            SearchParameterInfo referenceSearchParam,
             Type targetResourceType,
             Action<Expression> childExpressionValidator)
         {
             ChainedExpression chainedExpression = Assert.IsType<ChainedExpression>(expression);
 
             Assert.Equal(resourceType.ToString(), chainedExpression.ResourceType);
-            Assert.Equal(key, chainedExpression.ParamName);
+            Assert.Equal(referenceSearchParam, chainedExpression.ReferenceSearchParameter);
             Assert.Equal(targetResourceType.ToString(), chainedExpression.TargetResourceType.ToString());
 
             childExpressionValidator(chainedExpression.Expression);

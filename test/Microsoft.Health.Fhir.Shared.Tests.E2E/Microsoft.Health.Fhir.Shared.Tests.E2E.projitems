@@ -39,6 +39,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTestFixture.cs" />
@@ -62,9 +63,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyBadRequestTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyTestFixture.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
