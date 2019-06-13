@@ -10,40 +10,6 @@ variables:
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
     DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
 stages:
-# - stage: preReqs
-#   dependsOn: []
-#   jobs:
-#   - job: install
-#     pool:
-#       vmImage: 'vs2017-win2016'
-#     steps:
-#     - task: AzureKeyVault@1
-#       displayName: 'Azure Key Vault: resolute-oss-tenant-info'
-#       inputs:
-#         azureSubscription: 'Microsoft Health Open Source Subscription'
-#         KeyVaultName: 'resolute-oss-tenant-info'
-#     - task: PowerShell@2
-#       displayName: 'Set Variables'
-#       name: setVariables
-#       inputs:
-#         pwsh: true
-#         targetType: Inline
-#         script: |
-#           $pr = $env:BUILD_SOURCEBRANCH.split('/')[2]
-#           $deploymentName = "$env:RESOURCEGROUPROOT-$pr"
-
-#           Write-Host "##vso[task.setvariable variable=PullRequestId;isOutput=true]$pr"
-#           Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentName;isOutput=true]$deploymentName"
-#           Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameR4;isOutput=true]$deploymentName-r4"
-#           Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameSql;isOutput=true]$deploymentName-sql"
-#           Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentNameR4Sql;isOutput=true]$deploymentName-r4-sql"
-#           Write-Host "##vso[task.setvariable variable=PullRequestId;isOutput=true]OSS PR $pr"
-#           Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl;isOutput=true]https://$deploymentName.azurewebsites.net"
-#           Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql;isOutput=true]https://$deploymentName-sql.azurewebsites.net"
-#           Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4;isOutput=true]https://$deploymentName-r4.azurewebsites.net"
-#           Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql;isOutput=true]https://$deploymentName-r4-sql.azurewebsites.net"
-#           Write-Host "##vso[task.setvariable variable=TestClientUrl;isOutput=true]https://$deploymentName-client/"
-#           Write-Host "##vso[task.setvariable variable=TestEnvironmentName;isOutput=true]OSS PR$pr"
 - stage: BuildUnitTests
   dependsOn: []
   displayName: 'Build and unit tests'
@@ -63,6 +29,8 @@ stages:
     - template: build.yml
       parameters:
         packageArtifacts: false
+
+
 - stage: provisionEnvironment
   displayName: 'Provision Azure Environment'
   dependsOn: []
@@ -117,7 +85,7 @@ stages:
 
           # Deploy CosmosDb environment
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
-          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentName)" -ObjectId 10ae91de-9036-4280-8c86-294165015b9f -PermissionsToSecrets list,get
+          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentName)" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
 
           # Deploy R4 CosmosDb environment
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
@@ -132,29 +100,14 @@ stages:
           # Deploy STU3 SqlServer
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
-          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentNameSql)" -ObjectId 10ae91de-9036-4280-8c86-294165015b9f -PermissionsToSecrets list,get
+          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentNameSql)" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
 
           # Deploy R4 SqlServer
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
         azurePowerShellVersion: LatestVersion
-    - task: AzurePowerShell@3
-      displayName: 'Azure Set Data Store Variables'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        ScriptType: InlineScript
-        Inline: |
-          $c = Get-AzureRmResource -ResourceGroupName $(DeploymentEnvironmentName) -ResourceType "Microsoft.DocumentDb/databaseAccounts" -ResourceName $(DeploymentEnvironmentName)
-          $k = Invoke-AzureRmResourceAction -Action listKeys -ResourceId $c.ResourceId -Force
-          $ho = $c.Properties.documentEndpoint
-          $ke = $k.primaryMasterKey
-          Write-Host "##vso[task.setvariable variable=DataStore--Host;isOutput=true]$ho"
-          Write-Host "##vso[task.setvariable variable=DataStore--Key;isOutput=true]$ke"
 
-          $sqlConnectionString = "Server=tcp:$(DeploymentEnvironmentNameSql).database.windows.net,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=fhirAdmin;Password=$(SqlAdminPassword);MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=3000;"
 
-          Write-Host "##vso[task.setvariable variable=SqlServer--ConnectionString;isOutput=true]$sqlConnectionString"
-        preferredAzurePowerShellVersion: 5.1.1
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
   variables:
@@ -180,6 +133,8 @@ stages:
         WebAppName: '$(WebAppName)'
         Package: '$(Build.ArtifactStagingDirectory)/deploy/*Stu3*.zip'
         TakeAppOfflineFlag: true
+
+
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
   variables:
@@ -205,6 +160,8 @@ stages:
         WebAppName: '$(WebAppName)'
         Package: '$(Build.ArtifactStagingDirectory)/deploy/*Stu3*.zip'
         TakeAppOfflineFlag: true
+
+
 - stage: deployR4
   displayName: 'Deploy R4 Site'
   variables:
@@ -230,6 +187,8 @@ stages:
         WebAppName: '$(WebAppName)'
         Package: '$(Build.ArtifactStagingDirectory)/deploy/*R4*.zip'
         TakeAppOfflineFlag: true
+
+
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
   variables:
@@ -255,6 +214,8 @@ stages:
         WebAppName: '$(WebAppName)'
         Package: '$(Build.ArtifactStagingDirectory)/deploy/*R4*.zip'
         TakeAppOfflineFlag: true
+
+
 - stage: integrationTest
   displayName: 'Run Integration and E2E Tests'
   dependsOn:
@@ -269,8 +230,57 @@ stages:
     TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentNameR4Sql).azurewebsites.net'
     TestEnvironmentName: 'OSS PR$(prNumber)'
     Resource: '$(TestEnvironmentUrl)'
+
   jobs:
-  - job: 'RunTests'
+  - job: "integrationTests"
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'IntegrationTests'
+
+    - task: DotNetCoreInstaller@0
+      inputs:
+        version: '2.2.103' 
+
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        KeyVaultName: '$(DeploymentEnvironmentName)'
+
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: $(DeploymentEnvironmentNameSql)'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        KeyVaultName: $(DeploymentEnvironmentNameSql)
+
+    - task: AzurePowerShell@3
+      displayName: 'Set Variables'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        ScriptType: InlineScript
+        preferredAzurePowerShellVersion: 5.1.1
+        Inline: |
+          Install-Module AzureAD -Force
+
+          Write-Host "##vso[task.setvariable variable=CosmosDb:Host]$(DataStore--Host)"
+          Write-Host "##vso[task.setvariable variable=CosmosDb:Key]$(DataStore--Key)"
+          Write-Host "##vso[task.setvariable variable=SqlServer:ConnectionString]$(SqlServer--ConnectionString)"
+    - task: VSTest@2
+      displayName: 'Run Integration Tests'
+      inputs:
+        testSelector: testAssemblies
+        testAssemblyVer2: |
+          **\*Tests.Integration*.dll
+        searchFolder: '$(System.ArtifactsDirectory)'
+
+
+  - job: 'e2eTests'
     pool:
       vmImage: 'vs2017-win2016'
     steps:
@@ -288,16 +298,7 @@ stages:
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: 'resolute-oss-tenant-info'
-    - task: AzureKeyVault@1
-      displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        KeyVaultName: '$(DeploymentEnvironmentName)'
-    - task: AzureKeyVault@1
-      displayName: 'Azure Key Vault: $(DeploymentEnvironmentNameSql)'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        KeyVaultName: $(DeploymentEnvironmentNameSql)
+    
     - task: AzurePowerShell@3
       displayName: 'Set Variables'
       inputs:
@@ -306,10 +307,6 @@ stages:
         preferredAzurePowerShellVersion: 5.1.1
         Inline: |
           Install-Module AzureAD -Force
-
-          Write-Host "##vso[task.setvariable variable=CosmosDb:Host]$(DataStore--Host)"
-          Write-Host "##vso[task.setvariable variable=CosmosDb:Key]$(DataStore--Key)"
-          Write-Host "##vso[task.setvariable variable=SqlServer:ConnectionString]$(SqlServer--ConnectionString)"
 
           # Get admin token
           $tenantId = "$(tenant-id)"
@@ -359,19 +356,14 @@ stages:
           }
 
     - task: VSTest@2
-      displayName: 'Run Integration Tests'
-      inputs:
-        testSelector: testAssemblies
-        testAssemblyVer2: |
-          **\*Tests.Integration*.dll
-        searchFolder: '$(System.ArtifactsDirectory)'
-    - task: VSTest@2
       displayName: 'Run E2E Tests'
       inputs:
         testSelector: testAssemblies
         testAssemblyVer2: |
           **\*Tests.E2E*.dll
         searchFolder: '$(System.ArtifactsDirectory)'
+
+
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
