@@ -132,6 +132,7 @@ stages:
           # Deploy STU3 SqlServer
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentNameSql)" -ObjectId 10ae91de-9036-4280-8c86-294165015b9f -PermissionsToSecrets list,get
 
           # Deploy R4 SqlServer
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
@@ -287,6 +288,16 @@ stages:
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: 'resolute-oss-tenant-info'
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        KeyVaultName: '$(DeploymentEnvironmentName)'
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: $(DeploymentEnvironmentNameSql)'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        KeyVaultName: $(DeploymentEnvironmentNameSql)
     - task: AzurePowerShell@3
       displayName: 'Set Variables'
       inputs:
@@ -296,17 +307,9 @@ stages:
         Inline: |
           Install-Module AzureAD -Force
 
-          # $env:CosmosDb:Host = "$(DataStore--Host)"
-          # $env:CosmosDb:Key = "$(DataStore--Key)"
-          # $env:SqlServer:ConnectionString = "$(SqlServer--ConnectionString)"
-
-          # $env:TestEnvironmentUrl = "$(TestEnvironmentUrl)"
-          # $env:TestEnvironmentName = "$(TestEnvironmentName)"
-          # $env:TestEnvironmentUrl_R4 = "$(TestEnvironmentUrl_R4)"
-          # $env:TestEnvironmentUrl_Sql = "$(TestEnvironmentUrl_Sql)"
-          # $env:TestEnvironmentUrl_R4_Sql = "$(TestEnvironmentUrl_R4_Sql)"
-
-          # $env:Resource = "$(TestEnvironmentUrl)"
+          Write-Host "##vso[task.setvariable variable=CosmosDb:Host]$(DataStore--Host)"
+          Write-Host "##vso[task.setvariable variable=CosmosDb:Key]$(DataStore--Key)"
+          Write-Host "##vso[task.setvariable variable=SqlServer:ConnectionString]$(SqlServer--ConnectionString)"
 
           # Get admin token
           $tenantId = "$(tenant-id)"
@@ -355,37 +358,29 @@ stages:
               Write-Host "##vso[task.setvariable variable=TestClientSecret]$($secret.SecretValueText)"
           }
 
-          #gci -Path $(System.ArtifactsDirectory) -Include *Tests.E2E*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
-    - task: PowerShell@2
-      displayName: 'Test Variables'
-      name: testVariables
+    - task: VSTest@2
+      displayName: 'Run Integration Tests'
       inputs:
-        pwsh: true
-        targetType: Inline
-        script: |
-          Write-Host "test user - $env:user_itguy_id"
+        testSelector: testAssemblies
+        testAssemblyVer2: |
+          **\*Tests.Integration*.dll
+        searchFolder: '$(System.ArtifactsDirectory)'
     - task: VSTest@2
       displayName: 'Run E2E Tests'
       inputs:
         testSelector: testAssemblies
         testAssemblyVer2: |
           **\*Tests.E2E*.dll
-        searchFolder: '$(System.ArtifactsDirectory)' 
-  # - job: publishResults
-  #   steps:
-  #   - task: PublishTestResults@2
-  #     displayName: 'Publish Test Results **\*TestOutput.xml'
-  #     inputs:
-  #       testResultsFormat: VSTest
-  #       testResultsFiles: '**\*TestOutput.xml'
-  #       mergeTestResults: true
-  #     condition: succeededOrFailed()
+        searchFolder: '$(System.ArtifactsDirectory)'
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
   - integrationTest
   jobs:
     - job: DeleteResourceGroup
+      displayName: 'Delete resource group'
+      pool:
+        vmImage: 'vs2017-win2016'
       steps:
       - task: AzurePowerShell@3
         displayName: 'Delete resource group'
@@ -395,6 +390,9 @@ stages:
           Inline: 'Get-AzureRmResourceGroup -Name $(DeploymentEnvironmentName) | Remove-AzureRmResourceGroup -Verbose -Force'
           preferredAzurePowerShellVersion: 5.1.1
     - job: cleanupAad
+      displayName: 'Cleanup Azure Active Directory'
+      pool:
+        vmImage: 'vs2017-win2016' 
       steps:
       - task: DownloadBuildArtifacts@0
         inputs:
