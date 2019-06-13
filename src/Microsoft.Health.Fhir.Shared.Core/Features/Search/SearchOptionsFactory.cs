@@ -10,6 +10,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     // TODO: We need to handle format parameter.
                 }
-                else if (string.IsNullOrWhiteSpace(query.Item2))
+                else if (string.IsNullOrWhiteSpace(query.Item1) || string.IsNullOrWhiteSpace(query.Item2))
                 {
                     // Query parameter with empty value is not supported.
                     unsupportedSearchParameters.Add(query);

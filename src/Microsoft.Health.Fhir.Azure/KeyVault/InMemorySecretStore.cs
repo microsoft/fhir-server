@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 
-namespace Microsoft.Health.Fhir.KeyVault
+namespace Microsoft.Health.Fhir.Azure.KeyVault
 {
     /// <summary>
     /// Implementation of <see cref="ISecretStore"/> to be used for local tests and deployments.

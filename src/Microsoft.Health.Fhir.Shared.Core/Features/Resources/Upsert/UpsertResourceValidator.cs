@@ -13,13 +13,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
     public class UpsertResourceValidator : AbstractValidator<UpsertResourceRequest>
     {
-        public UpsertResourceValidator(INarrativeHtmlSanitizer htmlSanitizer)
+        public UpsertResourceValidator(INarrativeHtmlSanitizer htmlSanitizer, IModelAttributeValidator modelAttributeValidator)
         {
             RuleFor(x => x.Resource.Id)
                 .NotEmpty().WithMessage(Core.Resources.UpdateRequestsRequireId);
 
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceValidator(htmlSanitizer));
+                .SetValidator(new ResourceValidator(htmlSanitizer, modelAttributeValidator));
         }
     }
 }

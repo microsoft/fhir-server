@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28729.10
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.645
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8AD2A324-DAB5-4380-94A5-31F7D817C384}"
 EndProject
@@ -72,8 +72,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SqlServer.UnitTests", "src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj", "{E02E5224-32CD-490F-B1E5-8509AD669334}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.KeyVault", "src\Microsoft.Health.Fhir.KeyVault\Microsoft.Health.Fhir.KeyVault.csproj", "{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "R4", "R4", "{BDD93417-1C3D-4EC9-BCBB-F5AE2F785642}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Core", "src\Microsoft.Health.Fhir.R4.Core\Microsoft.Health.Fhir.R4.Core.csproj", "{070759A9-51D9-4967-8651-39CCA8288C93}"
@@ -106,9 +104,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.We
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.E2E", "test\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.shproj", "{A898CC57-69D0-4454-BB70-784C138A05BF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Stu3.Tests.E2E", "test\Microsoft.Health.Fhir.Stu3.Tests.E2E\Microsoft.Health.Fhir.Stu3.Tests.E2E.csproj", "{49DA2851-2A19-4969-AE87-94837BACBE7D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Stu3.Tests.E2E", "test\Microsoft.Health.Fhir.Stu3.Tests.E2E\Microsoft.Health.Fhir.Stu3.Tests.E2E.csproj", "{49DA2851-2A19-4969-AE87-94837BACBE7D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Tests.E2E", "test\Microsoft.Health.Fhir.R4.Tests.E2E\Microsoft.Health.Fhir.R4.Tests.E2E.csproj", "{7F2B9209-2C50-42ED-961B-A09CC8A26A07}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Azure", "src\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj", "{6A804695-44D9-4335-B559-9E9A0DAB1102}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -221,10 +221,6 @@ Global
 		{E02E5224-32CD-490F-B1E5-8509AD669334}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E02E5224-32CD-490F-B1E5-8509AD669334}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E02E5224-32CD-490F-B1E5-8509AD669334}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5A7E7D1B-B307-45FD-8230-C4E331EAB2CD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{070759A9-51D9-4967-8651-39CCA8288C93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{070759A9-51D9-4967-8651-39CCA8288C93}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{070759A9-51D9-4967-8651-39CCA8288C93}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -261,6 +257,10 @@ Global
 		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7F2B9209-2C50-42ED-961B-A09CC8A26A07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -313,7 +313,7 @@ Global
 		{7F2B9209-2C50-42ED-961B-A09CC8A26A07} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 EndGlobal

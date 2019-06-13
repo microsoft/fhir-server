@@ -6,6 +6,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
         [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
         public void GivenAResourceWithoutInvalidId_WhenValidatingUpsert_ThenInvalidShouldBeReturned(string id)
         {
-            var validator = new UpsertResourceValidator(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
+            var validator = new UpsertResourceValidator(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance), new ModelAttributeValidator());
             var resource = Samples.GetDefaultObservation()
                 .UpdateId(id);
 

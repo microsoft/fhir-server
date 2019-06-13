@@ -25,8 +25,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// </summary>
         /// <param name="connectionSettings">The connection settings.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="containerId">The id of the container to use for exporting data. We will use the default/root container if not provided.</param>
         /// <returns>A <see cref="Task"/> representing connection operation.</returns>
-        Task ConnectAsync(string connectionSettings, CancellationToken cancellationToken);
+        Task ConnectAsync(string connectionSettings, CancellationToken cancellationToken, string containerId = null);
 
         /// <summary>
         /// Creates a new file in the destination.

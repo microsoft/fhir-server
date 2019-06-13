@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -102,7 +103,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 $"The {nameof(currentIndex)} is invalid.");
 
             PathSegment path = paths[currentIndex];
-            string currentPath = path.Path;
             string targetResourceType = path.ModifierOrResourceType;
 
             // We have more paths after this so this is a chained expression.
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             // If the scoped target resource type is specified, we will scope to that; otherwise, all target resource types are considered.
-            ChainedExpression[] chainedExpressions = searchParameter.TargetResourceTypes
+            List<ChainedExpression> chainedExpressions = searchParameter.TargetResourceTypes
                 .Where(targetType => targetType != null && (scopedTargetResourceType?.ToString() ?? targetType) == targetType)
                 .Select(targetType =>
                 {
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     {
                         return Expression.Chained(
                             resourceType,
-                            currentPath,
+                            searchParameter,
                             targetType,
                             Parse(
                                 targetType,
@@ -152,15 +152,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     }
                 })
                 .Where(item => item != null)
-                .ToArray();
+                .ToList();
 
-            if (!chainedExpressions.Any())
+            switch (chainedExpressions.Count)
             {
-                // There was no reference that supports the search parameter.
-                throw new InvalidSearchOperationException(Core.Resources.ChainedParameterNotSupported);
-            }
+                case 0:
+                    // There was no reference that supports the search parameter.
+                    throw new InvalidSearchOperationException(Core.Resources.ChainedParameterNotSupported);
+                case 1:
+                    return chainedExpressions[0];
+                default:
+                    // If the target resource type is ambiguous, we throw an error.
+                    // At the moment, this is not supported
 
-            return Expression.Or(chainedExpressions);
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.CurrentCulture,
+                            Core.Resources.ChainedParameterSpecifyType,
+                            chainedExpressions[0].ReferenceSearchParameter.Name,
+                            string.Join(Core.Resources.OrDelimiter, chainedExpressions.Select(c => $"{c.ReferenceSearchParameter.Name}:{c.TargetResourceType}"))));
+            }
         }
 
         private Expression ParseSearchValueExpression(SearchParameterInfo searchParameter, string modifier, string value)

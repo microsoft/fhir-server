@@ -3,13 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
+namespace Microsoft.Health.Fhir.Azure.KeyVault.Configs
 {
-    /// <summary>
-    /// Defaults for using a local database.
-    /// </summary>
-    public static class LocalDatabase
+    public class KeyVaultConfiguration
     {
-        public const string DefaultConnectionString = "server=(local);Initial Catalog=FHIR;Integrated Security=true";
+        public string Endpoint { get; set; }
     }
 }

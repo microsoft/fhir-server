@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override Table Table => V1.ReferenceSearchParam;
 
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
             switch (expression.FieldName)
             {
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        public override SqlQueryGenerator VisitMissingField(MissingFieldExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitMissingField(MissingFieldExpression expression, SearchParameterQueryGeneratorContext context)
         {
             return VisitMissingFieldImpl(expression, context, FieldName.ReferenceBaseUri, V1.ReferenceSearchParam.BaseUri);
         }

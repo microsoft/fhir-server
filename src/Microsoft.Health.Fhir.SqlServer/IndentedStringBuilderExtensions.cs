@@ -34,5 +34,25 @@ namespace Microsoft.Health.Fhir.SqlServer
                     sb.AppendLine();
                 });
         }
+
+        public static IndentedStringBuilder.DelimitedScope BeginDelimitedOnClause(this IndentedStringBuilder indentedStringBuilder)
+        {
+            return indentedStringBuilder.BeginDelimitedScope(
+                sb =>
+                {
+                    sb.Append("ON ");
+                    sb.IndentLevel++;
+                },
+                sb =>
+                {
+                    sb.AppendLine();
+                    sb.Append("AND ");
+                },
+                sb =>
+                {
+                    sb.IndentLevel--;
+                    sb.AppendLine();
+                });
+        }
     }
 }

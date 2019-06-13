@@ -8,17 +8,35 @@ using EnsureThat;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
+using Microsoft.Health.Fhir.Azure.KeyVault;
+using Microsoft.Health.Fhir.Azure.KeyVault.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.KeyVault;
-using Microsoft.Health.Fhir.KeyVault.Configs;
 
-namespace Microsoft.Extensions.DependencyInjection
+namespace Microsoft.Health.Fhir.Azure
 {
-    public static class FhirServerBuilderSecretStoreRegistrationExtensions
+    public static class FhirServerBuilderAzureRegistrationExtensions
     {
         private const string KeyVaultConfigurationName = "KeyVault";
+
+        public static IFhirServerBuilder AddAzureExportDestinationClient(this IFhirServerBuilder fhirServerBuilder)
+        {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
+            fhirServerBuilder.Services.Add<AzureExportDestinationClient>()
+                .Transient()
+                .AsSelf();
+
+            fhirServerBuilder.Services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<AzureExportDestinationClient>())
+                .Transient()
+                .AsSelf();
+
+            return fhirServerBuilder;
+        }
 
         public static IFhirServerBuilder AddKeyVaultSecretStore(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
         {
@@ -41,12 +59,12 @@ namespace Microsoft.Extensions.DependencyInjection
             else
             {
                 fhirServerBuilder.Services.Add<KeyVaultSecretStore>((sp) =>
-                    {
-                        var tokenProvider = new AzureServiceTokenProvider();
-                        var kvClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(tokenProvider.KeyVaultTokenCallback));
+                {
+                    var tokenProvider = new AzureServiceTokenProvider();
+                    var kvClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(tokenProvider.KeyVaultTokenCallback));
 
-                        return new KeyVaultSecretStore(kvClient, new Uri(keyVaultConfig.Endpoint));
-                    })
+                    return new KeyVaultSecretStore(kvClient, new Uri(keyVaultConfig.Endpoint));
+                })
                     .Singleton()
                     .AsService<ISecretStore>();
             }

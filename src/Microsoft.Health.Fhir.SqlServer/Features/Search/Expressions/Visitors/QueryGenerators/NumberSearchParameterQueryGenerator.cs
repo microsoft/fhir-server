@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override Table Table => V1.NumberSearchParam;
 
-        public override SqlQueryGenerator VisitBinary(BinaryExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
             NullableDecimalColumn valueColumn;
             NullableDecimalColumn nullCheckColumn;
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            context.StringBuilder.Append(nullCheckColumn).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
+            context.StringBuilder.Append(nullCheckColumn, context.TableAlias).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
             return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
         }
     }
