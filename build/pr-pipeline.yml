@@ -117,6 +117,7 @@ stages:
 
           # Deploy CosmosDb environment
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentName)" -UserPrincipalName 'PattiFuller@contoso.com' -PermissionsToSecrets set,delete,get -PassThru
 
           # Deploy R4 CosmosDb environment
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
@@ -261,14 +262,12 @@ stages:
   - deployR4
   - deployR4Sql
   variables:
-    DataStore--Host: $[ dependencies.install.outputs['setVariables.DataStore--Host'] ]
-    DataStore--Key: $[ dependencies.install.outputs['setVariables.DataStore--Key'] ]
     TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
     TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentNameSql).azurewebsites.net'
     TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentNameR4).azurewebsites.net'
     TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentNameR4Sql).azurewebsites.net'
     TestEnvironmentName: 'OSS PR$(prNumber)'
-    SqlServer--ConnectionString: $[ dependencies.install.outputs['setVariables.SqlServer--ConnectionString'] ]
+    Resource: '$(TestEnvironmentUrl)'
   jobs:
   - job: 'RunTests'
     pool:
@@ -297,17 +296,17 @@ stages:
         Inline: |
           Install-Module AzureAD -Force
 
-          $env:CosmosDb:Host = "$(DataStore--Host)"
-          $env:CosmosDb:Key = "$(DataStore--Key)"
-          $env:SqlServer:ConnectionString = "$(SqlServer--ConnectionString)"
+          # $env:CosmosDb:Host = "$(DataStore--Host)"
+          # $env:CosmosDb:Key = "$(DataStore--Key)"
+          # $env:SqlServer:ConnectionString = "$(SqlServer--ConnectionString)"
 
-          $env:TestEnvironmentUrl = "$(TestEnvironmentUrl)"
-          $env:TestEnvironmentName = "$(TestEnvironmentName)"
-          $env:TestEnvironmentUrl_R4 = "$(TestEnvironmentUrl_R4)"
-          $env:TestEnvironmentUrl_Sql = "$(TestEnvironmentUrl_Sql)"
-          $env:TestEnvironmentUrl_R4_Sql = "$(TestEnvironmentUrl_R4_Sql)"
+          # $env:TestEnvironmentUrl = "$(TestEnvironmentUrl)"
+          # $env:TestEnvironmentName = "$(TestEnvironmentName)"
+          # $env:TestEnvironmentUrl_R4 = "$(TestEnvironmentUrl_R4)"
+          # $env:TestEnvironmentUrl_Sql = "$(TestEnvironmentUrl_Sql)"
+          # $env:TestEnvironmentUrl_R4_Sql = "$(TestEnvironmentUrl_R4_Sql)"
 
-          $env:Resource = "$(TestEnvironmentUrl)"
+          # $env:Resource = "$(TestEnvironmentUrl)"
 
           # Get admin token
           $tenantId = "$(tenant-id)"
@@ -342,8 +341,8 @@ stages:
               Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
 
               $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
-              [System.Environment]::SetEnvironmentVariable("user_$($user.Id)_id","$($user.upn)")
-              [System.Environment]::SetEnvironmentVariable("user_$($user.Id)_secret","$($secret.SecretValueText)")
+              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id]$($user.upn)"
+              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret]$($secret.SecretValueText)"
           }
 
           foreach($clientApp in $output.environmentClientApplications)
@@ -351,12 +350,20 @@ stages:
               Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
               $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
 
-              [System.Environment]::SetEnvironmentVariable("app_$($clientApp.Id)_id","$($clientApp.AppId)")
-              [System.Environment]::SetEnvironmentVariable("app_$($clientApp.Id)_secret","$($secret.SecretValueText)")
-              $env:TestClientSecret = "$($secret.SecretValueText)"
+              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id]$($clientApp.AppId)"
+              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret]$($secret.SecretValueText)"
+              Write-Host "##vso[task.setvariable variable=TestClientSecret]$($secret.SecretValueText)"
           }
 
           #gci -Path $(System.ArtifactsDirectory) -Include *Tests.E2E*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
+    - task: PowerShell@2
+      displayName: 'Test Variables'
+      name: testVariables
+      inputs:
+        pwsh: true
+        targetType: Inline
+        script: |
+          Write-Host "test user - $env:user_itguy_id"
     - task: VSTest@2
       displayName: 'Run E2E Tests'
       inputs:
