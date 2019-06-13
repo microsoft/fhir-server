@@ -133,53 +133,7 @@ stages:
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
 
-          $tenantId = "$(tenant-id)"
-
-          # Get admin token
-          $username = "$(tenant-admin-user-name)"
-          $password_raw = "$(tenant-admin-user-password)"
-          $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
-          $adminCredential = New-Object PSCredential $username,$password
-
-          $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
-          $resource = "https://graph.windows.net/"
-
-          $body = @{
-              grant_type = "password"
-              username   = $username
-              password   = $password_raw
-              resource   = $resource
-              client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
-          }
-
-          $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
-          $token = $response.access_token
-
-          Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
-
-          Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
-          Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
-
-          $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
-
-          foreach($user in $output.environmentUsers)
-          {
-              Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
-
-              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
-              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id;isOutput=true]$($user.upn)"
-              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret;isOutput=true]$($secret.SecretValueText)"
-          }
-
-          foreach($clientApp in $output.environmentClientApplications)
-          {
-              Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
-              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
-
-              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id;isOutput=true]$($clientApp.AppId)"
-              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret;isOutput=true]$($secret.SecretValueText)"
-              Write-Host "##vso[task.setvariable variable=TestClientSecret;isOutput=true]$($secret.SecretValueText)"
-          }
+          
         azurePowerShellVersion: LatestVersion
     - task: AzurePowerShell@3
       displayName: 'Azure Set Data Store Variables'
@@ -295,6 +249,7 @@ stages:
         Package: '$(Build.ArtifactStagingDirectory)/deploy/*R4*.zip'
         TakeAppOfflineFlag: true
 - stage: integrationTest
+  displayName: 'Run Integration and E2E Tests'
   dependsOn:
   - deployStu3
   - deployStu3Sql
@@ -310,9 +265,8 @@ stages:
     TestEnvironmentName: $[ dependencies.install.outputs['setVariables.TestEnvironmentName'] ]
     SqlServer--ConnectionString: $[ dependencies.install.outputs['setVariables.SqlServer--ConnectionString'] ]
   jobs:
-  - job: RunTests
+  - job: 'RunTests'
     steps:
-    - checkout: none
     - task: DownloadBuildArtifacts@0
       inputs:
         buildType: 'current'
@@ -322,6 +276,11 @@ stages:
     - task: DotNetCoreInstaller@0
       inputs:
         version: '2.2.103' 
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        KeyVaultName: 'resolute-oss-tenant-info'
     - task: PowerShell@2
       displayName: 'Set Variables'
       inputs:
@@ -340,16 +299,70 @@ stages:
 
           $env:Resource = "$(TestEnvironmentUrl)"
 
-          gci -Path $(System.ArtifactsDirectory) -Include *Tests.E2E*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
-  - job: publishResults
-    steps:
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results **\*TestOutput.xml'
+          # Get admin token
+          $tenantId = "$(tenant-id)"
+          $username = "$(tenant-admin-user-name)"
+          $password_raw = "$(tenant-admin-user-password)"
+          $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
+          $adminCredential = New-Object PSCredential $username,$password
+
+          $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
+          $resource = "https://graph.windows.net/"
+
+          $body = @{
+              grant_type = "password"
+              username   = $username
+              password   = $password_raw
+              resource   = $resource
+              client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
+          }
+
+          $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+          $token = $response.access_token
+
+          Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
+
+          Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
+          Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
+
+          $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
+
+          foreach($user in $output.environmentUsers)
+          {
+              Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
+
+              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
+              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id;isOutput=true]$($user.upn)"
+              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret;isOutput=true]$($secret.SecretValueText)"
+          }
+
+          foreach($clientApp in $output.environmentClientApplications)
+          {
+              Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
+              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
+
+              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id;isOutput=true]$($clientApp.AppId)"
+              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret;isOutput=true]$($secret.SecretValueText)"
+              Write-Host "##vso[task.setvariable variable=TestClientSecret;isOutput=true]$($secret.SecretValueText)"
+          }
+
+          #gci -Path $(System.ArtifactsDirectory) -Include *Tests.E2E*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
+    - task: VSTest@2
+      displayName: 'Run E2E Tests'
       inputs:
-        testResultsFormat: VSTest
-        testResultsFiles: '**\*TestOutput.xml'
-        mergeTestResults: true
-      condition: succeededOrFailed()
+        testSelector: testAssemblies
+        testAssemblyVer2: |
+          *Tests.E2E*.dll
+        searchFolder: '$(System.ArtifactsDirectory)' 
+  # - job: publishResults
+  #   steps:
+  #   - task: PublishTestResults@2
+  #     displayName: 'Publish Test Results **\*TestOutput.xml'
+  #     inputs:
+  #       testResultsFormat: VSTest
+  #       testResultsFiles: '**\*TestOutput.xml'
+  #       mergeTestResults: true
+  #     condition: succeededOrFailed()
 - stage: cleanup
   variables:
     DeploymentEnvironmentName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
