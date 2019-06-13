@@ -334,6 +334,9 @@ stages:
 
           $env:TestEnvironmentUrl = "$(TestEnvironmentUrl)"
           $env:TestEnvironmentName = "$(TestEnvironmentName)"
+          $env:TestEnvironmentUrl_R4 = "$(TestEnvironmentUrl_R4)"
+          $env:TestEnvironmentUrl_Sql = "$(TestEnvironmentUrl_Sql)"
+          $env:TestEnvironmentUrl_R4_Sql = "$(TestEnvironmentUrl_R4_Sql)"
 
           $env:Resource = "$(TestEnvironmentUrl)"
 
