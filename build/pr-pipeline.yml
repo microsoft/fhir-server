@@ -122,12 +122,14 @@ stages:
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
 
-          # Deploy SqlServer environment
+          # Setup SQL specific variables
           $sap = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
           Write-Host "##vso[task.setvariable variable=SqlAdminPassword]$sap"
-          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
           $templateParameters["solutionType"] = "FhirServerSqlServer"
           $templateParameters["sqlAdminPassword"] = $sap
+
+          # Deploy STU3 SqlServer
+          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
 
           # Deploy R4 SqlServer
@@ -340,8 +342,8 @@ stages:
               Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
 
               $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
-              $env:user_$($user.Id)_id = "$($user.upn)"
-              $env:user_$($user.Id)_secret = "$($secret.SecretValueText)"
+              [System.Environment]::SetEnvironmentVariable("user_$($user.Id)_id","$($user.upn)")
+              [System.Environment]::SetEnvironmentVariable("user_$($user.Id)_secret","$($secret.SecretValueText)")
           }
 
           foreach($clientApp in $output.environmentClientApplications)
@@ -349,8 +351,8 @@ stages:
               Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
               $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
 
-              $env:app_$($clientApp.Id)_id = "$($clientApp.AppId)"
-              $env:app_$($clientApp.Id)_secret = "$($secret.SecretValueText)"
+              [System.Environment]::SetEnvironmentVariable("app_$($clientApp.Id)_id","$($clientApp.AppId)")
+              [System.Environment]::SetEnvironmentVariable("app_$($clientApp.Id)_secret","$($secret.SecretValueText)")
               $env:TestClientSecret = "$($secret.SecretValueText)"
           }
 
@@ -374,7 +376,6 @@ stages:
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   variables:
-    DeploymentEnvironmentName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
   dependsOn:
   - integrationTest
   jobs:
