@@ -267,10 +267,12 @@ stages:
     TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentNameSql).azurewebsites.net'
     TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentNameR4).azurewebsites.net'
     TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentNameR4Sql).azurewebsites.net'
-    TestEnvironmentName: $[ dependencies.install.outputs['setVariables.TestEnvironmentName'] ]
+    TestEnvironmentName: 'OSS PR$(prNumber)'
     SqlServer--ConnectionString: $[ dependencies.install.outputs['setVariables.SqlServer--ConnectionString'] ]
   jobs:
   - job: 'RunTests'
+    pool:
+      vmImage: 'vs2017-win2016'
     steps:
     - task: DownloadBuildArtifacts@0
       inputs:
