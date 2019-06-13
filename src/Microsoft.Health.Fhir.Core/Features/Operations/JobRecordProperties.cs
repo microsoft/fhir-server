@@ -31,13 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string CancelledTime = "cancelledTime";
 
-        public const string NumberOfConsecutiveFailures = "numberOfConsecutiveFailures";
-
-        public const string TotalNumberOfFailures = "totalNumberOfFailures";
-
-        public const string Request = "request";
+        public const string RequestUri = "requestUri";
 
         public const string RequestorClaims = "requestorClaims";
+
+        public const string ResourceType = "resourceType";
 
         public const string Progress = "progress";
 

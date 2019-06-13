@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -102,6 +102,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ChainedParameterNotSupported {
             get {
                 return ResourceManager.GetString("ChainedParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The reference search parameter &apos;{0}&apos; refers to multiple possible resource types. Please specify a type in the search expression: {1}.
+        /// </summary>
+        internal static string ChainedParameterSpecifyType {
+            get {
+                return ResourceManager.GetString("ChainedParameterSpecifyType", resourceCulture);
             }
         }
         
@@ -439,6 +448,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to  or .
+        /// </summary>
+        internal static string OrDelimiter {
+            get {
+                return ResourceManager.GetString("OrDelimiter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ReadHistory is disabled for resources of type &apos;{0}&apos;..
         /// </summary>
         internal static string ReadHistoryDisabled {
@@ -669,6 +687,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UnsupportedConfigurationMessage {
             get {
                 return ResourceManager.GetString("UnsupportedConfigurationMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The destination type &apos;{0}&apos; is not supported..
+        /// </summary>
+        internal static string UnsupportedDestinationTypeMessage {
+            get {
+                return ResourceManager.GetString("UnsupportedDestinationTypeMessage", resourceCulture);
             }
         }
         

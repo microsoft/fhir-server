@@ -17,13 +17,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     {
         private const string SecretPrefix = "Export-Destination-";
 
-        public ExportJobRecord(Uri exportRequestUri, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
+        public ExportJobRecord(Uri requestUri, string resourceType, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
         {
-            EnsureArg.IsNotNull(exportRequestUri, nameof(exportRequestUri));
+            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
 
-            RequestUri = exportRequestUri;
             Hash = hash;
+            RequestUri = requestUri;
+            ResourceType = resourceType;
             RequestorClaims = requestorClaims;
 
             // Default values
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Id = Guid.NewGuid().ToString();
             Status = OperationStatus.Queued;
 
-            QueuedTime = DateTimeOffset.UtcNow;
+            QueuedTime = Clock.UtcNow;
             SecretName = SecretPrefix + Id;
         }
 
@@ -40,8 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         {
         }
 
-        [JsonProperty(JobRecordProperties.Request)]
+        [JsonProperty(JobRecordProperties.RequestUri)]
         public Uri RequestUri { get; private set; }
+
+        [JsonProperty(JobRecordProperties.ResourceType)]
+        public string ResourceType { get; private set; }
 
         [JsonProperty(JobRecordProperties.RequestorClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
@@ -65,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public List<ExportFileInfo> Output { get; private set; } = new List<ExportFileInfo>();
 
         [JsonProperty(JobRecordProperties.Error)]
-        public List<ExportFileInfo> Errors { get; private set; } = new List<ExportFileInfo>();
+        public List<ExportFileInfo> Error { get; private set; } = new List<ExportFileInfo>();
 
         [JsonProperty(JobRecordProperties.Status)]
         public OperationStatus Status { get; set; }
@@ -78,12 +82,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.CancelledTime)]
         public DateTimeOffset? CancelledTime { get; set; }
-
-        [JsonProperty(JobRecordProperties.NumberOfConsecutiveFailures)]
-        public int NumberOfConsecutiveFailures { get; set; }
-
-        [JsonProperty(JobRecordProperties.TotalNumberOfFailures)]
-        public int TotalNumberOfFailures { get; set; }
 
         [JsonProperty(JobRecordProperties.Progress)]
         public ExportJobProgress Progress { get; set; }

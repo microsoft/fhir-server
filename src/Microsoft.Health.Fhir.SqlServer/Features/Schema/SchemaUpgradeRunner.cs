@@ -8,6 +8,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Reflection;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.SqlServer.Management.Common;
 using Microsoft.SqlServer.Management.Smo;
@@ -17,16 +18,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
     public class SchemaUpgradeRunner
     {
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
+        private readonly ILogger<SchemaUpgradeRunner> _logger;
 
-        public SchemaUpgradeRunner(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration)
+        public SchemaUpgradeRunner(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, ILogger<SchemaUpgradeRunner> logger)
         {
             EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = sqlServerDataStoreConfiguration;
+            _logger = logger;
         }
 
         public void ApplySchema(int version)
         {
+            _logger.LogInformation("Applying schema {version}", version);
+
             if (version != 1)
             {
                 InsertSchemaVersion(version);
@@ -40,6 +46,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             }
 
             CompleteSchemaVersion(version);
+
+            _logger.LogInformation("Completed applying schema {version}", version);
         }
 
         private static string GetMigrationScript(int version)

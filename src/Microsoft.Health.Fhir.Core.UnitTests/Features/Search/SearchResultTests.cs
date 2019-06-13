@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Xunit;
@@ -12,22 +13,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public class SearchResultTests
     {
-        private const string ParamNameResults = "results";
-
-        [Fact]
-        public void GivenANullResult_WhenInitializing_ThenInitializationShouldFail()
-        {
-            Assert.Throws<ArgumentNullException>(ParamNameResults, () => new SearchResult(null, null));
-        }
-
         [Fact]
         public void GivenResults_WhenInitialized_ThenCorrectResultsShouldBeSet()
         {
-            var expected = new ResourceWrapper[0];
+            var expectedResourceWrapper = new ResourceWrapper[0];
+            var expectedUnsupportedSearchParameters = new List<Tuple<string, string>>();
 
-            SearchResult searchResult = new SearchResult(expected, null);
+            var searchResult = new SearchResult(expectedResourceWrapper, expectedUnsupportedSearchParameters, null);
 
-            Assert.Same(expected, searchResult.Results);
+            Assert.Same(expectedResourceWrapper, searchResult.Results);
+            Assert.Same(expectedUnsupportedSearchParameters, searchResult.UnsupportedSearchParameters);
         }
     }
 }

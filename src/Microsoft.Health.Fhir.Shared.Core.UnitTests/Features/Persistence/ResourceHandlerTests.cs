@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             patientResource.UpdateCreate = true;
             patientResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(_conformanceStatement);
+            _conformanceProvider.GetCapabilityStatementAsync().Returns(_conformanceStatement.ToTypedElement().ToResourceElement());
             var lazyConformanceProvider = new Lazy<IConformanceProvider>(() => _conformanceProvider);
 
             var collection = new ServiceCollection();
@@ -112,7 +113,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenLastUpdatedShouldBeSet()
         {
             var resource = Samples.GetDefaultObservation();
-            var instant = DateTimeOffset.UtcNow;
+            DateTime baseDate = DateTimeOffset.Now.Date;
+            var instant = new DateTimeOffset(baseDate.AddTicks((6 * TimeSpan.TicksPerMillisecond) + (long)(0.7 * TimeSpan.TicksPerMillisecond)), TimeSpan.Zero);
 
             using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
             {
@@ -121,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
                 resource = (await _mediator.UpsertResourceAsync(resource)).Resource;
 
-                Assert.Equal(instant, resource.LastUpdated);
+                Assert.Equal(new DateTimeOffset(baseDate.AddMilliseconds(6), TimeSpan.Zero), resource.LastUpdated);
             }
         }
 
@@ -323,7 +325,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             return new ResourceWrapper(
                 resource,
                 _rawResourceFactory.Create(resource),
-                new ResourceRequest("http://fhir", HttpMethod.Post),
+                new ResourceRequest(HttpMethod.Post, "http://fhir"),
                 isDeleted,
                 null,
                 null,
@@ -335,7 +337,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             return Substitute.For<ResourceWrapper>(
                 resource,
                 _rawResourceFactory.Create(resource),
-                new ResourceRequest("http://fhir", HttpMethod.Put),
+                new ResourceRequest(HttpMethod.Put, "http://fhir"),
                 isDeleted,
                 null,
                 null,

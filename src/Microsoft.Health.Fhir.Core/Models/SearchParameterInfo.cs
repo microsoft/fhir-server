@@ -19,10 +19,27 @@ namespace Microsoft.Health.Fhir.Core.Models
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
             IReadOnlyCollection<string> targetResourceTypes = null)
+            : this(
+                name,
+                url,
+                Enum.TryParse<SearchParamType>(searchParamType, out var type) ? (SearchParamType?)type : null,
+                components,
+                expression,
+                targetResourceTypes)
+        {
+        }
+
+        public SearchParameterInfo(
+            string name,
+            Uri url = null,
+            SearchParamType? searchParamType = null,
+            IReadOnlyList<SearchParameterComponentInfo> components = null,
+            string expression = null,
+            IReadOnlyCollection<string> targetResourceTypes = null)
             : this(name)
         {
             Url = url;
-            Type = Enum.TryParse<SearchParamType>(searchParamType, out var type) ? (SearchParamType?)type : null;
+            Type = searchParamType;
             Component = components;
             Expression = expression;
             TargetResourceTypes = targetResourceTypes;

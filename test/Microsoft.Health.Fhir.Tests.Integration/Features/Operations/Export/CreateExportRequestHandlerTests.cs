@@ -7,13 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Azure.KeyVault;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
-using Microsoft.Health.Fhir.KeyVault;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Xunit;
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.NotNull(response);
             Assert.NotEmpty(response.JobId);
 
-            SecretWrapper secret = await _secretStore.GetSecretAsync($"Export-Destination-{response.JobId}");
+            SecretWrapper secret = await _secretStore.GetSecretAsync($"Export-Destination-{response.JobId}", _cancellationToken);
 
             Assert.NotNull(secret);
         }

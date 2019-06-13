@@ -714,7 +714,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Token),
                 SearchModifierCode.Text,
                 input,
-                e => ValidateStringExpression(e, FieldName.TokenText, StringOperator.Contains, input, true));
+                e => ValidateStringExpression(e, FieldName.TokenText, StringOperator.StartsWith, input, true));
         }
 
         [Theory]
@@ -812,7 +812,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Uri),
                 null,
                 input,
-                e => ValidateBinaryExpression(e, FieldName.Uri, BinaryOperator.Equal, input));
+                e => ValidateStringExpression(e, FieldName.Uri, StringOperator.Equals, input, false));
         }
 
         [Fact]

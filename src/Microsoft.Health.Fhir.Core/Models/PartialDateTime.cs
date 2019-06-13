@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                     }
                     else
                     {
-                        sb.AppendFormat(":{0:F7}", Second + Fraction);
+                        sb.AppendFormat(":{0:00.0000000}", Second + Fraction);
                     }
                 }
 
