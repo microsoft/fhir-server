@@ -375,7 +375,6 @@ stages:
   #     condition: succeededOrFailed()
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
-  variables:
   dependsOn:
   - integrationTest
   jobs:
