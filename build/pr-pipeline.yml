@@ -360,7 +360,7 @@ stages:
       inputs:
         testSelector: testAssemblies
         testAssemblyVer2: |
-          *Tests.E2E*.dll
+          **\*Tests.E2E*.dll
         searchFolder: '$(System.ArtifactsDirectory)' 
   # - job: publishResults
   #   steps:
