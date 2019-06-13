@@ -64,6 +64,7 @@ stages:
       parameters:
         packageArtifacts: false
 - stage: provisionEnvironment
+  displayName: 'Provision Azure Environment'
   dependsOn: []
   variables:
     AppServicePlanName: 'msh-fhir-pr-southcentralus'
@@ -153,6 +154,7 @@ stages:
           Write-Host "##vso[task.setvariable variable=SqlServer--ConnectionString;isOutput=true]$sqlConnectionString"
         preferredAzurePowerShellVersion: 5.1.1
 - stage: deployStu3
+  displayName: 'Deploy STU3 Site'
   variables:
     WebAppName: '$(DeploymentEnvironmentName)'
   dependsOn:
@@ -177,6 +179,7 @@ stages:
         Package: '$(Build.ArtifactStagingDirectory)/deploy/*Stu3*.zip'
         TakeAppOfflineFlag: true
 - stage: deployStu3Sql
+  displayName: 'Deploy STU3 SQL Site'
   variables:
     WebAppName: '$(DeploymentEnvironmentNameSql)'
   dependsOn:
@@ -201,6 +204,7 @@ stages:
         Package: '$(Build.ArtifactStagingDirectory)/deploy/*Stu3*.zip'
         TakeAppOfflineFlag: true
 - stage: deployR4
+  displayName: 'Deploy R4 Site'
   variables:
     WebAppName: '$(DeploymentEnvironmentNameR4)'
   dependsOn:
@@ -225,6 +229,7 @@ stages:
         Package: '$(Build.ArtifactStagingDirectory)/deploy/*R4*.zip'
         TakeAppOfflineFlag: true
 - stage: deployR4Sql
+  displayName: 'Deploy R4 SQL Site'
   variables:
     WebAppName: '$(DeploymentEnvironmentNameR4Sql)'
   dependsOn:
@@ -281,12 +286,14 @@ stages:
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: 'resolute-oss-tenant-info'
-    - task: PowerShell@2
+    - task: AzurePowerShell@3
       displayName: 'Set Variables'
       inputs:
-        pwsh: true
-        targetType: Inline
-        script: |
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        ScriptType: InlineScript
+        Inline: |
+          Install-Module AzureAD -Force
+
           $env:CosmosDb:Host = "$(DataStore--Host)"
           $env:CosmosDb:Key = "$(DataStore--Key)"
           $env:SqlServer:ConnectionString = "$(SqlServer--ConnectionString)"
@@ -364,6 +371,7 @@ stages:
   #       mergeTestResults: true
   #     condition: succeededOrFailed()
 - stage: cleanup
+  displayName: 'Cleanup Azure Environment'
   variables:
     DeploymentEnvironmentName: $[ dependencies.install.outputs['setVariables.DeploymentEnvironmentName'] ]
   dependsOn:
@@ -380,6 +388,11 @@ stages:
           preferredAzurePowerShellVersion: 5.1.1
     - job: cleanupAad
       steps:
+      - task: AzureKeyVault@1
+        displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+        inputs:
+          azureSubscription: 'Microsoft Health Open Source Subscription'
+          KeyVaultName: 'resolute-oss-tenant-info'
       - task: AzurePowerShell@3
         inputs:
           azureSubscription: 'Microsoft Health Open Source Subscription'
