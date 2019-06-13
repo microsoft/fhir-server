@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             var response = await _provider.GetCapabilityStatementAsync(cancellationToken);
 
-            return new GetCapabilitiesResponse(response.ToResourceElement());
+            return new GetCapabilitiesResponse(response);
         }
 
         public async Task<GetSystemCapabilitiesResponse> Handle(GetSystemCapabilitiesRequest message, CancellationToken cancellationToken)

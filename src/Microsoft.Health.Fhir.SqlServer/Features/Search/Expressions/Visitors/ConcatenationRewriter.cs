@@ -43,18 +43,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 TableExpression tableExpression = expression.TableExpressions[i];
                 bool found = false;
 
-                if (_rewritingScout != null)
+                // The expressions contained within a ChainExpression
+                // have been promoted to TableExpressions in this list.
+                // Those are considered, not these.
+                if (tableExpression.Kind != TableExpressionKind.Chain)
                 {
-                    var newNormalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(_rewritingScout, null);
-                    if (!ReferenceEquals(newNormalizedPredicate, tableExpression.NormalizedPredicate))
+                    if (_rewritingScout != null)
                     {
-                        found = true;
-                        tableExpression = new TableExpression(tableExpression.SearchParameterQueryGenerator, newNormalizedPredicate, tableExpression.DenormalizedPredicate);
+                        var newNormalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(_rewritingScout, null);
+                        if (!ReferenceEquals(newNormalizedPredicate, tableExpression.NormalizedPredicate))
+                        {
+                            found = true;
+                            tableExpression = new TableExpression(tableExpression.SearchParameterQueryGenerator, newNormalizedPredicate, tableExpression.DenormalizedPredicate, tableExpression.Kind, tableExpression.ChainLevel);
+                        }
                     }
-                }
-                else
-                {
-                    found = tableExpression.NormalizedPredicate.AcceptVisitor(_booleanScout, null);
+                    else
+                    {
+                        found = tableExpression.NormalizedPredicate.AcceptVisitor(_booleanScout, null);
+                    }
                 }
 
                 if (found)
@@ -88,7 +94,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 tableExpression.SearchParameterQueryGenerator,
                 normalizedPredicate,
                 tableExpression.DenormalizedPredicate,
-                TableExpressionKind.Concatenation);
+                TableExpressionKind.Concatenation,
+                tableExpression.ChainLevel);
         }
     }
 }

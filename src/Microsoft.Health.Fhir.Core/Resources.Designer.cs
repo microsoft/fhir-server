@@ -106,6 +106,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The reference search parameter &apos;{0}&apos; refers to multiple possible resource types. Please specify a type in the search expression: {1}.
+        /// </summary>
+        internal static string ChainedParameterSpecifyType {
+            get {
+                return ResourceManager.GetString("ChainedParameterSpecifyType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Comparator &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
         internal static string ComparatorNotSupported {
@@ -435,6 +444,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string OpenIdConfiguration {
             get {
                 return ResourceManager.GetString("OpenIdConfiguration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to  or .
+        /// </summary>
+        internal static string OrDelimiter {
+            get {
+                return ResourceManager.GetString("OrDelimiter", resourceCulture);
             }
         }
         

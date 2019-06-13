@@ -7,14 +7,14 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class DenormalizedSearchParameterQueryGenerator : SearchParameterQueryGenerator
+    internal abstract class DenormalizedSearchParameterQueryGenerator : SearchParameterQueryGenerator
     {
-        public override SqlQueryGenerator VisitSearchParameter(SearchParameterExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
             return expression.Expression.AcceptVisitor(this, context);
         }
 
-        public override SqlQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitMissingSearchParameter(MissingSearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
             context.StringBuilder.Append(expression.IsMissing ? " 1 = 0 " : " 1 = 1 ");
             return context;
