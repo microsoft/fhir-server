@@ -133,8 +133,6 @@ stages:
           # Deploy R4 SqlServer
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
           New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
-
-          
         azurePowerShellVersion: LatestVersion
     - task: AzurePowerShell@3
       displayName: 'Azure Set Data Store Variables'
@@ -293,6 +291,7 @@ stages:
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         ScriptType: InlineScript
+        preferredAzurePowerShellVersion: 5.1.1
         Inline: |
           Install-Module AzureAD -Force
 
