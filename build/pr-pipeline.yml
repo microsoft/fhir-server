@@ -340,8 +340,8 @@ stages:
               Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
 
               $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
-              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id;isOutput=true]$($user.upn)"
-              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret;isOutput=true]$($secret.SecretValueText)"
+              $env:user_$($user.Id)_id = "$($user.upn)"
+              $env:user_$($user.Id)_secret = "$($secret.SecretValueText)"
           }
 
           foreach($clientApp in $output.environmentClientApplications)
@@ -349,9 +349,9 @@ stages:
               Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
               $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
 
-              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id;isOutput=true]$($clientApp.AppId)"
-              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret;isOutput=true]$($secret.SecretValueText)"
-              Write-Host "##vso[task.setvariable variable=TestClientSecret;isOutput=true]$($secret.SecretValueText)"
+              $env:app_$($clientApp.Id)_id = "$($clientApp.AppId)"
+              $env:app_$($clientApp.Id)_secret = "$($secret.SecretValueText)"
+              $env:TestClientSecret = "$($secret.SecretValueText)"
           }
 
           #gci -Path $(System.ArtifactsDirectory) -Include *Tests.E2E*.dll -Exclude Microsoft.Health.Fhir.Tests.Common.dll,*UnitTests*.dll -Recurse | %{dotnet vstest $_.FullName /logger:trx`;logFileName="$($_.BaseName).TestOutput.xml"}
@@ -389,6 +389,12 @@ stages:
           preferredAzurePowerShellVersion: 5.1.1
     - job: cleanupAad
       steps:
+      - task: DownloadBuildArtifacts@0
+        inputs:
+          buildType: 'current'
+          downloadType: 'single'
+          downloadPath: '$(System.ArtifactsDirectory)'
+          artifactName: 'deploy'
       - task: AzureKeyVault@1
         displayName: 'Azure Key Vault: resolute-oss-tenant-info'
         inputs:
@@ -418,8 +424,8 @@ stages:
 
             Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $clientId
 
-            Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServer/FhirServer.psd1
-            Import-Module $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
+            Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
+            Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
-            Remove-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName)
+            Remove-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName)
         displayName: 'Delete AAD apps'
