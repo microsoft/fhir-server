@@ -7,7 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="8.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="2.2.5" />
   </ItemGroup>
 
   <ItemGroup>

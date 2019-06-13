@@ -59,13 +59,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Creates a <see cref="ChainedExpression"/> that represents chained operation.
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
-        /// <param name="paramName">The chained parameter name.</param>
+        /// <param name="referenceSearchParameter">The search parameter that establishes the reference between resources</param>
         /// <param name="targetResourceType">The target resource type.</param>
         /// <param name="expression">The expression.</param>
-        /// <returns>A <see cref="ChainedExpression"/> that represents chained operation on <paramref name="targetResourceType"/> through <paramref name="paramName"/>.</returns>
-        public static ChainedExpression Chained(string resourceType, string paramName, string targetResourceType, Expression expression)
+        /// <returns>A <see cref="ChainedExpression"/> that represents chained operation on <paramref name="targetResourceType"/> through <paramref name="referenceSearchParameter"/>.</returns>
+        public static ChainedExpression Chained(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, Expression expression)
         {
-            return new ChainedExpression(resourceType, paramName, targetResourceType, expression);
+            return new ChainedExpression(resourceType, referenceSearchParameter, targetResourceType, expression);
         }
 
         /// <summary>

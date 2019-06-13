@@ -28,6 +28,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
+        private const string LocalConnectionString = "server=(local);Integrated Security=true";
+
         private readonly string _masterConnectionString;
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
@@ -36,14 +38,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public SqlServerFhirStorageTestsFixture()
         {
-            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalDatabase.DefaultConnectionString;
+            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
+
             _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
             _masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "master" }.ToString();
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
 
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(config);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(config, NullLogger<SchemaUpgradeRunner>.Instance);
 
             var schemaInformation = new SchemaInformation();
 

@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -164,6 +165,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IProvideCapability>();
 
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
+
+            services.AddSingleton<IModelAttributeValidator, ModelAttributeValidator>();
 
             ModelExtensions.SetModelInfoProvider();
             services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();

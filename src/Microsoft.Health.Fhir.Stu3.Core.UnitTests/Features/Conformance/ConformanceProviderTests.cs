@@ -8,11 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -35,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var configured = Substitute.For<IConfiguredConformanceProvider>();
             configured
                 .GetCapabilityStatementAsync()
-                .Returns(mockedCapabilities);
+                .Returns(mockedCapabilities.ToResourceElement());
 
             var urlResolver = Substitute.For<IUrlResolver>();
             urlResolver.ResolveMetadataUrl(Arg.Any<bool>()).Returns(new Uri("http://localhost/metadata"));
@@ -51,7 +53,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 urlResolver,
                 Options.Create(config));
 
-            var capabilityStatement = await provider.GetCapabilityStatementAsync();
+            var typedCapabilityStatement = await provider.GetCapabilityStatementAsync();
+            var capabilityStatement = typedCapabilityStatement.ToPoco<CapabilityStatement>();
 
             Assert.NotNull(capabilityStatement.Software);
             Assert.Equal("Microsoft FHIR Server", capabilityStatement.Software.Name);

@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public NormalizedSearchParameterQueryGenerator VisitChained(ChainedExpression expression, object context)
         {
-            throw new System.NotImplementedException();
+            return ChainAnchorQueryGenerator.Instance;
         }
 
         public NormalizedSearchParameterQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)

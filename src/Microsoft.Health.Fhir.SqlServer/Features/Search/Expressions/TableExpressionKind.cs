@@ -37,5 +37,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// Represents a table expression that applies a TOP operator over its predecessor.
         /// </summary>
         Top,
+
+        /// <summary>
+        /// Represents a table expression that serves as the JOIN between a resource and target reference
+        /// in a chained search.
+        /// </summary>
+        Chain,
     }
 }

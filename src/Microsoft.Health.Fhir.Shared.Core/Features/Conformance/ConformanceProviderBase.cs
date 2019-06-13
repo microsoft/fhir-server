@@ -11,7 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.FhirPath;
-using Hl7.Fhir.Model;
+using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
@@ -19,15 +20,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     {
         private readonly ConcurrentDictionary<string, bool> _evaluatedQueries = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
-        public abstract Task<CapabilityStatement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken));
+        public abstract Task<ResourceElement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken));
 
         public async Task<bool> SatisfiesAsync(IEnumerable<CapabilityQuery> queries, CancellationToken cancellationToken = default(CancellationToken))
         {
             EnsureArg.IsNotNull(queries, nameof(queries));
 
-            CapabilityStatement capabilityStatement = await GetCapabilityStatementAsync(cancellationToken);
+            ResourceElement capabilityStatement = await GetCapabilityStatementAsync(cancellationToken);
 
-            return queries.All(x => _evaluatedQueries.GetOrAdd(x.FhirPathPredicate, _ => capabilityStatement.Predicate(x.FhirPathPredicate)));
+            return queries.All(x => _evaluatedQueries.GetOrAdd(x.FhirPathPredicate, _ => capabilityStatement.Instance.Predicate(x.FhirPathPredicate)));
         }
     }
 }

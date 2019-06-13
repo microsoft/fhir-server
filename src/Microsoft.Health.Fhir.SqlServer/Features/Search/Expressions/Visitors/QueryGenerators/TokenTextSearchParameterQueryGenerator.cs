@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override Table Table => V1.TokenText;
 
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
             return VisitSimpleString(expression, context, V1.TokenText.Text, expression.Value);
         }
