@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
@@ -49,5 +50,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="definitionUri">The search parameter definition URL.</param>
         /// <returns>The search parameter with the given <paramref name="definitionUri"/>.</returns>
         SearchParameterInfo GetSearchParameter(Uri definitionUri);
+
+        /// <summary>
+        /// Gets the type of a search parameter expression. In the case of a composite search parameter, the component parameter
+        /// can be specified, to retrieve the type of that component.
+        /// </summary>
+        /// <param name="searchParameter">The search parameter</param>
+        /// <param name="componentIndex">The optional component index if the search parameter is a composite</param>
+        /// <returns>The search parameter type.</returns>
+        SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex);
     }
 }
