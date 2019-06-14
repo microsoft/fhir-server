@@ -77,21 +77,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return false;
                 }
 
-                switch (expression.StringOperator)
+                if (expression.StringOperator == StringOperator.Equals && expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
                 {
-                    case StringOperator.Equals:
-                    case StringOperator.NotStartsWith:
-                        if (expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
-                        {
-                            // in these cases, we will know for sure that we do not need to consider the overflow column
-                            return false;
-                        }
-
-                        return true;
-
-                    default:
-                        return true;
+                    // in these cases, we will know for sure that we do not need to consider the overflow column
+                    return false;
                 }
+
+                return true;
             }
         }
     }
