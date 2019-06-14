@@ -283,6 +283,7 @@ stages:
     - task: DotNetCoreInstaller@0
       inputs:
         version: '2.2.103' 
+        
     - task: AzureKeyVault@1
       displayName: 'Azure Key Vault: resolute-oss-tenant-info'
       inputs:
@@ -297,6 +298,8 @@ stages:
         preferredAzurePowerShellVersion: 5.1.1
         Inline: |
           Install-Module AzureAD -Force
+          dotnet dev-certs https
+          dotnet dev-certs https --trust
 
           # Get admin token
           $tenantId = "$(tenant-id)"
