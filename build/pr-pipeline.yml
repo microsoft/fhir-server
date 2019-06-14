@@ -9,6 +9,7 @@ variables:
     DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
     DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
+    CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
 stages:
 - stage: BuildUnitTests
   dependsOn: []
