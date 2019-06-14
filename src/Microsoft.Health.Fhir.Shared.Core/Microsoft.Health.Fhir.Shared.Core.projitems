@@ -19,7 +19,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultConformanceProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetCapabilitiesHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IConfiguredConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IConformanceProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ISystemConformanceProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ListedContactPoint.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\SystemConformanceProvider.cs" />
@@ -80,10 +79,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\AttributeValidator.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\NarrativeValidator.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceValidator.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateCapabilityPreProcessor.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ModelAttributeValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirExtensions.cs" />
   </ItemGroup>
 </Project>

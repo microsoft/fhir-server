@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "Microsoft.Health.Fhir.Web Stu3 - CosmosDb": {
+    "CosmosDb": {
       "commandName": "Project",
       "environmentVariables": {
         "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
@@ -9,9 +9,10 @@
       },
       "applicationUrl": "https://localhost:44348/"
     },
-    "Microsoft.Health.Fhir.Web Stu3 - SqlServer": {
+    "SqlServer": {
       "commandName": "Project",
       "environmentVariables": {
+        "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3;Integrated Security=true",
         "SqlServer:Initialize": "true",
         "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
         "DataStore": "SqlServer",

@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             // Parse the value.
-            Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type?.ToString())];
+            Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type.ToString())];
 
             // Build the expression.
             var helper = new SearchValueExpressionBuilderHelper();

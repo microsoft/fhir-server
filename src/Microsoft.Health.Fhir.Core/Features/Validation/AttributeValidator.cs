@@ -10,9 +10,6 @@ using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
-using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
@@ -21,18 +18,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class AttributeValidator : IPropertyValidator
     {
+        private IModelAttributeValidator _modelAttributeValidator;
+
+        public AttributeValidator(IModelAttributeValidator modelAttributeValidator)
+        {
+            EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
+
+            _modelAttributeValidator = modelAttributeValidator;
+        }
+
         public PropertyValidatorOptions Options { get; set; } = PropertyValidatorOptions.Empty;
 
         public IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.PropertyValue is ResourceElement typedElement)
+            if (context.PropertyValue is ResourceElement resourceElement)
             {
-                var resource = typedElement.Instance.ToPoco<Resource>();
                 var results = new List<ValidationResult>();
 
-                if (!DotNetAttributeValidation.TryValidate(resource, results, recurse: false))
+                if (!_modelAttributeValidator.TryValidate(resourceElement, results, recurse: false))
                 {
                     foreach (var error in results)
                     {

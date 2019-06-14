@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override Table Table => V1.StringSearchParam;
 
-        public override SqlQueryGenerator VisitString(StringExpression expression, SqlQueryGenerator context)
+        public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            context.StringBuilder.Append(V1.StringSearchParam.TextOverflow).Append(expression.ComponentIndex + 1);
+            context.StringBuilder.Append(V1.StringSearchParam.TextOverflow, context.TableAlias).Append(expression.ComponentIndex + 1);
 
             StringColumn column;
             switch (expression.FieldName)
@@ -28,6 +28,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
                 case SqlFieldName.TextOverflow:
                     column = V1.StringSearchParam.TextOverflow;
+                    switch (expression.StringOperator)
+                    {
+                        case StringOperator.StartsWith:
+                        case StringOperator.NotStartsWith:
+                        case StringOperator.Equals:
+                            if (expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
+                            {
+                                column = V1.StringSearchParam.Text;
+                            }
+
+                            break;
+                    }
+
                     context.StringBuilder.Append(" IS NOT NULL AND ");
                     break;
                 default:

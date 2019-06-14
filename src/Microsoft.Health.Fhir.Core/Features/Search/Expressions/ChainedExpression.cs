@@ -17,22 +17,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Initializes a new instance of the <see cref="ChainedExpression"/> class.
         /// </summary>
         /// <param name="resourceType">The resource type that supports this search expression.</param>
-        /// <param name="paramName">The search parameter name.</param>
+        /// <param name="referenceSearchParameter">The search parameter that establishes the reference</param>
         /// <param name="targetResourceType">The target resource type.</param>
         /// <param name="expression">The search expression.</param>
         public ChainedExpression(
             string resourceType,
-            string paramName,
+            SearchParameterInfo referenceSearchParameter,
             string targetResourceType,
             Expression expression)
         {
             EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(resourceType), nameof(resourceType));
-            EnsureArg.IsNotNullOrWhiteSpace(paramName, nameof(paramName));
+            EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
             EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(targetResourceType), nameof(targetResourceType));
             EnsureArg.IsNotNull(expression, nameof(expression));
 
             ResourceType = resourceType;
-            ParamName = paramName;
+            ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
             Expression = expression;
         }
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Gets the parameter name.
         /// </summary>
-        public string ParamName { get; }
+        public SearchParameterInfo ReferenceSearchParameter { get; }
 
         /// <summary>
         /// Gets the target resource type.
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Chain {ParamName}:{TargetResourceType} {Expression})";
+            return $"(Chain {ReferenceSearchParameter.Name}:{TargetResourceType} {Expression})";
         }
     }
 }

@@ -57,6 +57,41 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData("", "Lorem", true)]
+        [InlineData("", "NotLorem", false)]
+        [InlineData("", StringSearchTestFixture.LongString, true)]
+        [InlineData("", "Not" + StringSearchTestFixture.LongString, false)]
+        [InlineData(":exact", StringSearchTestFixture.LongString, true)]
+        [InlineData(":exact",  StringSearchTestFixture.LongString + "Not", false)]
+        [InlineData(":contains", StringSearchTestFixture.LongString, true)]
+        [InlineData(":contains", StringSearchTestFixture.LongString + "Not", false)]
+        [InlineData(":contains", "Vestibulum", true)]
+        [InlineData(":contains", "NotInString", false)]
+        public async Task GivenAStringSearchParamAndAResourceWithALongSearchParamValue_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string valueToSearch, bool shouldMatch)
+        {
+            string query = string.Format("address-city{0}={1}", modifier, valueToSearch);
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            Assert.NotNull(bundle);
+
+            Patient expectedPatient = Fixture.Patients[3];
+
+            if (shouldMatch)
+            {
+                Assert.NotEmpty(bundle.Entry);
+                Assert.Collection(
+                    bundle.Entry,
+                    e => Assert.True(expectedPatient.IsExactly(e.Resource)));
+            }
+            else
+            {
+                Assert.Empty(bundle.Entry);
+            }
+        }
+
         [Fact]
         public async Task GivenAStringSearchParamWithMultipleValues_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {

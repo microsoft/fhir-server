@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     public class StringSearchTestFixture : HttpIntegrationTestFixture<Startup>
     {
+        internal const string LongString = "Lorem ipsum dolor sit amet consectetur adipiscing elit. Ut eget ultricies justo. Maecenas bibendum convallis sodales. Vestibulum quis molestie dui. Nulla porta elementum tristique. Aenean neque libero convallis sit amet dui ullamcorper congue lacinia erat. Sed finibus ex ac massa tincidunt tristique. In sed auctor massa. Proin cursus porttitor arcu. Maecenas a leo nunc. Sed pretium porta volutpat. In aliquet tempor sapien vitae laoreet nisl tempor ac. Vestibulum lacus leo luctus vitae pharetra at tempus ac diam. Integer at dui eu dolor gravida vehicula. Phasellus malesuada elit orci quis maximus purus consectetur ac. In semper consequat augue sit amet ultricies.";
+
         public StringSearchTestFixture(DataStore dataStore, Format format)
             : base(dataStore, format)
         {
@@ -22,7 +24,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patients = FhirClient.CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Smith"),
                 p => SetPatientInfo(p, "Portland", "Williams"),
-                p => SetPatientInfo(p, "Vancouver", "Anderson"))
+                p => SetPatientInfo(p, "Vancouver", "Anderson"),
+                p => SetPatientInfo(p, LongString, "Murphy"))
                 .Result;
 
             void SetPatientInfo(Patient patient, string city, string family)

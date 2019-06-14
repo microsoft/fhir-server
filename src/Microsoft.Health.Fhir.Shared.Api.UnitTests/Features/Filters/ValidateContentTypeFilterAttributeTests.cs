@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Internal;
@@ -19,6 +20,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using NSubstitute;
@@ -40,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             };
 
             _conformanceProvider = Substitute.For<IConformanceProvider>();
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(_statement);
+            _conformanceProvider.GetCapabilityStatementAsync().Returns(_statement.ToTypedElement().ToResourceElement());
         }
 
         [Theory]

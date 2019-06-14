@@ -33,11 +33,6 @@ namespace Microsoft.Extensions.DependencyInjection
                     provider.GetService<IConfiguration>().GetSection("SqlServer").Bind(config);
                     configureAction?.Invoke(config);
 
-                    if (string.IsNullOrWhiteSpace(config.ConnectionString))
-                    {
-                        config.ConnectionString = LocalDatabase.DefaultConnectionString;
-                    }
-
                     return config;
                 })
                 .Singleton()
@@ -93,6 +88,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<SqlRootExpressionRewriter>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<ChainFlatteningRewriter>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<StringOverflowRewriter>()
                 .Singleton()
                 .AsSelf();
 

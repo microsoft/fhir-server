@@ -39,6 +39,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTestFixture.cs" />
