@@ -18,14 +18,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class StringOverflowRewriter : ConcatenationRewriter
     {
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+
         public StringOverflowRewriter(ISearchParameterDefinitionManager searchParameterDefinitionManager)
             : base(new Scout(searchParameterDefinitionManager))
         {
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+        }
+
+        public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
+        {
+            if (expression.Parameter.Type == SearchParamType.String ||
+                expression.Parameter.Type == SearchParamType.Composite)
+            {
+                return base.VisitSearchParameter(expression, expression.Parameter);
+            }
+
+            return expression;
         }
 
         public override Expression VisitString(StringExpression expression, object context)
         {
+            if (_searchParameterDefinitionManager.GetSearchParameterType((SearchParameterInfo)context, expression.ComponentIndex) != SearchParamType.String)
+            {
+                return expression;
+            }
+
             return new StringExpression(expression.StringOperator, SqlFieldName.TextOverflow, expression.ComponentIndex, expression.Value, expression.IgnoreCase);
         }
 
@@ -53,25 +72,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             public override bool VisitString(StringExpression expression, object context)
             {
-                if (expression.ComponentIndex != null)
+                if (_searchParameterDefinitionManager.GetSearchParameterType((SearchParameterInfo)context, expression.ComponentIndex) != SearchParamType.String)
                 {
-                    // see if this is really a string search parameter, which is the only case
-                    // where we use an overflow field, as opposed to a string field on, say a URI search parameter.
-
-                    SearchParameterComponentInfo component = ((SearchParameterInfo)context).Component[expression.ComponentIndex.Value];
-                    SearchParameterInfo componentSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
-                    if (componentSearchParameter.Type != SearchParamType.String)
-                    {
-                        return false;
-                    }
+                    return false;
                 }
 
                 switch (expression.StringOperator)
                 {
                     case StringOperator.Equals:
                     case StringOperator.NotStartsWith:
-                        if (expression.Value.Length < V1.StringSearchParam.Text.Metadata.MaxLength / 2)
+                        if (expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
                         {
+                            // in these cases, we will know for sure that we do not need to consider the overflow column
                             return false;
                         }
 

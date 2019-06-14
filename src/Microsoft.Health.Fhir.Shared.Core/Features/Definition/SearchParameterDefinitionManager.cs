@@ -91,6 +91,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
+        public ValueSets.SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex)
+        {
+            if (componentIndex == null)
+            {
+                return searchParameter.Type;
+            }
+
+            SearchParameterComponentInfo component = searchParameter.Component[componentIndex.Value];
+            SearchParameterInfo componentSearchParameter = GetSearchParameter(component.DefinitionUrl);
+
+            return componentSearchParameter.Type;
+        }
+
         void IProvideCapability.Build(IListedCapabilityStatement statement)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
@@ -101,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         searchParameter => new CapabilityStatement.SearchParamComponent
                         {
                             Name = searchParameter.Key,
-                            Type = Enum.Parse<SearchParamType>(searchParameter.Value.Type?.ToString()),
+                            Type = Enum.Parse<SearchParamType>(searchParameter.Value.Type.ToString()),
                         });
 
                 var capabilityStatement = (ListedCapabilityStatement)statement;

@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         case StringOperator.StartsWith:
                         case StringOperator.NotStartsWith:
                         case StringOperator.Equals:
-                            if (expression.Value.Length < V1.StringSearchParam.Text.Metadata.MaxLength / 2)
+                            if (expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
                             {
                                 column = V1.StringSearchParam.Text;
                             }
