@@ -5,12 +5,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
@@ -26,9 +24,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         private static readonly Dictionary<string, SearchModifierCode> SearchParamModifierMapping = Enum.GetNames(typeof(SearchModifierCode))
             .Select(e => (SearchModifierCode)Enum.Parse(typeof(SearchModifierCode), e))
             .ToDictionary(
-            e => e.GetLiteral(),
-            e => e,
-            StringComparer.Ordinal);
+                e => e.GetLiteral(),
+                e => e,
+                StringComparer.Ordinal);
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterExpressionParser _searchParameterExpressionParser;
@@ -61,50 +59,72 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             EnsureArg.IsNotNullOrWhiteSpace(key, nameof(key));
             EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
 
-            // Split the key by the chain separator.
-            PathSegment[] paths = key.Split(new[] { SearchParams.SEARCH_CHAINSEPARATOR }, StringSplitOptions.RemoveEmptyEntries)
-                 .Select(path => PathSegment.Parse(path))
-                 .ToArray();
-
-            if (paths?.Length == 0)
-            {
-                throw new SearchParameterNotSupportedException(resourceType, key);
-            }
-
-            return Parse(resourceType, paths, currentIndex: 0, value: value);
+            return ParseImpl(resourceType, key.AsSpan(), value);
         }
 
-        private Expression Parse(string resourceType, PathSegment[] paths, int currentIndex, string value)
+        private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)
         {
-            Debug.Assert(
-                currentIndex >= 0 && currentIndex < paths.Length,
-                $"The {nameof(currentIndex)} is invalid.");
-
-            // TODO: We should keep track of the recursive calls to make sure we won't end up in a loop.
-            PathSegment currentPath = paths[currentIndex];
-
-            // Check to see if the search parameter is supported for this type or not.
-            SearchParameterInfo searchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, currentPath.Path);
-
-            if (currentIndex != paths.Length - 1)
+            if (TryConsume("_has:".AsSpan(), ref key))
             {
-                return ParseChainedExpression(resourceType, searchParameter, paths, currentIndex, value);
+                if (!TrySplit(':', ref key, out var type))
+                {
+                    throw new Exception("missing type");
+                }
+
+                if (!TrySplit(':', ref key, out var refParam))
+                {
+                    throw new Exception("missing search reference search param");
+                }
+
+                // return ParseReverseChainedExpression()
+
+                throw new NotImplementedException();
+            }
+
+            if (TrySplit('.', ref key, out var chainedInput))
+            {
+                ReadOnlySpan<char> targetTypeName;
+
+                if (TrySplit(':', ref chainedInput, out var refParamName))
+                {
+                    targetTypeName = chainedInput;
+                }
+                else
+                {
+                    refParamName = chainedInput;
+                    targetTypeName = ReadOnlySpan<char>.Empty;
+                }
+
+                if (refParamName.IsEmpty)
+                {
+                    throw new SearchParameterNotSupportedException(resourceType, key.ToString());
+                }
+
+                SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, refParamName.ToString());
+
+                return ParseChainedExpression(resourceType, refSearchParameter, targetTypeName.ToString(), key, value);
+            }
+
+            ReadOnlySpan<char> modifier;
+
+            if (TrySplit(':', ref key, out var paramName))
+            {
+                modifier = key;
             }
             else
             {
-                return ParseSearchValueExpression(searchParameter, currentPath.ModifierOrResourceType, value);
+                paramName = key;
+                modifier = ReadOnlySpan<char>.Empty;
             }
+
+            // Check to see if the search parameter is supported for this type or not.
+            SearchParameterInfo searchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, paramName.ToString());
+
+            return ParseSearchValueExpression(searchParameter, modifier.ToString(), value);
         }
 
-        private Expression ParseChainedExpression(string resourceType, SearchParameterInfo searchParameter, PathSegment[] paths, int currentIndex, string value)
+        private Expression ParseChainedExpression(string resourceType, SearchParameterInfo searchParameter, string targetResourceType, ReadOnlySpan<char> remainingKey, string value)
         {
-            Debug.Assert(
-                currentIndex >= 0 && currentIndex < paths.Length,
-                $"The {nameof(currentIndex)} is invalid.");
-
-            PathSegment path = paths[currentIndex];
-            string targetResourceType = path.ModifierOrResourceType;
-
             // We have more paths after this so this is a chained expression.
             // Since this is chained expression, the expression must be a reference type.
             if (searchParameter.Type != ValueSets.SearchParamType.Reference)
@@ -113,55 +133,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 throw new InvalidSearchOperationException(Core.Resources.ChainedParameterMustBeReferenceSearchParamType);
             }
 
-            ResourceType? scopedTargetResourceType = null;
-
             // Check to see if the client has specifically specified the target resource type to scope to.
-            if (targetResourceType != null)
+            if (!string.IsNullOrEmpty(targetResourceType))
             {
                 // A target resource type is specified.
-                if (!Enum.TryParse(targetResourceType, out ResourceType parsedResourceType))
+                if (!Enum.TryParse<ResourceType>(targetResourceType, out _))
                 {
-                    throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceNotSupported, resourceType));
+                    throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceNotSupported, targetResourceType));
                 }
-
-                scopedTargetResourceType = parsedResourceType;
             }
 
-            // If the scoped target resource type is specified, we will scope to that; otherwise, all target resource types are considered.
-            List<ChainedExpression> chainedExpressions = searchParameter.TargetResourceTypes
-                .Where(targetType => targetType != null && (scopedTargetResourceType?.ToString() ?? targetType) == targetType)
-                .Select(targetType =>
-                {
-                    try
-                    {
-                        return Expression.Chained(
-                            resourceType,
-                            searchParameter,
-                            targetType,
-                            Parse(
-                                targetType,
-                                paths,
-                                currentIndex + 1,
-                                value));
-                    }
-                    catch (Exception ex) when (ex is ResourceNotSupportedException || ex is SearchParameterNotSupportedException)
-                    {
-                        // The resource or search parameter is not supported for the resource.
-                        // We will ignore these unsupported types.
-                        return null;
-                    }
-                })
-                .Where(item => item != null)
-                .ToList();
+            ChainedExpression chainedExpression = null;
 
-            switch (chainedExpressions.Count)
+            foreach (var possibleTargetResourceType in searchParameter.TargetResourceTypes)
             {
-                case 0:
-                    // There was no reference that supports the search parameter.
-                    throw new InvalidSearchOperationException(Core.Resources.ChainedParameterNotSupported);
-                case 1:
-                    return chainedExpressions[0];
-                default:
+                if (!string.IsNullOrEmpty(targetResourceType) && targetResourceType != possibleTargetResourceType)
+                {
+                    continue;
+                }
+
+                ChainedExpression expression;
+                try
+                {
+                    expression = Expression.Chained(
+                        resourceType,
+                        searchParameter,
+                        possibleTargetResourceType,
+                        ParseImpl(
+                            possibleTargetResourceType,
+                            remainingKey,
+                            value));
+                }
+                catch (Exception ex) when (ex is ResourceNotSupportedException || ex is SearchParameterNotSupportedException)
+                {
+                    // The resource or search parameter is not supported for the resource.
+                    // We will ignore these unsupported types.
+                    continue;
+                }
+
+                if (chainedExpression == null)
+                {
+                    chainedExpression = expression;
+                }
+                else
+                {
                     // If the target resource type is ambiguous, we throw an error.
                     // At the moment, this is not supported
 
@@ -169,9 +184,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         string.Format(
                             CultureInfo.CurrentCulture,
                             Core.Resources.ChainedParameterSpecifyType,
-                            chainedExpressions[0].ReferenceSearchParameter.Name,
-                            string.Join(Core.Resources.OrDelimiter, chainedExpressions.Select(c => $"{c.ReferenceSearchParameter.Name}:{c.TargetResourceType}"))));
+                            searchParameter.Name,
+                            string.Join(Core.Resources.OrDelimiter, searchParameter.TargetResourceTypes.Select(c => $"{searchParameter.Name}:{c}"))));
+                }
             }
+
+            if (chainedExpression == null)
+            {
+                // There was no reference that supports the search parameter.
+                throw new InvalidSearchOperationException(Core.Resources.ChainedParameterNotSupported);
+            }
+
+            return chainedExpression;
         }
 
         private Expression ParseSearchValueExpression(SearchParameterInfo searchParameter, string modifier, string value)
@@ -182,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             SearchModifierCode? ParseSearchParamModifier()
             {
-                if (modifier == null)
+                if (string.IsNullOrEmpty(modifier))
                 {
                     return null;
                 }
@@ -197,39 +221,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
         }
 
-        private struct PathSegment
+        private static bool TrySplit(char splitChar, ref ReadOnlySpan<char> input, out ReadOnlySpan<char> captured)
         {
-            public PathSegment(string path, string modifier)
+            int splitIndex = input.IndexOf(splitChar);
+            if (splitIndex < 0)
             {
-                Path = path;
-                ModifierOrResourceType = modifier;
+                captured = ReadOnlySpan<char>.Empty;
+                return false;
             }
 
-            public string Path { get; }
+            captured = input.Slice(0, splitIndex);
+            Advance(ref input, splitIndex + 1);
+            return true;
+        }
 
-            public string ModifierOrResourceType { get; }
-
-            public static PathSegment Parse(string s)
+        private static bool TryConsume(ReadOnlySpan<char> toConsume, ref ReadOnlySpan<char> input)
+        {
+            if (input.StartsWith(toConsume))
             {
-                // The format of each of the path segment is X:Y where X is the search parameter name and
-                // Y is either a modifier or a resource type depending on the search parameter type.
-                // For example, in the case of gender:missing=true, gender is a token search parameter and missing is the modifier.
-                // However, in the case of subject:Patient.name=peter, subject is a reference search parameter
-                // and Patient is the target resource type. Since subject can be reference to various resource types,
-                // the client may specify the target resource type to limit the scope of the search.
-                string[] parts = s.Split(
-                    new[] { SearchParams.SEARCH_MODIFIERSEPARATOR },
-                    StringSplitOptions.RemoveEmptyEntries);
+                Advance(ref input, toConsume.Length);
+                return true;
+            }
 
-                if (parts.Length > 2)
-                {
-                    throw new InvalidSearchOperationException(Core.Resources.OnlyOneModifierSeparatorSupported);
-                }
+            return false;
+        }
 
-                string path = parts[0];
-                string modifierOrResourceType = parts.Length == 2 ? parts[1] : null;
-
-                return new PathSegment(path, modifierOrResourceType);
+        private static void Advance(ref ReadOnlySpan<char> input, int to)
+        {
+            if (input.Length > to)
+            {
+                input = input.Slice(to);
+            }
+            else
+            {
+                input = ReadOnlySpan<char>.Empty;
             }
         }
     }
