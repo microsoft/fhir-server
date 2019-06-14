@@ -68,6 +68,7 @@
     <None Remove="TestFiles\R4\ObservationWithEyeColor.json" />
     <None Remove="TestFiles\R4\ObservationWithInvalidStatus.json" />
     <None Remove="TestFiles\R4\ObservationWithInvalidStatus.xml" />
+    <None Remove="TestFiles\R4\ObservationWithLongEyeColor.json" />
     <None Remove="TestFiles\R4\ObservationWithNoCode.json" />
     <None Remove="TestFiles\R4\ObservationWithNoCode.xml" />
     <None Remove="TestFiles\R4\ObservationWithTemperature.json" />
@@ -83,6 +84,7 @@
     <None Remove="TestFiles\Stu3\DocumentReference-example-002.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-003.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example.json" />
+    <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
@@ -119,6 +121,7 @@
     <EmbeddedResource Include="TestFiles\R4\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWith20MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWithBloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\R4\ObservationWithLongEyeColor.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWithEyeColor.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWithInvalidStatus.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWithInvalidStatus.xml" />
@@ -148,6 +151,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith20MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWithBloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWithEyeColor.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWithTemperature.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWithTPMTDiplotype.json" />
