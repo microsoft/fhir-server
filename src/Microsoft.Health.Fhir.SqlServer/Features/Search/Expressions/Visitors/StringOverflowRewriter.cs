@@ -23,8 +23,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public StringOverflowRewriter(ISearchParameterDefinitionManager searchParameterDefinitionManager)
             : base(new Scout(searchParameterDefinitionManager))
         {
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
