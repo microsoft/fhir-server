@@ -61,7 +61,8 @@ stages:
           Write-Host "##vso[task.setvariable variable='CosmosDb:Key']$(CosmosDb--Key)"
           Write-Host "##vso[task.setvariable variable='SqlServer:ConnectionString']$(SqlServer--ConnectionString)"
 
-          Write-Host "$(${env:CosmosDb:Host})"
+          Write-Host "host kv- $(CosmosDb--Host)"
+          Write-Host "host env- $(env:CosmosDb:Host)"
 
 - stage: provisionEnvironment
   displayName: 'Provision Azure Environment'
