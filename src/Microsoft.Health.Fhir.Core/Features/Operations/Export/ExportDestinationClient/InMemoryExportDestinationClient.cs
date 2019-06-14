@@ -74,6 +74,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
             _streamMappings.Clear();
         }
 
+        public Task InitializeForResumingExportAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
         public string GetExportedData(Uri fileUri)
         {
             if (_exportedData.TryGetValue(fileUri, out StringBuilder sb))

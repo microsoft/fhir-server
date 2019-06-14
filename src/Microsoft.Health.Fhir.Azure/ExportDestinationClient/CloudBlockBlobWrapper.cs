@@ -24,14 +24,17 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private readonly CloudBlockBlob _cloudBlob;
 
         public CloudBlockBlobWrapper(CloudBlockBlob blockBlob)
+            : this(blockBlob, new List<string>())
+        {
+        }
+
+        public CloudBlockBlobWrapper(CloudBlockBlob blockBlob, List<string> blockList)
         {
             EnsureArg.IsNotNull(blockBlob, nameof(blockBlob));
+            EnsureArg.IsNotNull(blockList, nameof(blockList));
 
             _cloudBlob = blockBlob;
-
-            // For now we assume that the blockblob we are using is always new. If it is an existing one,
-            // we will have to get the existing list of block ids.
-            _existingBlockIds = new List<string>();
+            _existingBlockIds = blockList;
         }
 
         public async Task UploadBlockAsync(string blockId, Stream data, string md5Hash, CancellationToken cancellationToken)

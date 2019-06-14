@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -93,7 +94,9 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             CheckIfClientIsConnected();
 
-            var uploadAndCommitTasks = new List<Task>();
+            // Upload all blocks for each blob that was modified.
+            var uploadTasks = new List<Task>();
+            var wrappersToCommit = new List<CloudBlockBlobWrapper>();
             foreach (KeyValuePair<(Uri, uint), Stream> mapping in _streamMappings)
             {
                 Stream stream = mapping.Value;
@@ -104,24 +107,57 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 CloudBlockBlobWrapper blobWrapper = _uriToBlobMapping[mapping.Key.Item1];
 
                 var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(mapping.Key.Item2.ToString("d6")));
-                uploadAndCommitTasks.Add(Task.Run(async () =>
-                {
-                    await blobWrapper.UploadBlockAsync(blockId, stream, md5Hash: null, cancellationToken);
-                    await blobWrapper.CommitBlockListAsync(cancellationToken);
 
-                    stream.Dispose();
-                }));
+                uploadTasks.Add(blobWrapper.UploadBlockAsync(blockId, stream, md5Hash: null, cancellationToken));
+                wrappersToCommit.Add(blobWrapper);
             }
 
-            await Task.WhenAll(uploadAndCommitTasks);
+            await Task.WhenAll(uploadTasks);
+
+            // Commit all the blobs that were uploaded.
+            var commitTasks = new List<Task>();
+            foreach (CloudBlockBlobWrapper wrapper in wrappersToCommit)
+            {
+                commitTasks.Add(wrapper.CommitBlockListAsync(cancellationToken));
+            }
+
+            await Task.WhenAll(commitTasks);
 
             // We can clear the stream mappings once we commit everything in memory.
+            foreach (Stream stream in _streamMappings.Values)
+            {
+                stream.Dispose();
+            }
+
             _streamMappings.Clear();
+        }
+
+        public async Task InitializeForResumingExportAsync(CancellationToken cancellationToken)
+        {
+            CheckIfClientIsConnected();
+
+            IEnumerable<IListBlobItem> blobs = _blobContainer.ListBlobs();
+
+            // For each blob, dowloand the committed block list and create a corresponding CloudBlockBlobWrapper.
+            foreach (IListBlobItem blobItem in blobs)
+            {
+                CloudBlockBlob blob = blobItem as CloudBlockBlob;
+                if (blob == null)
+                {
+                    throw new DestinationConnectionException(Resources.UnableToResumeExport);
+                }
+
+                // We are going to consider only committed blocks.
+                IEnumerable<ListBlockItem> blockIdlist = await blob.DownloadBlockListAsync();
+                var wrapper = new CloudBlockBlobWrapper(blob, blockIdlist.Where(x => x.Committed == true).Select(x => x.Name).ToList());
+
+                _uriToBlobMapping.Add(blob.Uri, wrapper);
+            }
         }
 
         private void CheckIfClientIsConnected()
         {
-            if (_blobClient == null)
+            if (_blobClient == null || _blobContainer == null)
             {
                 throw new DestinationConnectionException(Resources.DestinationClientNotConnected);
             }

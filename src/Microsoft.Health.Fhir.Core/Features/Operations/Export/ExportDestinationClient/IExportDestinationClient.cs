@@ -53,5 +53,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
         Task CommitAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Initializes the client with metadata from the destination when we are resuming an export job.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
+        Task InitializeForResumingExportAsync(CancellationToken cancellationToken);
     }
 }

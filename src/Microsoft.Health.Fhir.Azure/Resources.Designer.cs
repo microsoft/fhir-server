@@ -86,5 +86,14 @@ namespace Microsoft.Health.Fhir.Azure {
                 return ResourceManager.GetString("InvalidConnectionSettings", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error while trying to initialize client for resuming export..
+        /// </summary>
+        internal static string UnableToResumeExport {
+            get {
+                return ResourceManager.GetString("UnableToResumeExport", resourceCulture);
+            }
+        }
     }
 }
