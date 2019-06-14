@@ -266,10 +266,9 @@ stages:
         ScriptType: InlineScript
         preferredAzurePowerShellVersion: 5.1.1
         Inline: |
-          $env:CosmosDb:Host = "$(${DataStore--Host})"
-          $env:CosmosDb:Key = "$(${DataStore--Key})"
-          $env:SqlServer:ConnectionString = "$(${SqlServer--ConnectionString})"
-          Write-Host "$(${DataStore--Host})"
+          $env:CosmosDb:Host = get-variable -name DataStore--Host
+          $env:CosmosDb:Key = get-variable -name DataStore--Key
+          $env:SqlServer:ConnectionString = get-variable -name SqlServer--ConnectionString
     - task: VSTest@2
       displayName: 'Run Integration Tests'
       inputs:
