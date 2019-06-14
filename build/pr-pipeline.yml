@@ -30,44 +30,9 @@ stages:
       parameters:
         packageArtifacts: false
 
-- stage: debug
-  dependsOn: []
-  jobs:
-  - job: debug
-    pool:
-      vmImage: 'vs2017-win2016'
-    steps:
-    - checkout: none
-    - task: AzureKeyVault@1
-      displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        KeyVaultName: '$(DeploymentEnvironmentName)'
-
-    - task: AzureKeyVault@1
-      displayName: 'Azure Key Vault: $(DeploymentEnvironmentNameSql)'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        KeyVaultName: $(DeploymentEnvironmentNameSql)
-
-    - task: AzurePowerShell@3
-      displayName: 'Set Variables'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        ScriptType: InlineScript
-        preferredAzurePowerShellVersion: 5.1.1
-        Inline: |
-          Write-Host "##vso[task.setvariable variable='CosmosDb:Host']$(CosmosDb--Host)"
-          Write-Host "##vso[task.setvariable variable='CosmosDb:Key']$(CosmosDb--Key)"
-          Write-Host "##vso[task.setvariable variable='SqlServer:ConnectionString']$(SqlServer--ConnectionString)"
-
-          Write-Host "host kv- $(CosmosDb--Host)"
-          Write-Host "host env- $(env:CosmosDb:Host)"
-
 - stage: provisionEnvironment
   displayName: 'Provision Azure Environment'
-  dependsOn:
-  - BuildUnitTests
+  dependsOn: []
   variables:
     AppServicePlanName: 'msh-fhir-pr-southcentralus'
     ResourceGroupRegion: 'South Central US'
@@ -292,17 +257,6 @@ stages:
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: $(DeploymentEnvironmentNameSql)
-
-    - task: AzurePowerShell@3
-      displayName: 'Set Variables'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        ScriptType: InlineScript
-        preferredAzurePowerShellVersion: 5.1.1
-        Inline: |
-          Write-Host "##vso[task.setvariable variable='CosmosDb:Host']$(CosmosDb--Host)"
-          Write-Host "##vso[task.setvariable variable='CosmosDb:Key']$(CosmosDb--Key)"
-          Write-Host "##vso[task.setvariable variable='SqlServer:ConnectionString']$(SqlServer--ConnectionString)"
     - task: VSTest@2
       displayName: 'Run Integration Tests'
       inputs:
@@ -310,6 +264,10 @@ stages:
         testAssemblyVer2: |
           **\*Tests.Integration*.dll
         searchFolder: '$(System.ArtifactsDirectory)'
+      env:
+        'CosmosDb:Host': $(CosmosDb--Host)
+        'CosmosDb:Key': $(CosmosDb--Key)
+        'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
 
 
   - job: 'e2eTests'
