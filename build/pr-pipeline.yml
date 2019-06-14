@@ -30,6 +30,37 @@ stages:
       parameters:
         packageArtifacts: false
 
+- stage: debug
+  dependsOn: []
+  jobs:
+  - job: debug
+    pool:
+      vmImage: 'vs2017-win2016'
+      steps:
+      - task: AzureKeyVault@1
+        displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)'
+        inputs:
+          azureSubscription: 'Microsoft Health Open Source Subscription'
+          KeyVaultName: '$(DeploymentEnvironmentName)'
+
+      - task: AzureKeyVault@1
+        displayName: 'Azure Key Vault: $(DeploymentEnvironmentNameSql)'
+        inputs:
+          azureSubscription: 'Microsoft Health Open Source Subscription'
+          KeyVaultName: $(DeploymentEnvironmentNameSql)
+
+      - task: AzurePowerShell@3
+        displayName: 'Set Variables'
+        inputs:
+          azureSubscription: 'Microsoft Health Open Source Subscription'
+          ScriptType: InlineScript
+          preferredAzurePowerShellVersion: 5.1.1
+          Inline: |
+            Write-Host "##vso[task.setvariable variable='CosmosDb:Host']$(CosmosDb--Host)"
+            Write-Host "##vso[task.setvariable variable='CosmosDb:Key']$(CosmosDb--Key)"
+            Write-Host "##vso[task.setvariable variable='SqlServer:ConnectionString']$(SqlServer--ConnectionString)"
+
+            Write-Host "$(${env:CosmosDb:Host})"
 
 - stage: provisionEnvironment
   displayName: 'Provision Azure Environment'
