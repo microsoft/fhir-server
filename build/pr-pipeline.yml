@@ -394,6 +394,7 @@ stages:
         inputs:
           azureSubscription: 'Microsoft Health Open Source Subscription'
           ScriptType: InlineScript
+          preferredAzurePowerShellVersion: 5.1.1
           Inline: |
             $clientId = "$(tenant-admin-service-principal-name)"
             $clientSecret = "$(tenant-admin-service-principal-password)"
