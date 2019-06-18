@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_has:Observation:patient:code=429858000&_tag={Fixture.Tag}";
+            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code=429858000";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenANestedReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_has:Observation:patient:_has:DiagnosticReport:result:code=429858000&_tag={Fixture.Tag}";
+            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:_has:DiagnosticReport:result:code=429858000";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"patient:Patient._has:Observation:subject:code=429858000&_tag={Fixture.Tag}";
+            string query = $"_tag={Fixture.Tag}&patient:Patient._has:Observation:subject:code=429858000";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 

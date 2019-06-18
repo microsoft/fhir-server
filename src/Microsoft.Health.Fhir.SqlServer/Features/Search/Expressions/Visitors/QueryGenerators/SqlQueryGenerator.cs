@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         if (tableExpression.ChainLevel == 1)
                         {
                             // if > 1, the intersection is handled by the JOIN
-                            AppendIntersectionWithPredecessor(delimited, tableExpression, referenceTableAlias);
+                            AppendIntersectionWithPredecessor(delimited, tableExpression, chainedExpression.Reversed ? resourceTableAlias : referenceTableAlias);
                         }
 
                         if (tableExpression.DenormalizedPredicate != null)
