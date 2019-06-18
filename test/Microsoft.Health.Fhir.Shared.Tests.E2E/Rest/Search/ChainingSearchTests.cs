@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Web;
@@ -57,7 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&subject:Patient._type=Patient";
+            string query = $"subject:Patient._type=Patient&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -74,6 +73,36 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             ValidateBundle(bundle);
         }
 
+        [Fact]
+        public async Task GivenAReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_has:Observation:patient:code=429858000&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient, Fixture.TrumanPatient);
+        }
+
+        [Fact]
+        public async Task GivenANestedReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_has:Observation:patient:_has:DiagnosticReport:result:code=429858000&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient, Fixture.TrumanPatient);
+        }
+
+        [Fact]
+        public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"patient:Patient._has:Observation:subject:code=429858000&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithDiagnosticReport, Fixture.TrumanDiagnosticReport);
+        }
+
         public class ClassFixture : HttpIntegrationTestFixture<Startup>
         {
             public ClassFixture(DataStore dataStore, Format format)
@@ -83,15 +112,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
                 // Construct an observation pointing to a patient and a diagnostic report pointing to the observation and the patient
 
-                Patient smithPatient = FhirClient.CreateAsync(new Patient { Name = new List<HumanName> { new HumanName { Family = "Smith" } } }).Result.Resource;
-                Patient trumanPatient = FhirClient.CreateAsync(new Patient { Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
+                SmithPatient = FhirClient.CreateAsync(new Patient { Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } }, Name = new List<HumanName> { new HumanName { Family = "Smith" } } }).Result.Resource;
+                TrumanPatient = FhirClient.CreateAsync(new Patient { Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } }, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
 
-                var smithObservation = CreateObservation(smithPatient);
-                var trumanObservation = CreateObservation(trumanPatient);
+                var smithObservation = CreateObservation(SmithPatient);
+                var trumanObservation = CreateObservation(TrumanPatient);
 
-                SmithDiagnosticReport = CreateDiagnosticReport(smithPatient, smithObservation);
-
-                TrumanDiagnosticReport = CreateDiagnosticReport(trumanPatient, trumanObservation);
+                SmithDiagnosticReport = CreateDiagnosticReport(SmithPatient, smithObservation);
+                TrumanDiagnosticReport = CreateDiagnosticReport(TrumanPatient, trumanObservation);
 
                 DiagnosticReport CreateDiagnosticReport(Patient patient, Observation observation)
                 {
@@ -119,6 +147,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             }
 
             public string Tag { get; }
+
+            public Patient SmithPatient { get; }
+
+            public Patient TrumanPatient { get; }
 
             public DiagnosticReport TrumanDiagnosticReport { get; }
 

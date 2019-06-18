@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
 
             VerifyExpression("(Compartment Patient 'x')", Expression.CompartmentSearch("Patient", "x"));
 
-            VerifyExpression("(Chain subject:Patient (FieldGreaterThan DateTimeEnd 2000-01-01T00:00:00.0000000))", Expression.Chained("Observation", new SearchParameterInfo("subject"), "Patient", Expression.GreaterThan(FieldName.DateTimeEnd, null, new DateTime(2000, 1, 1))));
+            VerifyExpression("(Chain subject:Patient (FieldGreaterThan DateTimeEnd 2000-01-01T00:00:00.0000000))", Expression.Chained("Observation", new SearchParameterInfo("subject"), "Patient", false, Expression.GreaterThan(FieldName.DateTimeEnd, null, new DateTime(2000, 1, 1))));
         }
 
         private static void VerifyExpression(string expected, Expression expression)

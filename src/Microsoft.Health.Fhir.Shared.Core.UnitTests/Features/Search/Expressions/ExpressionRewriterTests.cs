@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             var simpleExpression2 = Expression.Equals(FieldName.Number, null, 5M);
             VerifyVisit(simpleExpression1);
             VerifyVisit(Expression.SearchParameter(new SearchParameterInfo("my-param"), simpleExpression1));
-            VerifyVisit(Expression.Chained("Observation", new SearchParameterInfo("subject"), "Patient", simpleExpression1));
+            VerifyVisit(Expression.Chained("Observation", new SearchParameterInfo("subject"), "Patient", false, simpleExpression1));
             VerifyVisit(Expression.CompartmentSearch("Patient", "x"));
             VerifyVisit(Expression.Missing(FieldName.Quantity, null));
             VerifyVisit(Expression.MissingSearchParameter(new SearchParameterInfo("my-param"), true));
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
 
             VerifyVisit($"(Param my-param {expectedAndString1})", Expression.SearchParameter(new SearchParameterInfo("my-param"), simpleExpression1));
 
-            VerifyVisit($"(Chain subject:Patient {expectedAndString1})", Expression.Chained("Observation", new SearchParameterInfo("subject"), "Patient", simpleExpression1));
+            VerifyVisit($"(Chain subject:Patient {expectedAndString1})", Expression.Chained("Observation", new SearchParameterInfo("subject"), "Patient", false, simpleExpression1));
             VerifyVisit($"(Or {expectedAndString1} {expectedAndString2})", Expression.Or(simpleExpression1, simpleExpression2));
         }
 

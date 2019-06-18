@@ -76,9 +76,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     throw new Exception("missing search reference search param");
                 }
 
-                // return ParseReverseChainedExpression()
+                SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(type.ToString(), refParam.ToString());
 
-                throw new NotImplementedException();
+                return ParseChainedExpression(type.ToString(), refSearchParameter, resourceType, key, value, true);
             }
 
             if (TrySplit('.', ref key, out var chainedInput))
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                 SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, refParamName.ToString());
 
-                return ParseChainedExpression(resourceType, refSearchParameter, targetTypeName.ToString(), key, value);
+                return ParseChainedExpression(resourceType, refSearchParameter, targetTypeName.ToString(), key, value, false);
             }
 
             ReadOnlySpan<char> modifier;
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseSearchValueExpression(searchParameter, modifier.ToString(), value);
         }
 
-        private Expression ParseChainedExpression(string resourceType, SearchParameterInfo searchParameter, string targetResourceType, ReadOnlySpan<char> remainingKey, string value)
+        private Expression ParseChainedExpression(string resourceType, SearchParameterInfo searchParameter, string targetResourceType, ReadOnlySpan<char> remainingKey, string value, bool reversed)
         {
             // We have more paths after this so this is a chained expression.
             // Since this is chained expression, the expression must be a reference type.
@@ -152,6 +152,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     continue;
                 }
 
+                var multipleChainType = reversed ? resourceType : possibleTargetResourceType;
+
                 ChainedExpression expression;
                 try
                 {
@@ -159,8 +161,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         resourceType,
                         searchParameter,
                         possibleTargetResourceType,
+                        reversed,
                         ParseImpl(
-                            possibleTargetResourceType,
+                            multipleChainType,
                             remainingKey,
                             value));
                 }
