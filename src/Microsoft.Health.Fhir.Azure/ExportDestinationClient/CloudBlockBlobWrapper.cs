@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
     /// </summary>
     public class CloudBlockBlobWrapper
     {
-        private readonly List<string> _existingBlockIds;
+        private readonly OrderedSetOfBlockIds _existingBlockIds;
         private readonly CloudBlockBlob _cloudBlob;
 
         public CloudBlockBlobWrapper(CloudBlockBlob blockBlob)
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(blockList, nameof(blockList));
 
             _cloudBlob = blockBlob;
-            _existingBlockIds = blockList;
+            _existingBlockIds = new OrderedSetOfBlockIds(blockList);
         }
 
         public async Task UploadBlockAsync(string blockId, Stream data, string md5Hash, CancellationToken cancellationToken)
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public async Task CommitBlockListAsync(CancellationToken cancellationToken)
         {
-            await _cloudBlob.PutBlockListAsync(_existingBlockIds, cancellationToken);
+            await _cloudBlob.PutBlockListAsync(_existingBlockIds.ToList(), cancellationToken);
         }
     }
 }

@@ -32,7 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
 
             var fileUri = new Uri(fileName, UriKind.Relative);
 
-            _exportedData.Add(fileUri, new StringBuilder());
+            if (!_exportedData.ContainsKey(fileUri))
+            {
+                _exportedData.Add(fileUri, new StringBuilder());
+            }
 
             return await Task.FromResult(fileUri);
         }

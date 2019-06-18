@@ -67,8 +67,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             CheckIfClientIsConnected();
 
             CloudBlockBlob blockBlob = _blobContainer.GetBlockBlobReference(fileName);
-            blockBlob.Properties.ContentType = "application/fhir+ndjson";
-            _uriToBlobMapping.Add(blockBlob.Uri, new CloudBlockBlobWrapper(blockBlob));
+
+            if (!_uriToBlobMapping.ContainsKey(blockBlob.Uri))
+            {
+                blockBlob.Properties.ContentType = "application/fhir+ndjson";
+                _uriToBlobMapping.Add(blockBlob.Uri, new CloudBlockBlobWrapper(blockBlob));
+            }
 
             return Task.FromResult(blockBlob.Uri);
         }

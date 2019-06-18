@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         // Currently we will have only one file per resource type. In the future we will add the ability to split
         // individual files based on a max file size. This could result in a single resource having multiple files.
         // We will have to update the below mapping to support multiple ExportFileInfo per resource type.
-        private readonly Dictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
+        private IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping;
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
@@ -83,12 +83,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // If it is null, then we know we are processing a new job.
                 if (_exportJobRecord.Progress != null)
                 {
-                    // Update our internal mapping with list of files that we have already committed.
-                    foreach (KeyValuePair<string, ExportFileInfo> output in _exportJobRecord.Output)
-                    {
-                        _resourceTypeToFileInfoMapping.Add(output.Key, output.Value);
-                    }
-
                     await _exportDestinationClient.InitializeForResumingExportAsync(cancellationToken);
                 }
                 else
@@ -96,11 +90,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
                 }
 
+                // Update our internal mapping with list of files that we have already committed (when resuming export jobs)
+                // or an empty dictionary (for new export jobs). As we keep modifying out internal mapping, the Output field
+                // will also get updated. These changes will be committed to the data store whenever we update our ExportJobRecord.
+                _resourceTypeToFileInfoMapping = _exportJobRecord.Output;
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
-                // Current page will be used to organize a set of search results into a batch so that they can be committed together.
+                // Current batch will be used to organize a set of search results into a group so that they can be committed together.
                 uint currentBatchId = progress.Page;
 
+                // The first item is placeholder for continuation token so that it can be updated efficiently later.
                 var queryParameters = new Tuple<string, string>[]
                 {
                     Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken),
@@ -133,7 +132,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         await _exportDestinationClient.CommitAsync(cancellationToken);
 
                         // Update the job record.
-                        UpdateJobOutputData(_exportJobRecord);
                         await UpdateAndCommitJobRecord(_exportJobRecord, cancellationToken);
 
                         currentBatchId = progress.Page;
@@ -142,7 +140,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Commit one last time for any pending changes.
                 await _exportDestinationClient.CommitAsync(cancellationToken);
-                UpdateJobOutputData(_exportJobRecord);
 
                 await UpdateAndCommitJobStatus(OperationStatus.Completed, updateEndTimestamp: true, cancellationToken);
                 _logger.LogTrace("Successfully completed the job.");
@@ -172,16 +169,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
                 await UpdateAndCommitJobStatus(OperationStatus.Failed, updateEndTimestamp: true, cancellationToken);
-            }
-        }
-
-        // Updates the Output data in the job record with the latest mapping information from _resourceTypeToFileInfoMapping.
-        // This data will be read back in situations when we have to resume the export.
-        private void UpdateJobOutputData(ExportJobRecord jobRecord)
-        {
-            foreach (KeyValuePair<string, ExportFileInfo> kvp in _resourceTypeToFileInfoMapping)
-            {
-                jobRecord.Output[kvp.Key] = kvp.Value;
             }
         }
 
