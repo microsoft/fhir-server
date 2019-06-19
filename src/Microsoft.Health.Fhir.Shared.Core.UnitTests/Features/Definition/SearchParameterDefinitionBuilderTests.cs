@@ -113,6 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             return new SearchParameterDefinitionBuilder(
                 _jsonParser,
+                ModelInfoProvider.Instance,
                 typeof(EmbeddedResourceManager).Assembly,
                 $"{typeof(Definitions).Namespace}.DefinitionFiles.{ModelInfoProvider.Version}.{fileName}.json");
         }

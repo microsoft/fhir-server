@@ -26,6 +26,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenAnObservationDefinition_WhenCreating_ThenTheCorrectResponseShouldBeReturned()
+        {
+            var resource = Samples.GetJsonSample<ObservationDefinition>("ObservationDefinition-example");
+
+            Resource actual = await _client.CreateAsync(resource);
+
+            Assert.NotNull(actual);
+        }
+
+        [Fact]
         public async Task GivenANewR4ResourceType_WhenCreated_ThenCorrectResourceShouldBeReturned()
         {
             var testId = Guid.NewGuid().ToString();
