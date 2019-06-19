@@ -29,7 +29,7 @@ There is also a managed offering in Azure called the [Azure API for FHIR](https:
 
 - [Open Source Deployment](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-oss-portal-quickstart): Describes how to deploy FHIR Server for Azure.
 - [PaaS Service Deployment](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-paas-portal-quickstart): Describes how to deploy Azure API for FHIR.
-- [FHIR Postman tutorial](https://docs.microsoft.com/en-us/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API suing Postman.
+- [FHIR Postman tutorial](https://docs.microsoft.com/en-us/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
 - [Azure Active Directory Application Registrations](docs/PortalAppRegistration.md): Describes how to configure Azure Active Directory (AAD) for use with FHIR Server for Azure.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
