@@ -678,7 +678,7 @@ This file is based on or incorporates material from the projects listed below (T
   >    See the License for the specific language governing permissions and
   >    limitations under the License.
   
-## NSubstitute 3.1.0
+## NSubstitute 4.2.0
 * Component Source:   https://github.com/nsubstitute/
 * Component Copyright and License:  
   > Copyright (c) 2009 Anthony Egerton (nsubstitute@delfish.com) and David Tchepak (dave@davesquared.net)
