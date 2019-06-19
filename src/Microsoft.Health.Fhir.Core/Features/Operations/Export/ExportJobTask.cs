@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 // Update our internal mapping with list of files that we have already committed (when resuming export jobs)
-                // or an empty dictionary (for new export jobs). As we keep modifying out internal mapping, the Output field
+                // or an empty dictionary (for new export jobs). As we keep modifying our internal mapping, the Output field
                 // will also get updated. These changes will be committed to the data store whenever we update our ExportJobRecord.
                 _resourceTypeToFileInfoMapping = _exportJobRecord.Output;
                 ExportJobProgress progress = _exportJobRecord.Progress;
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParameters[0] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
 
                     // Commit the changes if necessary.
-                    if (progress.Page != 0 && progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
+                    if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
                     {
                         await _exportDestinationClient.CommitAsync(cancellationToken);
 

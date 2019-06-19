@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     outcome.JobRecord.QueuedTime,
                     outcome.JobRecord.RequestUri,
                     requiresAccessToken: false,
-                    outcome.JobRecord.Output.Values.ToList(),
+                    outcome.JobRecord.Output.Values.OrderBy(x => x.Type, StringComparer.Ordinal).ToList(),
                     outcome.JobRecord.Error);
 
                 exportResponse = new GetExportResponse(HttpStatusCode.OK, jobResult);
