@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append("Sid1, ");
                     }
 
-                    StringBuilder.Append(V1.Resource.ResourceSurrogateId, (chainedExpression.Reversed && tableExpression.ChainLevel == 1) || !chainedExpression.Reversed ? resourceTableAlias : referenceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && tableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
+                    StringBuilder.Append(V1.Resource.ResourceSurrogateId, chainedExpression.Reversed && tableExpression.ChainLevel > 1 ? referenceTableAlias : resourceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && tableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
                         .Append("FROM ").Append(V1.ReferenceSearchParam).Append(' ').AppendLine(referenceTableAlias)
                         .Append("INNER JOIN ").Append(V1.Resource).Append(' ').AppendLine(resourceTableAlias);
 
@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                         using (var delimited = StringBuilder.BeginDelimitedOnClause())
                         {
-                            delimited.BeginDelimitedElement().Append(V1.Resource.ResourceSurrogateId, (chainedExpression.Reversed && tableExpression.ChainLevel == 1) || !chainedExpression.Reversed ? referenceTableAlias : resourceTableAlias).Append(" = ").Append("Sid2");
+                            delimited.BeginDelimitedElement().Append(V1.Resource.ResourceSurrogateId, chainedExpression.Reversed ? resourceTableAlias : referenceTableAlias).Append(" = ").Append("Sid2");
                         }
                     }
 

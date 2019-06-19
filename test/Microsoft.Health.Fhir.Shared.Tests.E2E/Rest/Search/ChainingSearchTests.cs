@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"subject:Patient._type=Patient&_tag={Fixture.Tag}";
+            string query = $"_tag={Fixture.Tag}&subject:Patient._type=Patient";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
