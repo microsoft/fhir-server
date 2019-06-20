@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                new Stu3ModelInfoProvider());
+                new VersionSpecificModelInfoProvider());
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 () => documentClient,

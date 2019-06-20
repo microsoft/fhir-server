@@ -20,11 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static void SetModelInfoProvider()
         {
-#if Stu3
-            ModelInfoProvider.SetProvider(new Stu3ModelInfoProvider());
-#elif R4
-            ModelInfoProvider.SetProvider(new R4ModelInfoProvider());
-#endif
+            ModelInfoProvider.SetProvider(new VersionSpecificModelInfoProvider());
         }
 
         public static CodeableConcept ToPoco(this CodingInfo model)
