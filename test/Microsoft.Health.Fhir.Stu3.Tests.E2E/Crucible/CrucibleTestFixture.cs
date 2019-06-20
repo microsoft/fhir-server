@@ -474,6 +474,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/02-UpdatePatient",
             "connectathon-15-patient-fhirserver-99-all-server-id-json/07-PatientDelete",
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/07-PatientDelete",
+            "history001/HI09",  // Related to Cosmos DB failure, issue: https://github.com/microsoft/fhir-server/issues/475
         };
 
         private readonly CrucibleDataSource _dataSource;
