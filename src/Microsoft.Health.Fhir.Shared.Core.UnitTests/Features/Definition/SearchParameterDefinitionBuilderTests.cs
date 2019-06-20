@@ -77,6 +77,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Fact]
+        public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenAllResourceTypesShouldBeIncluded()
+        {
+            _builderWithValidEntries.Build();
+
+            Assert.Equal(
+                ModelInfoProvider.GetResourceTypeNames().OrderBy(x => x),
+                _builderWithValidEntries.ResourceTypeDictionary.Select(x => x.Key).OrderBy(x => x).ToArray());
+        }
+
+        [Fact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenCorrectListOfSearchParametersIsBuiltForEntriesWithSingleBase()
         {
             _builderWithValidEntries.Build();
