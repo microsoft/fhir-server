@@ -256,6 +256,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(" = ").Append(V1.Resource.ResourceId, resourceTableAlias);
                     }
 
+                    // Denormalized predicates on reverse chains need to be applied via a join to the resource table
+                    if (tableExpression.DenormalizedPredicate != null && chainedExpression.Reversed)
+                    {
+                        StringBuilder.Append("INNER JOIN ").Append(V1.Resource).Append(' ').AppendLine("r2");
+
+                        using (var delimited = StringBuilder.BeginDelimitedOnClause())
+                        {
+                            delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias)
+                                .Append(" = ").Append(V1.Resource.ResourceSurrogateId, "r2");
+
+                            delimited.BeginDelimitedElement();
+                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext("r2"));
+                        }
+                    }
+
                     if (tableExpression.ChainLevel > 1)
                     {
                         StringBuilder.Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
@@ -286,7 +301,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             AppendIntersectionWithPredecessor(delimited, tableExpression, chainedExpression.Reversed ? resourceTableAlias : referenceTableAlias);
                         }
 
-                        if (tableExpression.DenormalizedPredicate != null)
+                        if (tableExpression.DenormalizedPredicate != null && !chainedExpression.Reversed)
                         {
                             delimited.BeginDelimitedElement();
                             tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext(resourceTableAlias));
