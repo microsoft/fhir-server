@@ -26,21 +26,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     internal class SearchParameterDefinitionBuilder
     {
         private readonly FhirJsonParser _fhirJsonParser;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly Assembly _assembly;
         private readonly string _embeddedResourceName;
 
-        private Dictionary<Uri, SearchParameterInfo> _uriDictionary = new Dictionary<Uri, SearchParameterInfo>();
-        private Dictionary<string, IDictionary<string, SearchParameterInfo>> _resourceTypeDictionary = new Dictionary<string, IDictionary<string, SearchParameterInfo>>();
+        private readonly Dictionary<Uri, SearchParameterInfo> _uriDictionary = new Dictionary<Uri, SearchParameterInfo>();
+        private readonly Dictionary<string, IDictionary<string, SearchParameterInfo>> _resourceTypeDictionary = new Dictionary<string, IDictionary<string, SearchParameterInfo>>();
 
         private bool _initialized;
 
-        internal SearchParameterDefinitionBuilder(FhirJsonParser fhirJsonParser, Assembly assembly, string embeddedResourceName)
+        internal SearchParameterDefinitionBuilder(
+            FhirJsonParser fhirJsonParser,
+            IModelInfoProvider modelInfoProvider,
+            Assembly assembly,
+            string embeddedResourceName)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(assembly, nameof(assembly));
             EnsureArg.IsNotNullOrWhiteSpace(embeddedResourceName, nameof(embeddedResourceName));
 
             _fhirJsonParser = fhirJsonParser;
+            _modelInfoProvider = modelInfoProvider;
             _assembly = assembly;
             _embeddedResourceName = embeddedResourceName;
         }
@@ -80,9 +87,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             // Build the inheritance. For example, the _id search parameter is on Resource
             // and should be available to all resources that inherit Resource.
-            foreach (IGrouping<string, SearchParameterInfo> entry in searchParametersLookup)
+            foreach (string resourceType in _modelInfoProvider.GetResourceTypeNames())
             {
-                if (_resourceTypeDictionary.TryGetValue(entry.Key, out IDictionary<string, SearchParameterInfo> _))
+                if (_resourceTypeDictionary.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> _))
                 {
                     // The list has already been built, move on.
                     continue;
@@ -91,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
-                BuildSearchParameterDefinition(searchParametersLookup, entry.Key);
+                BuildSearchParameterDefinition(searchParametersLookup, resourceType);
             }
 
             _initialized = true;
@@ -283,11 +290,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             IEnumerable<SearchParameterInfo> results = Enumerable.Empty<SearchParameterInfo>();
 
-            Type type = ModelInfoProvider.GetTypeForFhirType(resourceType);
+            Type type = _modelInfoProvider.GetTypeForFhirType(resourceType);
 
             Debug.Assert(type != null, "The type should not be null.");
 
-            string baseType = ModelInfo.GetFhirTypeNameForType(type.BaseType);
+            string baseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
 
             if (baseType != null && Enum.TryParse(baseType, out ResourceType baseResourceType))
             {

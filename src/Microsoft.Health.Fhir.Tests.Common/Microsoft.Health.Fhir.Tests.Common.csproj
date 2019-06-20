@@ -63,6 +63,7 @@
     <None Remove="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\MedicinalProduct.json" />
     <None Remove="TestFiles\R4\Observation-For-Patient-f001.json" />
+    <None Remove="TestFiles\R4\ObservationDefinition-example.json" />
     <None Remove="TestFiles\R4\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\R4\ObservationWith20MinuteApgarScore.json" />
     <None Remove="TestFiles\R4\ObservationWithBloodPressure.json" />
@@ -120,6 +121,7 @@
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\MedicinalProduct.json" />
     <EmbeddedResource Include="TestFiles\R4\Observation-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R4\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWith20MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationWithBloodPressure.json" />
