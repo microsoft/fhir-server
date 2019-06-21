@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAnExportJobToResume_WhenExecuted_ThenClientInitializeMethodShouldBeCalled()
+        public async Task GivenAnExportJobToResume_WhenExecuted_ThenClientOpenFilesMethodShouldBeCalled()
         {
             // Create new export job record that has progress set and update data store to return that.
             _exportJobRecord = new ExportJobRecord(
@@ -321,12 +321,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Use mock destination client to test whether InitializeForResumingExportAsync method is called.
             // Since we only care about the above call, we can cut short execution by throwing an exception.
             IExportDestinationClient mockDestinationClient = Substitute.For<IExportDestinationClient>();
-            mockDestinationClient.InitializeForResumingExportAsync(Arg.Any<CancellationToken>()).Returns(x => throw new Exception());
+            mockDestinationClient.OpenFilesAsync(Arg.Any<IList<Uri>>(), Arg.Any<CancellationToken>()).Returns(x => throw new Exception());
             _exportDestinationClientFactory.Create("in-memory").Returns(mockDestinationClient);
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            await mockDestinationClient.Received(1).InitializeForResumingExportAsync(Arg.Is<CancellationToken>(_cancellationToken));
+            await mockDestinationClient.Received(1).OpenFilesAsync(Arg.Any<IList<Uri>>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]

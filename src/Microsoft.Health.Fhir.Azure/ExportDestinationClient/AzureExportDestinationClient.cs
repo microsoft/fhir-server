@@ -132,25 +132,24 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _streamMappings.Clear();
         }
 
-        public async Task InitializeForResumingExportAsync(CancellationToken cancellationToken)
+        public async Task OpenFilesAsync(IList<Uri> fileUris, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(fileUris, nameof(fileUris));
             CheckIfClientIsConnected();
 
-            IEnumerable<IListBlobItem> blobs = _blobContainer.ListBlobs();
-
-            // For each blob, dowload the committed block list and create a corresponding CloudBlockBlobWrapper.
-            foreach (IListBlobItem blobItem in blobs)
+            foreach (Uri uri in fileUris)
             {
-                CloudBlockBlob blob = blobItem as CloudBlockBlob;
-                if (blob == null)
-                {
-                    // Not a block blob. Skip it.
-                    continue;
-                }
+                var blob = new CloudBlockBlob(uri, _blobClient.Credentials);
 
                 // We are going to consider only committed blocks.
-                IEnumerable<ListBlockItem> blockIdlist = await blob.DownloadBlockListAsync();
-                var wrapper = new CloudBlockBlobWrapper(blob, blockIdlist.Where(x => x.Committed == true).Select(x => x.Name).ToList());
+                IEnumerable<ListBlockItem> blockIds = await blob.DownloadBlockListAsync(
+                    BlockListingFilter.Committed,
+                    accessCondition: null,
+                    options: null,
+                    operationContext: null,
+                    cancellationToken);
+
+                var wrapper = new CloudBlockBlobWrapper(blob, blockIds.Select(x => x.Name).ToList());
 
                 _uriToBlobMapping.Add(blob.Uri, wrapper);
             }

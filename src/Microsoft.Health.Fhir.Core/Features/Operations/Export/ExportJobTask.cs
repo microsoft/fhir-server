@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -79,21 +80,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Get destination type from secret store and connect to the destination using appropriate client.
                 await GetDestinationInfoAndConnect(cancellationToken);
 
+                // Update our internal mapping with list of files that we have already committed (when resuming export jobs)
+                // or an empty dictionary (for new export jobs). As we keep modifying our internal mapping, the Output field
+                // will also get updated. These changes will be committed to the data store whenever we update our ExportJobRecord.
+                _resourceTypeToFileInfoMapping = _exportJobRecord.Output;
+
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
                 if (_exportJobRecord.Progress != null)
                 {
-                    await _exportDestinationClient.InitializeForResumingExportAsync(cancellationToken);
+                    List<Uri> fileUris = _resourceTypeToFileInfoMapping.Values.Select(fileInfo => fileInfo.FileUri).ToList();
+                    await _exportDestinationClient.OpenFilesAsync(fileUris, cancellationToken);
+
+                    _logger.LogTrace("Finished opening existing files for resuming export.");
                 }
                 else
                 {
                     _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
                 }
 
-                // Update our internal mapping with list of files that we have already committed (when resuming export jobs)
-                // or an empty dictionary (for new export jobs). As we keep modifying our internal mapping, the Output field
-                // will also get updated. These changes will be committed to the data store whenever we update our ExportJobRecord.
-                _resourceTypeToFileInfoMapping = _exportJobRecord.Output;
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
                 // Current batch will be used to organize a set of search results into a group so that they can be committed together.

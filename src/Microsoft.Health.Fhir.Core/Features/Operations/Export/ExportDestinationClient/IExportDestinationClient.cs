@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
@@ -55,10 +56,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         Task CommitAsync(CancellationToken cancellationToken);
 
         /// <summary>
-        /// Initializes the client with metadata from the destination when we are resuming an export job.
+        /// Opens existing files from the destination. Used for when we are resuming an export job and would
+        /// like to initialize the client with already committed files.
         /// </summary>
+        /// <param name="fileUris">List of file uris to open.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
-        Task InitializeForResumingExportAsync(CancellationToken cancellationToken);
+        Task OpenFilesAsync(IList<Uri> fileUris, CancellationToken cancellationToken);
     }
 }

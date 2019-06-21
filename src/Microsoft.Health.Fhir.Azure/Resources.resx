@@ -126,7 +126,4 @@
   <data name="InvalidConnectionSettings" xml:space="preserve">
     <value>The given connection settings is not in proper format.</value>
   </data>
-  <data name="UnableToResumeExport" xml:space="preserve">
-    <value>Error while trying to initialize client for resuming export.</value>
-  </data>
 </root>
