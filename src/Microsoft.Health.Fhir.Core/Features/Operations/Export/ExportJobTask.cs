@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -35,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         // Currently we will have only one file per resource type. In the future we will add the ability to split
         // individual files based on a max file size. This could result in a single resource having multiple files.
         // We will have to update the below mapping to support multiple ExportFileInfo per resource type.
-        private IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping;
+        private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
@@ -80,21 +79,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Get destination type from secret store and connect to the destination using appropriate client.
                 await GetDestinationInfoAndConnect(cancellationToken);
 
-                // Update our internal mapping with list of files that we have already committed (when resuming export jobs)
-                // or an empty dictionary (for new export jobs). As we keep modifying our internal mapping, the Output field
-                // will also get updated. These changes will be committed to the data store whenever we update our ExportJobRecord.
-                _resourceTypeToFileInfoMapping = _exportJobRecord.Output;
-
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
-                if (_exportJobRecord.Progress != null)
-                {
-                    List<Uri> fileUris = _resourceTypeToFileInfoMapping.Values.Select(fileInfo => fileInfo.FileUri).ToList();
-                    await _exportDestinationClient.OpenFilesAsync(fileUris, cancellationToken);
-
-                    _logger.LogTrace("Finished opening existing files for resuming export.");
-                }
-                else
+                if (_exportJobRecord.Progress == null)
                 {
                     _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
                 }
@@ -137,6 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         await _exportDestinationClient.CommitAsync(cancellationToken);
 
                         // Update the job record.
+                        UpdateJobOutputData(_resourceTypeToFileInfoMapping);
                         await UpdateAndCommitJobRecord(_exportJobRecord, cancellationToken);
 
                         currentBatchId = progress.Page;
@@ -146,7 +134,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Commit one last time for any pending changes.
                 await _exportDestinationClient.CommitAsync(cancellationToken);
 
+                UpdateJobOutputData(_resourceTypeToFileInfoMapping);
                 await UpdateAndCommitJobStatus(OperationStatus.Completed, updateEndTimestamp: true, cancellationToken);
+
                 _logger.LogTrace("Successfully completed the job.");
 
                 try
@@ -174,6 +164,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
                 await UpdateAndCommitJobStatus(OperationStatus.Failed, updateEndTimestamp: true, cancellationToken);
+            }
+        }
+
+        private void UpdateJobOutputData(IDictionary<string, ExportFileInfo> resourceMapping)
+        {
+            foreach (KeyValuePair<string, ExportFileInfo> kvp in resourceMapping)
+            {
+                _exportJobRecord.Output.TryAdd(kvp.Key, kvp.Value);
             }
         }
 
@@ -216,15 +214,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 string resourceType = resourceWrapper.ResourceTypeName;
 
                 // Check whether we already have an existing file for the current resource type.
-                if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out ExportFileInfo exportFileInfo))
+                ExportFileInfo exportFileInfo;
+                if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out exportFileInfo))
                 {
-                    string fileName = resourceType + ".ndjson";
+                    // Check whether we have seen this file previously (in situations where we are resuming an export)
+                    if (_exportJobRecord.Output.TryGetValue(resourceType, out exportFileInfo))
+                    {
+                        // A file already exists for this resource type. Let us open the file on the client.
+                        await _exportDestinationClient.OpenFileAsync(exportFileInfo.FileUri, cancellationToken);
 
-                    Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
+                        _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
+                    }
+                    else
+                    {
+                        // File does not exist. Create it.
+                        string fileName = resourceType + ".ndjson";
+                        Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 
-                    exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);
-
-                    _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
+                        exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);
+                        _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
+                    }
                 }
 
                 // Serialize into NDJson and write to the file.

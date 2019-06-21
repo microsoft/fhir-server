@@ -56,12 +56,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         Task CommitAsync(CancellationToken cancellationToken);
 
         /// <summary>
-        /// Opens existing files from the destination. Used for when we are resuming an export job and would
-        /// like to initialize the client with already committed files.
+        /// Opens an existing file from the destination.
         /// </summary>
-        /// <param name="fileUris">List of file uris to open.</param>
+        /// <param name="fileUri">Uri of the file to be opened.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
-        Task OpenFilesAsync(IList<Uri> fileUris, CancellationToken cancellationToken);
+        Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken);
     }
 }

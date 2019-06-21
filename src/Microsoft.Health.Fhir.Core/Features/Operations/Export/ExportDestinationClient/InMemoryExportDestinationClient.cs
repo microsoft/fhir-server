@@ -77,8 +77,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
             _streamMappings.Clear();
         }
 
-        public Task OpenFilesAsync(IList<Uri> fileUris, CancellationToken cancellationToken)
+        public Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken)
         {
+            if (!_exportedData.ContainsKey(fileUri))
+            {
+                _exportedData.Add(fileUri, new StringBuilder());
+            }
+
             return Task.CompletedTask;
         }
 

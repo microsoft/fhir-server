@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         /// <param name="item">Item to be added to the <see cref="OrderedSetOfBlockIds"/></param>
         public void Add(string item)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(item);
+            EnsureArg.IsNotNullOrWhiteSpace(item, nameof(item));
 
             // Add item to list if the hashset does not contain it.
             if (_itemSet.Add(item))
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         /// </summary>
         public List<string> ToList()
         {
-            return _itemList;
+            return new List<string>(_itemList);
         }
     }
 }

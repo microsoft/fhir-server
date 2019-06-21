@@ -302,34 +302,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAnExportJobToResume_WhenExecuted_ThenClientOpenFilesMethodShouldBeCalled()
-        {
-            // Create new export job record that has progress set and update data store to return that.
-            _exportJobRecord = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                "Patient",
-                "hash");
-            _exportJobRecord.Progress = new ExportJobProgress("ct", 1);
-
-            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x =>
-            {
-                _lastExportJobOutcome = new ExportJobOutcome(_exportJobRecord, _weakETag);
-
-                return _lastExportJobOutcome;
-            });
-
-            // Use mock destination client to test whether InitializeForResumingExportAsync method is called.
-            // Since we only care about the above call, we can cut short execution by throwing an exception.
-            IExportDestinationClient mockDestinationClient = Substitute.For<IExportDestinationClient>();
-            mockDestinationClient.OpenFilesAsync(Arg.Any<IList<Uri>>(), Arg.Any<CancellationToken>()).Returns(x => throw new Exception());
-            _exportDestinationClientFactory.Create("in-memory").Returns(mockDestinationClient);
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            await mockDestinationClient.Received(1).OpenFilesAsync(Arg.Any<IList<Uri>>(), Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
         public async Task GivenAnExportJobToResume_WhenExecuted_ThenItShouldExportAllRecordsAsExpected()
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task

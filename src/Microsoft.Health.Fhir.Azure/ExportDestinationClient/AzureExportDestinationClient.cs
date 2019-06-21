@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
@@ -24,6 +25,15 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         private Dictionary<Uri, CloudBlockBlobWrapper> _uriToBlobMapping = new Dictionary<Uri, CloudBlockBlobWrapper>();
         private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
+
+        private readonly ILogger _logger;
+
+        public AzureExportDestinationClient(ILogger<AzureExportDestinationClient> logger)
+        {
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
+            _logger = logger;
+        }
 
         public string DestinationType => "azure-block-blob";
 
@@ -100,8 +110,9 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
             // Upload all blocks for each blob that was modified.
             Task[] uploadTasks = new Task[_streamMappings.Count];
+            CloudBlockBlobWrapper[] wrappersToCommit = new CloudBlockBlobWrapper[_streamMappings.Count];
+
             int index = 0;
-            var wrappersToCommit = new List<CloudBlockBlobWrapper>();
             foreach (KeyValuePair<(Uri, uint), Stream> mapping in _streamMappings)
             {
                 // Reset stream position.
@@ -112,9 +123,8 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(mapping.Key.Item2.ToString("d6")));
 
                 uploadTasks[index] = blobWrapper.UploadBlockAsync(blockId, stream, md5Hash: null, cancellationToken);
+                wrappersToCommit[index] = blobWrapper;
                 index++;
-
-                wrappersToCommit.Add(blobWrapper);
             }
 
             await Task.WhenAll(uploadTasks);
@@ -132,37 +142,30 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _streamMappings.Clear();
         }
 
-        public async Task OpenFilesAsync(IList<Uri> fileUris, CancellationToken cancellationToken)
+        public async Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(fileUris, nameof(fileUris));
+            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
             CheckIfClientIsConnected();
 
-            // Parallelize downlading the block lists.
-            var downloadTasks = new Task<IEnumerable<ListBlockItem>>[fileUris.Count];
-            CloudBlockBlob[] blobs = new CloudBlockBlob[fileUris.Count];
-            for (int i = 0; i < fileUris.Count; i++)
+            if (_uriToBlobMapping.ContainsKey(fileUri))
             {
-                var blob = new CloudBlockBlob(fileUris[i], _blobClient.Credentials);
-
-                // We are going to consider only committed blocks.
-                downloadTasks[i] = blob.DownloadBlockListAsync(
-                    BlockListingFilter.Committed,
-                    accessCondition: null,
-                    options: null,
-                    operationContext: null,
-                    cancellationToken);
-
-                blobs[i] = blob;
+                _logger.LogInformation("Trying to open a file that the client already knows about.");
+                return;
             }
 
-            await Task.WhenAll(downloadTasks);
+            var blob = new CloudBlockBlob(fileUri, _blobClient.Credentials);
 
-            // Update the internal mapping with the block lists of the requested blobs.
-            for (int i = 0; i < downloadTasks.Length; i++)
-            {
-                var wrapper = new CloudBlockBlobWrapper(blobs[i], downloadTasks[i].Result.Select(x => x.Name).ToList());
-                _uriToBlobMapping.Add(blobs[i].Uri, wrapper);
-            }
+            // We are going to consider only committed blocks.
+            IEnumerable<ListBlockItem> result = await blob.DownloadBlockListAsync(
+                BlockListingFilter.Committed,
+                accessCondition: null,
+                options: null,
+                operationContext: null,
+                cancellationToken);
+
+            // Update the internal mapping with the block lists of the blob.
+            var wrapper = new CloudBlockBlobWrapper(blob, result.Select(x => x.Name).ToList());
+            _uriToBlobMapping.Add(fileUri, wrapper);
         }
 
         private void CheckIfClientIsConnected()
