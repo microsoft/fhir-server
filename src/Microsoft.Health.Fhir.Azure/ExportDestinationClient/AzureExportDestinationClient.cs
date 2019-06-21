@@ -137,21 +137,31 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(fileUris, nameof(fileUris));
             CheckIfClientIsConnected();
 
-            foreach (Uri uri in fileUris)
+            // Parallelize downlading the block lists.
+            var downloadTasks = new Task<IEnumerable<ListBlockItem>>[fileUris.Count];
+            CloudBlockBlob[] blobs = new CloudBlockBlob[fileUris.Count];
+            for (int i = 0; i < fileUris.Count; i++)
             {
-                var blob = new CloudBlockBlob(uri, _blobClient.Credentials);
+                var blob = new CloudBlockBlob(fileUris[i], _blobClient.Credentials);
 
                 // We are going to consider only committed blocks.
-                IEnumerable<ListBlockItem> blockIds = await blob.DownloadBlockListAsync(
+                downloadTasks[i] = blob.DownloadBlockListAsync(
                     BlockListingFilter.Committed,
                     accessCondition: null,
                     options: null,
                     operationContext: null,
                     cancellationToken);
 
-                var wrapper = new CloudBlockBlobWrapper(blob, blockIds.Select(x => x.Name).ToList());
+                blobs[i] = blob;
+            }
 
-                _uriToBlobMapping.Add(blob.Uri, wrapper);
+            await Task.WhenAll(downloadTasks);
+
+            // Update the internal mapping with the block lists of the requested blobs.
+            for (int i = 0; i < downloadTasks.Length; i++)
+            {
+                var wrapper = new CloudBlockBlobWrapper(blobs[i], downloadTasks[i].Result.Select(x => x.Name).ToList());
+                _uriToBlobMapping.Add(blobs[i].Uri, wrapper);
             }
         }
 
