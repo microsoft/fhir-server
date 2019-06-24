@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
@@ -30,6 +29,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterExpressionParser _searchParameterExpressionParser;
+
+        private const char ChainSplitChar = ':';
+        private const char ChainParameter = '.';
+        private const string ReverseChainParameter = "_has:";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExpressionParser"/> class.
@@ -64,28 +67,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)
         {
-            if (TryConsume("_has:".AsSpan(), ref key))
+            if (TryConsume(ReverseChainParameter.AsSpan(), ref key))
             {
-                if (!TrySplit(':', ref key, out var type))
+                if (!TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> type))
                 {
-                    throw new Exception("missing type");
+                    throw new InvalidSearchOperationException(Core.Resources.ReverseChainMissingType);
                 }
 
-                if (!TrySplit(':', ref key, out var refParam))
+                if (!TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> refParam))
                 {
-                    throw new Exception("missing search reference search param");
+                    throw new InvalidSearchOperationException(Core.Resources.ReverseChainMissingReference);
                 }
 
-                SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(type.ToString(), refParam.ToString());
+                string typeString = type.ToString();
+                SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(typeString, refParam.ToString());
 
-                return ParseChainedExpression(type.ToString(), refSearchParameter, resourceType, key, value, true);
+                return ParseChainedExpression(typeString, refSearchParameter, resourceType, key, value, true);
             }
 
-            if (TrySplit('.', ref key, out var chainedInput))
+            if (TrySplit(ChainParameter, ref key, out ReadOnlySpan<char> chainedInput))
             {
                 ReadOnlySpan<char> targetTypeName;
 
-                if (TrySplit(':', ref chainedInput, out var refParamName))
+                if (TrySplit(ChainSplitChar, ref chainedInput, out ReadOnlySpan<char> refParamName))
                 {
                     targetTypeName = chainedInput;
                 }
@@ -107,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             ReadOnlySpan<char> modifier;
 
-            if (TrySplit(':', ref key, out var paramName))
+            if (TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> paramName))
             {
                 modifier = key;
             }
@@ -137,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (!string.IsNullOrEmpty(targetResourceType))
             {
                 // A target resource type is specified.
-                if (!Enum.TryParse<ResourceType>(targetResourceType, out _))
+                if (!ModelInfoProvider.IsKnownResource(targetResourceType))
                 {
                     throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceNotSupported, targetResourceType));
                 }

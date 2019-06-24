@@ -529,6 +529,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The reverse chain search is missing the reference to search..
+        /// </summary>
+        internal static string ReverseChainMissingReference {
+            get {
+                return ResourceManager.GetString("ReverseChainMissingReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The reverse chain search is missing the type to search..
+        /// </summary>
+        internal static string ReverseChainMissingType {
+            get {
+                return ResourceManager.GetString("ReverseChainMissingType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Role name cannot be null or empty..
         /// </summary>
         internal static string RoleNameEmpty {

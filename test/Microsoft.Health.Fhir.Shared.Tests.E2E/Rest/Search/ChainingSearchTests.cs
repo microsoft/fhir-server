@@ -42,6 +42,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAMultiNestedChainedSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&result.subject:Patient.organization.address-city=Seattle";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
+        }
+
+        [Fact]
         public async Task GivenANestedChainedSearchExpressionWithAnOrFinalCondition_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&result.subject:Patient.name=Smith,Truman";
@@ -62,6 +72,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&subject:Patient._type=Patient&_count=2";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport);
+
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+
+            ValidateBundle(bundle, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanLoincDiagnosticReport);
+        }
+
+        [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameterWithNoResults_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&subject:Patient._type=Observation";
@@ -79,6 +103,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
             ValidateBundle(bundle, Fixture.SmithPatient, Fixture.TrumanPatient);
+        }
+
+        [Fact]
+        public async Task GivenAReverseChainSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code=429858000&_count=1";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient);
+
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+
+            ValidateBundle(bundle, Fixture.TrumanPatient);
         }
 
         [Fact]
@@ -112,6 +150,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_tag={Fixture.Tag}&_count=1";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport);
+
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+
+            ValidateBundle(bundle, Fixture.TrumanSnomedDiagnosticReport);
+        }
+
+        [Fact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverADenormalizedParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}";
@@ -119,6 +171,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport);
+        }
+
+        [Fact]
+        public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverADenormalizedParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}&_count=1";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport);
+
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+
+            ValidateBundle(bundle, Fixture.TrumanSnomedDiagnosticReport);
         }
 
         public class ClassFixture : HttpIntegrationTestFixture<Startup>
@@ -132,9 +198,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 var snomedCode = new CodeableConcept("http://snomed.info/sct", "429858000");
                 var loincCode = new CodeableConcept("http://loinc.org", "4548-4");
 
-                AdamsPatient = FhirClient.CreateAsync(new Patient { Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } }, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
-                SmithPatient = FhirClient.CreateAsync(new Patient { Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } }, Name = new List<HumanName> { new HumanName { Family = "Smith" } } }).Result.Resource;
-                TrumanPatient = FhirClient.CreateAsync(new Patient { Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } }, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
+                var meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", Tag),
+                    },
+                };
+
+                var organization = FhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
+
+                AdamsPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
+                SmithPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") }).Result.Resource;
+                TrumanPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
 
                 var adamsLoincObservation = CreateObservation(AdamsPatient, loincCode);
                 var smithLoincObservation = CreateObservation(SmithPatient, loincCode);
@@ -166,7 +242,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     return FhirClient.CreateAsync(
                         new DiagnosticReport
                         {
-                            Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
+                            Meta = meta,
                             Status = DiagnosticReport.DiagnosticReportStatus.Final,
                             Code = code,
                             Subject = new ResourceReference($"Patient/{patient.Id}"),
