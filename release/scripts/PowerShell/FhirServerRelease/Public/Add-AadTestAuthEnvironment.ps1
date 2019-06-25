@@ -155,7 +155,6 @@ function Add-AadTestAuthEnvironment {
         $appIdSecureString = ConvertTo-SecureString -String $aadClientApplication.AppId -AsPlainText -Force
         Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--id" -SecretValue $appIdSecureString | Out-Null
         Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--secret" -SecretValue $secretSecureString | Out-Null
-        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "$displayName-secret" -SecretValue $secretSecureString | Out-Null
 
         Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -AppId $aadClientApplication.AppId -AppRoles $clientApp.roles | Out-Null
     }
