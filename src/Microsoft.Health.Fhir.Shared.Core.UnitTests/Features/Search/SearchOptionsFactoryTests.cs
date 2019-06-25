@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType).Returns(new SearchParameter { Name = SearchParameterNames.ResourceType }.ToInfo());
+            searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType).Returns(new SearchParameter { Name = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo());
 
             _factory = new SearchOptionsFactory(
                 _expressionParser,

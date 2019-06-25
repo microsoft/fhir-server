@@ -57,6 +57,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Theory]
         [InlineData("code-value-string=http://snomed.info/sct|162806009$blue", "ObservationWithEyeColor")]
         [InlineData("code-value-string=162806009$blue", "ObservationWithEyeColor")]
+        [InlineData("code-value-string=162806009$Lorem", "ObservationWithLongEyeColor")]
+        [InlineData("code-value-string=162806009$" + StringSearchTestFixture.LongString, "ObservationWithLongEyeColor")]
+        [InlineData("code-value-string=162806009$" + StringSearchTestFixture.LongString + "Not")]
         [InlineData("code-value-string=http://snomed.info/sct|$blue", "ObservationWithEyeColor")]
         [InlineData("code-value-string=http://snomed.info/sct|162806009$red")]
         public async Task GivenACompositeSearchParameterWithTokenAndString_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)

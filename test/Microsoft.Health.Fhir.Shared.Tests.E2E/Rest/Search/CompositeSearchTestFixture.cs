@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             "ObservationWith1MinuteApgarScore",
             "ObservationWith20MinuteApgarScore",
             "ObservationWithEyeColor",
+            "ObservationWithLongEyeColor",
             "ObservationWithTemperature",
             "ObservationWithTPMTDiplotype",
             "ObservationWithTPMTHaplotypeOne",

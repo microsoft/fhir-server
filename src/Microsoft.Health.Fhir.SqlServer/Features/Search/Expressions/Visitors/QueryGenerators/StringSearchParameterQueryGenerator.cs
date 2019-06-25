@@ -28,6 +28,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
                 case SqlFieldName.TextOverflow:
                     column = V1.StringSearchParam.TextOverflow;
+                    switch (expression.StringOperator)
+                    {
+                        case StringOperator.StartsWith:
+                        case StringOperator.NotStartsWith:
+                        case StringOperator.Equals:
+                            if (expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
+                            {
+                                column = V1.StringSearchParam.Text;
+                            }
+
+                            break;
+                    }
+
                     context.StringBuilder.Append(" IS NOT NULL AND ");
                     break;
                 default:

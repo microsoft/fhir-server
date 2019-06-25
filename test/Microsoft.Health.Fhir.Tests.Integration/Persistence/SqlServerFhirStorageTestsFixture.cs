@@ -55,8 +55,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new[]
             {
-                new SearchParameter { Name = SearchParameterNames.Id, Url = SearchParameterNames.IdUri.ToString() }.ToInfo(),
-                new SearchParameter { Name = SearchParameterNames.LastUpdated, Url = SearchParameterNames.LastUpdatedUri.ToString() }.ToInfo(),
+                new SearchParameter { Name = SearchParameterNames.Id, Type = SearchParamType.Token, Url = SearchParameterNames.IdUri.ToString() }.ToInfo(),
+                new SearchParameter { Name = SearchParameterNames.LastUpdated, Type = SearchParamType.Date, Url = SearchParameterNames.LastUpdatedUri.ToString() }.ToInfo(),
             });
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
