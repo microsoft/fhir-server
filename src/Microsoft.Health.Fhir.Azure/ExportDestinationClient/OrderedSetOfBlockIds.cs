@@ -9,7 +9,7 @@ using EnsureThat;
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
     /// <summary>
-    /// A modified implementation of an ordered hash set using a linked list and hashset. This class is specifically used
+    /// A modified implementation of an ordered hash set using a list and hashset. This class is specifically used
     /// for maintaining the existing block ids that are part of a blob in <see cref="CloudBlockBlobWrapper"/>. We need to
     /// maintain ordering of the block ids but also make sure that we don't have multiple copies of a block id. Hence
     /// the need for an ordered hash set.
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _itemSet = new HashSet<string>();
         }
 
-        public OrderedSetOfBlockIds(List<string> existingItems)
+        public OrderedSetOfBlockIds(IEnumerable<string> existingItems)
             : this()
         {
             EnsureArg.IsNotNull(existingItems, nameof(existingItems));

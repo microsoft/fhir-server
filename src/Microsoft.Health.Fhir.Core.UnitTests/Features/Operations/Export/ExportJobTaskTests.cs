@@ -31,13 +31,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private ExportJobRecord _exportJobRecord;
+        private IExportDestinationClientFactory _exportDestinationClientFactory = Substitute.For<IExportDestinationClientFactory>();
+        private InMemoryExportDestinationClient _inMemoryDestinationClient = new InMemoryExportDestinationClient();
+
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly ISecretStore _secretStore = Substitute.For<ISecretStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
-        private readonly IExportDestinationClientFactory _exportDestinationClientFactory = Substitute.For<IExportDestinationClientFactory>();
-        private readonly InMemoryExportDestinationClient _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
         private readonly ExportJobTask _exportJobTask;
 
@@ -317,13 +318,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(x =>
                 {
-                    int count = numberOfCalls++;
+                    int count = numberOfCalls;
 
                     if (count == numberOfSuccessfulPages)
                     {
                         throw new Exception();
                     }
 
+                    numberOfCalls++;
                     return CreateSearchResult(
                         new[]
                         {
@@ -352,6 +354,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // We create a new export job task here to simulate the worker picking up the "old" export job record
             // and resuming the export process. The export destination client contains data that has
             // been committed up until the "crash".
+            _inMemoryDestinationClient = new InMemoryExportDestinationClient();
+            _exportDestinationClientFactory.Create("in-memory").Returns(_inMemoryDestinationClient);
             var secondExportJobTask = new ExportJobTask(
                 _fhirOperationDataStore,
                 _secretStore,
@@ -361,11 +365,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _exportDestinationClientFactory,
                 NullLogger<ExportJobTask>.Instance);
 
-            numberOfSuccessfulPages = 6;
+            numberOfSuccessfulPages = 5;
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
-            Assert.Equal("0134", exportedIds);
+            Assert.Equal("23", exportedIds);
         }
 
         private SearchResult CreateSearchResult(IEnumerable<ResourceWrapper> resourceWrappers = null, string continuationToken = null)

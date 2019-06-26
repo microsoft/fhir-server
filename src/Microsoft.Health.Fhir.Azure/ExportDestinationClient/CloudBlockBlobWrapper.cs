@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
         }
 
-        public CloudBlockBlobWrapper(CloudBlockBlob blockBlob, List<string> blockList)
+        public CloudBlockBlobWrapper(CloudBlockBlob blockBlob, IEnumerable<string> blockList)
         {
             EnsureArg.IsNotNull(blockBlob, nameof(blockBlob));
             EnsureArg.IsNotNull(blockList, nameof(blockList));

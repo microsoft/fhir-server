@@ -124,7 +124,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         await _exportDestinationClient.CommitAsync(cancellationToken);
 
                         // Update the job record.
-                        UpdateJobOutputData(_resourceTypeToFileInfoMapping);
                         await UpdateAndCommitJobRecord(_exportJobRecord, cancellationToken);
 
                         currentBatchId = progress.Page;
@@ -134,7 +133,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Commit one last time for any pending changes.
                 await _exportDestinationClient.CommitAsync(cancellationToken);
 
-                UpdateJobOutputData(_resourceTypeToFileInfoMapping);
                 await UpdateAndCommitJobStatus(OperationStatus.Completed, updateEndTimestamp: true, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
@@ -164,14 +162,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
                 await UpdateAndCommitJobStatus(OperationStatus.Failed, updateEndTimestamp: true, cancellationToken);
-            }
-        }
-
-        private void UpdateJobOutputData(IDictionary<string, ExportFileInfo> resourceMapping)
-        {
-            foreach (KeyValuePair<string, ExportFileInfo> kvp in resourceMapping)
-            {
-                _exportJobRecord.Output.TryAdd(kvp.Key, kvp.Value);
             }
         }
 
@@ -214,16 +204,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 string resourceType = resourceWrapper.ResourceTypeName;
 
                 // Check whether we already have an existing file for the current resource type.
-                ExportFileInfo exportFileInfo;
-                if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out exportFileInfo))
+                if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out ExportFileInfo exportFileInfo))
                 {
                     // Check whether we have seen this file previously (in situations where we are resuming an export)
                     if (_exportJobRecord.Output.TryGetValue(resourceType, out exportFileInfo))
                     {
                         // A file already exists for this resource type. Let us open the file on the client.
                         await _exportDestinationClient.OpenFileAsync(exportFileInfo.FileUri, cancellationToken);
-
-                        _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
                     }
                     else
                     {
@@ -232,8 +219,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 
                         exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);
-                        _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
+
+                        // Since we created a new file the JobRecord Output also needs to know about it.
+                        _exportJobRecord.Output.TryAdd(resourceType, exportFileInfo);
                     }
+
+                    _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
                 }
 
                 // Serialize into NDJson and write to the file.

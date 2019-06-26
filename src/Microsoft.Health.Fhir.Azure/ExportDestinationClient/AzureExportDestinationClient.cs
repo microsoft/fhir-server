@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             Task[] commitTasks = wrappersToCommit.Select(wrapper => wrapper.CommitBlockListAsync(cancellationToken)).ToArray();
             await Task.WhenAll(commitTasks);
 
-            // We can clear the stream mappings once we commit everything in memory.
+            // We can clear the stream mappings once we commit everything.
             foreach (Stream stream in _streamMappings.Values)
             {
                 stream.Dispose();
