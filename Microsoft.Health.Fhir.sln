@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.645
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28729.10
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8AD2A324-DAB5-4380-94A5-31F7D817C384}"
 EndProject
@@ -110,9 +110,19 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Azure", "src\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj", "{6A804695-44D9-4335-B559-9E9A0DAB1102}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.Crucible", "test\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.shproj", "{218CD980-E236-4EF7-A022-0E94EF844D8F}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.E2E.Common", "test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.shproj", "{0478B687-7105-40F6-A2DC-81057890E944}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Stu3.Tests.Crucible", "test\Microsoft.Health.Fhir.Stu3.Tests.Crucible\Microsoft.Health.Fhir.Stu3.Tests.Crucible.csproj", "{1C8808F6-7061-4882-BA07-A5DA2D4EDCAC}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Tests.Crucible", "test\Microsoft.Health.Fhir.R4.Tests.Crucible\Microsoft.Health.Fhir.R4.Tests.Crucible.csproj", "{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{1495bba7-07b8-47ca-b2ed-511003b57667}*SharedItemsImports = 13
+		test\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems*{218cd980-e236-4ef7-a022-0e94ef844d8f}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems*{295745e2-4dd3-4aab-908d-b3dee976bf0e}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Api\Microsoft.Health.Fhir.Shared.Api.projitems*{4b4abb04-42ba-461c-a202-e480a2ae538e}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.projitems*{934ca8bb-b0a7-4187-bf4d-c937fbba1777}*SharedItemsImports = 13
@@ -261,6 +271,14 @@ Global
 		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6A804695-44D9-4335-B559-9E9A0DAB1102}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1C8808F6-7061-4882-BA07-A5DA2D4EDCAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C8808F6-7061-4882-BA07-A5DA2D4EDCAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C8808F6-7061-4882-BA07-A5DA2D4EDCAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C8808F6-7061-4882-BA07-A5DA2D4EDCAC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -311,9 +329,13 @@ Global
 		{A898CC57-69D0-4454-BB70-784C138A05BF} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 		{49DA2851-2A19-4969-AE87-94837BACBE7D} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 		{7F2B9209-2C50-42ED-961B-A09CC8A26A07} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
+		{218CD980-E236-4EF7-A022-0E94EF844D8F} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
+		{0478B687-7105-40F6-A2DC-81057890E944} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
+		{1C8808F6-7061-4882-BA07-A5DA2D4EDCAC} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
+		{5DD9134A-062F-4A75-AE05-B19D8F8B43C3} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 EndGlobal

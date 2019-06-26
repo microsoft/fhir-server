@@ -10,16 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\AuthenticationSettings.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirClient.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirClientExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirException.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirResponse.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\FhirResponse{T}.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\TestApplication.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\TestApplications.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\TestUser.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Common\TestUsers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditTestFixture.cs" />
