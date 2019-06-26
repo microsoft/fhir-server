@@ -19,11 +19,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="resourceType">The resource type that supports this search expression.</param>
         /// <param name="referenceSearchParameter">The search parameter that establishes the reference</param>
         /// <param name="targetResourceType">The target resource type.</param>
+        /// <param name="reversed">If this is a reversed chained expression.</param>
         /// <param name="expression">The search expression.</param>
         public ChainedExpression(
             string resourceType,
             SearchParameterInfo referenceSearchParameter,
             string targetResourceType,
+            bool reversed,
             Expression expression)
         {
             EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(resourceType), nameof(resourceType));
@@ -34,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             ResourceType = resourceType;
             ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
+            Reversed = reversed;
             Expression = expression;
         }
 
@@ -53,6 +56,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public string TargetResourceType { get; }
 
         /// <summary>
+        /// Get if the expression is reversed.
+        /// </summary>
+        public bool Reversed { get; }
+
+        /// <summary>
         /// Gets the search expression.
         /// </summary>
         public Expression Expression { get; }
@@ -66,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Chain {ReferenceSearchParameter.Name}:{TargetResourceType} {Expression})";
+            return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Name}:{TargetResourceType} {Expression})";
         }
     }
 }
