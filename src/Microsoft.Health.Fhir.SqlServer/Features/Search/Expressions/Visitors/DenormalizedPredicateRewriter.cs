@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
     /// Promotes predicates applied directly in on the Resource table to the search parameter tables.
-    /// These are predicates on the ResoruceSurrogateId and ResourceType columns. The idea is to make these
+    /// These are predicates on the ResourceSurrogateId and ResourceType columns. The idea is to make these
     /// queries as selective as possible.
     /// </summary>
     internal class DenormalizedPredicateRewriter : ExpressionRewriterWithInitialContext<object>, ISqlExpressionVisitor<object, Expression>

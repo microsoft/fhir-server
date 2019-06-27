@@ -236,14 +236,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("SELECT ");
                     if (tableExpression.ChainLevel == 1)
                     {
-                        StringBuilder.Append(V1.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias).Append(" AS Sid1, ");
+                        StringBuilder.Append(V1.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias).Append(" AS ").Append(chainedExpression.Reversed ? "Sid2" : "Sid1").Append(", ");
                     }
                     else
                     {
                         StringBuilder.Append("Sid1, ");
                     }
 
-                    StringBuilder.Append(V1.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" AS Sid2")
+                    StringBuilder.Append(V1.Resource.ResourceSurrogateId, chainedExpression.Reversed && tableExpression.ChainLevel > 1 ? referenceTableAlias : resourceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && tableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
                         .Append("FROM ").Append(V1.ReferenceSearchParam).Append(' ').AppendLine(referenceTableAlias)
                         .Append("INNER JOIN ").Append(V1.Resource).Append(' ').AppendLine(resourceTableAlias);
 
@@ -256,13 +256,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(" = ").Append(V1.Resource.ResourceId, resourceTableAlias);
                     }
 
+                    // Denormalized predicates on reverse chains need to be applied via a join to the resource table
+                    if (tableExpression.DenormalizedPredicate != null && chainedExpression.Reversed)
+                    {
+                        StringBuilder.Append("INNER JOIN ").Append(V1.Resource).Append(' ').AppendLine("r2");
+
+                        using (var delimited = StringBuilder.BeginDelimitedOnClause())
+                        {
+                            delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias)
+                                .Append(" = ").Append(V1.Resource.ResourceSurrogateId, "r2");
+
+                            delimited.BeginDelimitedElement();
+                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext("r2"));
+                        }
+                    }
+
                     if (tableExpression.ChainLevel > 1)
                     {
                         StringBuilder.Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
 
                         using (var delimited = StringBuilder.BeginDelimitedOnClause())
                         {
-                            delimited.BeginDelimitedElement().Append(V1.Resource.ResourceSurrogateId, referenceTableAlias).Append(" = ").Append("Sid2");
+                            delimited.BeginDelimitedElement().Append(V1.Resource.ResourceSurrogateId, chainedExpression.Reversed ? resourceTableAlias : referenceTableAlias).Append(" = ").Append("Sid2");
                         }
                     }
 
@@ -283,10 +298,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         if (tableExpression.ChainLevel == 1)
                         {
                             // if > 1, the intersection is handled by the JOIN
-                            AppendIntersectionWithPredecessor(delimited, tableExpression, referenceTableAlias);
+                            AppendIntersectionWithPredecessor(delimited, tableExpression, chainedExpression.Reversed ? resourceTableAlias : referenceTableAlias);
                         }
 
-                        if (tableExpression.DenormalizedPredicate != null)
+                        if (tableExpression.DenormalizedPredicate != null && !chainedExpression.Reversed)
                         {
                             delimited.BeginDelimitedElement();
                             tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext(resourceTableAlias));

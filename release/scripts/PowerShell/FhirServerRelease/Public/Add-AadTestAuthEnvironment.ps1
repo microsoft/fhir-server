@@ -93,7 +93,7 @@ function Add-AadTestAuthEnvironment {
 
     if ($currentObjectId) {
         Write-Host "Adding permission to keyvault for $currentObjectId"
-        Set-AzureRmKeyVaultAccessPolicy -VaultName $KeyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get, Set
+        Set-AzureRmKeyVaultAccessPolicy -VaultName $KeyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get,List,Set
     }
 
     Write-Host "Ensuring API application exists"
@@ -152,7 +152,9 @@ function Add-AadTestAuthEnvironment {
             appId       = $aadClientApplication.AppId
         }
         
-        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "$displayName-secret" -SecretValue $secretSecureString | Out-Null
+        $appIdSecureString = ConvertTo-SecureString -String $aadClientApplication.AppId -AsPlainText -Force
+        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--id" -SecretValue $appIdSecureString | Out-Null
+        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--secret" -SecretValue $secretSecureString | Out-Null
 
         Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -AppId $aadClientApplication.AppId -AppRoles $clientApp.roles | Out-Null
     }
