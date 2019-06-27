@@ -275,6 +275,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return null;
         }
 
+        public object VisitInclude(IncludeExpression expression, Context context)
+        {
+            // TODO: This will be removed once it's implemented.
+            throw new SearchOperationNotSupportedException("IncludeExpression is not supported.");
+        }
+
         private static string GetCompartmentIndicesParamName(string compartmentType)
         {
             Debug.Assert(CompartmentTypeToParamName.ContainsKey(compartmentType), $"CompartmentType {compartmentType} should have a corresponding index param");

@@ -69,6 +69,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new ChainedExpression(resourceType, referenceSearchParameter, targetResourceType, reversed, expression);
         }
 
+        public static IncludeExpression Include(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType)
+        {
+            return new IncludeExpression(resourceType, referenceSearchParameter, targetResourceType);
+        }
+
         /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents contains operation.
         /// </summary>

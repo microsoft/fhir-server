@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
+        private readonly BitColumn _ctc = new BitColumn("ctc");
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -107,6 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
                                                .AcceptVisitor(TopRewriter.Instance, searchOptions)
+                                               .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
@@ -138,25 +140,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         var resources = new List<ResourceWrapper>(searchOptions.MaxItemCount);
                         long? newContinuationId = null;
                         bool moreResults = false;
+                        int continuationTokenCount = 0;
 
                         while (await reader.ReadAsync(cancellationToken))
                         {
-                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, Stream rawResourceStream) = reader.ReadRow(
+                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool continuationTokenCandidate, Stream rawResourceStream) = reader.ReadRow(
                                 V1.Resource.ResourceTypeId,
                                 V1.Resource.ResourceId,
                                 V1.Resource.Version,
                                 V1.Resource.IsDeleted,
                                 V1.Resource.ResourceSurrogateId,
                                 V1.Resource.RequestMethod,
+                                _ctc,
                                 V1.Resource.RawResource);
 
-                            if (resources.Count == searchOptions.MaxItemCount)
+                            if (continuationTokenCount == searchOptions.MaxItemCount)
                             {
                                 moreResults = true;
                                 break;
                             }
 
-                            newContinuationId = resourceSurrogateId;
+                            if (continuationTokenCandidate)
+                            {
+                                newContinuationId = resourceSurrogateId;
+                                continuationTokenCount++;
+                            }
 
                             string rawResource;
 

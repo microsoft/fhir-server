@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterExpressionParser _searchParameterExpressionParser;
 
-        private const char ChainSplitChar = ':';
+        private const char SearchSplitChar = ':';
         private const char ChainParameter = '.';
         private const string ReverseChainParameter = "_has:";
 
@@ -65,16 +65,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceType, key.AsSpan(), value);
         }
 
+        public IncludeExpression ParseInclude(string resourceType, string includeValue)
+        {
+            var valueSpan = includeValue.AsSpan();
+            if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
+            {
+                throw new InvalidSearchOperationException("Type must be specified");
+            }
+
+            TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> targetType);
+
+            SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), valueSpan.ToString());
+
+            return new IncludeExpression(resourceType, refSearchParameter, targetType.ToString());
+        }
+
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)
         {
             if (TryConsume(ReverseChainParameter.AsSpan(), ref key))
             {
-                if (!TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> type))
+                if (!TrySplit(SearchSplitChar, ref key, out ReadOnlySpan<char> type))
                 {
                     throw new InvalidSearchOperationException(Core.Resources.ReverseChainMissingType);
                 }
 
-                if (!TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> refParam))
+                if (!TrySplit(SearchSplitChar, ref key, out ReadOnlySpan<char> refParam))
                 {
                     throw new InvalidSearchOperationException(Core.Resources.ReverseChainMissingReference);
                 }
@@ -89,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 ReadOnlySpan<char> targetTypeName;
 
-                if (TrySplit(ChainSplitChar, ref chainedInput, out ReadOnlySpan<char> refParamName))
+                if (TrySplit(SearchSplitChar, ref chainedInput, out ReadOnlySpan<char> refParamName))
                 {
                     targetTypeName = chainedInput;
                 }
@@ -111,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             ReadOnlySpan<char> modifier;
 
-            if (TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> paramName))
+            if (TrySplit(SearchSplitChar, ref key, out ReadOnlySpan<char> paramName))
             {
                 modifier = key;
             }

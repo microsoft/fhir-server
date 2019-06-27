@@ -43,5 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// in a chained search.
         /// </summary>
         Chain,
+
+        Include,
     }
 }

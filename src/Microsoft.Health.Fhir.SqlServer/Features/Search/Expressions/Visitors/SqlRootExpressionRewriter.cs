@@ -81,7 +81,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private bool TryGetNormalizedGenerator(Expression expression, out NormalizedSearchParameterQueryGenerator normalizedGenerator, out TableExpressionKind kind)
         {
             normalizedGenerator = expression.AcceptVisitor(_normalizedSearchParameterQueryGeneratorFactory);
-            kind = normalizedGenerator is ChainAnchorQueryGenerator ? TableExpressionKind.Chain : TableExpressionKind.Normal;
+            switch (normalizedGenerator)
+            {
+                case ChainAnchorQueryGenerator _:
+                    kind = TableExpressionKind.Chain;
+                    break;
+                case IncludeQueryGenerator _:
+                    kind = TableExpressionKind.Include;
+                    break;
+                default:
+                    kind = TableExpressionKind.Normal;
+                    break;
+            }
+
             return normalizedGenerator != null;
         }
     }
