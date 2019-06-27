@@ -89,11 +89,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
                 {
                     ResourceResponse<Document> result = await documentClient.Value.CreateDocumentAsync(
-                    CollectionUri,
-                    cosmosExportJob,
-                    new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
-                    disableAutomaticIdGeneration: true,
-                    cancellationToken: cancellationToken);
+                        CollectionUri,
+                        cosmosExportJob,
+                        new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
+                        disableAutomaticIdGeneration: true,
+                        cancellationToken: cancellationToken);
 
                     return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
                 }
@@ -119,9 +119,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
                 {
                     DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await documentClient.Value.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
-                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, id),
-                    new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
-                    cancellationToken);
+                        UriFactory.CreateDocumentUri(DatabaseId, CollectionId, id),
+                        new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
+                        cancellationToken);
 
                     var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
 

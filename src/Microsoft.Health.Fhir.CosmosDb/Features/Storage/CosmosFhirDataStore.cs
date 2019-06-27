@@ -173,13 +173,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.resourceId = @resourceId and r.version = @version", sqlParameterCollection);
 
-                var executor = CreateDocumentQuery<FhirCosmosResourceWrapper>(
-                    sqlQuerySpec,
-                    new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) });
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    FeedResponse<FhirCosmosResourceWrapper> result = await ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
+                        sqlQuerySpec,
+                        new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
+                        cancellationToken);
 
-                var result = await executor.ExecuteNextAsync<FhirCosmosResourceWrapper>(cancellationToken);
-
-                return result.FirstOrDefault();
+                    return result.FirstOrDefault();
+                }
             }
 
             try
@@ -232,9 +234,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        internal IDocumentQuery<T> CreateDocumentQuery<T>(
-            SqlQuerySpec sqlQuerySpec,
-            FeedOptions feedOptions = null)
+        internal async Task<FeedResponse<T>> ExecuteDocumentQueryAsync<T>(SqlQuerySpec sqlQuerySpec, FeedOptions feedOptions, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
@@ -242,13 +242,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
             {
-                return _cosmosDocumentQueryFactory.Create<T>(documentClient.Value, context);
-            }
-        }
+                IDocumentQuery<T> documentQuery = _cosmosDocumentQueryFactory.Create<T>(documentClient.Value, context);
 
-        private static string GetValue(HttpStatusCode type)
-        {
-            return ((int)type).ToString();
+                using (documentQuery)
+                {
+                    return await documentQuery.ExecuteNextAsync<T>(cancellationToken);
+                }
+            }
         }
 
         public void Build(IListedCapabilityStatement statement)
