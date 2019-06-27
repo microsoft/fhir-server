@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core
 {
     /// <summary>
-    /// Provides agnostic access to Stu3 FHIR Models and Resources
+    /// Provides access to Stu3 FHIR Models and Resources
     /// </summary>
     public partial class VersionSpecificModelInfoProvider
     {
