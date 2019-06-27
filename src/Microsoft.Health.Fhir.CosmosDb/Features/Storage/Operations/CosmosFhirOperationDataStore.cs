@@ -72,8 +72,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             CollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfiguration.CollectionId);
         }
 
-        private IDocumentClient DocumentClient => _documentClientFactory().Value;
-
         private string DatabaseId { get; }
 
         private string CollectionId { get; }
@@ -88,14 +86,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                ResourceResponse<Document> result = await DocumentClient.CreateDocumentAsync(
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    ResourceResponse<Document> result = await documentClient.Value.CreateDocumentAsync(
                     CollectionUri,
                     cosmosExportJob,
                     new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     disableAutomaticIdGeneration: true,
                     cancellationToken: cancellationToken);
 
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
+                    return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
+                }
             }
             catch (DocumentClientException dce)
             {
@@ -115,14 +116,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await DocumentClient.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await documentClient.Value.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
                     UriFactory.CreateDocumentUri(DatabaseId, CollectionId, id),
                     new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     cancellationToken);
 
-                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
+                    var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
 
-                return outcome;
+                    return outcome;
+                }
             }
             catch (DocumentClientException dce)
             {
@@ -146,7 +150,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                IDocumentQuery<CosmosExportJobRecordWrapper> query = DocumentClient.CreateDocumentQuery<CosmosExportJobRecordWrapper>(
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    IDocumentQuery<CosmosExportJobRecordWrapper> query = documentClient.Value.CreateDocumentQuery<CosmosExportJobRecordWrapper>(
                     CollectionUri,
                     new SqlQuerySpec(
                        GetJobByHashQuery,
@@ -157,17 +163,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     new FeedOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) })
                     .AsDocumentQuery();
 
-                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosExportJobRecordWrapper>();
+                    FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosExportJobRecordWrapper>();
 
-                if (result.Count == 1)
-                {
-                    // We found an existing job that matches the hash.
-                    CosmosExportJobRecordWrapper wrapper = result.First();
+                    if (result.Count == 1)
+                    {
+                        // We found an existing job that matches the hash.
+                        CosmosExportJobRecordWrapper wrapper = result.First();
 
-                    return new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag));
+                        return new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag));
+                    }
+
+                    return null;
                 }
-
-                return null;
             }
             catch (DocumentClientException dce)
             {
@@ -204,14 +211,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                ResourceResponse<Document> replaceResult = await DocumentClient.ReplaceDocumentAsync(
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    ResourceResponse<Document> replaceResult = await documentClient.Value.ReplaceDocumentAsync(
                     UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobRecord.Id),
                     cosmosExportJob,
                     requestOptions,
                     cancellationToken: cancellationToken);
 
-                var latestETag = replaceResult.Resource.ETag;
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(latestETag));
+                    var latestETag = replaceResult.Resource.ETag;
+                    return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(latestETag));
+                }
             }
             catch (DocumentClientException dce)
             {
@@ -240,16 +250,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         {
             try
             {
-                StoredProcedureResponse<IReadOnlyCollection<CosmosExportJobRecordWrapper>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    StoredProcedureResponse<IReadOnlyCollection<CosmosExportJobRecordWrapper>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _acquireExportJobs.ExecuteAsync(
-                        DocumentClient,
+                        documentClient.Value,
                         CollectionUri,
                         maximumNumberOfConcurrentJobsAllowed,
                         (ushort)jobHeartbeatTimeoutThreshold.TotalSeconds,
                         ct),
                     cancellationToken);
 
-                return response.Response.Select(wrapper => new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
+                    return response.Response.Select(wrapper => new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
+                }
             }
             catch (DocumentClientException dce)
             {
