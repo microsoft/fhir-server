@@ -3,14 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
-using Microsoft.Azure.Documents.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
@@ -71,34 +69,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.CountOnly)
             {
-                IDocumentQuery<int> documentCountQuery = _fhirDataStore.CreateDocumentQuery<int>(sqlQuerySpec, feedOptions);
-
-                using (documentCountQuery)
-                {
-                    return new SearchResult(
-                        (await documentCountQuery.ExecuteNextAsync<int>(cancellationToken)).Single(),
-                        searchOptions.UnsupportedSearchParams);
-                }
-            }
-
-            IDocumentQuery<Document> documentQuery = _fhirDataStore.CreateDocumentQuery<Document>(
-                sqlQuerySpec,
-                feedOptions);
-
-            using (documentQuery)
-            {
-                Debug.Assert(documentQuery != null, $"The {nameof(documentQuery)} should not be null.");
-
-                FeedResponse<Document> fetchedResults = await documentQuery.ExecuteNextAsync<Document>(cancellationToken);
-
-                FhirCosmosResourceWrapper[] wrappers = fetchedResults
-                    .Select(r => r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
-
                 return new SearchResult(
-                    wrappers,
-                    searchOptions.UnsupportedSearchParams,
-                    fetchedResults.ResponseContinuation);
+                    (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, cancellationToken)).Single(),
+                    searchOptions.UnsupportedSearchParams);
             }
+
+            FeedResponse<Document> fetchedResults = await _fhirDataStore.ExecuteDocumentQueryAsync<Document>(sqlQuerySpec, feedOptions, cancellationToken);
+
+            FhirCosmosResourceWrapper[] wrappers = fetchedResults
+                .Select(r => r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
+
+            return new SearchResult(
+                wrappers,
+                searchOptions.UnsupportedSearchParams,
+                fetchedResults.ResponseContinuation);
         }
     }
 }

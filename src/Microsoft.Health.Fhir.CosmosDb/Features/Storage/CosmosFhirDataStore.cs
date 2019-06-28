@@ -87,8 +87,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _hardDelete = new HardDelete();
         }
 
-        private IDocumentClient DocumentClient => _documentClientFactory().Value;
-
         private string DatabaseId { get; }
 
         private string CollectionId { get; }
@@ -110,18 +108,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
-                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async ct => await _upsertWithHistoryProc.Execute(
-                        DocumentClient,
-                        CollectionUri,
-                        cosmosWrapper,
-                        weakETag?.VersionId,
-                        allowCreate,
-                        keepHistory,
-                        ct),
-                    cancellationToken);
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                        async ct => await _upsertWithHistoryProc.Execute(
+                            documentClient.Value,
+                            CollectionUri,
+                            cosmosWrapper,
+                            weakETag?.VersionId,
+                            allowCreate,
+                            keepHistory,
+                            ct),
+                        cancellationToken);
 
-                return new UpsertOutcome(response.Wrapper, response.OutcomeType);
+                    return new UpsertOutcome(response.Wrapper, response.OutcomeType);
+                }
             }
             catch (DocumentClientException dce)
             {
@@ -172,21 +173,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.resourceId = @resourceId and r.version = @version", sqlParameterCollection);
 
-                var executor = CreateDocumentQuery<FhirCosmosResourceWrapper>(
-                    sqlQuerySpec,
-                    new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) });
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    FeedResponse<FhirCosmosResourceWrapper> result = await ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
+                        sqlQuerySpec,
+                        new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
+                        cancellationToken);
 
-                var result = await executor.ExecuteNextAsync<FhirCosmosResourceWrapper>(cancellationToken);
-
-                return result.FirstOrDefault();
+                    return result.FirstOrDefault();
+                }
             }
 
             try
             {
-                return await DocumentClient.ReadDocumentAsync<FhirCosmosResourceWrapper>(
-                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, key.Id),
-                    new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
-                    cancellationToken);
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    return await documentClient.Value.ReadDocumentAsync<FhirCosmosResourceWrapper>(
+                        UriFactory.CreateDocumentUri(DatabaseId, CollectionId, key.Id),
+                        new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
+                        cancellationToken);
+                }
             }
             catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
@@ -202,15 +208,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
 
-                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async ct => await _hardDelete.Execute(
-                        DocumentClient,
-                        CollectionUri,
-                        key,
-                        ct),
-                    cancellationToken);
+                using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+                {
+                    StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                       async ct => await _hardDelete.Execute(
+                            documentClient.Value,
+                            CollectionUri,
+                            key,
+                            ct),
+                       cancellationToken);
 
-                _logger.LogDebug($"Hard-deleted {response.Response.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Response)}.");
+                    _logger.LogDebug($"Hard-deleted {response.Response.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Response)}.");
+                }
             }
             catch (DocumentClientException dce)
             {
@@ -225,20 +234,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        internal IDocumentQuery<T> CreateDocumentQuery<T>(
-            SqlQuerySpec sqlQuerySpec,
-            FeedOptions feedOptions = null)
+        internal async Task<FeedResponse<T>> ExecuteDocumentQueryAsync<T>(SqlQuerySpec sqlQuerySpec, FeedOptions feedOptions, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
-            CosmosQueryContext context = new CosmosQueryContext(CollectionUri, sqlQuerySpec, feedOptions);
+            var context = new CosmosQueryContext(CollectionUri, sqlQuerySpec, feedOptions);
 
-            return _cosmosDocumentQueryFactory.Create<T>(DocumentClient, context);
-        }
+            using (IScoped<IDocumentClient> documentClient = _documentClientFactory())
+            {
+                IDocumentQuery<T> documentQuery = _cosmosDocumentQueryFactory.Create<T>(documentClient.Value, context);
 
-        private static string GetValue(HttpStatusCode type)
-        {
-            return ((int)type).ToString();
+                using (documentQuery)
+                {
+                    return await documentQuery.ExecuteNextAsync<T>(cancellationToken);
+                }
+            }
         }
 
         public void Build(IListedCapabilityStatement statement)
