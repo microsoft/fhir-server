@@ -59,17 +59,17 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<SqlServerFhirDataStore>()
-                .Singleton()
+                .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
             services.Add<SqlServerFhirOperationDataStore>()
-                .Singleton()
+                .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
             services.Add<SqlServerSearchService>()
-                .Singleton()
+                .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
