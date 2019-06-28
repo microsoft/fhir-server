@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task UpdateAndCommitJobRecord(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
-            using (var fhirOperationDataStore = _fhirOperationDataStoreFactory())
+            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
                 ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(jobRecord, _weakETag, cancellationToken);
 

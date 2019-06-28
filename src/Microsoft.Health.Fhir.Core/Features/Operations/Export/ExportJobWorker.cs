@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // Get list of available jobs.
                     if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
                     {
-                        using (var store = _fhirOperationDataStoreFactory())
+                        using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                         {
                             IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
                                 _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
