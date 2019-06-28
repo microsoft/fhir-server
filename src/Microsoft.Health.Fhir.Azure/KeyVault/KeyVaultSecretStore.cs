@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName, nameof(secretName));
 
-            SecretBundle result = await _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+            DeletedSecretBundle result = await _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
 
             return new SecretWrapper(result.Id, result.Value);
         }
