@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IClaimsExtractor, PrincipalClaimsExtractor>();
 
             services.AddFactory<IScoped<ISearchService>>();
+            services.AddFactory<IScoped<IFhirDataStore>>();
             services.AddFactory<IScoped<IFhirOperationDataStore>>();
         }
     }
