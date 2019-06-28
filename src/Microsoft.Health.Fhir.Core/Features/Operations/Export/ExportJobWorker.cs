@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 
@@ -21,19 +22,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ExportJobWorker
     {
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
         private readonly ILogger _logger;
 
-        public ExportJobWorker(IFhirOperationDataStore fhirOperationDataStore, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
+        public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
         {
-            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
+            EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _fhirOperationDataStore = fhirOperationDataStore;
+            _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _exportJobTaskFactory = exportJobTaskFactory;
             _logger = logger;
@@ -53,12 +54,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // Get list of available jobs.
                     if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
                     {
-                        IReadOnlyCollection<ExportJobOutcome> jobs = await _fhirOperationDataStore.AcquireExportJobsAsync(
-                            _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
-                            _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
-                            cancellationToken);
+                        using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+                        {
+                            IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
+                                _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
+                                _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
+                                cancellationToken);
 
-                        runningTasks.AddRange(jobs.Select(job => _exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken)));
+                            runningTasks.AddRange(jobs.Select(job => _exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken)));
+                        }
                     }
 
                     await Task.Delay(_exportJobConfiguration.JobPollingFrequency, cancellationToken);

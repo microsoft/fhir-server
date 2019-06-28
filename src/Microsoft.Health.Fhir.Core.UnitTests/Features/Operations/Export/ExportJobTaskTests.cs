@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
@@ -69,10 +70,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
 
             _exportJobTask = new ExportJobTask(
-                _fhirOperationDataStore,
+                () => _fhirOperationDataStore.CreateMockScope(),
                 _secretStore,
                 Options.Create(_exportJobConfiguration),
-                _searchService,
+                () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
                 NullLogger<ExportJobTask>.Instance);
@@ -357,10 +358,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
             _exportDestinationClientFactory.Create("in-memory").Returns(_inMemoryDestinationClient);
             var secondExportJobTask = new ExportJobTask(
-                _fhirOperationDataStore,
+                () => _fhirOperationDataStore.CreateMockScope(),
                 _secretStore,
                 Options.Create(_exportJobConfiguration),
-                _searchService,
+                () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
                 NullLogger<ExportJobTask>.Instance);

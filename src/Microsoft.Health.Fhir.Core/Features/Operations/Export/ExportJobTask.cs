@@ -10,6 +10,7 @@ using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -23,10 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportJobTask : IExportJobTask
     {
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ISecretStore _secretStore;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly ISearchService _searchService;
+        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
         private readonly ILogger _logger;
@@ -41,26 +42,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private IExportDestinationClient _exportDestinationClient;
 
         public ExportJobTask(
-            IFhirOperationDataStore fhirOperationDataStore,
+            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             ISecretStore secretStore,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
-            ISearchService searchService,
+            Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClientFactory exportDestinationClientFactory,
             ILogger<ExportJobTask> logger)
         {
-            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
+            EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(secretStore, nameof(secretStore));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _fhirOperationDataStore = fhirOperationDataStore;
+            _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _secretStore = secretStore;
             _exportJobConfiguration = exportJobConfiguration.Value;
-            _searchService = searchService;
+            _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClientFactory = exportDestinationClientFactory;
             _logger = logger;
@@ -104,8 +105,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // 2. There is no continuation token but the page is 0, which means it's the initial export.
                 while (progress.ContinuationToken != null || progress.Page == 0)
                 {
+                    SearchResult searchResult;
+
                     // Search and process the results.
-                    SearchResult searchResult = await _searchService.SearchAsync(_exportJobRecord.ResourceType, queryParameters, cancellationToken);
+                    using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                    {
+                        searchResult = await searchService.Value.SearchAsync(_exportJobRecord.ResourceType, queryParameters, cancellationToken);
+                    }
+
                     await ProcessSearchResults(searchResult.Results, currentBatchId, cancellationToken);
 
                     if (searchResult.ContinuationToken == null)
@@ -179,10 +186,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task UpdateAndCommitJobRecord(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
-            ExportJobOutcome updatedExportJobOutcome = await _fhirOperationDataStore.UpdateExportJobAsync(jobRecord, _weakETag, cancellationToken);
+            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
+            {
+                ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(jobRecord, _weakETag, cancellationToken);
 
-            _exportJobRecord = updatedExportJobOutcome.JobRecord;
-            _weakETag = updatedExportJobOutcome.ETag;
+                _exportJobRecord = updatedExportJobOutcome.JobRecord;
+                _weakETag = updatedExportJobOutcome.ETag;
+            }
         }
 
         // Get destination info from secret store, create appropriate export client and connect to destination.
