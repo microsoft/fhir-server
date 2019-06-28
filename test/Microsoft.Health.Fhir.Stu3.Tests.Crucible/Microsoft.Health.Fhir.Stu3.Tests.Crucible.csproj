@@ -4,6 +4,8 @@
     <TargetFramework>netcoreapp2.2</TargetFramework>
 
     <IsPackable>false</IsPackable>
+
+    <AssemblyName>Microsoft.Health.Fhir.Stu3.Tests.E2E.Crucible</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
