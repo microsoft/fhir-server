@@ -1,4 +1,3 @@
-﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.28729.10
@@ -117,6 +116,7 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Stu3.Tests.Crucible", "test\Microsoft.Health.Fhir.Stu3.Tests.Crucible\Microsoft.Health.Fhir.Stu3.Tests.Crucible.csproj", "{1C8808F6-7061-4882-BA07-A5DA2D4EDCAC}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Tests.Crucible", "test\Microsoft.Health.Fhir.R4.Tests.Crucible\Microsoft.Health.Fhir.R4.Tests.Crucible.csproj", "{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Azure.UnitTests", "src\Microsoft.Health.Fhir.Azure.UnitTests\Microsoft.Health.Fhir.Azure.UnitTests.csproj", "{4C4701AA-8DE4-44B2-8134-102F040C34F8}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -279,6 +279,10 @@ Global
 		{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5DD9134A-062F-4A75-AE05-B19D8F8B43C3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C4701AA-8DE4-44B2-8134-102F040C34F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C4701AA-8DE4-44B2-8134-102F040C34F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C4701AA-8DE4-44B2-8134-102F040C34F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C4701AA-8DE4-44B2-8134-102F040C34F8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

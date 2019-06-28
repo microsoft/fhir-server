@@ -19,14 +19,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-    public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
+    public class CosmosFhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private IFhirOperationDataStore _operationDataStore;
         private IFhirStorageTestHelper _testHelper;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), "destinationType", "destinationConnection");
 
-        public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
+        public CosmosFhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {
             _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
