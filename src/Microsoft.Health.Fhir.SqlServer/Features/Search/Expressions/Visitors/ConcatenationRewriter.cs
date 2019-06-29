@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 // The expressions contained within a ChainExpression
                 // have been promoted to TableExpressions in this list.
                 // Those are considered, not these.
-                if (tableExpression.Kind != TableExpressionKind.Chain)
+                if (tableExpression.Kind != TableExpressionKind.Chain && tableExpression.Kind != TableExpressionKind.Include)
                 {
                     if (_rewritingScout != null)
                     {

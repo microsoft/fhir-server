@@ -10,11 +10,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     public class IncludeExpression : Expression
     {
-        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType)
+        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard)
         {
             ResourceType = resourceType;
             ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
+            WildCard = wildCard;
         }
 
         /// <summary>
@@ -31,6 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Gets the target resource type.
         /// </summary>
         public string TargetResourceType { get; }
+
+        public bool WildCard { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {

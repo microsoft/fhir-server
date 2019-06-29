@@ -73,11 +73,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 throw new InvalidSearchOperationException("Type must be specified");
             }
 
-            TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> targetType);
+            SearchParameterInfo refSearchParameter;
+            bool wildCard = false;
+            ReadOnlySpan<char> targetType;
 
-            SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), valueSpan.ToString());
+            if (valueSpan.ToString().Equals("*", StringComparison.InvariantCultureIgnoreCase))
+            {
+                refSearchParameter = null;
+                wildCard = true;
+                targetType = string.Empty.AsSpan();
+            }
+            else
+            {
+                TrySplit(SearchSplitChar, ref valueSpan, out targetType);
+                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), valueSpan.ToString());
+            }
 
-            return new IncludeExpression(resourceType, refSearchParameter, targetType.ToString());
+            return new IncludeExpression(resourceType, refSearchParameter, targetType.ToString(), wildCard);
         }
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)

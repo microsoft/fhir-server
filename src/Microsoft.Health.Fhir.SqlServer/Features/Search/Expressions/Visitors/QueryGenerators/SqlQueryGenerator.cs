@@ -14,6 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal class SqlQueryGenerator : DefaultExpressionVisitor<SearchOptions, object>, ISqlExpressionVisitor<SearchOptions, object>
     {
+        private string _cteMainSelect;
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
@@ -138,6 +139,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             switch (tableExpression.Kind)
             {
+                case TableExpressionKind.HoistedDenormalized:
+                    if (tableExpression.ChainLevel == 0)
+                    {
+                        StringBuilder.Append("SELECT  DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") ").Append(V1.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
+                            .Append("FROM ").AppendLine(V1.Resource);
+                    }
+
+                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                    {
+                        AppendHistoryClause(delimited);
+                        AppendDeletedClause(delimited);
+
+                        if (tableExpression.DenormalizedPredicate != null)
+                        {
+                            delimited.BeginDelimitedElement();
+                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                        }
+
+                        if (tableExpression.NormalizedPredicate != null)
+                        {
+                            delimited.BeginDelimitedElement();
+                            tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, GetContext());
+                        }
+                    }
+
+                    break;
+
                 case TableExpressionKind.Normal:
 
                     if (tableExpression.ChainLevel == 0)
@@ -235,6 +263,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 as ctc ")
                         .Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1))
                         .AppendLine("ORDER BY Sid1 ASC");
+
+                    _cteMainSelect = TableExpressionName(_tableExpressionCounter);
 
                     break;
 
@@ -342,8 +372,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                     {
-                        delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.SearchParamId, "ref")
-                            .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url)));
+                        if (!includeExpression.WildCard)
+                        {
+                            delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.SearchParamId, "ref")
+                                .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url)));
+
+                            delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ReferenceResourceTypeId, "ref")
+                                .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType)));
+                        }
 
                         AppendHistoryClause(delimited, "r");
                         AppendHistoryClause(delimited, "ref");
@@ -351,11 +387,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ResourceTypeId, "ref")
                             .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.ResourceType)));
 
-                        delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ReferenceResourceTypeId, "ref")
-                            .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType)));
-
                         delimited.BeginDelimitedElement().Append(V1.Resource.ResourceSurrogateId, "ref")
-                            .Append(" IN (SELECT Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter - 1)).AppendLine(")");
+                            .Append(" IN (SELECT TOP(")
+                            .Append(Parameters.AddParameter(context.MaxItemCount))
+                            .Append(") Sid1 FROM ").Append(_cteMainSelect).AppendLine(")");
                     }
 
                     break;

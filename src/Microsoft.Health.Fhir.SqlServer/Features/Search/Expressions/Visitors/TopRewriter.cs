@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
@@ -24,9 +26,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
             newNormalizedPredicates.AddRange(expression.TableExpressions);
+
+            bool onlyIncludes = expression.TableExpressions.All(te => te.Kind == TableExpressionKind.Include);
+            if (onlyIncludes)
+            {
+                var newNormalExpression = new TableExpression(null, null, expression.DenormalizedExpressions[0], TableExpressionKind.HoistedDenormalized);
+                newNormalizedPredicates.Add(newNormalExpression);
+            }
+
             newNormalizedPredicates.Add(TopTableExpression);
 
-            return new SqlRootExpression(newNormalizedPredicates, expression.DenormalizedExpressions);
+            return new SqlRootExpression(newNormalizedPredicates, onlyIncludes ? Array.Empty<Expression>() : expression.DenormalizedExpressions);
         }
     }
 }

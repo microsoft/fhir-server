@@ -45,5 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         Chain,
 
         Include,
+
+        HoistedDenormalized,
     }
 }

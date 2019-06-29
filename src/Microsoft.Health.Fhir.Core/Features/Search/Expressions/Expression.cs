@@ -69,9 +69,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new ChainedExpression(resourceType, referenceSearchParameter, targetResourceType, reversed, expression);
         }
 
-        public static IncludeExpression Include(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType)
+        public static IncludeExpression Include(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard)
         {
-            return new IncludeExpression(resourceType, referenceSearchParameter, targetResourceType);
+            return new IncludeExpression(resourceType, referenceSearchParameter, targetResourceType, wildCard);
         }
 
         /// <summary>
