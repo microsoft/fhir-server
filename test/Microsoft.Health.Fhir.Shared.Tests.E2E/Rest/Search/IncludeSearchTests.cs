@@ -25,12 +25,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenAnIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             // Delete all patients before starting the test.
-            Client.DeleteAllResources(ResourceType.Location).Wait();
-            var organization = await Client.CreateAsync(new Organization());
+            await Client.DeleteAllResources(ResourceType.Location);
+            var organizationResponse = await Client.CreateAsync(new Organization());
 
-            var location = await Client.CreateAsync(new Location
+            var locationResponse = await Client.CreateAsync(new Location
             {
-                ManagingOrganization = new ResourceReference($"Organization/{organization.Resource.Id}"),
+                ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
 
             string query = $"_include=Location:Organization:organization";
@@ -39,8 +39,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(
                 bundle,
-                organization.Resource,
-                location.Resource);
+                organizationResponse.Resource,
+                locationResponse.Resource);
+        }
+
+        [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            // Delete all patients before starting the test.
+            await Client.DeleteAllResources(ResourceType.Location);
+            var organizationResponse = await Client.CreateAsync(new Organization());
+
+            var locationResponse = await Client.CreateAsync(new Location
+            {
+                ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
+            });
+
+            var locationResponse2 = await Client.CreateAsync(new Location
+            {
+                ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
+            });
+
+            string query = $"_include=Location:Organization:organization&_lastUpdated=lt{locationResponse2.Resource.Meta.LastUpdated:o}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
+
+            ValidateBundle(
+                bundle,
+                organizationResponse.Resource,
+                locationResponse.Resource);
         }
 
         [Fact]
@@ -92,8 +119,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
         }
 
-        [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        [Fact(Skip = "https://github.com/microsoft/fhir-server/issues/563")]
+        public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReport = new DiagnosticReport
             {
