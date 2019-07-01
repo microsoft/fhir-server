@@ -30,8 +30,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             bool onlyIncludes = expression.TableExpressions.All(te => te.Kind == TableExpressionKind.Include);
             if (onlyIncludes)
             {
-                var newNormalExpression = new TableExpression(null, null, expression.DenormalizedExpressions[0], TableExpressionKind.HoistedDenormalized);
-                newNormalizedPredicates.Add(newNormalExpression);
+                 Expression denormalizedExpression = expression.DenormalizedExpressions.Count > 1 ?
+                     new MultiaryExpression(MultiaryOperator.And, expression.DenormalizedExpressions)
+                     : expression.DenormalizedExpressions[0];
+
+                 var newNormalExpression = new TableExpression(null, null, denormalizedExpression, TableExpressionKind.HoistedDenormalized);
+                 newNormalizedPredicates.Add(newNormalExpression);
             }
 
             newNormalizedPredicates.Add(TopTableExpression);
