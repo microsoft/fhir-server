@@ -27,15 +27,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
             newNormalizedPredicates.AddRange(expression.TableExpressions);
 
+            // If the only table expressions are includes, then we need to hoist denormalized expressions to the top.
             bool onlyIncludes = expression.TableExpressions.All(te => te.Kind == TableExpressionKind.Include);
             if (onlyIncludes)
             {
-                 Expression denormalizedExpression = expression.DenormalizedExpressions.Count > 1 ?
-                     new MultiaryExpression(MultiaryOperator.And, expression.DenormalizedExpressions)
-                     : expression.DenormalizedExpressions[0];
+                Expression denormalizedExpression = expression.DenormalizedExpressions.Count > 1 ?
+                 new MultiaryExpression(MultiaryOperator.And, expression.DenormalizedExpressions)
+                 : expression.DenormalizedExpressions[0];
 
-                 var newNormalExpression = new TableExpression(null, null, denormalizedExpression, TableExpressionKind.HoistedDenormalized);
-                 newNormalizedPredicates.Add(newNormalExpression);
+                var newNormalExpression = new TableExpression(null, null, denormalizedExpression, TableExpressionKind.HoistedDenormalized);
+                newNormalizedPredicates.Add(newNormalExpression);
             }
 
             newNormalizedPredicates.Add(TopTableExpression);

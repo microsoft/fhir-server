@@ -44,8 +44,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// </summary>
         Chain,
 
+        /// <summary>
+        /// Represents a table expression that is used to include multiple resource types in the query.
+        /// </summary>
         Include,
 
+        /// <summary>
+        /// Represents an expression that is on the resource table to apply denormalized expressions before any other expressions.
+        /// This is used by include when no other expressions are present restrict the base resource types and lastUpdated.
+        /// </summary>
         HoistedDenormalized,
     }
 }

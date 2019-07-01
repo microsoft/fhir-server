@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            // Delete all patients before starting the test.
+            // Delete all locations before starting the test.
             await Client.DeleteAllResources(ResourceType.Location);
             var organizationResponse = await Client.CreateAsync(new Organization());
 
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            // Delete all patients before starting the test.
+            // Delete all locations before starting the test.
             await Client.DeleteAllResources(ResourceType.Location);
             var organizationResponse = await Client.CreateAsync(new Organization());
 
@@ -54,6 +54,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
+
+            // Make sure that the second location ends up in a different bucket of resource surrogate ids
+            await Task.Delay(100);
 
             var locationResponse2 = await Client.CreateAsync(new Location
             {
@@ -81,6 +84,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 bundle,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient,
+                Fixture.TrumanSnomedDiagnosticReport,
+                Fixture.TrumanPatient);
+        }
+
+        [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:Patient:patient&code=429858000&_count=1";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.SmithSnomedDiagnosticReport,
+                Fixture.SmithPatient);
+
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+
+            ValidateBundle(
+                bundle,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient);
         }
@@ -122,16 +145,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact(Skip = "https://github.com/microsoft/fhir-server/issues/563")]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            var newDiagnosticReport = new DiagnosticReport
-            {
-                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Fixture.Tag) } },
-                Status = DiagnosticReport.DiagnosticReportStatus.Final,
-                Code = new CodeableConcept("http://snomed.info/sct", "429858000"),
-                Subject = new ResourceReference($"Patient/{Fixture.TrumanPatient.Id}"),
-                Result = new List<ResourceReference> { new ResourceReference($"Observation/{Fixture.TrumanSnomedObservation.Id}") },
-            };
-
-            newDiagnosticReport = (await Fixture.FhirClient.CreateAsync(newDiagnosticReport)).Resource;
+            var newDiagnosticReportResponse = await Fixture.FhirClient.CreateAsync(
+                new DiagnosticReport
+                {
+                    Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Fixture.Tag) } },
+                    Status = DiagnosticReport.DiagnosticReportStatus.Final,
+                    Code = new CodeableConcept("http://snomed.info/sct", "429858000"),
+                    Subject = new ResourceReference($"Patient/{Fixture.TrumanPatient.Id}"),
+                    Result = new List<ResourceReference> { new ResourceReference($"Observation/{Fixture.TrumanSnomedObservation.Id}") },
+                });
 
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:Patient:patient&_include=DiagnosticReport:Observation:result&code=429858000&_lastUpdated=lt{Fixture.PatientGroup.Meta.LastUpdated.Value:o}";
 

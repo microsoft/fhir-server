@@ -154,12 +154,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _ctc,
                                 V1.Resource.RawResource);
 
+                            // If we get to this point, we know there are more results so we need a continuation token
+                            // Additionally, this resource shouldn't be included in the results
                             if (continuationTokenCount == searchOptions.MaxItemCount)
                             {
                                 moreResults = true;
-                                break;
+                                continue;
                             }
 
+                            // See if this resource is a continuation token candidate and increase the count
                             if (continuationTokenCandidate)
                             {
                                 newContinuationId = resourceSurrogateId;

@@ -10,6 +10,9 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Rewriter used to put the include expressions at the end of the list of table expressions.
+    /// </summary>
     internal class IncludeRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
         internal static readonly IncludeRewriter Instance = new IncludeRewriter();
