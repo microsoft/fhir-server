@@ -467,5 +467,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "format001/FT08",
             "resourcetest_careplan/X020_CarePlan",
         };
+
+        public static string BundleCountFilter => "Search bundle returned does not report a total entry count";
     }
 }

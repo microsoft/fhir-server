@@ -456,5 +456,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "format001/FT08",
             "resourcetest_questionnaire/X030_Questionnaire",
         };
+
+        public static string BundleCountFilter => "Search bundle returned does not report a total entry count";
     }
 }
