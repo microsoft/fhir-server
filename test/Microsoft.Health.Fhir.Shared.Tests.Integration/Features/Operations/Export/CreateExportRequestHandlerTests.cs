@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
 
-        private readonly CreateExportRequestHandler _createExportRequestHandler;
+        private CreateExportRequestHandler _createExportRequestHandler;
 
         private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
 
@@ -62,8 +63,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            Assert.NotNull(response);
-            Assert.NotEmpty(response.JobId);
+            Assert.True(response.Successful);
+            Assert.False(string.IsNullOrWhiteSpace(response.JobId));
+            Assert.Null(response.FailureReason);
 
             SecretWrapper secret = await _secretStore.GetSecretAsync($"Export-Destination-{response.JobId}", _cancellationToken);
 
@@ -81,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            Assert.NotNull(newResponse);
+            Assert.True(newResponse.Successful);
             Assert.Equal(response.JobId, newResponse.JobId);
         }
 
@@ -96,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
-            Assert.NotNull(newResponse);
+            Assert.True(newResponse.Successful);
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
@@ -115,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
-            Assert.NotNull(newResponse);
+            Assert.True(newResponse.Successful);
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
@@ -151,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
-            Assert.NotNull(newResponse);
+            Assert.True(newResponse.Successful);
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
@@ -169,6 +171,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(response.JobId, CancellationToken.None);
 
             Assert.Equal(new Uri(string.Format(baseUrlFormat, string.Empty)), outcome.JobRecord.RequestUri);
+        }
+
+        [Fact]
+        public async Task GivenSetSecretFails_WhenCreatingAnExportJob_ThenFailedResponseShouldBeReturned()
+        {
+            // Set up create export request handler with mock secret store.
+            ISecretStore mockSecretStore = Substitute.For<ISecretStore>();
+            mockSecretStore.SetSecretAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.SetSecretError, innerException: null));
+
+            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, mockSecretStore);
+
+            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.False(response.Successful);
+            Assert.False(string.IsNullOrWhiteSpace(response.FailureReason));
+            Assert.Null(response.JobId);
         }
 
         private class MockClaimsExtractor : IClaimsExtractor

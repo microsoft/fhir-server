@@ -9,13 +9,32 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class CreateExportResponse
     {
-        public CreateExportResponse(string id)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
+        public string JobId { get; private set; }
 
-            JobId = id;
+        public bool Successful { get; private set; }
+
+        public string FailureReason { get; private set; }
+
+        public static CreateExportResponse Failed(string failureReason)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(failureReason, nameof(failureReason));
+
+            return new CreateExportResponse
+            {
+                Successful = false,
+                FailureReason = failureReason,
+            };
         }
 
-        public string JobId { get; }
+        public static CreateExportResponse Succeeded(string jobId)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+
+            return new CreateExportResponse
+            {
+                Successful = true,
+                JobId = jobId,
+            };
+        }
     }
 }

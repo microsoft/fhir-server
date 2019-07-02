@@ -89,6 +89,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, destinationType, destinationConnectionString, HttpContext.RequestAborted);
 
+            if (!response.Successful)
+            {
+                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, response.FailureReason));
+            }
+
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
 
@@ -142,6 +147,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 exportActionResult = ExportResult.Ok(getExportResult.JobResult);
                 exportActionResult.SetContentTypeHeader(OperationsConstants.ExportContentTypeHeaderValue);
+            }
+            else if (getExportResult.StatusCode == HttpStatusCode.InternalServerError)
+            {
+                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, getExportResult.FailureReason));
             }
             else
             {

@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly IMediator _mediator;
         private readonly Uri _createRequestUri = new Uri("https://localhost/$export/");
+        private const string _failureReason = "ExportJobFailed";
 
         public GetExportRequestHandlerTests()
         {
@@ -36,13 +37,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _mediator = new Mediator(type => provider.GetService(type));
         }
 
-        [Theory]
-        [InlineData(OperationStatus.Canceled)]
-        [InlineData(OperationStatus.Completed)]
-        [InlineData(OperationStatus.Failed)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk(OperationStatus operationStatus)
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
+            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(OperationStatus.Completed);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.NotNull(result.JobResult);
@@ -54,13 +52,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(result.JobResult.Error);
         }
 
-        [Fact]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
+        [Theory]
+        [InlineData(OperationStatus.Canceled)]
+        [InlineData(OperationStatus.Failed)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenHttpResponseCodeShouldBeServerError(OperationStatus operationStatus)
         {
-            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(OperationStatus.Running);
+            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
+
+            Assert.Equal(HttpStatusCode.InternalServerError, result.StatusCode);
+            Assert.Equal(_failureReason, result.FailureReason);
+            Assert.Null(result.JobResult);
+        }
+
+        [Theory]
+        [InlineData(OperationStatus.Running)]
+        [InlineData(OperationStatus.Queued)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(OperationStatus operationStatus)
+        {
+            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Null(result.JobResult);
+            Assert.Null(result.FailureReason);
         }
 
         private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus)
@@ -69,6 +82,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             {
                 Status = jobStatus,
             };
+
+            if (jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed)
+            {
+                jobRecord.FailureReason = _failureReason;
+            }
 
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
 

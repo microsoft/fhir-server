@@ -28,6 +28,10 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             {
                 wrapper = new SecretWrapper(secretName, secretValue);
             }
+            else
+            {
+                throw new SecretStoreException(SecretStoreErrors.GetSecretError, innerException: null);
+            }
 
             return Task.FromResult(wrapper);
         }
@@ -37,7 +41,14 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             EnsureArg.IsNotNullOrWhiteSpace(secretName);
             EnsureArg.IsNotNullOrWhiteSpace(secretValue);
 
-            _secrets.Add(secretName, secretValue);
+            try
+            {
+                _secrets.Add(secretName, secretValue);
+            }
+            catch (Exception ex)
+            {
+                throw new SecretStoreException(SecretStoreErrors.SetSecretError, ex);
+            }
 
             return Task.FromResult(new SecretWrapper(secretName, secretValue));
         }
@@ -51,6 +62,10 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             {
                 wrapper = new SecretWrapper(secretName, secretValue);
                 _secrets.Remove(secretName);
+            }
+            else
+            {
+                throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, innerException: null);
             }
 
             return Task.FromResult(wrapper);

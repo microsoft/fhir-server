@@ -700,6 +700,33 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
+        /// </summary>
+        internal static string UnableToDeleteSecret {
+            get {
+                return ResourceManager.GetString("UnableToDeleteSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to get secret from SecretStore.
+        /// </summary>
+        internal static string UnableToGetSecret {
+            get {
+                return ResourceManager.GetString("UnableToGetSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to set secret in SecretStore.
+        /// </summary>
+        internal static string UnableToSetSecret {
+            get {
+                return ResourceManager.GetString("UnableToSetSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {

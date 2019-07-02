@@ -34,7 +34,15 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName);
 
-            SecretBundle result = await _keyVaultClient.GetSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+            SecretBundle result;
+            try
+            {
+                result = await _keyVaultClient.GetSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                throw new SecretStoreException(SecretStoreErrors.GetSecretError, ex);
+            }
 
             return new SecretWrapper(result.Id, result.Value);
         }
@@ -44,14 +52,22 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             EnsureArg.IsNotNullOrWhiteSpace(secretName, nameof(secretName));
             EnsureArg.IsNotNullOrWhiteSpace(secretValue, nameof(secretValue));
 
-            SecretBundle result = await _keyVaultClient.SetSecretAsync(
-                _keyVaultUri.AbsoluteUri,
-                secretName,
-                secretValue,
-                tags: null,
-                contentType: null,
-                secretAttributes: null,
-                cancellationToken);
+            SecretBundle result;
+            try
+            {
+                result = await _keyVaultClient.SetSecretAsync(
+                    _keyVaultUri.AbsoluteUri,
+                    secretName,
+                    secretValue,
+                    tags: null,
+                    contentType: null,
+                    secretAttributes: null,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                throw new SecretStoreException(SecretStoreErrors.SetSecretError, ex);
+            }
 
             return new SecretWrapper(result.Id, result.Value);
         }
@@ -60,7 +76,15 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
         {
             EnsureArg.IsNotNullOrWhiteSpace(secretName, nameof(secretName));
 
-            DeletedSecretBundle result = await _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+            DeletedSecretBundle result;
+            try
+            {
+                result = await _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, ex);
+            }
 
             return new SecretWrapper(result.Id, result.Value);
         }

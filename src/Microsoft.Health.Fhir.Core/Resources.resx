@@ -335,6 +335,15 @@
   <data name="ServiceUnavailable" xml:space="preserve">
     <value>The operation could not be completed, because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support.</value>
   </data>
+  <data name="UnableToDeleteSecret" xml:space="preserve">
+    <value>Unable to delete secret from SecretStore</value>
+  </data>
+  <data name="UnableToGetSecret" xml:space="preserve">
+    <value>Unable to get secret from SecretStore</value>
+  </data>
+  <data name="UnableToSetSecret" xml:space="preserve">
+    <value>Unable to set secret in SecretStore</value>
+  </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>
   </data>
