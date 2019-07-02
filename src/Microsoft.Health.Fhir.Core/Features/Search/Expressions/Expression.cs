@@ -69,6 +69,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new ChainedExpression(resourceType, referenceSearchParameter, targetResourceType, reversed, expression);
         }
 
+        /// <summary>
+        /// Creates a <see cref="IncludeExpression"/> that represents an include operation.
+        /// </summary>
+        /// <param name="resourceType">The source resource type.</param>
+        /// <param name="referenceSearchParameter">The search parameter that establishes the reference between resources</param>
+        /// <param name="targetResourceType">The target resource type.</param>
+        /// <param name="wildCard">If this is a wildcard include.</param>
+        /// <returns>A <see cref="IncludeExpression"/> that represents an include on <param name="targetResourceType"> through <paramref name="referenceSearchParameter"/>.</param></returns>
         public static IncludeExpression Include(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard)
         {
             return new IncludeExpression(resourceType, referenceSearchParameter, targetResourceType, wildCard);

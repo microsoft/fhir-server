@@ -3,15 +3,34 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Diagnostics;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
+    /// <summary>
+    /// Represents an include expression (where an additional resource is included based on a reference)
+    /// </summary>
     public class IncludeExpression : Expression
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IncludeExpression"/> class.
+        /// </summary>
+        /// <param name="resourceType">The resource that supports the reference.</param>
+        /// <param name="referenceSearchParameter">THe search parameter that establishes the reference relationship.</param>
+        /// <param name="targetResourceType">The target type of the reference.</param>
+        /// <param name="wildCard">If this is a wildcard reference include (include all referenced resources).</param>
         public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+
+            if (!wildCard)
+            {
+                EnsureArg.IsNotNullOrWhiteSpace(targetResourceType, nameof(targetResourceType));
+                EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
+            }
+
             ResourceType = resourceType;
             ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
@@ -24,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public string ResourceType { get; }
 
         /// <summary>
-        /// Gets the parameter name.
+        /// Gets the reference search parameter for the relationship.
         /// </summary>
         public SearchParameterInfo ReferenceSearchParameter { get; }
 
@@ -33,6 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         public string TargetResourceType { get; }
 
+        /// <summary>
+        /// Gets if the include is a wildcard include.
+        /// </summary>
         public bool WildCard { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
@@ -44,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Include {ReferenceSearchParameter.Name}:{TargetResourceType})";
+            return "(Include " + (WildCard ? "wildcard)" : $"{ReferenceSearchParameter.Name}:{TargetResourceType})");
         }
     }
 }
