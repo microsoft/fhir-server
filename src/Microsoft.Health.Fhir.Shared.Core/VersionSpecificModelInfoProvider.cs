@@ -12,10 +12,11 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core
 {
-    public class Stu3ModelInfoProvider : IModelInfoProvider
+    /// <summary>
+    /// Provides agnostic access to FHIR Models and Resources
+    /// </summary>
+    public partial class VersionSpecificModelInfoProvider : IModelInfoProvider
     {
-        public FhirSpecification Version => FhirSpecification.Stu3;
-
         public string GetFhirTypeNameForType(Type type)
         {
             return ModelInfo.GetFhirTypeNameForType(type);
