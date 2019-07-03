@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>0478b687-7105-40f6-a2dc-81057890e944</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.E2E.Common</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AuthenticationSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FhirClient.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FhirClientExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FhirException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FhirResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FhirResponse{T}.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TestApplication.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TestApplications.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TestUser.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TestUsers.cs" />
+  </ItemGroup>
+</Project>
