@@ -13,6 +13,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\CreateExportRequestHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationTestConstants.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestsFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTestsFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTestsFixtureArgumentSetsAttribute.cs" />
