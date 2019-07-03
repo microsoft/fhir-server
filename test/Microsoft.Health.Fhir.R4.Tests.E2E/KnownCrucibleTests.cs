@@ -459,6 +459,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "resourcetest_questionnaire/X030_Questionnaire", // POCO RequestGroup is not a valid enumeration value for  CarePlanActivityKind
             "resourcetest_clinicalimpression/X010_ClinicalImpression",
             "resourcetest_clinicalimpression/X020_ClinicalImpression",
+            "resourcetest_clinicalimpression/X030_ClinicalImpression",
             "resourcetest_careplan/X010_CarePlan",
             "resourcetest_immunizationevaluation/X030_ImmunizationEvaluation",
             "resourcetest_immunizationevaluation/X020_ImmunizationEvaluation",
