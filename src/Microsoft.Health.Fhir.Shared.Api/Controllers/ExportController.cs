@@ -99,12 +99,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ExportResourceType)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public IActionResult ExportResourceType(string type)
+        public IActionResult ExportResourceType(string typeParameter)
         {
             // Export by ResourceType is supported only for Patient resource type.
-            if (!string.Equals(type, ResourceType.Patient.ToString(), StringComparison.Ordinal))
+            if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, type));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
             return CheckIfExportIsEnabledAndRespond();
@@ -114,12 +114,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ExportResourceTypeById)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public IActionResult ExportResourceTypeById(string type, string id)
+        public IActionResult ExportResourceTypeById(string typeParameter, string idParameter)
         {
             // Export by ResourceTypeId is supported only for Group resource type.
-            if (!string.Equals(type, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(id))
+            if (!string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(idParameter))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, type));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
             return CheckIfExportIsEnabledAndRespond();
@@ -128,9 +128,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ExportStatusById, Name = RouteNames.GetExportStatusById)]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> GetExportStatusById(string id)
+        public async Task<IActionResult> GetExportStatusById(string idParameter)
         {
-            var getExportResult = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, id);
+            var getExportResult = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, idParameter);
 
             // If the job is complete, we need to return 200 along the completed data to the client.
             // Else we need to return 202.
