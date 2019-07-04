@@ -3,25 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.Health.Fhir.Tests.Common;
-using Xunit;
-using Xunit.Abstractions;
-
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
-    public class CrucibleTestFixture : IClassFixture<CrucibleDataSource>
+    public class KnownCrucibleTests
     {
-        private static readonly string[] KnownFailures =
+        public static readonly string[] KnownFailures =
         {
             "argonautproviderconnectathontest/APCT03",
             "argonautproviderconnectathontest/APCT04",
             "argonautproviderconnectathontest/APCT05",
             "argonautproviderconnectathontest/APCT06",
             "connectathon_patient_track/C8T1_3",
-            "connectathon_patient_track/C8T1_4",
             "connectathon-15-location-locate-endpoint-json/01-LocationSearchName",
             "connectathon-15-location-locate-endpoint-json/02-LocationSearchAddress",
             "connectathon-15-location-locate-endpoint-json/03-LocationSearchAddressCityStatePostalCode",
@@ -44,7 +36,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-organization-locate-endpoint-json/02-OrganizationSearchName",
             "connectathon-15-organization-locate-endpoint-xml/01-OrganizationSearchIdentifier",
             "connectathon-15-organization-locate-endpoint-xml/02-OrganizationSearchName",
+            "connectathon-15-patient-base-client-id-json/Step2-UpdatePatient",
             "connectathon-15-patient-base-client-id-json/Step4-PatientSearch",
+            "connectathon-15-patient-base-client-id-xml/Step2-UpdatePatient",
             "connectathon-15-patient-base-client-id-xml/Step4-PatientSearch",
             "connectathon-15-patient-base-server-id-json/Step1-RegisterNewPatient",
             "connectathon-15-patient-base-server-id-json/Step2-UpdatePatient",
@@ -52,7 +46,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-base-server-id-xml/Step1-RegisterNewPatient",
             "connectathon-15-patient-base-server-id-xml/Step2-UpdatePatient",
             "connectathon-15-patient-base-server-id-xml/Step4-PatientSearch",
+            "connectathon-15-patient-bonus-client-id-json/Step2a-Bonus1-UpdatePatient",
+            "connectathon-15-patient-bonus-client-id-json/Step2b-Bonus2-UpdatePatient",
             "connectathon-15-patient-bonus-client-id-json/Step4-PatientSearch",
+            "connectathon-15-patient-bonus-client-id-xml/Step2a-Bonus1-UpdatePatient",
+            "connectathon-15-patient-bonus-client-id-xml/Step2b-Bonus2-UpdatePatient",
             "connectathon-15-patient-bonus-client-id-xml/Step4-PatientSearch",
             "connectathon-15-patient-bonus-server-id-json/Step1-RegisterNewPatient",
             "connectathon-15-patient-bonus-server-id-json/Step2a-Bonus1-UpdatePatient",
@@ -82,20 +80,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-fhirserver-02-update-client-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-02-update-server-id-json/01-UpdatePatient",
             "connectathon-15-patient-fhirserver-02-update-server-id-xml/01-UpdatePatient",
-            "connectathon-15-patient-fhirserver-02-update-server-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-03-read-client-id-json/01-ReadPatient",
             "connectathon-15-patient-fhirserver-03-read-client-id-json/SETUP",
             "connectathon-15-patient-fhirserver-03-read-client-id-xml/01-ReadPatient",
             "connectathon-15-patient-fhirserver-03-read-client-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-03-read-server-id-json/01-ReadPatient",
             "connectathon-15-patient-fhirserver-03-read-server-id-xml/01-ReadPatient",
-            "connectathon-15-patient-fhirserver-03-read-server-id-xml/SETUP",
+            "connectathon-15-patient-fhirserver-05-vread-client-id-json/01-VersionReadCreatedPatient",
+            "connectathon-15-patient-fhirserver-05-vread-client-id-json/02-VersionReadUpdatedPatient",
             "connectathon-15-patient-fhirserver-05-vread-client-id-json/SETUP",
+            "connectathon-15-patient-fhirserver-05-vread-client-id-xml/01-VersionReadCreatedPatient",
+            "connectathon-15-patient-fhirserver-05-vread-client-id-xml/02-VersionReadUpdatedPatient",
             "connectathon-15-patient-fhirserver-05-vread-client-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-05-vread-server-id-json/01-VersionReadCreatedPatient",
             "connectathon-15-patient-fhirserver-05-vread-server-id-json/02-VersionReadUpdatedPatient",
             "connectathon-15-patient-fhirserver-05-vread-server-id-json/SETUP",
             "connectathon-15-patient-fhirserver-05-vread-server-id-xml/01-VersionReadCreatedPatient",
+            "connectathon-15-patient-fhirserver-05-vread-server-id-xml/02-VersionReadUpdatedPatient",
             "connectathon-15-patient-fhirserver-05-vread-server-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-06-search-client-id-json/01-SearchPatient",
             "connectathon-15-patient-fhirserver-06-search-client-id-json/SETUP",
@@ -103,22 +104,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-fhirserver-06-search-client-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-06-search-server-id-json/01-SearchPatient",
             "connectathon-15-patient-fhirserver-06-search-server-id-xml/01-SearchPatient",
-            "connectathon-15-patient-fhirserver-06-search-server-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-07-delete-client-id-json/01-DeletePatient",
             "connectathon-15-patient-fhirserver-07-delete-client-id-json/SETUP",
             "connectathon-15-patient-fhirserver-07-delete-client-id-xml/01-DeletePatient",
             "connectathon-15-patient-fhirserver-07-delete-client-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-07-delete-server-id-json/01-DeletePatient",
             "connectathon-15-patient-fhirserver-07-delete-server-id-xml/01-DeletePatient",
-            "connectathon-15-patient-fhirserver-07-delete-server-id-xml/SETUP",
             "connectathon-15-patient-fhirserver-99-all-client-id-json/01-RegisterNewPatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-json/02-UpdatePatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-json/03-ReadPatient",
+            "connectathon-15-patient-fhirserver-99-all-client-id-json/05-VersionReadPatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-json/06-SearchPatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-json/07-PatientDelete",
             "connectathon-15-patient-fhirserver-99-all-client-id-xml/01-RegisterNewPatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-xml/02-UpdatePatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-xml/03-ReadPatient",
+            "connectathon-15-patient-fhirserver-99-all-client-id-xml/05-VersionReadPatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-xml/06-SearchPatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-xml/07-PatientDelete",
             "connectathon-15-patient-fhirserver-99-all-server-id-json/01-RegisterNewPatient",
@@ -126,6 +127,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-fhirserver-99-all-server-id-json/05-VersionReadPatient",
             "connectathon-15-patient-fhirserver-99-all-server-id-json/06-SearchPatient",
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/01-RegisterNewPatient",
+            "connectathon-15-patient-fhirserver-99-all-server-id-xml/03-ReadPatient",
+            "connectathon-15-patient-fhirserver-99-all-server-id-xml/05-VersionReadPatient",
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/06-SearchPatient",
             "connectathon-15-pd-load-resources-create-json/Step1-LoadTestResourceCreate",
             "connectathon-15-pd-load-resources-create-xml/Step1-LoadTestResourceCreate",
@@ -143,6 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-practitionerrole-locate-telecom-xml/04-PractitionerRoleSearchSpecialty",
             "connectathon-15-scheduling-typical-flow-xml/Step1-CreateSupportingResources",
             "connectathon-15-scheduling-typical-flow-xml/Step2-CreateTheSchedule",
+            "connectathon-15-scheduling-typical-flow-xml/Step3-SearchForFirstFreeSlot",
             "connectathonattachmenttracktest/A13_pdf1",
             "connectathonattachmenttracktest/A13_pdf2",
             "connectathonattachmenttracktest/A13_structured1",
@@ -158,22 +162,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathonauditeventandprovenancetracktest/CAEP5",
             "connectathonfinancialtracktest/C9F_1C",
             "connectathonfinancialtracktest/C9F_1D",
-            "connectathongenomicstracktest/CGT02",
             "connectathongenomicstracktest/CGT03",
             "connectathongenomicstracktest/CGT05",
             "connectathongenomicstracktest/CGT07",
-            "connectathonlabordertracktest/C12T11_5",
-            "connectathonlabordertracktest/C12T11_6",
             "connectathonpatchtracktest/C12PATCH_2_(JSON)",
             "connectathonpatchtracktest/C12PATCH_2_(XML)",
             "connectathonpatchtracktest/C12PATCH_3_(JSON)",
             "connectathonpatchtracktest/C12PATCH_3_(XML)",
-            "connectathonschedulingtracktest/CST02",
-            "format001/FT07",
-            "format001/FT08",
             "history001/HI10",
-            "resourcetest_adverseevent/X010_AdverseEvent",
-            "resourcetest_adverseevent/X020_AdverseEvent",
             "resourcetest_imagingmanifest/X010_ImagingManifest",
             "resourcetest_imagingmanifest/X020_ImagingManifest",
             "search001/SE03G",
@@ -200,7 +196,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "searchtest_account/SE01P_Account",
             "searchtest_activitydefinition/SE01G_ActivityDefinition",
             "searchtest_activitydefinition/SE01P_ActivityDefinition",
-            "searchtest_adverseevent/S000_AdverseEvent",
             "searchtest_adverseevent/SE01G_AdverseEvent",
             "searchtest_adverseevent/SE01P_AdverseEvent",
             "searchtest_allergyintolerance/SE01G_AllergyIntolerance",
@@ -440,7 +435,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "transactionandbatchtest/XFER12",
         };
 
-        private static readonly string[] KnownBroken =
+        public static readonly string[] KnownBroken =
         {
             "argonautproviderconnectathontest/APCT02",
             "connectathonschedulingtracktest/CST01",
@@ -460,90 +455,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/02-UpdatePatient",
             "connectathon-15-patient-fhirserver-99-all-server-id-json/07-PatientDelete",
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/07-PatientDelete",
-            "history001/HI09",  // Related to Cosmos DB failure, issue: https://github.com/microsoft/fhir-server/issues/475
+            "history001/HI09",  // Related to Cosmos DB failure, issue: https://github.com/microsoft/fhir-server/issues/475"
+            "resourcetest_questionnaire/X030_Questionnaire", // POCO RequestGroup is not a valid enumeration value for  CarePlanActivityKind
+            "resourcetest_clinicalimpression/X010_ClinicalImpression",
+            "resourcetest_clinicalimpression/X020_ClinicalImpression",
+            "resourcetest_clinicalimpression/X030_ClinicalImpression",
+            "resourcetest_careplan/X010_CarePlan",
+            "resourcetest_immunizationevaluation/X030_ImmunizationEvaluation",
+            "resourcetest_immunizationevaluation/X020_ImmunizationEvaluation",
+            "resourcetest_immunizationevaluation/X010_ImmunizationEvaluation",
+            "resourcetest_location/X010_Location",
+            "resourcetest_location/X020_Location",
+            "format001/FT07",
+            "format001/FT08",
+            "resourcetest_careplan/X020_CarePlan",
         };
 
-        private readonly CrucibleDataSource _dataSource;
-        private readonly ITestOutputHelper _output;
-
-        public CrucibleTestFixture(CrucibleDataSource dataSource, ITestOutputHelper output)
-        {
-            _dataSource = dataSource;
-            _output = output;
-        }
-
-        [Theory]
-        [MemberData(nameof(GetTests))]
-        [Trait(Traits.Category, Categories.Crucible)]
-        public void Run(string id)
-        {
-            if (string.IsNullOrEmpty(id))
-            {
-                return;
-            }
-
-            var findTest = _dataSource.TestRun.Value.TestRun.TestResults.FirstOrDefault(x => x.TestId == id);
-
-            if (findTest != null)
-            {
-                var failures = findTest.Result
-                    .Where(x =>
-                    {
-                        var testName = $"{x.TestId ?? findTest.TestId}/{x.Id}";
-                        return x.Status == "fail" && !KnownFailures.Contains(testName) && !KnownBroken.Contains(testName);
-                    })
-                    .ToArray();
-
-                if (failures.Any())
-                {
-                    var messages = failures
-                        .Select(x =>
-                            $"Failure in \"{x.TestId ?? findTest.TestId}/{x.Id}\", reason: \"{x.Message}\", description: \"{x.Description}\", see: {_dataSource.TestRun.Value.GetPermalink(x, findTest.TestId)}");
-
-                    Assert.True(false, string.Join(Environment.NewLine, messages));
-                }
-                else
-                {
-                    var passing = findTest.Result.Where(x => x.Status == "pass").Select(x => $"{x.TestId ?? findTest.TestId}/{x.Id}").ToList();
-                    if (passing.Count > 0)
-                    {
-                        _output.WriteLine($"Passing tests: {Environment.NewLine}{string.Join(Environment.NewLine, passing)}");
-                    }
-
-                    var failing = findTest.Result.Where(x => x.Status == "fail").Select(x => $"{x.TestId ?? findTest.TestId}/{x.Id}").ToList();
-                    if (failing.Count > 0)
-                    {
-                        _output.WriteLine($"Excluded tests: {Environment.NewLine}{string.Join(Environment.NewLine, failing)}");
-                    }
-                }
-
-                var shouldBeFailing = findTest.Result
-                    .Where(x => x.Status == "pass" && KnownFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}"))
-                    .ToArray();
-
-                if (shouldBeFailing.Any())
-                {
-                    var messages = shouldBeFailing
-                        .Select(x =>
-                            $"Previously failing test \"{x.TestId ?? findTest.TestId}/{x.Id}\" is now passing, this should be removed from known failures.");
-
-                    Assert.True(false, string.Join(Environment.NewLine, messages));
-                }
-            }
-        }
-
-        public static IEnumerable<object[]> GetTests()
-        {
-            var client = CrucibleDataSource.CreateClient();
-
-            if (client == null)
-            {
-                return Enumerable.Repeat(new object[] { null }, 1);
-            }
-
-            var ids = CrucibleDataSource.GetSupportedIdsAsync(client).GetAwaiter().GetResult();
-
-            return ids.Select(x => new[] { x }).ToArray();
-        }
+        public static string BundleCountFilter => "Search bundle returned does not report a total entry count";
     }
 }
