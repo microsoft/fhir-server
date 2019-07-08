@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
@@ -53,5 +54,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
         Task CommitAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Opens an existing file from the destination.
+        /// </summary>
+        /// <param name="fileUri">Uri of the file to be opened.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
+        Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken);
     }
 }

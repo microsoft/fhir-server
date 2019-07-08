@@ -3,15 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Reflection;
-using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Api.Modules
+namespace Microsoft.Health.Fhir.Core
 {
-    public static class KnownAssemblies
+    /// <summary>
+    /// Provides access to Stu3 FHIR Models and Resources
+    /// </summary>
+    public partial class VersionSpecificModelInfoProvider
     {
-        public static Assembly Core => typeof(Clock).Assembly;
-
-        public static Assembly CoreVersionSpecific => typeof(Stu3ModelInfoProvider).Assembly;
+        public FhirSpecification Version => FhirSpecification.Stu3;
     }
 }

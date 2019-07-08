@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>8ae4a7fd-c963-4004-8086-83e4615ac357</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.Integration</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\CosmosFhirOperationDataStoreTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\CreateExportRequestHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationTestConstants.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestsFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTestsFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTestsFixtureArgumentSetsAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\IFhirStorageTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\NullFhirDocumentQueryLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlDataReaderExtensionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestsFixture.cs" />
+  </ItemGroup>
+</Project>

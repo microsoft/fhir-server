@@ -32,7 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
 
             var fileUri = new Uri(fileName, UriKind.Relative);
 
-            _exportedData.Add(fileUri, new StringBuilder());
+            if (!_exportedData.ContainsKey(fileUri))
+            {
+                _exportedData.Add(fileUri, new StringBuilder());
+            }
 
             return await Task.FromResult(fileUri);
         }
@@ -72,6 +75,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
 
             // Now that all of the parts are committed, remove all stream mappings.
             _streamMappings.Clear();
+        }
+
+        public Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken)
+        {
+            if (!_exportedData.ContainsKey(fileUri))
+            {
+                _exportedData.Add(fileUri, new StringBuilder());
+            }
+
+            return Task.CompletedTask;
         }
 
         public string GetExportedData(Uri fileUri)

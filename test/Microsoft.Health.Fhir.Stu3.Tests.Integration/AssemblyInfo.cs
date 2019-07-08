@@ -3,8 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Resources;
-using System.Runtime.CompilerServices;
+using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.Tests.Common;
+using Xunit;
 
-[assembly: NeutralResourcesLanguage("en-us")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Azure.UnitTests")]
+[assembly: TestFramework(typeName: CustomXunitTestFramework.TypeName, assemblyName: CustomXunitTestFramework.AssemblyName)]
+[assembly: AssemblyFixture(typeof(SetModelInfoProviderAssemblyFixture))]

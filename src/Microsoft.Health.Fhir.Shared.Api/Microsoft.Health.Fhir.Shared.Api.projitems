@@ -30,6 +30,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FhirModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\KnownAssemblies.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\PersistenceModule.cs" />

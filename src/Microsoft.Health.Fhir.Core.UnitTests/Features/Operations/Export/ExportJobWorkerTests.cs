@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -42,9 +43,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobConfiguration.JobPollingFrequency = DefaultJobPollingFrequency;
 
             _exportJobTaskFactory().Returns(_task);
+            var scopedOperationDataStore = Substitute.For<IScoped<IFhirOperationDataStore>>();
+            scopedOperationDataStore.Value.Returns(_fhirOperationDataStore);
 
             _exportJobWorker = new ExportJobWorker(
-                _fhirOperationDataStore,
+                () => scopedOperationDataStore,
                 Options.Create(_exportJobConfiguration),
                 _exportJobTaskFactory,
                 NullLogger<ExportJobWorker>.Instance);

@@ -3,8 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Resources;
-using System.Runtime.CompilerServices;
+using Microsoft.Health.Fhir.Core.Models;
 
-[assembly: NeutralResourcesLanguage("en-us")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Azure.UnitTests")]
+namespace Microsoft.Health.Fhir.Core
+{
+    /// <summary>
+    /// Provides access to R4 FHIR Models and Resources
+    /// </summary>
+    public partial class VersionSpecificModelInfoProvider
+    {
+        public FhirSpecification Version => FhirSpecification.R4;
+    }
+}

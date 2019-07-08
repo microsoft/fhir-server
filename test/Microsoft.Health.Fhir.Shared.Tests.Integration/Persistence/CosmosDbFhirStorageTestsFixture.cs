@@ -104,16 +104,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var documentClient = new NonDisposingScope(_documentClient);
 
             _fhirDataStore = new CosmosFhirDataStore(
-                () => documentClient,
+                documentClient,
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                new Stu3ModelInfoProvider());
+                new VersionSpecificModelInfoProvider());
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
-                () => documentClient,
+                documentClient,
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),

@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>218cd980-e236-4ef7-a022-0e94ef844d8f</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.Crucible</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Client\CrucibleClient.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Category.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Details.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Headers.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Method.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\OId.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\PastTestRunResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Request.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\RequestInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Require.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Response.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Result.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\ServerId.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\SupportedTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Test.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\TestResults.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\TestRun.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\TestRunResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Validate.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)CrucibleDataSource.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)CrucibleTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ServerTestRun.cs" />
+  </ItemGroup>
+</Project>
