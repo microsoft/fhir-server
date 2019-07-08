@@ -238,5 +238,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(numberOfResources, bundle.Total);
             Assert.Empty(bundle.Entry);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourceWithTypeValue_WhenSearchedWithTypeParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
+        {
+            var code = Guid.NewGuid().ToString();
+            NamingSystem library = await Client.CreateAsync(new NamingSystem
+                {
+                    Name = "test",
+                    Status = PublicationStatus.Draft,
+                    Kind = NamingSystem.NamingSystemType.Codesystem,
+                    Date = "2019",
+                    UniqueId = new List<NamingSystem.UniqueIdComponent> { new NamingSystem.UniqueIdComponent { Type = NamingSystem.NamingSystemIdentifierType.Uri, Value = "https://localhost" } },
+                    Type = new CodeableConcept("https://localhost/", code),
+                });
+
+            await ExecuteAndValidateBundle($"NamingSystem?type={code}", library);
+        }
     }
 }

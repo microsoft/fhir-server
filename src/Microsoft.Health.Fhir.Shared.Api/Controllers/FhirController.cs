@@ -193,15 +193,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Reads the specified resource.
         /// </summary>
-        /// <param name="type">The type.</param>
-        /// <param name="id">The identifier.</param>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeById, Name = RouteNames.ReadResource)]
         [AuditEventType(AuditEventSubType.Read)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> Read(string type, string id)
+        public async Task<IActionResult> Read(string typeParameter, string idParameter)
         {
-            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(type, id), HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response)
                 .SetETagHeader()
@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Returns the history of a specific resource type
         /// </summary>
-        /// <param name="type">The resource type.</param>
+        /// <param name="typeParameter">The resource type.</param>
         /// <param name="at">Instant for history to return.</param>
         /// <param name="since">Starting time for history to return (inclusive).</param>
         /// <param name="before">Ending time for history to return (exclusive).</param>
@@ -246,14 +246,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.HistoryType)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> TypeHistory(
-            string type,
+            string typeParameter,
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            ResourceElement response = await _mediator.SearchResourceHistoryAsync(type, since, before, at, count, ct, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceHistoryAsync(typeParameter, since, before, at, count, ct, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -261,8 +261,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Returns the history of a resource
         /// </summary>
-        /// <param name="type">The resource type.</param>
-        /// <param name="id">The identifier.</param>
+        /// <param name="typeParameter">The resource type.</param>
+        /// <param name="idParameter">The identifier.</param>
         /// <param name="at">Instant for history to return.</param>
         /// <param name="since">Starting time for history to return (inclusive).</param>
         /// <param name="before">Ending time for hitory to return (exclusive).</param>
@@ -273,15 +273,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.HistoryInstance)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> History(
-            string type,
-            string id,
+            string typeParameter,
+            string idParameter,
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            ResourceElement response = await _mediator.SearchResourceHistoryAsync(type, id, since, before, at, count, ct, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceHistoryAsync(typeParameter, idParameter, since, before, at, count, ct, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -289,16 +289,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Reads the specified version of the resource.
         /// </summary>
-        /// <param name="type">The type.</param>
-        /// <param name="id">The identifier.</param>
-        /// <param name="vid">The versionId.</param>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        /// <param name="vidParameter">The versionId.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeByIdAndVid, Name = RouteNames.ReadResourceWithVersionRoute)]
         [AuditEventType(AuditEventSubType.VRead)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> VRead(string type, string id, string vid)
+        public async Task<IActionResult> VRead(string typeParameter, string idParameter, string vidParameter)
         {
-            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(type, id, vid), HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.OK)
                     .SetETagHeader()
@@ -308,13 +308,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Deletes the specified resource
         /// </summary>
-        /// <param name="type">The type.</param>
-        /// <param name="id">The identifier.</param>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
         /// <param name="hardDelete">A flag indicating whether to hard-delete the resource or not.</param>
         [HttpDelete]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
-        public async Task<IActionResult> Delete(string type, string id, [FromQuery]bool hardDelete)
+        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery]bool hardDelete)
         {
             string policy = PolicyNames.WritePolicy;
             if (hardDelete)
@@ -328,7 +328,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return Forbid();
             }
 
-            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(type, id), hardDelete, HttpContext.RequestAborted);
+            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
         }
@@ -341,7 +341,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Search()
         {
-            return await SearchByResourceType(type: null);
+            return await SearchByResourceType(typeParameter: null);
         }
 
         /// <summary>
@@ -353,20 +353,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchPost()
         {
-            return await SearchByResourceTypePost(type: null);
+            return await SearchByResourceTypePost(typeParameter: null);
         }
 
         /// <summary>
         /// Searches for resources.
         /// </summary>
-        /// <param name="type">The resource type.</param>
+        /// <param name="typeParameter">The resource type.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceType, Name = RouteNames.SearchResources)]
         [AuditEventType(AuditEventSubType.SearchType)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> SearchByResourceType(string type)
+        public async Task<IActionResult> SearchByResourceType(string typeParameter)
         {
-            return await PerformSearch(type, GetQueriesForSearch());
+            return await PerformSearch(typeParameter, GetQueriesForSearch());
         }
 
         private IReadOnlyList<Tuple<string, string>> GetQueriesForSearch()
@@ -385,12 +385,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Searches for resources.
         /// </summary>
-        /// <param name="type">The resource type.</param>
+        /// <param name="typeParameter">The resource type.</param>
         [HttpPost]
         [Route(KnownRoutes.ResourceTypeSearch, Name = RouteNames.SearchResourcesPost)]
         [AuditEventType(AuditEventSubType.SearchType)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> SearchByResourceTypePost(string type)
+        public async Task<IActionResult> SearchByResourceTypePost(string typeParameter)
         {
             var queries = new List<Tuple<string, string>>();
 
@@ -403,7 +403,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // TODO: In the case of POST, the server cannot use SelfLink to let client know which search parameter is not supported.
             // Therefore, it should throw an exception if an unsupported search parameter is encountered.
-            return await PerformSearch(type, queries);
+            return await PerformSearch(typeParameter, queries);
 
             void AddItemsIfNotNull(IEnumerable<KeyValuePair<string, StringValues>> source)
             {
@@ -417,16 +417,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Searches by compartment.
         /// </summary>
-        /// <param name="compartmentType">The compartment type.</param>
-        /// <param name="id">The identifier.</param>
-        /// <param name="type">The resource type.</param>
+        /// <param name="compartmentTypeParameter">The compartment type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        /// <param name="typeParameter">The resource type.</param>
         [HttpGet]
         [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.SearchCompartmentByResourceType)]
         [AuditEventType(AuditEventSubType.Search)]
-        public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentType, string id, string type)
+        public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentTypeParameter, string idParameter, string typeParameter)
         {
             IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
-            return await PerformCompartmentSearch(compartmentType, id, type, queries);
+            return await PerformCompartmentSearch(compartmentTypeParameter, idParameter, typeParameter, queries);
         }
 
         private async Task<IActionResult> PerformCompartmentSearch(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)
