@@ -3,10 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Resources;
-using System.Runtime.CompilerServices;
+using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.Tests.Common;
+using Xunit;
 
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb.UnitTests")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Tests.Integration")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Tests.Integration")]
-[assembly: NeutralResourcesLanguage("en-us")]
+[assembly: TestFramework(typeName: CustomXunitTestFramework.TypeName, assemblyName: CustomXunitTestFramework.AssemblyName)]
+[assembly: AssemblyFixture(typeof(SetModelInfoProviderAssemblyFixture))]
