@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
             }
 
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, destinationType, destinationConnectionString);
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, destinationType, destinationConnectionString, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
@@ -126,11 +126,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpGet]
-        [Route(KnownRoutes.ExportStatusById, Name = RouteNames.GetExportStatusById)]
+        [Route(KnownRoutes.ExportJobLocation, Name = RouteNames.GetExportStatusById)]
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> GetExportStatusById(string idParameter)
         {
-            var getExportResult = await _mediator.GetExportStatusAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, idParameter);
+            var getExportResult = await _mediator.GetExportStatusAsync(
+                _fhirRequestContextAccessor.FhirRequestContext.Uri,
+                idParameter,
+                HttpContext.RequestAborted);
 
             // If the job is complete, we need to return 200 along the completed data to the client.
             // Else we need to return 202.
@@ -146,6 +149,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             return exportActionResult;
+        }
+
+        [HttpDelete]
+        [Route(KnownRoutes.ExportJobLocation, Name = RouteNames.CancelExport)]
+        [AuditEventType(AuditEventSubType.Export)]
+        public async Task<IActionResult> CancelExport(string id)
+        {
+            CancelExportResponse response = await _mediator.CancelExportAsync(id, HttpContext.RequestAborted);
+
+            return new ExportResult(response.StatusCode);
         }
 
         /// <summary>

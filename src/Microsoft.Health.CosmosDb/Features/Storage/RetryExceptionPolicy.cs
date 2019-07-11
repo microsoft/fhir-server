@@ -22,7 +22,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             // Detects "449 Retry With" - The operation encountered a transient error. This only occurs on write operations. It is safe to retry the operation.
             // Detects "429 Too Many Request" - The collection has exceeded the provisioned throughput limit. Retry the request after the server specified retry after duration.
             // For more information see: https://docs.microsoft.com/en-us/rest/api/documentdb/http-status-codes-for-documentdb
-            if (ex.StatusCode == (HttpStatusCode)449 || ex.StatusCode == (HttpStatusCode)429)
+            if (ex.StatusCode == (HttpStatusCode)449 || ex.StatusCode == HttpStatusCode.Conflict)
             {
                 return true;
             }

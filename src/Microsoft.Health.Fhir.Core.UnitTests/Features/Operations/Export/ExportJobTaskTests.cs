@@ -373,6 +373,179 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("23", exportedIds);
         }
 
+        [Fact]
+        public async Task GivenTaskIsRunning_WhenCancelled_ThenOutputShouldUpdated()
+        {
+            var updatedETag = WeakETag.FromVersionId("updated");
+
+            _exportJobConfiguration.NumberOfPagesPerCommit = 2;
+
+            SearchResult searchResultWithContinuationToken = CreateSearchResult(continuationToken: "ct");
+
+            int numberOfCalls = 0;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    int count = numberOfCalls++;
+
+                    if (count == 7)
+                    {
+                        return CreateSearchResult();
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new ResourceWrapper(
+                                count.ToString(CultureInfo.InvariantCulture),
+                                "1",
+                                "Patient",
+                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                null,
+                                DateTimeOffset.MinValue,
+                                false,
+                                null,
+                                null,
+                                null),
+                        },
+                        continuationToken: "ct");
+                });
+
+            int numberOfDatabaseCalls = 0;
+            int capturedLastProcessedCount = 0;
+            ExportJobRecord capturedExportJobRecord = null;
+            WeakETag capturedWeakETag = null;
+
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), _cancellationToken).Returns(
+                x =>
+                {
+                    int count = numberOfDatabaseCalls++;
+
+                    if (count == 2)
+                    {
+                        // Setup the call to get the simulated canceled job record.
+                        var newExportJobRecord = new ExportJobRecord(capturedExportJobRecord.RequestUri, capturedExportJobRecord.ResourceType, capturedExportJobRecord.Hash, null)
+                        {
+                            Status = OperationStatus.Cancelled,
+                        };
+
+                        var updatedExportJobOutcome = new ExportJobOutcome(newExportJobRecord, updatedETag);
+
+                        _fhirOperationDataStore.GetExportJobByIdAsync(_exportJobRecord.Id, _cancellationToken).Returns(updatedExportJobOutcome);
+
+                        // Simulate the job being canceled by throwing the exception.
+                        throw new JobConflictException();
+                    }
+                    else if (count == 3)
+                    {
+                        // We should have gotten another update.
+                        capturedExportJobRecord = x.ArgAt<ExportJobRecord>(0);
+                        capturedWeakETag = x.ArgAt<WeakETag>(1);
+                    }
+                    else
+                    {
+                        capturedExportJobRecord = x.ArgAt<ExportJobRecord>(0);
+
+                        capturedLastProcessedCount = capturedExportJobRecord.Output["Patient"].Count;
+                    }
+
+                    return new ExportJobOutcome(capturedExportJobRecord, x.ArgAt<WeakETag>(1));
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(capturedExportJobRecord);
+            Assert.Equal(OperationStatus.Cancelled, capturedExportJobRecord.Status);
+            Assert.Same(updatedETag, capturedWeakETag);
+
+            int updatedCount = capturedExportJobRecord.Output["Patient"].Count;
+
+            // The job was canceled. The output should be updated to reflect the latest committed count.
+            Assert.NotEqual(capturedLastProcessedCount, updatedCount);
+            Assert.Equal(6, updatedCount);
+        }
+
+        [Fact]
+        public async Task GivenTaskIsRunning_WhenJobRecordUpdatedExternally_ThenJobRecordShouldNotBeUpdated()
+        {
+            var updatedETag = WeakETag.FromVersionId("updated");
+
+            _exportJobConfiguration.NumberOfPagesPerCommit = 2;
+
+            SearchResult searchResultWithContinuationToken = CreateSearchResult(continuationToken: "ct");
+
+            int numberOfCalls = 0;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    int count = numberOfCalls++;
+
+                    if (count == 7)
+                    {
+                        return CreateSearchResult();
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new ResourceWrapper(
+                                count.ToString(CultureInfo.InvariantCulture),
+                                "1",
+                                "Patient",
+                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                null,
+                                DateTimeOffset.MinValue,
+                                false,
+                                null,
+                                null,
+                                null),
+                        },
+                        continuationToken: "ct");
+                });
+
+            int numberOfDatabaseCalls = 0;
+
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), _cancellationToken).Returns(
+                x =>
+                {
+                    int count = numberOfDatabaseCalls++;
+
+                    ExportJobRecord exportJobRecord = x.ArgAt<ExportJobRecord>(0);
+
+                    if (count == 2)
+                    {
+                        // Setup the call to get the simulated canceled job record.
+                        var newExportJobRecord = new ExportJobRecord(exportJobRecord.RequestUri, exportJobRecord.ResourceType, exportJobRecord.Hash, null)
+                        {
+                            Status = OperationStatus.Failed,
+                        };
+
+                        var updatedExportJobOutcome = new ExportJobOutcome(newExportJobRecord, updatedETag);
+
+                        _fhirOperationDataStore.GetExportJobByIdAsync(_exportJobRecord.Id, _cancellationToken).Returns(updatedExportJobOutcome);
+
+                        _fhirOperationDataStore.ClearReceivedCalls();
+
+                        // Simulate the job being canceled by throwing the exception.
+                        throw new JobConflictException();
+                    }
+
+                    return new ExportJobOutcome(exportJobRecord, x.ArgAt<WeakETag>(1));
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            await _fhirOperationDataStore.DidNotReceiveWithAnyArgs().UpdateExportJobAsync(null, null, CancellationToken.None);
+        }
+
         private SearchResult CreateSearchResult(IEnumerable<ResourceWrapper> resourceWrappers = null, string continuationToken = null)
         {
             if (resourceWrappers == null)
