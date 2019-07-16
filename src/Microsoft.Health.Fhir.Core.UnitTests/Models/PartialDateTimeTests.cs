@@ -94,6 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         public static IEnumerable<object[]> GetParameterInvalidData()
         {
             yield return new object[] { ParamNameMinute, 10, 30, 23, null, null, null, 60 }; // Minute must be specified if Hour is specified.
+            yield return new object[] { ParamNameSecond, 10, 20, 25, 40, null, null, 60 }; // Second must be specified if Hour and Minute are specified.
             yield return new object[] { ParamNameUtcOffset, 3, 5, 17, 30, 15, 0.400123m, null }; // UtcOffset must be specified if Hour and Minutes are specified.
         }
 
@@ -172,7 +173,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             yield return new object[] { null, null, null, null, null, null, null };
             yield return new object[] { 1, null, null, null, null, null, null };
             yield return new object[] { 3, 5, null, null, null, null, null };
-            yield return new object[] { 6, 1, 12, 35, null, null, 60 };
             yield return new object[] { 12, 2, 23, 8, 24, null, -150 };
             yield return new object[] { 1, 3, 5, 2, 15, 0.9991532m, 30 };
         }
@@ -391,8 +391,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("2017", "2017")]
         [InlineData("2017-01", "2017-01")]
         [InlineData("2018-01-25", "2018-01-25")]
-        [InlineData("2018-01-25T12:15", "2018-01-25T12:15+00:00")]
-        [InlineData("2018-01-25T07:55+05:30", "2018-01-25T07:55+05:30")]
         [InlineData("2018-01-25T10:12:15", "2018-01-25T10:12:15+00:00")]
         [InlineData("2018-01-25T10:12:03.229", "2018-01-25T10:12:03.2290000+00:00")]
         [InlineData("2018-01-25T03:01:58+05:30", "2018-01-25T03:01:58+05:30")]

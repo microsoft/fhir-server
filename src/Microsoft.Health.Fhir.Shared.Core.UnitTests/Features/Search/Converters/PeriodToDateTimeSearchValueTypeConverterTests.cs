@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     public class PeriodToDateTimeSearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<PeriodToDateTimeSearchValueTypeConverter, Period>
     {
         [Theory]
-        [InlineData("2018-01", "2018-12-25T15:30")]
+        [InlineData("2018-01", "2018-12-25T15:30:25")]
         [InlineData(null, "2017")]
         [InlineData("2018-10-15T12:33:55", null)]
         public void GivenAPeriodWithValue_WhenConverted_ThenADateTimeSearchValueShouldBeCreated(string start, string end)

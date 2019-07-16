@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         [Fact]
         public void GivenAFhirDateTimeWithValue_WhenConverted_ThenADateTimeSearchValueShouldBeCreated()
         {
-            const string partialDate = "2018-03-30T05:12";
+            const string partialDate = "2018-03-30T05:12:25";
 
             Test(
                 date => date.Value = partialDate,

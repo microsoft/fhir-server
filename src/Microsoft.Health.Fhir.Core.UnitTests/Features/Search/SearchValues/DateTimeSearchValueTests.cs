@@ -24,8 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             yield return new object[] { "2013-02", "2013-02-01T00:00:00Z", "2013-02-28T23:59:59.9999999Z" }; // Year and month (non-leap year).
             yield return new object[] { "2012-02", "2012-02-01T00:00:00Z", "2012-02-29T23:59:59.9999999Z" }; // Year and month (leap year).
             yield return new object[] { "2015-07-01", "2015-07-01T00:00:00Z", "2015-07-01T23:59:59.9999999Z" }; // Year, month, and day.
-            yield return new object[] { "2013-03-12T12:30", "2013-03-12T12:30:00Z", "2013-03-12T12:30:59.9999999Z" }; // Year, month, day, hour and second.
-            yield return new object[] { "2013-03-12T12:30:35", "2013-03-12T12:30:35Z", "2013-03-12T12:30:35.9999999Z" }; // Year, month, day, hour and second.
+            yield return new object[] { "2013-03-12T12:30:35", "2013-03-12T12:30:35Z", "2013-03-12T12:30:35.9999999Z" }; // Year, month, day, hour, minute, and second.
             yield return new object[] { "2014-03-29T15:33:59.495+10:00", "2014-03-29T15:33:59.495+10:00", "2014-03-29T15:33:59.495+10:00" }; // Everything.
         }
 
@@ -38,8 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             yield return new object[] { "2013-02", "2013-02-01T00:00:00.000Z" }; // Year and month (non-leap year).
             yield return new object[] { "2012-02", "2012-02-01T00:00:00.000Z" }; // Year and month (leap year).
             yield return new object[] { "2015-07-01", "2015-07-01T00:00:00.000Z" }; // Year, month, and day.
-            yield return new object[] { "2013-03-12T12:30", "2013-03-12T12:30:00Z", }; // Year, month, day, hour and second.
-            yield return new object[] { "2013-03-12T12:30:35", "2013-03-12T12:30:35Z" }; // Year, month, day, hour and second.
+            yield return new object[] { "2013-03-12T12:30:35", "2013-03-12T12:30:35Z" }; // Year, month, day, hour, minute, and second.
             yield return new object[] { "2014-03-29T15:33:59.495+10:00", "2014-03-29T15:33:59.495+10:00" }; // Everything.
         }
 
@@ -52,8 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             yield return new object[] { "2022-02", "2022-02-28T23:59:59.9999999Z" }; // Year and month (non-leap year).
             yield return new object[] { "2016-02", "2016-02-29T23:59:59.9999999Z" }; // Year and month (leap year).
             yield return new object[] { "2017-01-01", "2017-01-01T23:59:59.9999999Z" }; // Year, month, and day.
-            yield return new object[] { "2013-03-12T12:30", "2013-03-12T12:30:59.9999999Z" }; // Year, month, day, hour and second.
-            yield return new object[] { "2013-03-12T12:30:35", "2013-03-12T12:30:35.9999999Z" }; // Year, month, day, hour and second.
+            yield return new object[] { "2013-03-12T12:30:35", "2013-03-12T12:30:35.9999999Z" }; // Year, month, day, hour, minute, and second.
             yield return new object[] { "2018-02-12T13:22:01.000+05:00", "2018-02-12T13:22:01.000+05:00" }; // Everything.
         }
 
