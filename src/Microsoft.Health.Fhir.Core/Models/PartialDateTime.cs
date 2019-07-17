@@ -107,14 +107,6 @@ namespace Microsoft.Health.Fhir.Core.Models
                         nameof(minute));
                 }
 
-                if (second == null)
-                {
-                    // If hour and minute are specified, then seconds must be specified.
-                    throw new ArgumentException(
-                        $"The '{nameof(second)}' portion of a date must be specified if '{nameof(hour)}' and '{nameof(minute)}' are specified.",
-                        nameof(second));
-                }
-
                 if (utcOffset == null)
                 {
                     // If hour and minute are specified, then the timezone offset must be specified
