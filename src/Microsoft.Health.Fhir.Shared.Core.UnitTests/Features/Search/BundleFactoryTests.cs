@@ -129,14 +129,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenASearchResultWithContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _continuationToken).Returns(_nextUrl);
+            string encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(_continuationToken));
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, encodedContinuationToken).Returns(_nextUrl);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
             var searchResult = new SearchResult(new ResourceWrapper[0], _unsupportedSearchParameters, _continuationToken);
 
             ResourceElement actual = _bundleFactory.CreateSearchBundle(searchResult);
 
-            // Since there is no continuation token, there should not be next link.
             Assert.Equal(_nextUrl.OriginalString, actual.Scalar<string>("Bundle.link.where(relation='next').url"));
         }
     }
