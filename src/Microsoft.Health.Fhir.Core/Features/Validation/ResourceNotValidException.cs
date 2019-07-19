@@ -31,9 +31,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             {
                 if (failure is FhirValidationFailure fhirValidationFailure)
                 {
-                    foreach (var item in fhirValidationFailure.IssueComponent)
+                    if (fhirValidationFailure.IssueComponent != null)
                     {
-                        Issues.Add(item);
+                        Issues.Add(fhirValidationFailure.IssueComponent);
                     }
                 }
                 else
