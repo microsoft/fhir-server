@@ -44,24 +44,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
-
-            // If the job is already completed for any reason, return conflict status.
-            switch (outcome.JobRecord.Status)
+            return await _retryPolicy.ExecuteAsync(async () =>
             {
-                case OperationStatus.Cancelled:
-                case OperationStatus.Completed:
-                case OperationStatus.Failed:
-                    return new CancelExportResponse(HttpStatusCode.Conflict);
-            }
+                ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
-            // Try to cancel the job.
-            outcome.JobRecord.Status = OperationStatus.Cancelled;
-            outcome.JobRecord.CancelledTime = Clock.UtcNow;
+                // If the job is already completed for any reason, return conflict status.
+                switch (outcome.JobRecord.Status)
+                {
+                    case OperationStatus.Cancelled:
+                    case OperationStatus.Completed:
+                    case OperationStatus.Failed:
+                        return new CancelExportResponse(HttpStatusCode.Conflict);
+                }
 
-            await _retryPolicy.ExecuteAsync(() => _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken));
+                // Try to cancel the job.
+                outcome.JobRecord.Status = OperationStatus.Cancelled;
+                outcome.JobRecord.CancelledTime = Clock.UtcNow;
 
-            return new CancelExportResponse(HttpStatusCode.Accepted);
+                await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
+
+                return new CancelExportResponse(HttpStatusCode.Accepted);
+            });
         }
     }
 }

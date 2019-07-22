@@ -154,9 +154,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ExportJobLocation, Name = RouteNames.CancelExport)]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> CancelExport(string id)
+        public async Task<IActionResult> CancelExport(string idParameter)
         {
-            CancelExportResponse response = await _mediator.CancelExportAsync(id, HttpContext.RequestAborted);
+            CancelExportResponse response = await _mediator.CancelExportAsync(idParameter, HttpContext.RequestAborted);
 
             return new ExportResult(response.StatusCode);
         }
