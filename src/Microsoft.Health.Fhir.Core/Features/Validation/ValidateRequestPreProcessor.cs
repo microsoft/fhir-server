@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var allResults = (await Task.WhenAll(_validators.Select(x => x.ValidateAsync(request)))).Where(x => x != null).ToArray();
+            var allResults = (await Task.WhenAll(_validators.Select(x => x.ValidateAsync(request, cancellationToken)))).Where(x => x != null).ToArray();
 
             if (!allResults.All(x => x.IsValid))
             {
