@@ -71,8 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     fullFhirPath,
                     error,
                     new OperationOutcomeIssue(
-                        OperationOutcomeConstants.IssueType.Structure,
                         OperationOutcomeConstants.IssueSeverity.Error,
+                        OperationOutcomeConstants.IssueType.Structure,
                         error,
                         location: new[] { fullFhirPath }));
             }

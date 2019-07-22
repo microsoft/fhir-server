@@ -51,8 +51,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
 
-            // Execute the actual search.
-            return await SearchInternalAsync(searchOptions, cancellationToken);
+            try
+            {
+                // Execute the actual search.
+                return await SearchInternalAsync(searchOptions, cancellationToken);
+            }
+            catch (Exception)
+            {
+                // Should a logging statement be added?
+                throw new RequestNotValidException(Resources.InvalidContinuationToken);
+            }
         }
 
         /// <inheritdoc />
