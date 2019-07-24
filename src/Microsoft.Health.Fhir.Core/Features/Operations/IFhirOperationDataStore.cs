@@ -32,16 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Checks whether the job has been updated or not.
-        /// </summary>
-        /// <param name="id">The id of the job.</param>
-        /// <param name="eTag">The ETag of the job.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A value tuple with 2 components. The first component is a <see cref="bool"/> indicating whether the job has been updated or not. The second component is an instance of <see cref="ExportJobOutcome"/> if the export job is updated; otherwise, <c>null</c>.</returns>
-        /// <exception cref="JobNotFoundException"> thrown when the specific <paramref name="id"/> is not found. </exception>
-        Task<(bool, ExportJobOutcome)> TryGetUpdatedExportJobAsync(string id, WeakETag eTag, CancellationToken cancellationToken);
-
-        /// <summary>
         /// Gets an export job by hash.
         /// </summary>
         /// <param name="hash">The hash of the job.</param>
