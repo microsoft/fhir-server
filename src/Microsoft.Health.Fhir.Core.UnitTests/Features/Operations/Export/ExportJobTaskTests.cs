@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
+            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
 
             Assert.Equal(expectedIds, actualIds);
         }
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
+            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
 
             // All of the ids should be present since it should have committed one last time after all the results were exported.
             Assert.Equal("01234", actualIds);
@@ -353,7 +353,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
 
             Assert.Equal("01", exportedIds);
             Assert.NotNull(_exportJobRecord.Progress);
@@ -375,7 +375,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             numberOfSuccessfulPages = 5;
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
             Assert.Equal("23", exportedIds);
         }
 
