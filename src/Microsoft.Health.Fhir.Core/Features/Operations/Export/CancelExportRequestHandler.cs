@@ -51,15 +51,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // If the job is already completed for any reason, return conflict status.
                 switch (outcome.JobRecord.Status)
                 {
-                    case OperationStatus.Cancelled:
+                    case OperationStatus.Canceled:
                     case OperationStatus.Completed:
                     case OperationStatus.Failed:
                         return new CancelExportResponse(HttpStatusCode.Conflict);
                 }
 
                 // Try to cancel the job.
-                outcome.JobRecord.Status = OperationStatus.Cancelled;
-                outcome.JobRecord.CancelledTime = Clock.UtcNow;
+                outcome.JobRecord.Status = OperationStatus.Canceled;
+                outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
                 await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
 

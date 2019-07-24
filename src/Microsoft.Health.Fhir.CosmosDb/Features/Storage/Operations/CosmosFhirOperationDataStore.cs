@@ -138,6 +138,51 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
+        public async Task<(bool, ExportJobOutcome)> TryGetUpdatedExportJobAsync(string id, WeakETag eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
+            EnsureArg.IsNotNull(eTag, nameof(eTag));
+
+            try
+            {
+                DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await _documentClientScope.Value.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
+                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, id),
+                    new RequestOptions
+                    {
+                        AccessCondition = new AccessCondition()
+                        {
+                            Type = AccessConditionType.IfNoneMatch,
+                            Condition = eTag.VersionId,
+                        },
+                        PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
+                    },
+                    cancellationToken);
+
+                if (cosmosExportJobRecord.StatusCode == HttpStatusCode.NotModified)
+                {
+                    return (false, null);
+                }
+                else
+                {
+                    return (true, new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag)));
+                }
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+                else if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+                }
+
+                _logger.LogError(dce, "Failed to get an export job by id.");
+                throw;
+            }
+        }
+
         public async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));

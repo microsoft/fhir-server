@@ -110,7 +110,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // Search and process the results.
                     using (IScoped<ISearchService> searchService = _searchServiceFactory())
                     {
-                        searchResult = await searchService.Value.SearchAsync(_exportJobRecord.ResourceType, queryParameters, cancellationToken);
+                        // If the continuation token is null, then we will exclude it. Calculate the offset and count to be passed in.
+                        int offset = queryParameters[0].Item2 == null ? 1 : 0;
+
+                        searchResult = await searchService.Value.SearchAsync(
+                            _exportJobRecord.ResourceType,
+                            new ArraySegment<Tuple<string, string>>(queryParameters, offset, queryParameters.Length - offset),
+                            cancellationToken);
                     }
 
                     await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
@@ -125,15 +131,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     progress.UpdateContinuationToken(searchResult.ContinuationToken);
                     queryParameters[0] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
 
-                    // Commit the changes if necessary.
+                    // The export job can be canceled while the job is executing. We will detect that in two ways:
+                    // 1. During update of the job record after the changes have been committed.
+                    // 2. During periodic check of the job record.
+                    //
+                    // If the cancellation is detected during step 1, it means the Output in the persisted job record is out of sync since it failed to update the job record.
+                    // In that case, we would want to update the job record so that it matches (best effort) what's been actually committed.
+                    // If the cancellation is detected during step 2, we don't need to update the job record even though there are new resources
+                    // exported because those resources haven't been committed yet and therefore the user will not see them.
                     if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
                     {
+                        // Commit the changes.
                         await _exportDestinationClient.CommitAsync(cancellationToken);
 
                         // Update the job record.
-                        await UpdateJobRecordAsync(cancellationToken);
+                        try
+                        {
+                            await UpdateJobRecordAsync(cancellationToken);
+                        }
+                        catch (JobConflictException)
+                        {
+                            await HandleExportJobUpdatedExternallyAsync(updatedExportJob: null, updateJobRecord: true, cancellationToken);
+
+                            return;
+                        }
 
                         currentBatchId = progress.Page;
+                    }
+                    else
+                    {
+                        bool updated = false;
+                        ExportJobOutcome updatedExportJob = null;
+
+                        // Check to see if the job has been canceled.
+                        using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
+                        {
+                            (updated, updatedExportJob) = await fhirOperationDataStore.Value.TryGetUpdatedExportJobAsync(_exportJobRecord.Id, _weakETag, cancellationToken);
+                        }
+
+                        if (updated)
+                        {
+                            await HandleExportJobUpdatedExternallyAsync(updatedExportJob, updateJobRecord: false, cancellationToken);
+
+                            return;
+                        }
                     }
                 }
 
@@ -153,10 +194,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     _logger.LogWarning(ex, "Failed to delete the secret.");
                 }
-            }
-            catch (JobConflictException)
-            {
-                await HandleJobConflictAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -184,39 +221,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
-            }
-        }
-
-        private async Task HandleJobConflictAsync(CancellationToken cancellationToken)
-        {
-            // The job was updated by another process.
-            ExportJobOutcome updatedOutcome = null;
-
-            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
-            {
-                updatedOutcome = await fhirOperationDataStore.Value.GetExportJobByIdAsync(_exportJobRecord.Id, cancellationToken);
-            }
-
-            if (updatedOutcome.JobRecord.Status == OperationStatus.Cancelled)
-            {
-                _logger.LogInformation("The job was canceled by another process.");
-
-                // The job was canceled. Merge the output without updating the status.
-                updatedOutcome.JobRecord.Output.Clear();
-
-                foreach (KeyValuePair<string, ExportFileInfo> kvp in _exportJobRecord.Output)
-                {
-                    updatedOutcome.JobRecord.Output.Add(kvp);
-                }
-
-                _exportJobRecord = updatedOutcome.JobRecord;
-                _weakETag = updatedOutcome.ETag;
-
-                await UpdateJobRecordAsync(cancellationToken);
-            }
-            else
-            {
-                _logger.LogWarning("The job was updated by another process but was not canceled. Abandoning the job.");
             }
         }
 
@@ -269,6 +273,52 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Increment the file information.
                 exportFileInfo.IncrementCount(bytesToWrite.Length);
+            }
+        }
+
+        private async Task HandleExportJobUpdatedExternallyAsync(ExportJobOutcome updatedExportJob, bool updateJobRecord, CancellationToken cancellationToken)
+        {
+            _logger.LogTrace("The job was updated by external process.");
+
+            try
+            {
+                // Load the latest record if need to.
+                if (updatedExportJob == null)
+                {
+                    using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
+                    {
+                        updatedExportJob = await fhirOperationDataStore.Value.GetExportJobByIdAsync(_exportJobRecord.Id, cancellationToken);
+                    }
+                }
+
+                if (updatedExportJob.JobRecord.Status == OperationStatus.Canceled)
+                {
+                    _logger.LogInformation("The job was canceled by another process.");
+
+                    if (updateJobRecord)
+                    {
+                        // The job was canceled. Merge the output without updating the status.
+                        updatedExportJob.JobRecord.Output.Clear();
+
+                        foreach (KeyValuePair<string, ExportFileInfo> kvp in _exportJobRecord.Output)
+                        {
+                            updatedExportJob.JobRecord.Output.Add(kvp);
+                        }
+
+                        _exportJobRecord = updatedExportJob.JobRecord;
+                        _weakETag = updatedExportJob.ETag;
+
+                        await UpdateJobRecordAsync(cancellationToken);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("The job was updated by another process but was not canceled. Abandoning the job.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to handle the job that was updated externally. The output might not reflect the latest change.");
             }
         }
     }

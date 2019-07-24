@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Running,
         Completed,
         Failed,
-        Cancelled,
+        Canceled,
     }
 }

@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData(OperationStatus.Cancelled)]
+        [InlineData(OperationStatus.Canceled)]
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
         public async Task GivenAFhirMediator_WhenCancelingExistingExportJobThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(OperationStatus operationStatus)
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             ExportJobOutcome outcome = await SetupAndExecuteCancelExportAsync(operationStatus, HttpStatusCode.Conflict);
 
             Assert.Equal(operationStatus, outcome.JobRecord.Status);
-            Assert.Null(outcome.JobRecord.CancelledTime);
+            Assert.Null(outcome.JobRecord.CanceledTime);
         }
 
         [Theory]
@@ -70,8 +70,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             }
 
             // Check to make sure the record is updated
-            Assert.Equal(OperationStatus.Cancelled, outcome.JobRecord.Status);
-            Assert.Equal(instant, outcome.JobRecord.CancelledTime);
+            Assert.Equal(OperationStatus.Canceled, outcome.JobRecord.Status);
+            Assert.Equal(instant, outcome.JobRecord.CanceledTime);
 
             await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
         }

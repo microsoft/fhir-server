@@ -80,8 +80,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.EndTime)]
         public DateTimeOffset? EndTime { get; set; }
 
-        [JsonProperty(JobRecordProperties.CancelledTime)]
-        public DateTimeOffset? CancelledTime { get; set; }
+        [JsonProperty(JobRecordProperties.CanceledTime)]
+        public DateTimeOffset? CanceledTime { get; set; }
 
         [JsonProperty(JobRecordProperties.Progress)]
         public ExportJobProgress Progress { get; set; }
