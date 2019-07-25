@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string EndTime = "endTime";
 
-        public const string CancelledTime = "cancelledTime";
+        public const string CanceledTime = "canceledTime";
 
         public const string RequestUri = "requestUri";
 

@@ -27,7 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// </summary>
         /// <param name="id">The id of the job.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>An instance of the existing export job. <see cref="JobNotFoundException"/> is thrown when the specific <paramref name="id"/> is not found. </returns>
+        /// <returns>An instance of the existing export job.</returns>
+        /// <exception cref="JobNotFoundException"> thrown when the specific <paramref name="id"/> is not found. </exception>
         Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken);
 
         /// <summary>

@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Theory]
-        [InlineData(OperationStatus.Cancelled)]
+        [InlineData(OperationStatus.Canceled)]
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
         [InlineData(OperationStatus.Running)]
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync();
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Cancelled);
+            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
             ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync();
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         private void ValidateExportJobOutcome(ExportJobRecord expected, ExportJobRecord actual)
         {
             Assert.Equal(expected.Id, actual.Id);
-            Assert.Equal(expected.CancelledTime, actual.CancelledTime);
+            Assert.Equal(expected.CanceledTime, actual.CanceledTime);
             Assert.Equal(expected.EndTime, actual.EndTime);
             Assert.Equal(expected.Hash, actual.Hash);
             Assert.Equal(expected.SchemaVersion, actual.SchemaVersion);
