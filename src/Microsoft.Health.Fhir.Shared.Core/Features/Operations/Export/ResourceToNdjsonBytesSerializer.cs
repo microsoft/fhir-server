@@ -35,20 +35,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
-            string resourceData = null;
+            ResourceElement resource = _resourceDeserializer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
 
-            if (resourceWrapper.RawResource.Format == Core.Models.FhirResourceFormat.Json)
-            {
-                // This is JSON already, we can write as is.
-                resourceData = resourceWrapper.RawResource.Data;
-            }
-            else
-            {
-                // This is not JSON, so deserialize it and serialize it to JSON.
-                ResourceElement resource = _resourceDeserializer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
-
-                resourceData = _fhirJsonSerializer.SerializeToString(resource.ToPoco<Resource>());
-            }
+            string resourceData = _fhirJsonSerializer.SerializeToString(resource.ToPoco<Resource>());
 
             byte[] bytesToWrite = Encoding.UTF8.GetBytes($"{resourceData}\n");
 
