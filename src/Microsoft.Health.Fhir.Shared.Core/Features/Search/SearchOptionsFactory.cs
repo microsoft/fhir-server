@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
-        private static readonly Regex Base64Message = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$");
+        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
 
         private readonly IExpressionParser _expressionParser;
         private readonly ILogger _logger;
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
 
                     // Checks if the continuation token is base 64 bit encoded. Needed for systems that have cached continuation tokens from before they were encoded.
-                    if (Base64Message.IsMatch(query.Item2))
+                    if (Base64FormatRegex.IsMatch(query.Item2))
                     {
                         continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
                     }
