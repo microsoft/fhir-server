@@ -3,15 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+using System.Net;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
-    public enum OperationStatus
+    public class CancelExportResponse
     {
-        Unknown,
-        Queued,
-        Running,
-        Completed,
-        Failed,
-        Canceled,
+        public CancelExportResponse(HttpStatusCode statusCode)
+        {
+            StatusCode = statusCode;
+        }
+
+        public HttpStatusCode StatusCode { get; }
     }
 }

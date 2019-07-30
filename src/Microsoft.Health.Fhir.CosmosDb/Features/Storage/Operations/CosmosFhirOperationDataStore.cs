@@ -202,11 +202,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                ResourceResponse<Document> replaceResult = await _documentClientScope.Value.ReplaceDocumentAsync(
-                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobRecord.Id),
-                    cosmosExportJob,
-                    requestOptions,
-                    cancellationToken: cancellationToken);
+                ResourceResponse<Document> replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    () => _documentClientScope.Value.ReplaceDocumentAsync(
+                        UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobRecord.Id),
+                        cosmosExportJob,
+                        requestOptions,
+                        cancellationToken));
 
                 var latestETag = replaceResult.Resource.ETag;
                 return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(latestETag));

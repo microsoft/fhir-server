@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Export = "$export";
         public const string ExportResourceType = ResourceType + "/" + Export;
         public const string ExportResourceTypeById = ResourceTypeById + "/" + Export;
-        public const string ExportStatusById = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + IdRouteSegment;
+        public const string ExportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + IdRouteSegment;
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
