@@ -10,9 +10,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Metrics
     /// </summary>
     public class NullMetricLoggerFactory : IMetricLoggerFactory
     {
+        private static NullMetricLogger _metricLogger = new NullMetricLogger();
+
         public IMetricLogger CreateMetricLogger(string metricName, params string[] dimensions)
         {
-            return new NullMetricLogger();
+            return _metricLogger;
         }
     }
 }

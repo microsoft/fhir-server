@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -131,6 +132,8 @@ namespace Microsoft.Extensions.DependencyInjection
                         // This middleware will capture any handled error with the status code between 400 and 599 that hasn't had a body or content-type set. (i.e. 404 on unknown routes)
                         app.UseStatusCodePagesWithReExecute("/CustomError", "?statusCode={0}");
                     }
+
+                    app.UseMetrics();
 
                     // The audit module needs to come after the exception handler because we need to catch
                     // the response before it gets converted to custom error.
