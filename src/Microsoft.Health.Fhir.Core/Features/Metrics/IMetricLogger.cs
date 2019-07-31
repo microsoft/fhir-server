@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Metrics
 {
     public interface IMetricLogger
     {
+        string MetricName { get; set; }
+
         void LogMetric(long inputValue, params string[] dimensions);
     }
 }

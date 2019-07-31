@@ -10,6 +10,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Metrics
     /// </summary>
     public class NullMetricLogger : IMetricLogger
     {
+        public string MetricName { get; set; }
+
         public void LogMetric(long inputValue, params string[] dimensions)
         {
         }
