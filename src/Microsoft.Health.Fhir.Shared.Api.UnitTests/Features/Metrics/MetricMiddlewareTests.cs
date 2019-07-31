@@ -40,9 +40,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Metrics
 
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
-            _latencyMetric.MetricName = "Latency";
-            _requestMetric.MetricName = "Requests";
-            _errorMetric.MetricName = "Errors";
+            _latencyMetric.Name = "Latency";
+            _requestMetric.Name = "Requests";
+            _errorMetric.Name = "Errors";
 
             _metricLoggerFactory.CreateMetricLogger(Arg.Is<string>("Latency"), Arg.Any<string[]>()).Returns(_latencyMetric);
             _metricLoggerFactory.CreateMetricLogger(Arg.Is<string>("Requests"), Arg.Any<string[]>()).Returns(_requestMetric);
