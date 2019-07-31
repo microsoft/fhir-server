@@ -14,6 +14,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Extensions\HttpStatusCodeExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
@@ -43,6 +44,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\ResourceActionHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityHeadersHelperTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)RouteDataHelpers.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Controllers\openid-configuration.json">

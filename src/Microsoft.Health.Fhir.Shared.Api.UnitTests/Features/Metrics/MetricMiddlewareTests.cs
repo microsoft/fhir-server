@@ -9,7 +9,6 @@ using System.Security.Claims;
 using System.Security.Principal;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Metrics;
@@ -20,9 +19,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Metrics
 {
     public class MetricMiddlewareTests
     {
-        private const string Controller = "Fhir";
-        private const string Action = "Action";
-
+        private const string AuthenticationType = "AuthenticationTypes.Federation";
+        private const string Scheme = "https";
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly IMetricLoggerFactory _metricLoggerFactory = Substitute.For<IMetricLoggerFactory>();
         private readonly IMetricLogger _latencyMetric = Substitute.For<IMetricLogger>();
@@ -38,7 +36,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Metrics
         public MetricMiddlewareTests()
         {
             _httpContext = new DefaultHttpContext();
-            _httpContext.Request.Protocol = "HTTP";
+            _httpContext.Request.Scheme = Scheme;
 
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
@@ -56,10 +54,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Metrics
                 _metricLoggerFactory);
 
             var identity = Substitute.For<IIdentity>();
-            identity.AuthenticationType.Returns("AAD");
+            identity.AuthenticationType.Returns(AuthenticationType);
             _principal.Identity.Returns(identity);
-            SetupRouteData();
             _fhirRequestContext.Principal = _principal;
+            RouteDataHelpers.SetupRouteData(_fhirRequestContext, _httpContext, "Fhir", "Action");
         }
 
         [Theory]
@@ -74,8 +72,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Metrics
 
             await _metricMiddleware.Invoke(_httpContext);
 
-            _latencyMetric.ReceivedWithAnyArgs(1).LogMetric(Arg.Any<long>(), _fhirRequestContext.RouteName, "AAD", "HTTP", null);
-            _requestMetric.ReceivedWithAnyArgs(1).LogMetric(1, _fhirRequestContext.RouteName, "AAD", "HTTP", null, ((int)statusCode).ToString(CultureInfo.InvariantCulture), stringStatusCode, statusCodeClass);
+            _latencyMetric.ReceivedWithAnyArgs(1).LogMetric(Arg.Any<long>(), _fhirRequestContext.RouteName, AuthenticationType, Scheme, null);
+            _requestMetric.ReceivedWithAnyArgs(1).LogMetric(1, _fhirRequestContext.RouteName, AuthenticationType, Scheme, null, ((int)statusCode).ToString(CultureInfo.InvariantCulture), stringStatusCode, statusCodeClass);
         }
 
         [Theory]
@@ -88,27 +86,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Metrics
 
             await _metricMiddleware.Invoke(_httpContext);
 
-            _latencyMetric.ReceivedWithAnyArgs(1).LogMetric(Arg.Any<long>(), _fhirRequestContext.RouteName, "AAD", "HTTP", null);
-            _requestMetric.ReceivedWithAnyArgs(1).LogMetric(1, _fhirRequestContext.RouteName, "AAD", "HTTP", null, ((int)statusCode).ToString(CultureInfo.InvariantCulture), stringStatusCode, statusCodeClass);
-            _errorMetric.ReceivedWithAnyArgs(1).LogMetric(1, _fhirRequestContext.RouteName, "AAD", "HTTP", null, ((int)statusCode).ToString(CultureInfo.InvariantCulture), stringStatusCode, statusCodeClass);
-        }
-
-        private RouteData SetupRouteData(string controllerName = Controller, string actionName = Action)
-        {
-            _fhirRequestContext.RouteName.Returns((string)null);
-
-            var routeData = new RouteData();
-
-            routeData.Values.Add("controller", controllerName);
-            routeData.Values.Add("action", actionName);
-
-            IRoutingFeature routingFeature = Substitute.For<IRoutingFeature>();
-
-            routingFeature.RouteData.Returns(routeData);
-
-            _httpContext.Features[typeof(IRoutingFeature)] = routingFeature;
-
-            return routeData;
+            _latencyMetric.ReceivedWithAnyArgs(1).LogMetric(Arg.Any<long>(), _fhirRequestContext.RouteName, AuthenticationType, "Scheme", null);
+            _requestMetric.ReceivedWithAnyArgs(1).LogMetric(1, _fhirRequestContext.RouteName, AuthenticationType, "Scheme", null, ((int)statusCode).ToString(CultureInfo.InvariantCulture), stringStatusCode, statusCodeClass);
+            _errorMetric.ReceivedWithAnyArgs(1).LogMetric(1, _fhirRequestContext.RouteName, AuthenticationType, "Scheme", null, ((int)statusCode).ToString(CultureInfo.InvariantCulture), stringStatusCode, statusCodeClass);
         }
     }
 }

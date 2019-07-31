@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Metrics;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
 
             _next = next;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+
             _latencyMetricLogger = metricLoggerFactory.CreateMetricLogger("Latency", "Operation", "Authentication", "Protocol", "ResourceType");
             _totalRequestsLogger = metricLoggerFactory.CreateMetricLogger("Requests", "Operation", "Authentication", "Protocol", "ResourceType", "StatusCode", "StatusCodeClass", "StatusText");
             _errorRequestsLogger = metricLoggerFactory.CreateMetricLogger("Errors", "Operation", "Authentication", "Protocol", "ResourceType", "StatusCode", "StatusCodeClass", "StatusText");
@@ -53,24 +55,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
                 stopwatch.Stop();
 
                 RouteData routeData = context.GetRouteData();
-                routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+
+                object resourceType = null;
+
+                if (routeData != null && routeData.Values != null)
+                {
+                    routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out resourceType);
+                }
 
                 _latencyMetricLogger.LogMetric(
                                             stopwatch.ElapsedMilliseconds,
                                             _fhirRequestContextAccessor.FhirRequestContext.RouteName,
                                             _fhirRequestContextAccessor.FhirRequestContext.Principal.Identity.AuthenticationType,
-                                            context.Request.Protocol,
+                                            context.Request.Scheme,
                                             resourceType?.ToString());
+
+                var statusCode = (HttpStatusCode)context.Response.StatusCode;
 
                 _totalRequestsLogger.LogMetric(
                     1,
                     _fhirRequestContextAccessor.FhirRequestContext.RouteName,
                     _fhirRequestContextAccessor.FhirRequestContext.Principal.Identity.AuthenticationType,
-                    context.Request.Protocol,
+                    context.Request.Scheme,
                     resourceType?.ToString(),
                     context.Response.StatusCode.ToString(CultureInfo.InvariantCulture),
-                    (context.Response.StatusCode / 100) + "xx",
-                    ((HttpStatusCode)context.Response.StatusCode).ToString());
+                    statusCode.ToStatusCodeClass(),
+                    statusCode.ToString());
 
                 if (context.Response.StatusCode >= 500)
                 {
@@ -78,11 +88,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
                         1,
                         _fhirRequestContextAccessor.FhirRequestContext.RouteName,
                         _fhirRequestContextAccessor.FhirRequestContext.Principal.Identity.AuthenticationType,
-                        context.Request.Protocol,
+                        context.Request.Scheme,
                         resourceType?.ToString(),
                         context.Response.StatusCode.ToString(CultureInfo.InvariantCulture),
-                        (context.Response.StatusCode / 100) + "xx",
-                        ((HttpStatusCode)context.Response.StatusCode).ToString());
+                        statusCode.ToStatusCodeClass(),
+                        statusCode.ToString());
                 }
             }
         }
