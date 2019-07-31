@@ -5,7 +5,7 @@ parameters:
 steps:
 - task: DotNetCoreInstaller@0
   inputs:
-    version: '2.2.107' 
+    version: '2.2.108' 
 
 - script: dotnet build --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) /warnaserror
   displayName: 'dotnet build $(buildConfiguration)'
