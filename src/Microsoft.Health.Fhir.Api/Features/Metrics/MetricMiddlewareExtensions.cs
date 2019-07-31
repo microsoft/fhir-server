@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Builder;
 
 namespace Microsoft.Health.Fhir.Api.Features.Metrics
 {
-    public static class MetricsMiddlewareExtensions
+    public static class MetricMiddlewareExtensions
     {
         public static IApplicationBuilder UseMetrics(
             this IApplicationBuilder builder)
