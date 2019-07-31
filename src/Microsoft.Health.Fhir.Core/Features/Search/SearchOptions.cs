@@ -62,6 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the list of sorting parameters. The second item in a tuple is whether the sort is accending or decending.
         /// </summary>
-        public IEnumerable<Tuple<string, string>> Sort { get; internal set; }
+        public IEnumerable<Tuple<string, SortOrder>> Sort { get; internal set; }
     }
 }

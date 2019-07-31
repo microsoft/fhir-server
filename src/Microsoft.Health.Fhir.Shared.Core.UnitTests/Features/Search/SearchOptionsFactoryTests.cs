@@ -244,8 +244,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options);
             Assert.NotNull(options.Sort);
             Assert.Equal(2, options.Sort.Count());
-            Assert.Equal(Tuple.Create(value1, SortOrder.Ascending.ToString()), options.Sort.First());
-            Assert.Equal(Tuple.Create(value2, SortOrder.Descending.ToString()), options.Sort.Last());
+            Assert.Equal(Tuple.Create(value1, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
+            Assert.Equal(Tuple.Create(value2, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
         }
 
         [Theory]
