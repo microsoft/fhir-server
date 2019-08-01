@@ -55,6 +55,13 @@ steps:
       pathToPublish: './testauthenvironment.json'
       artifactName: 'deploy'
       artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish global.json'
+    inputs:
+      pathToPublish: './global.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
       
   - task: PublishBuildArtifacts@1
     displayName: 'publish test configuration jsons'
