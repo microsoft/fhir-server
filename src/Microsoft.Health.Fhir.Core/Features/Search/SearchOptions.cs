@@ -58,5 +58,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the list of search parameters that were not used in the search.
         /// </summary>
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParams { get; internal set; }
+
+        /// <summary>
+        /// Gets the list of sorting parameters. The second item in a tuple is whether the sort is accending or decending.
+        /// </summary>
+        public IEnumerable<Tuple<string, SortOrder>> Sort { get; internal set; }
     }
 }

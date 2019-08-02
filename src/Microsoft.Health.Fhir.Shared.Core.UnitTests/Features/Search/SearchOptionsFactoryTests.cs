@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -221,6 +222,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams);
+        }
+
+        [Fact]
+        public void GivenSearchParamWithSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
+        {
+            const string sort = "_sort";
+            const string value1 = "abcde";
+            const string value2 = "Seattle";
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(sort, value1),
+                Tuple.Create(sort, "-" + value2),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.NotNull(options.Sort);
+            Assert.Equal(2, options.Sort.Count());
+            Assert.Equal(Tuple.Create(value1, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
+            Assert.Equal(Tuple.Create(value2, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
         }
 
         [Theory]

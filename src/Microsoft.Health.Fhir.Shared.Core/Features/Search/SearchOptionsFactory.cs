@@ -182,6 +182,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
 
+            // Sort is currently not implimented. The sort parameters are added to the search options to allow for future development.
+            if (searchParams.Sort != null && searchParams.Sort.Count > 0)
+            {
+                searchOptions.Sort = searchParams.Sort.Select(sorting => Tuple.Create(sorting.Item1, (SortOrder)sorting.Item2));
+            }
+
             return searchOptions;
         }
     }
