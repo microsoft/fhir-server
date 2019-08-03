@@ -11,12 +11,13 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Utilities;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     public class AuditLogger : IAuditLogger
     {
-        internal const string AuditEventType = "AuditEvent";
+        private const string AuditEventType = "AuditEvent";
 
         private static readonly string AuditMessageFormat =
             "ActionType: {ActionType}" + Environment.NewLine +
@@ -28,18 +29,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             "Action: {Action}" + Environment.NewLine +
             "StatusCode: {StatusCode}" + Environment.NewLine +
             "CorrelationId: {CorrelationId}" + Environment.NewLine +
+            "CallerIPAddress: {CallerIPAddress}" + Environment.NewLine +
             "Claims: {Claims}";
 
-        private readonly ILogger<IAuditLogger> _logger;
+        private readonly ICallerIpAddressRetriever _callerIpAddressRetriever;
         private readonly SecurityConfiguration _securityConfiguration;
+        private readonly ILogger<IAuditLogger> _logger;
 
-        public AuditLogger(ILogger<IAuditLogger> logger, IOptions<SecurityConfiguration> securityConfiguration)
+        public AuditLogger(
+            ICallerIpAddressRetriever callerIpAddressRetriever,
+            IOptions<SecurityConfiguration> securityConfiguration,
+            ILogger<IAuditLogger> logger)
         {
-            EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(callerIpAddressRetriever, nameof(callerIpAddressRetriever));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _logger = logger;
+            _callerIpAddressRetriever = callerIpAddressRetriever;
             _securityConfiguration = securityConfiguration.Value;
+            _logger = logger;
         }
 
         public void LogAudit(
@@ -69,6 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 action,
                 statusCode,
                 correlationId,
+                _callerIpAddressRetriever.CallerIpAddress,
                 claimsInString);
         }
     }

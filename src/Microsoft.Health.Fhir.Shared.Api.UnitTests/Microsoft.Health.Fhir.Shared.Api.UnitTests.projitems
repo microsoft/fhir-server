@@ -42,6 +42,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\ResourceActionHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityHeadersHelperTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utilities\CallerIpAddressRetrieverTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Controllers\openid-configuration.json">

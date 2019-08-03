@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Api.Utilities;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -27,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Utilities;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -167,6 +169,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
 
             services.AddSingleton<IModelAttributeValidator, ModelAttributeValidator>();
+
+            services.Add<CallerIpAddressRetriever>()
+                .Singleton()
+                .AsService<ICallerIpAddressRetriever>();
 
             ModelExtensions.SetModelInfoProvider();
             services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();
