@@ -4,12 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.KeyVault.Models;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
+using Polly;
+using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Azure.KeyVault
 {
@@ -21,13 +25,45 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
         private IKeyVaultClient _keyVaultClient;
         private Uri _keyVaultUri;
 
+        private const int DefaultRetryCount = 3;
+        private static readonly Func<int, TimeSpan> DefaultSleepDurationProvider = new Func<int, TimeSpan>(retryCount => TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
+        private static readonly HttpStatusCode[] _defaultStatusCodesToRetry =
+        {
+            HttpStatusCode.RequestTimeout,
+            HttpStatusCode.ServiceUnavailable,
+        };
+
+        private readonly AsyncRetryPolicy _retryPolicy;
+
         public KeyVaultSecretStore(IKeyVaultClient keyVaultClient, Uri keyVaultUri)
+            : this(keyVaultClient, keyVaultUri, DefaultRetryCount, DefaultSleepDurationProvider, _defaultStatusCodesToRetry)
+        {
+        }
+
+        public KeyVaultSecretStore(IKeyVaultClient keyVaultClient, Uri keyVaultUri, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
+            : this(keyVaultClient, keyVaultUri, retryCount, sleepDurationProvider, _defaultStatusCodesToRetry)
+        {
+        }
+
+        public KeyVaultSecretStore(
+            IKeyVaultClient keyVaultClient,
+            Uri keyVaultUri,
+            int retryCount,
+            Func<int, TimeSpan> sleepDurationProvider,
+            HttpStatusCode[] statusCodesToRetry)
         {
             EnsureArg.IsNotNull(keyVaultClient, nameof(keyVaultClient));
             EnsureArg.IsNotNull(keyVaultUri, nameof(keyVaultUri));
+            EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
+            EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
+            EnsureArg.IsNotNull(statusCodesToRetry, nameof(statusCodesToRetry));
+            EnsureArg.IsGt(statusCodesToRetry.Length, 0, nameof(statusCodesToRetry));
 
             _keyVaultClient = keyVaultClient;
             _keyVaultUri = keyVaultUri;
+
+            _retryPolicy = Policy.Handle<KeyVaultErrorException>(kve => statusCodesToRetry.Contains(kve.Response.StatusCode))
+                .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
 
         public async Task<SecretWrapper> GetSecretAsync(string secretName, CancellationToken cancellationToken)
@@ -37,7 +73,10 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             SecretBundle result;
             try
             {
-                result = await _keyVaultClient.GetSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+                result = await _retryPolicy.ExecuteAsync(async () =>
+                {
+                    return await _keyVaultClient.GetSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+                });
             }
             catch (Exception ex)
             {
@@ -55,14 +94,17 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             SecretBundle result;
             try
             {
-                result = await _keyVaultClient.SetSecretAsync(
-                    _keyVaultUri.AbsoluteUri,
-                    secretName,
-                    secretValue,
-                    tags: null,
-                    contentType: null,
-                    secretAttributes: null,
-                    cancellationToken);
+                result = await _retryPolicy.ExecuteAsync(async () =>
+                {
+                    return await _keyVaultClient.SetSecretAsync(
+                        _keyVaultUri.AbsoluteUri,
+                        secretName,
+                        secretValue,
+                        tags: null,
+                        contentType: null,
+                        secretAttributes: null,
+                        cancellationToken);
+                });
             }
             catch (Exception ex)
             {
@@ -79,7 +121,10 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             DeletedSecretBundle result;
             try
             {
-                result = await _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+                result = await _retryPolicy.ExecuteAsync(async () =>
+                {
+                    return await _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
+                });
             }
             catch (Exception ex)
             {

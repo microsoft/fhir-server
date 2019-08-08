@@ -11,7 +11,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
     {
         public string JobId { get; private set; }
 
-        public bool Successful { get; private set; }
+        public bool Successful
+        {
+            get { return JobId != null; }
+        }
 
         public string FailureReason { get; private set; }
 
@@ -21,7 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 
             return new CreateExportResponse
             {
-                Successful = false,
                 FailureReason = failureReason,
             };
         }
@@ -32,7 +34,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 
             return new CreateExportResponse
             {
-                Successful = true,
                 JobId = jobId,
             };
         }
