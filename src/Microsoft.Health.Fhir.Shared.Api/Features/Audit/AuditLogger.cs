@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using EnsureThat;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Utilities;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
@@ -32,20 +32,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             "CallerIPAddress: {CallerIPAddress}" + Environment.NewLine +
             "Claims: {Claims}";
 
-        private readonly ICallerIpAddressRetriever _callerIpAddressRetriever;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<IAuditLogger> _logger;
 
         public AuditLogger(
-            ICallerIpAddressRetriever callerIpAddressRetriever,
+            IHttpContextAccessor httpContextAccessor,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<IAuditLogger> logger)
         {
-            EnsureArg.IsNotNull(callerIpAddressRetriever, nameof(callerIpAddressRetriever));
+            EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _callerIpAddressRetriever = callerIpAddressRetriever;
+            _httpContextAccessor = httpContextAccessor;
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
         }
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 action,
                 statusCode,
                 correlationId,
-                _callerIpAddressRetriever.CallerIpAddress,
+                _httpContextAccessor.HttpContext.Connection?.RemoteIpAddress?.ToString(),
                 claimsInString);
         }
     }

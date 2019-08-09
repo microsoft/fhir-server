@@ -45,6 +45,5 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Utilities\CallerIpAddressRetriever.cs" />
   </ItemGroup>
 </Project>
