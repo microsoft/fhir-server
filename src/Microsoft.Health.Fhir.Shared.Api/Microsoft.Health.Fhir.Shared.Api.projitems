@@ -9,17 +9,10 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Api</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationOutcomeResult.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelper.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLogger.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttribute.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditMiddleware.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditMiddlewareExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\SmartOnFhirAuditLoggingFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ContentTypes\ContentTypeService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddleware.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareExtensions.cs" />
@@ -36,7 +29,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\SummaryTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Modules\AuditModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FhirModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\KnownAssemblies.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModule.cs" />
