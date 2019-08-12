@@ -48,7 +48,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Configure<ForwardedHeadersOptions>(options =>
             {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+                options.ForwardedHeaders = ForwardedHeaders.All;
             });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
