@@ -3,15 +3,21 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public enum OperationStatus
+    /// <summary>
+    /// Defines the order of a sort.
+    /// </summary>
+    public enum SortOrder
     {
-        Unknown,
-        Queued,
-        Running,
-        Completed,
-        Failed,
-        Canceled,
+        /// <summary>
+        /// The sort order is ascending.
+        /// </summary>
+        Ascending,
+
+        /// <summary>
+        /// The sort order is descending.
+        /// </summary>
+        Descending,
     }
 }

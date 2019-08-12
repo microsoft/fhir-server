@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -61,7 +60,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
                                 cancellationToken);
 
-                            runningTasks.AddRange(jobs.Select(job => _exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken)));
+                            foreach (ExportJobOutcome job in jobs)
+                            {
+                                _logger.LogTrace($"Picked up job: {job.JobRecord.Id}.");
+
+                                runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                            }
                         }
                     }
 

@@ -9,6 +9,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
@@ -50,6 +51,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                 .Returns(validationError);
 
             await Assert.ThrowsAsync<ResourceNotValidException>(async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenARequest_WhenReturningFhirValidationFailure_ThenOperationOutcomeIsUsedCorrectly()
+        {
+            var mockValidator = Substitute.For<AbstractValidator<UpsertResourceRequest>>();
+
+            var validators = new[] { mockValidator };
+            var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest>(validators);
+            var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
+
+            var operationOutcomeIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, "Id was Invalid");
+
+            var validationError = Task.FromResult(new ValidationResult(new[] { new FhirValidationFailure("Id", operationOutcomeIssue.Diagnostics, operationOutcomeIssue) }));
+
+            mockValidator
+                .ValidateAsync(Arg.Any<ValidationContext<UpsertResourceRequest>>(), Arg.Any<CancellationToken>())
+                .Returns(validationError);
+
+            var exception = await Assert.ThrowsAsync<ResourceNotValidException>(async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
+
+            Assert.Contains(operationOutcomeIssue, exception.Issues);
         }
     }
 }

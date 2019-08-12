@@ -83,8 +83,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 "ReadResource",
                 routeValues =>
                 {
-                    Assert.Equal("Patient", routeValues["type"]);
-                    Assert.Equal(id, routeValues["id"]);
+                    Assert.Equal("Patient", routeValues[KnownActionParameterNames.ResourceType]);
+                    Assert.Equal(id, routeValues[KnownActionParameterNames.Id]);
                 });
         }
 
@@ -106,9 +106,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 "ReadResourceWithVersionRoute",
                 routeValues =>
                 {
-                    Assert.Equal("Patient", routeValues["type"]);
-                    Assert.Equal(id, routeValues["id"]);
-                    Assert.Equal(version, routeValues["vid"]);
+                    Assert.Equal("Patient", routeValues[KnownActionParameterNames.ResourceType]);
+                    Assert.Equal(id, routeValues[KnownActionParameterNames.Id]);
+                    Assert.Equal(version, routeValues[KnownActionParameterNames.Vid]);
                 });
         }
 
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 RouteNames.GetExportStatusById,
                 routeValues =>
                 {
-                    Assert.Equal(id, routeValues["id"]);
+                    Assert.Equal(id, routeValues[KnownActionParameterNames.Id]);
                 });
         }
 

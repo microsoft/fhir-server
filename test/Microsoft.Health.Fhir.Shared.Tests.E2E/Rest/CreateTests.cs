@@ -191,7 +191,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Xml can't even serialize these broken fragments
             if (Client.Format != ResourceFormat.Xml)
             {
-                await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(observation));
+                var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(observation));
+                Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
             }
         }
 

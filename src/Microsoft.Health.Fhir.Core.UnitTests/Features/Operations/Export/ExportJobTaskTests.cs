@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class ExportJobTaskTests
     {
+        private const string PatientFileName = "Patient.ndjson";
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private ExportJobRecord _exportJobRecord;
@@ -86,10 +87,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
 
-            // Check to make sure the search is performed with the correct conditions.
+            // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
                 _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression(null)),
+                Arg.Is(CreateQueryParametersExpression()),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
                 _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression(null)),
+                Arg.Is(CreateQueryParametersExpression()),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -134,6 +135,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.True(capturedSearch);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression()
+        {
+            return arg => arg != null && Tuple.Create("_count", "1").Equals(arg[0]) && Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]);
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string continuationToken)
@@ -233,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
+            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
 
             Assert.Equal(expectedIds, actualIds);
         }
@@ -280,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
+            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
 
             // All of the ids should be present since it should have committed one last time after all the results were exported.
             Assert.Equal("01234", actualIds);
@@ -347,7 +353,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
 
             Assert.Equal("01", exportedIds);
             Assert.NotNull(_exportJobRecord.Progress);
@@ -369,7 +375,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             numberOfSuccessfulPages = 5;
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Patient.ndjson", UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
             Assert.Equal("23", exportedIds);
         }
 

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             RouteData routeData = SetupRouteData();
 
-            routeData.Values.Add("type", resourceType);
+            routeData.Values.Add(KnownActionParameterNames.ResourceType, resourceType);
 
             await _auditMiddleware.Invoke(_httpContext);
 

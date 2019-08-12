@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Xunit;
 
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private static ActionExecutingContext CreateContext(Base type)
         {
             return new ActionExecutingContext(
-                new ActionContext(new DefaultHttpContext(), new RouteData { Values = { ["type"] = "Observation" } }, new ActionDescriptor()),
+                new ActionContext(new DefaultHttpContext(), new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Observation" } }, new ActionDescriptor()),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { "resource", type } },
                 FilterTestsHelper.CreateMockFhirController());

@@ -7,10 +7,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
     internal class KnownActionParameterNames
     {
-        public const string ResourceType = "type";
+        public const string ResourceType = "typeParameter";
         public const string Resource = "resource";
-        public const string Id = "id";
-        public const string Vid = "vid";
-        public const string CompartmentType = "compartmentType";
+        public const string Id = "idParameter";
+        public const string Vid = "vidParameter";
+        public const string CompartmentType = "compartmentTypeParameter";
     }
 }

@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             try
             {
                 // Get destination type from secret store and connect to the destination using appropriate client.
-                await GetDestinationInfoAndConnect(cancellationToken);
+                await GetDestinationInfoAndConnectAsync(cancellationToken);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -110,10 +110,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // Search and process the results.
                     using (IScoped<ISearchService> searchService = _searchServiceFactory())
                     {
-                        searchResult = await searchService.Value.SearchAsync(_exportJobRecord.ResourceType, queryParameters, cancellationToken);
+                        // If the continuation token is null, then we will exclude it. Calculate the offset and count to be passed in.
+                        int offset = queryParameters[0].Item2 == null ? 1 : 0;
+
+                        searchResult = await searchService.Value.SearchAsync(
+                            _exportJobRecord.ResourceType,
+                            new ArraySegment<Tuple<string, string>>(queryParameters, offset, queryParameters.Length - offset),
+                            cancellationToken);
                     }
 
-                    await ProcessSearchResults(searchResult.Results, currentBatchId, cancellationToken);
+                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
 
                     if (searchResult.ContinuationToken == null)
                     {
@@ -125,13 +131,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     progress.UpdateContinuationToken(searchResult.ContinuationToken);
                     queryParameters[0] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
 
-                    // Commit the changes if necessary.
                     if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
                     {
+                        // Commit the changes.
                         await _exportDestinationClient.CommitAsync(cancellationToken);
 
                         // Update the job record.
-                        await UpdateAndCommitJobRecord(_exportJobRecord, cancellationToken);
+                        await UpdateJobRecordAsync(cancellationToken);
 
                         currentBatchId = progress.Page;
                     }
@@ -140,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Commit one last time for any pending changes.
                 await _exportDestinationClient.CommitAsync(cancellationToken);
 
-                await UpdateAndCommitJobStatus(OperationStatus.Completed, updateEndTimestamp: true, cancellationToken);
+                await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
 
@@ -156,11 +162,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (JobConflictException)
             {
-                // The job was updated by another process.
-                _logger.LogWarning("The job was updated by another process.");
-
-                // TODO: We will want to get the latest and merge the results without updating the status.
-                return;
+                // The export job was updated externally. There might be some additional resources that were exported
+                // but we will not be updating the job record.
+                _logger.LogTrace("The job was updated by another process.");
             }
             catch (Exception ex)
             {
@@ -168,27 +172,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                await UpdateAndCommitJobStatus(OperationStatus.Failed, updateEndTimestamp: true, cancellationToken);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
         }
 
-        private async Task UpdateAndCommitJobStatus(OperationStatus operationStatus, bool updateEndTimestamp, CancellationToken cancellationToken)
+        private async Task CompleteJobAsync(OperationStatus completionStatus, CancellationToken cancellationToken)
         {
-            _exportJobRecord.Status = operationStatus;
+            _exportJobRecord.Status = completionStatus;
+            _exportJobRecord.EndTime = Clock.UtcNow;
 
-            if (updateEndTimestamp)
-            {
-                _exportJobRecord.EndTime = Clock.UtcNow;
-            }
-
-            await UpdateAndCommitJobRecord(_exportJobRecord, cancellationToken);
+            await UpdateJobRecordAsync(cancellationToken);
         }
 
-        private async Task UpdateAndCommitJobRecord(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
         {
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
-                ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(jobRecord, _weakETag, cancellationToken);
+                ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
 
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         }
 
         // Get destination info from secret store, create appropriate export client and connect to destination.
-        private async Task GetDestinationInfoAndConnect(CancellationToken cancellationToken)
+        private async Task GetDestinationInfoAndConnectAsync(CancellationToken cancellationToken)
         {
             SecretWrapper secret = await _secretStore.GetSecretAsync(_exportJobRecord.SecretName, cancellationToken);
 
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
         }
 
-        private async Task ProcessSearchResults(IEnumerable<ResourceWrapper> searchResults, uint partId, CancellationToken cancellationToken)
+        private async Task ProcessSearchResultsAsync(IEnumerable<ResourceWrapper> searchResults, uint partId, CancellationToken cancellationToken)
         {
             foreach (ResourceWrapper resourceWrapper in searchResults)
             {
