@@ -40,6 +40,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
+                else if (dce.Message.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
+                }
             }
         }
 
