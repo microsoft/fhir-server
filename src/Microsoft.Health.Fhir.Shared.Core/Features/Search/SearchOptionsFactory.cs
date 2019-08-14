@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
+        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
+
         private readonly IExpressionParser _expressionParser;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
@@ -67,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
 
                     // Checks if the continuation token is base 64 bit encoded. Needed for systems that have cached continuation tokens from before they were encoded.
-                    if (Regex.IsMatch(query.Item2, "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$"))
+                    if (Base64FormatRegex.IsMatch(query.Item2))
                     {
                         continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
                     }
@@ -179,6 +181,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
+
+            // Sort is currently not implimented. The sort parameters are added to the search options to allow for future development.
+            if (searchParams.Sort != null && searchParams.Sort.Count > 0)
+            {
+                searchOptions.Sort = searchParams.Sort.Select(sorting => Tuple.Create(sorting.Item1, (SortOrder)sorting.Item2));
+            }
 
             return searchOptions;
         }
