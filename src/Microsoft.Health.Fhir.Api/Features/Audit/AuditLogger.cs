@@ -8,13 +8,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using EnsureThat;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
+    /// <summary>
+    /// Provides mechanism to log the audit event using default logger.
+    /// </summary>
     public class AuditLogger : IAuditLogger
     {
         private const string AuditEventType = "AuditEvent";
@@ -32,24 +34,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             "CallerIPAddress: {CallerIPAddress}" + Environment.NewLine +
             "Claims: {Claims}";
 
-        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<IAuditLogger> _logger;
 
         public AuditLogger(
-            IHttpContextAccessor httpContextAccessor,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<IAuditLogger> logger)
         {
-            EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _httpContextAccessor = httpContextAccessor;
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
         }
 
+        /// <inheritdoc />
         public void LogAudit(
             AuditAction auditAction,
             string action,
@@ -57,13 +56,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             Uri requestUri,
             HttpStatusCode? statusCode,
             string correlationId,
-            IReadOnlyCollection<KeyValuePair<string, string>> claims)
+            string callerIpAddress,
+            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims)
         {
             string claimsInString = null;
 
-            if (claims != null)
+            if (callerClaims != null)
             {
-                claimsInString = string.Join(";", claims.Select(claim => $"{claim.Key}={claim.Value}"));
+                claimsInString = string.Join(";", callerClaims.Select(claim => $"{claim.Key}={claim.Value}"));
             }
 
             _logger.LogInformation(
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 action,
                 statusCode,
                 correlationId,
-                _httpContextAccessor.HttpContext.Connection?.RemoteIpAddress?.ToString(),
+                callerIpAddress,
                 claimsInString);
         }
     }

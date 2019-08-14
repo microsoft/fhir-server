@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirClaimsExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirControllerTests.cs" />
@@ -18,7 +19,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditMiddlewareTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\SmartOnFhirAuditLoggingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Cors\CorsModuleTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareTests.cs" />
