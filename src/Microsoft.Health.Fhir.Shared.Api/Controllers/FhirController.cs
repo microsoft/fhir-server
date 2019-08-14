@@ -29,9 +29,9 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -157,37 +157,56 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Updates or creates a new resource
         /// </summary>
         /// <param name="resource">The resource.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header</param>
         [HttpPut]
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
         [Authorize(PolicyNames.WritePolicy)]
-        public async Task<IActionResult> Update([FromBody] Resource resource)
+        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
-            var suppliedWeakETag = HttpContext.Request.Headers[HeaderNames.IfMatch];
+            SaveOutcome response = await _mediator.UpsertResourceAsync(resource.ToResourceElement(), ifMatchHeader, HttpContext.RequestAborted);
 
-            WeakETag weakETag = null;
-            if (!string.IsNullOrWhiteSpace(suppliedWeakETag))
-            {
-                weakETag = WeakETag.FromWeakETag(suppliedWeakETag);
-            }
+            return ToSaveOutcomeResult(response);
+        }
 
-            SaveOutcome response = await _mediator.UpsertResourceAsync(resource.ToResourceElement(), weakETag, HttpContext.RequestAborted);
+        /// <summary>
+        /// Updates or creates a new resource
+        /// </summary>
+        /// <param name="resource">The resource.</param>
+        [HttpPut]
+        [Route(KnownRoutes.ResourceType)]
+        [AuditEventType(AuditEventSubType.Update)]
+        [Authorize(PolicyNames.WritePolicy)]
+        public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
+        {
+            IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
-            switch (response.Outcome)
+            UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
+                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters),
+                HttpContext.RequestAborted);
+
+            SaveOutcome saveOutcome = response.Outcome;
+
+            return ToSaveOutcomeResult(saveOutcome);
+        }
+
+        private IActionResult ToSaveOutcomeResult(SaveOutcome saveOutcome)
+        {
+            switch (saveOutcome.Outcome)
             {
                 case SaveOutcomeType.Created:
-                    return FhirResult.Create(response.Resource, HttpStatusCode.Created)
+                    return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.Created)
                         .SetETagHeader()
                         .SetLastModifiedHeader()
                         .SetLocationHeader(_urlResolver);
                 case SaveOutcomeType.Updated:
-                    return FhirResult.Create(response.Resource, HttpStatusCode.OK)
+                    return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.OK)
                         .SetETagHeader()
                         .SetLastModifiedHeader();
             }
 
-            return FhirResult.Create(response.Resource, HttpStatusCode.BadRequest);
+            return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.BadRequest);
         }
 
         /// <summary>

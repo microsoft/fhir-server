@@ -6,7 +6,7 @@
     <SharedGUID>4b4abb04-42ba-461c-a202-e480a2ae538e</SharedGUID>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
-    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Api</Import_RootNamespace>
+    <Import_RootNamespace>Microsoft.Health.Fhir.Api</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
@@ -19,6 +19,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OperationOutcomeExceptionFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\WeakETagBinder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirXmlInputFormatter.cs" />
@@ -29,6 +30,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\SummaryTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalUpdates\ConditionalUpsertFeatureModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\HtmlUi\HtmlUiFeatureModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\XmlFormatter\XmlFormatterConfiguration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\XmlFormatter\XmlFormatterFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FhirModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\KnownAssemblies.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModule.cs" />
@@ -36,6 +41,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\PersistenceModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalUpdates\ConditionalUpsertPostConfigureOptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
   </ItemGroup>
 </Project>

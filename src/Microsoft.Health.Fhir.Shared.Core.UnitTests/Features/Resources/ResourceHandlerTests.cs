@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -28,9 +29,12 @@ using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 {
-    public class ResourceHandlerTests
+    /// <summary>
+    /// Tests Resource Handlers
+    /// </summary>
+    public partial class ResourceHandlerTests
     {
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IConformanceProvider _conformanceProvider;
@@ -38,11 +42,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly CapabilityStatement _conformanceStatement;
         private readonly IMediator _mediator;
+        private readonly ISearchService _searchService;
 
         public ResourceHandlerTests()
         {
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
+            _searchService = Substitute.For<ISearchService>();
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
@@ -57,12 +63,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var observationResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Observation);
             observationResource.ReadHistory = false;
             observationResource.UpdateCreate = true;
+            observationResource.ConditionalUpdate = true;
             observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
             CapabilityStatementMock.SetupMockResource(_conformanceStatement, ResourceType.Patient, null);
             var patientResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient);
             patientResource.ReadHistory = true;
             patientResource.UpdateCreate = true;
+            observationResource.ConditionalUpdate = true;
             patientResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
             _conformanceProvider.GetCapabilityStatementAsync().Returns(_conformanceStatement.ToTypedElement().ToResourceElement());
@@ -70,8 +78,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             var collection = new ServiceCollection();
 
+            collection.Add(x => _mediator).Singleton().AsSelf();
             collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), () => true)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
 

@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -210,6 +210,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string CompositeSeparatorNotFound {
             get {
                 return ResourceManager.GetString("CompositeSeparatorNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Found result with Id &apos;{0}&apos;, which did not match the provided Id &apos;{1}&apos;..
+        /// </summary>
+        internal static string ConditionalUpdateMismatchedIds {
+            get {
+                return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Update was not attempted because search criteria was not selective enough..
+        /// </summary>
+        internal static string ConditionalUpdateNotSelectiveEnough {
+            get {
+                return ResourceManager.GetString("ConditionalUpdateNotSelectiveEnough", resourceCulture);
             }
         }
         

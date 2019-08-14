@@ -147,6 +147,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion);
         }
 
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null)
+            where T : Resource
+        {
+            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion);
+        }
+
         public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)
             where T : Resource
         {
