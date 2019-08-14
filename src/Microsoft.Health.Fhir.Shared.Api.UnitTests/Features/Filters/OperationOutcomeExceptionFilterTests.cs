@@ -167,10 +167,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new JobNotFoundException("Job not found."), HttpStatusCode.NotFound);
         }
 
-        [Fact]
-        public void GivenAnOperationFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.InternalServerError)]
+        public void GivenAnOperationFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(HttpStatusCode statusCode)
         {
-            ValidateOperationOutcome(new OperationFailedException("Operation failed."), HttpStatusCode.InternalServerError);
+            ValidateOperationOutcome(new OperationFailedException("Operation failed.", statusCode), statusCode);
         }
 
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)

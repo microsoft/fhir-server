@@ -57,7 +57,6 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
             EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
             EnsureArg.IsNotNull(statusCodesToRetry, nameof(statusCodesToRetry));
-            EnsureArg.IsGt(statusCodesToRetry.Length, 0, nameof(statusCodesToRetry));
 
             _keyVaultClient = keyVaultClient;
             _keyVaultUri = keyVaultUri;
@@ -78,9 +77,14 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
                     return await _keyVaultClient.GetSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
                 });
             }
+            catch (KeyVaultErrorException kve)
+            {
+                HttpStatusCode statusCode = kve.Response != null ? kve.Response.StatusCode : HttpStatusCode.InternalServerError;
+                throw new SecretStoreException(SecretStoreErrors.GetSecretError, kve, statusCode);
+            }
             catch (Exception ex)
             {
-                throw new SecretStoreException(SecretStoreErrors.GetSecretError, ex);
+                throw new SecretStoreException(SecretStoreErrors.GetSecretError, ex, HttpStatusCode.InternalServerError);
             }
 
             return new SecretWrapper(result.Id, result.Value);
@@ -106,9 +110,14 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
                         cancellationToken);
                 });
             }
+            catch (KeyVaultErrorException kve)
+            {
+                HttpStatusCode statusCode = kve.Response != null ? kve.Response.StatusCode : HttpStatusCode.InternalServerError;
+                throw new SecretStoreException(SecretStoreErrors.SetSecretError, kve, statusCode);
+            }
             catch (Exception ex)
             {
-                throw new SecretStoreException(SecretStoreErrors.SetSecretError, ex);
+                throw new SecretStoreException(SecretStoreErrors.SetSecretError, ex, HttpStatusCode.InternalServerError);
             }
 
             return new SecretWrapper(result.Id, result.Value);
@@ -126,9 +135,14 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
                     return await _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
                 });
             }
+            catch (KeyVaultErrorException kve)
+            {
+                HttpStatusCode statusCode = kve.Response != null ? kve.Response.StatusCode : HttpStatusCode.InternalServerError;
+                throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, kve, statusCode);
+            }
             catch (Exception ex)
             {
-                throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, ex);
+                throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, ex, HttpStatusCode.InternalServerError);
             }
 
             return new SecretWrapper(result.Id, result.Value);

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             }
             else
             {
-                throw new SecretStoreException(SecretStoreErrors.GetSecretError, innerException: null);
+                throw new SecretStoreException(SecretStoreErrors.GetSecretError, innerException: null, HttpStatusCode.InternalServerError);
             }
 
             return Task.FromResult(wrapper);
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             }
             catch (Exception ex)
             {
-                throw new SecretStoreException(SecretStoreErrors.SetSecretError, ex);
+                throw new SecretStoreException(SecretStoreErrors.SetSecretError, ex, HttpStatusCode.InternalServerError);
             }
 
             return Task.FromResult(new SecretWrapper(secretName, secretValue));
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             }
             else
             {
-                throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, innerException: null);
+                throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, innerException: null, HttpStatusCode.InternalServerError);
             }
 
             return Task.FromResult(wrapper);

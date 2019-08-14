@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.SecretStore
@@ -14,10 +15,14 @@ namespace Microsoft.Health.Fhir.Core.Features.SecretStore
     /// </summary>
     public class SecretStoreException : Exception
     {
-        public SecretStoreException(string message, Exception innerException)
+        public SecretStoreException(string message, Exception innerException, HttpStatusCode statusCode)
             : base(message, innerException)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+
+            ResponseStatusCode = statusCode;
         }
+
+        public HttpStatusCode ResponseStatusCode { get; }
     }
 }

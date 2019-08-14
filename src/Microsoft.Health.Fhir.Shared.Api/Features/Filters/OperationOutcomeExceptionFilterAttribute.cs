@@ -98,8 +98,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case UnsupportedConfigurationException _:
                     case AuditException _:
-                    case OperationFailedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
+                    case OperationFailedException ofe:
+                        operationOutcomeResult.StatusCode = ofe.ResponseStatusCode;
                         break;
                     case OperationNotImplementedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.NotImplemented;

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -170,14 +171,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogError(sse, "Secret store error. The job will be marked as failed.");
 
-                _exportJobRecord.FailureReason = sse.Message;
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(sse.Message, sse.ResponseStatusCode);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (DestinationConnectionException dce)
             {
                 _logger.LogError(dce, "Can't connect to destination. The job will be marked as failed.");
 
-                _exportJobRecord.FailureReason = dce.Message;
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(dce.Message, dce.StatusCode);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)
@@ -186,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                _exportJobRecord.FailureReason = "Unknown Error";
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails("Unknown Error", HttpStatusCode.InternalServerError);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
         }

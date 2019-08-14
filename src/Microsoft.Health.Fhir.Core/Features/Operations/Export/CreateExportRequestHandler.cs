@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (SecretStoreException sse)
                 {
-                    return CreateExportResponse.Failed(sse.Message);
+                    return CreateExportResponse.Failed(sse.Message, sse.ResponseStatusCode);
                 }
 
                 outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);

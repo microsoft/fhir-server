@@ -60,5 +60,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string SchemaVersion = "schemaVersion";
 
         public const string FailureReason = "failureReason";
+
+        public const string FailureStatusCode = "failureStatusCode";
+
+        public const string FailureDetails = "failureDetails";
     }
 }

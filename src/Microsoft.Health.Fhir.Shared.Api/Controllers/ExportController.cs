@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (!response.Successful)
             {
-                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, response.FailureReason));
+                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, response.FailureReason), response.FailureStatusCode);
             }
 
             var exportResult = ExportResult.Accepted();
@@ -148,13 +148,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 exportActionResult = ExportResult.Ok(getExportResult.JobResult);
                 exportActionResult.SetContentTypeHeader(OperationsConstants.ExportContentTypeHeaderValue);
             }
-            else if (getExportResult.StatusCode == HttpStatusCode.InternalServerError)
+            else if (getExportResult.StatusCode == HttpStatusCode.Accepted)
             {
-                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, getExportResult.FailureReason));
+                exportActionResult = ExportResult.Accepted();
             }
             else
             {
-                exportActionResult = ExportResult.Accepted();
+                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, getExportResult.FailureReason), getExportResult.StatusCode);
             }
 
             return exportActionResult;

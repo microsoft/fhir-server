@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq.Expressions;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -190,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
-            Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureReason));
+            Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureDetails.FailureReason));
         }
 
         [Theory]
@@ -302,12 +303,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(CreateSearchResult());
 
-            _secretStore.DeleteSecretAsync(Arg.Any<string>(), _cancellationToken).Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, innerException: null));
+            _secretStore.DeleteSecretAsync(Arg.Any<string>(), _cancellationToken)
+                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, innerException: null, statusCode: HttpStatusCode.InternalServerError));
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Null(_lastExportJobOutcome.JobRecord.FailureDetails);
         }
 
         [Fact]
@@ -319,13 +322,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(CreateSearchResult());
 
-            _secretStore.GetSecretAsync(Arg.Any<string>(), _cancellationToken).Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.GetSecretError, innerException: null));
+            _secretStore.GetSecretAsync(Arg.Any<string>(), _cancellationToken)
+                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.GetSecretError, innerException: null, statusCode: HttpStatusCode.InternalServerError));
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(SecretStoreErrors.GetSecretError, _lastExportJobOutcome.JobRecord.FailureReason);
+            Assert.Equal(SecretStoreErrors.GetSecretError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
         [Fact]
@@ -334,7 +339,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Setup export destination client.
             string connectionFailure = "failedToConnectToDestination";
             IExportDestinationClient mockExportDestinationClient = Substitute.For<IExportDestinationClient>();
-            mockExportDestinationClient.ConnectAsync(Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<string>()).Returns<Task>(x => throw new DestinationConnectionException(connectionFailure));
+            mockExportDestinationClient.ConnectAsync(Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
+                .Returns<Task>(x => throw new DestinationConnectionException(connectionFailure, HttpStatusCode.BadRequest));
+
             _exportDestinationClientFactory.Create("in-memory").Returns(mockExportDestinationClient);
 
             var exportJobTask = new ExportJobTask(
@@ -350,7 +357,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureReason);
+            Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
         [Fact]

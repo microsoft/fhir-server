@@ -25,8 +25,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly IMediator _mediator;
+
         private readonly Uri _createRequestUri = new Uri("https://localhost/$export/");
         private const string _failureReason = "ExportJobFailed";
+        private HttpStatusCode _failureStatusCode = HttpStatusCode.InternalServerError;
 
         public GetExportRequestHandlerTests()
         {
@@ -53,13 +55,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData(OperationStatus.Canceled)]
-        [InlineData(OperationStatus.Failed)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenHttpResponseCodeShouldBeServerError(OperationStatus operationStatus)
+        [InlineData(OperationStatus.Canceled, HttpStatusCode.NoContent)]
+        [InlineData(OperationStatus.Canceled, HttpStatusCode.InternalServerError)]
+        [InlineData(OperationStatus.Failed, HttpStatusCode.BadRequest)]
+        [InlineData(OperationStatus.Failed, HttpStatusCode.InternalServerError)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenHttpResponseCodeShouldBeCorrespondingError(OperationStatus operationStatus, HttpStatusCode failureStatusCode)
         {
+            _failureStatusCode = failureStatusCode;
             GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
 
-            Assert.Equal(HttpStatusCode.InternalServerError, result.StatusCode);
+            Assert.Equal(failureStatusCode, result.StatusCode);
             Assert.Equal(_failureReason, result.FailureReason);
             Assert.Null(result.JobResult);
         }
@@ -85,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             if (jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed)
             {
-                jobRecord.FailureReason = _failureReason;
+                jobRecord.FailureDetails = new ExportJobFailureDetails(_failureReason, _failureStatusCode);
             }
 
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));

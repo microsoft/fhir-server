@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Azure.KeyVault;
@@ -179,7 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             // Set up create export request handler with mock secret store.
             ISecretStore mockSecretStore = Substitute.For<ISecretStore>();
             mockSecretStore.SetSecretAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.SetSecretError, innerException: null));
+                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.SetSecretError, innerException: null, statusCode: HttpStatusCode.InternalServerError));
 
             _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, mockSecretStore);
 
@@ -189,6 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.False(response.Successful);
             Assert.False(string.IsNullOrWhiteSpace(response.FailureReason));
             Assert.Null(response.JobId);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.FailureStatusCode);
         }
 
         private class MockClaimsExtractor : IClaimsExtractor

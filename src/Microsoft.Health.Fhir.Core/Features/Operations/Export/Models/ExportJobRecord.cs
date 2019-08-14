@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Progress)]
         public ExportJobProgress Progress { get; set; }
 
-        [JsonProperty(JobRecordProperties.FailureReason)]
-        public string FailureReason { get; set; }
+        [JsonProperty(JobRecordProperties.FailureDetails)]
+        public ExportJobFailureDetails FailureDetails { get; set; }
     }
 }
