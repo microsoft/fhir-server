@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IFhirElementToSearchValueTypeConverterManager _fhirElementTypeConverterManager;
         private readonly ILogger<SearchIndexer> _logger;
 
-        private ConcurrentDictionary<string, List<string>> _targetTypesLookup = new ConcurrentDictionary<string, List<string>>();
+        private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new ConcurrentDictionary<string, List<string>>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexer"/> class.
