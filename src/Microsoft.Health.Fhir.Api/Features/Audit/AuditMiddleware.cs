@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
@@ -20,19 +21,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     {
         private readonly RequestDelegate _next;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly IClaimsExtractor _claimsExtractor;
         private readonly IAuditHelper _auditHelper;
 
         public AuditMiddleware(
             RequestDelegate next,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IClaimsExtractor claimsExtractor,
             IAuditHelper auditHelper)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(auditHelper, nameof(auditHelper));
 
             _next = next;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _claimsExtractor = claimsExtractor;
             _auditHelper = auditHelper;
         }
 
@@ -61,8 +66,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     _auditHelper.LogExecuted(
                         controllerName?.ToString(),
                         actionName?.ToString(),
-                        statusCode,
-                        resourceType?.ToString());
+                        resourceType?.ToString(),
+                        context,
+                        _claimsExtractor);
                 }
             }
         }

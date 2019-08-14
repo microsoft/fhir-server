@@ -4,12 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Binders;
@@ -51,12 +51,13 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 options.Filters.Add(typeof(FhirRequestContextRouteNameFilterAttribute));
             });
 
+            services.AddHttpContextAccessor();
+
             // These are needed for IUrlResolver used by search.
             // If we update the search implementation to not use these, we should remove
             // the registration since enabling these accessors has performance implications.
             // https://github.com/aspnet/Hosting/issues/793
-            services.AddSingleton<IActionContextAccessor, ActionContextAccessor>();
-            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+            services.TryAddSingleton<IActionContextAccessor, ActionContextAccessor>();
         }
     }
 }

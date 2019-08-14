@@ -9,15 +9,30 @@ using System.Net;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
+    /// <summary>
+    /// Provides mechanism to log audit event.
+    /// </summary>
     public interface IAuditLogger
     {
+        /// <summary>
+        /// Logs an audit event.
+        /// </summary>
+        /// <param name="auditAction">The action to audit.</param>
+        /// <param name="operation">The FHIR operation to audit.</param>
+        /// <param name="resourceType">The FHIR resource type to audit.</param>
+        /// <param name="requestUri">The request URI.</param>
+        /// <param name="statusCode">The response status code (if any).</param>
+        /// <param name="correlationId">The correlation ID.</param>
+        /// <param name="callerIpAddress">The caller IP address.</param>
+        /// <param name="callerClaims">The claims of the caller.</param>
         void LogAudit(
             AuditAction auditAction,
-            string action,
+            string operation,
             string resourceType,
             Uri requestUri,
             HttpStatusCode? statusCode,
             string correlationId,
-            IReadOnlyCollection<KeyValuePair<string, string>> claims);
+            string callerIpAddress,
+            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims);
     }
 }
