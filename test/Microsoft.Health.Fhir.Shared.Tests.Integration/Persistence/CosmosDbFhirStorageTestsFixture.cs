@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -110,7 +111,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                new VersionSpecificModelInfoProvider());
+                new VersionSpecificModelInfoProvider(),
+                Substitute.For<IMediator>());
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 documentClient,
