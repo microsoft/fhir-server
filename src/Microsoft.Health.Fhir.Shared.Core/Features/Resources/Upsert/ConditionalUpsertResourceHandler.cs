@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             else
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
-                throw new PreconditionFailedException(Core.Resources.ConditionalUpdateNotSelectiveEnough);
+                throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
             }
         }
 

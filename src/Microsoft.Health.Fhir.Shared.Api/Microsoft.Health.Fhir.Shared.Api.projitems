@@ -29,7 +29,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\HtmlOutputFormatter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\SummaryTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\KnownFhirHeaders.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalCreates\ConditionalCreateFeatureModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalCreates\ConditionalCreatePostConfigureOptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalUpdates\ConditionalUpsertFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\HtmlUi\HtmlUiFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\XmlFormatter\XmlFormatterConfiguration.cs" />

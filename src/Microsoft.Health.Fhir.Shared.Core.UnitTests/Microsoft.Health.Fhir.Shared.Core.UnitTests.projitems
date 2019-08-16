@@ -18,6 +18,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceDeserializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalCreate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalUpsert.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\BundleFactoryTests.cs" />
