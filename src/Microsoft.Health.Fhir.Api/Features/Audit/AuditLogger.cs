@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             "Action: {Action}" + Environment.NewLine +
             "StatusCode: {StatusCode}" + Environment.NewLine +
             "CorrelationId: {CorrelationId}" + Environment.NewLine +
-            "CallerIPAddress: {CallerIPAddress}" + Environment.NewLine +
             "Claims: {Claims}";
 
         private readonly SecurityConfiguration _securityConfiguration;
@@ -77,7 +76,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 action,
                 statusCode,
                 correlationId,
-                callerIpAddress,
                 claimsInString);
         }
     }
