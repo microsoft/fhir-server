@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            return builder.UseMiddleware<MetricMiddleware>();
+            return builder.UseMiddleware<ApiNotificationMiddleware>();
         }
     }
 }

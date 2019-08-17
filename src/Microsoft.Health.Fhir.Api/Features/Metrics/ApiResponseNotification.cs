@@ -7,28 +7,28 @@ using System.Diagnostics;
 using System.Net;
 using MediatR;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.Api.Features.Metrics
 {
-    public class CosmosQueryNotification : INotification
+    public class ApiResponseNotification : INotification
     {
         private Stopwatch _stopwatch;
 
-        public CosmosQueryNotification()
+        public ApiResponseNotification()
         {
             _stopwatch = Stopwatch.StartNew();
         }
 
         public string Operation { get; set; }
 
-        public HttpStatusCode? StatusCode { get; set; }
+        public string ResourceType { get; set; }
 
-        public double RequestCharge { get; set; }
+        public HttpStatusCode? StatusCode { get; set; }
 
         public long LatencyMilliseconds { get; set; }
 
-        public long? CollectionSizeUsage { get; set; }
+        public string Authentication { get; set; }
 
-        public string ResourceType { get; set; }
+        public string Protocol { get; set; }
 
         public void SetLatency()
         {

@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Microsoft.Health.Fhir.ValueSets;
+using Polly;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -115,12 +116,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 ResourceType = cosmosWrapper.ResourceTypeName,
             };
 
+            var pollyContext = new Context();
+
             try
             {
                 _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
-                StoredProcedureResponse<UpsertWithHistoryModel> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async ct => await _upsertWithHistoryProc.Execute(
+                StoredProcedureResponse<UpsertWithHistoryModel> response = await _retryExceptionPolicyFactory.CreateTrackedRetryPolicy(pollyContext).ExecuteAsync(
+                    async (ctx, ct) => await _upsertWithHistoryProc.Execute(
                         _documentClientScope.Value,
                         CollectionUri,
                         cosmosWrapper,
@@ -128,12 +131,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         allowCreate,
                         keepHistory,
                         ct),
+                    pollyContext,
                     cancellationToken);
 
                 notification.SetLatency();
 
                 notification.StatusCode = response.StatusCode;
-                notification.RequestCharge = response.RequestCharge;
+                notification.RequestCharge = response.RequestCharge + (RetryExceptionPolicyFactory.GetRequestChargeForTrackedRetryPolicy(pollyContext) ?? 0);
 
                 return new UpsertOutcome(response.Response.Wrapper, response.Response.OutcomeType);
             }
@@ -141,7 +145,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 notification.SetLatency();
                 notification.StatusCode = dce.StatusCode;
-                notification.RequestCharge = dce.RequestCharge;
+                notification.RequestCharge = RetryExceptionPolicyFactory.GetRequestChargeForTrackedRetryPolicy(pollyContext) ?? dce.RequestCharge;
 
                 switch (dce.GetSubStatusCode())
                 {
@@ -225,6 +229,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
+                notification.SetLatency();
+                notification.RequestCharge = e.RequestCharge;
+                notification.StatusCode = e.StatusCode;
+
                 return null;
             }
             finally
@@ -243,21 +251,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 ResourceType = key.ResourceType,
             };
 
+            var pollyContext = new Context();
+
             try
             {
                 _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
 
-                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async ct => await _hardDelete.Execute(
+                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateTrackedRetryPolicy(pollyContext).ExecuteAsync(
+                    async (ctx, ct) => await _hardDelete.Execute(
                         _documentClientScope.Value,
                         CollectionUri,
                         key,
                         ct),
+                    pollyContext,
                     cancellationToken);
 
                 notification.SetLatency();
                 notification.StatusCode = response.StatusCode;
-                notification.RequestCharge = response.RequestCharge;
+                notification.RequestCharge = response.RequestCharge + (RetryExceptionPolicyFactory.GetRequestChargeForTrackedRetryPolicy(pollyContext) ?? 0);
 
                 _logger.LogDebug($"Hard-deleted {response.Response.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Response)}.");
             }
@@ -265,7 +276,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 notification.SetLatency();
                 notification.StatusCode = dce.StatusCode;
-                notification.RequestCharge = dce.RequestCharge;
+                notification.RequestCharge = RetryExceptionPolicyFactory.GetRequestChargeForTrackedRetryPolicy(pollyContext) ?? dce.RequestCharge;
 
                 if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
                 {
@@ -304,6 +315,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     notification.SetLatency();
                     notification.RequestCharge = result.RequestCharge;
+                    notification.StatusCode = HttpStatusCode.OK;
+                    notification.CollectionSizeUsage = result.CollectionSizeUsage;
+
                     return result;
                 }
                 catch (DocumentClientException dce)
@@ -311,7 +325,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     notification.SetLatency();
                     notification.RequestCharge = dce.RequestCharge;
                     notification.StatusCode = dce.StatusCode;
-
                     throw;
                 }
                 finally
