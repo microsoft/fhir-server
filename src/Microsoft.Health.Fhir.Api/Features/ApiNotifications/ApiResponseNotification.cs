@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Net;
 using MediatR;
 
-namespace Microsoft.Health.Fhir.Api.Features.Metrics
+namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
     public class ApiResponseNotification : INotification
     {

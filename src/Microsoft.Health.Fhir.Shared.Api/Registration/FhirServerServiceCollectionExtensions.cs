@@ -11,11 +11,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
-using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -133,7 +133,7 @@ namespace Microsoft.Extensions.DependencyInjection
                         app.UseStatusCodePagesWithReExecute("/CustomError", "?statusCode={0}");
                     }
 
-                    app.UseMetrics();
+                    app.UseApiNotifications();
 
                     // The audit module needs to come after the exception handler because we need to catch
                     // the response before it gets converted to custom error.

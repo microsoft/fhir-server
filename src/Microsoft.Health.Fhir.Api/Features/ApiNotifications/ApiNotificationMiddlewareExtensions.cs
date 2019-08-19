@@ -6,11 +6,11 @@
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 
-namespace Microsoft.Health.Fhir.Api.Features.Metrics
+namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
-    public static class MetricMiddlewareExtensions
+    public static class ApiNotificationMiddlewareExtensions
     {
-        public static IApplicationBuilder UseMetrics(
+        public static IApplicationBuilder UseApiNotifications(
             this IApplicationBuilder builder)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));

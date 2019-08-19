@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
-namespace Microsoft.Health.Fhir.Api.Features.Metrics
+namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
     public class ApiNotificationMiddleware
     {
