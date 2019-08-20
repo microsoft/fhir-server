@@ -13,11 +13,11 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 {
-    public class HttpExtensionsTests
+    public class HttpContextExtensionsTests
     {
         private readonly ILogger<string> _logger;
 
-        public HttpExtensionsTests()
+        public HttpContextExtensionsTests()
         {
             _logger = new NullLogger<string>();
         }
