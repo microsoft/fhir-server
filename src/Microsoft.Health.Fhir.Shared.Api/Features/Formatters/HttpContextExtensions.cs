@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public static class HttpExtensions
+    public static class HttpContextExtensions
     {
         public static SummaryType GetSummaryType(this HttpContext context, ILogger logger)
         {
