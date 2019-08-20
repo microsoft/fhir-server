@@ -63,22 +63,62 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(SummaryType.False, summary);
         }
 
-        [Fact]
-        public void GivenARequestWithPrettyIndentationSetToTrue_WhenSerializingTheResponse_ThenPrettyIndentationIsApplied()
+        [Theory]
+        [InlineData("true")]
+        [InlineData("True")]
+        [InlineData("TRUE")]
+        [InlineData("   true  ")]
+        public void GivenARequestWithPrettyIndentationSetToTrue_WhenSerializingTheResponse_ThenPrettyIndentationIsApplied(string input)
         {
             var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "true");
+            context.Request.QueryString = QueryString.Create("_pretty", input);
 
             var isPretty = context.GetIsPretty(_logger);
 
             Assert.True(isPretty);
         }
 
-        [Fact]
-        public void GivenARequestWithPrettyIndentationSetToFalse_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied()
+        [Theory]
+        [InlineData("false")]
+        [InlineData("False")]
+        [InlineData("FALSE")]
+        [InlineData("   false  ")]
+        public void GivenARequestWithPrettyIndentationSetToFalse_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied(string input)
         {
             var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "false");
+            context.Request.QueryString = QueryString.Create("_pretty", input);
+
+            var isPretty = context.GetIsPretty(_logger);
+
+            Assert.False(isPretty);
+        }
+
+        [Theory]
+        [InlineData("true")]
+        [InlineData("True")]
+        [InlineData("TRUE")]
+        [InlineData("   true  ")]
+        public void GivenAnXmlRequestWithPrettyIndentationSetToTrue_WhenSerializingTheResponse_ThenPrettyIndentationIsApplied(string input)
+        {
+            var context = new DefaultHttpContext();
+            context.Request.QueryString = QueryString.Create("_pretty", input);
+            context.Request.QueryString.Add("_format", "xml");
+
+            var isPretty = context.GetIsPretty(_logger);
+
+            Assert.True(isPretty);
+        }
+
+        [Theory]
+        [InlineData("false")]
+        [InlineData("False")]
+        [InlineData("FALSE")]
+        [InlineData("   false  ")]
+        public void GivenAnXmlRequestWithPrettyIndentationSetToFalse_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied(string input)
+        {
+            var context = new DefaultHttpContext();
+            context.Request.QueryString = QueryString.Create("_pretty", input);
+            context.Request.QueryString.Add("_format", "xml");
 
             var isPretty = context.GetIsPretty(_logger);
 
@@ -89,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         public void GivenARequestWithPrettyIndentationSetToTrueInCaps_WhenSerializingTheResponse_ThenPrettyIndentationIsApplied()
         {
             var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_PRETTY", "TRUE");
+            context.Request.QueryString = QueryString.Create("_PRETTY", "True");
 
             var isPretty = context.GetIsPretty(_logger);
 
@@ -100,51 +140,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         public void GivenARequestWithPrettyIndentationSetToFalseInCaps_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied()
         {
             var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_PRETTY", "FALSE");
+            context.Request.QueryString = QueryString.Create("_PRETTY", "False");
 
             var isPretty = context.GetIsPretty(_logger);
 
             Assert.False(isPretty);
         }
 
-        [Fact]
-        public void GivenARequestWithPrettyIndentationSetToTrueInPascalCase_WhenSerializingTheResponse_ThenPrettyIndentationIsApplied()
+        [Theory]
+        [InlineData("abc")]
+        [InlineData("")]
+        [InlineData("1")]
+        [InlineData("0")]
+        public void GivenARequestWithPrettyIndentationSetToUnrecognizableInput_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied(string input)
         {
             var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "True");
-
-            var isPretty = context.GetIsPretty(_logger);
-
-            Assert.True(isPretty);
-        }
-
-        [Fact]
-        public void GivenARequestWithPrettyIndentationSetToFalseInPascalCase_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied()
-        {
-            var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "False");
-
-            var isPretty = context.GetIsPretty(_logger);
-
-            Assert.False(isPretty);
-        }
-
-        [Fact]
-        public void GivenARequestWithPrettyIndentationSetToTrueWithAddedWhiteSpace_WhenSerializingTheResponse_ThenPrettyIndentationIsApplied()
-        {
-            var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "        true   ");
-
-            var isPretty = context.GetIsPretty(_logger);
-
-            Assert.True(isPretty);
-        }
-
-        [Fact]
-        public void GivenARequestWithPrettyIndentationSetToUnrecognizableInput_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied()
-        {
-            var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "abc");
+            context.Request.QueryString = QueryString.Create("_pretty", input);
 
             var isPretty = context.GetIsPretty(_logger);
 
@@ -159,40 +170,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             var isPretty = context.GetIsPretty(_logger);
 
             Assert.False(isPretty);
-        }
-
-        [Fact]
-        public void GivenARequestWithPrettyIndentationSetToZero_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied()
-        {
-            var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "0");
-
-            var isPretty = context.GetIsPretty(_logger);
-
-            Assert.False(isPretty);
-        }
-
-        [Fact]
-        public void GivenARequestWithPrettyIndentationSetToOne_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied()
-        {
-            var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "1");
-
-            var isPretty = context.GetIsPretty(_logger);
-
-            Assert.False(isPretty);
-        }
-
-        [Fact]
-        public void GivenAnXmlRequestWithPrettyIndentationSetToTrue_WhenSerializingTheResponse_ThenPrettyIndentationIsApplied()
-        {
-            var context = new DefaultHttpContext();
-            context.Request.QueryString = QueryString.Create("_pretty", "true");
-            context.Request.QueryString.Add("_format", "xml");
-
-            var isPretty = context.GetIsPretty(_logger);
-
-            Assert.True(isPretty);
         }
     }
 }
