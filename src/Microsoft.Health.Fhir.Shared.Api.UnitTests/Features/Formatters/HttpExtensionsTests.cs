@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_pretty", input);
 
-            var isPretty = context.GetIsPretty(_logger);
+            var isPretty = context.GetIsPretty();
 
             Assert.True(isPretty);
         }
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_pretty", input);
 
-            var isPretty = context.GetIsPretty(_logger);
+            var isPretty = context.GetIsPretty();
 
             Assert.False(isPretty);
         }
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             context.Request.QueryString = QueryString.Create("_pretty", input);
             context.Request.QueryString.Add("_format", "xml");
 
-            var isPretty = context.GetIsPretty(_logger);
+            var isPretty = context.GetIsPretty();
 
             Assert.True(isPretty);
         }
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             context.Request.QueryString = QueryString.Create("_pretty", input);
             context.Request.QueryString.Add("_format", "xml");
 
-            var isPretty = context.GetIsPretty(_logger);
+            var isPretty = context.GetIsPretty();
 
             Assert.False(isPretty);
         }
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_PRETTY", "True");
 
-            var isPretty = context.GetIsPretty(_logger);
+            var isPretty = context.GetIsPretty();
 
             Assert.True(isPretty);
         }
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_PRETTY", "False");
 
-            var isPretty = context.GetIsPretty(_logger);
+            var isPretty = context.GetIsPretty();
 
             Assert.False(isPretty);
         }
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_pretty", input);
 
-            var isPretty = context.GetIsPretty(_logger);
+            var isPretty = context.GetIsPretty();
 
             Assert.False(isPretty);
         }
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
             var context = new DefaultHttpContext();
 
-            var isPretty = context.GetIsPretty(_logger);
+            var isPretty = context.GetIsPretty();
 
             Assert.False(isPretty);
         }

@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
             using (var writer = new XmlTextWriter(textWriter))
             {
-                if (context.HttpContext.GetIsPretty(_logger))
+                if (context.HttpContext.GetIsPretty())
                 {
                     writer.Formatting = Formatting.Indented;
                 }

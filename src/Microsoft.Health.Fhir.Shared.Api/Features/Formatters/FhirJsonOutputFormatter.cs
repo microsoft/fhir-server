@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 jsonWriter.ArrayPool = _charPool;
 
-                if (context.HttpContext.GetIsPretty(_logger))
+                if (context.HttpContext.GetIsPretty())
                 {
                     jsonWriter.Formatting = Formatting.Indented;
                 }

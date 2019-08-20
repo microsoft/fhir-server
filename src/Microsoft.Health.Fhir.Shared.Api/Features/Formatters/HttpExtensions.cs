@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             return SummaryType.False;
         }
 
-        public static bool GetIsPretty(this HttpContext context, ILogger logger)
+        public static bool GetIsPretty(this HttpContext context)
         {
             var query = context.Request.Query[KnownQueryParameterNames.Pretty].FirstOrDefault();
 
@@ -50,8 +50,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     // Assume no pretty formatting if parameter can't be parsed.
                     isPretty = default;
                 }
-
-                logger.LogDebug("Changing response pretty formatting to '{0}'", isPretty);
 
                 return isPretty;
             }
