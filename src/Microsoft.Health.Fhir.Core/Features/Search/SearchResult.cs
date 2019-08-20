@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="results">The search results.</param>
         /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
-        /// /// <param name="unsupportedSortingParameters">The list of unsupported sorting search parameters</param>
+        /// <param name="unsupportedSortingParameters">The list of unsupported sorting search parameters.</param>
         /// <param name="continuationToken">The continuation token.</param>
         public SearchResult(IEnumerable<ResourceWrapper> results, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters, string continuationToken)
         {

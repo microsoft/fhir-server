@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
 
@@ -37,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
 
             _factory = new SearchOptionsFactory(
@@ -228,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchParamWithSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
+        public void GivenSearchWithSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
         {
             const string paramName = SearchParameterNames.ResourceType;
 
@@ -247,6 +249,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(2, options.Sort.Count());
             Assert.Equal((_resourceTypeSearchParameterInfo, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
             Assert.Equal((_resourceTypeSearchParameterInfo, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
+        }
+
+        [Fact]
+        public void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedSortingList()
+        {
+            const string paramName = "unknownParameter";
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Sort, paramName),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.NotNull(options.Sort);
+            Assert.Empty(options.Sort);
+
+            Assert.Equal(1, options.UnsupportedSortingParams.Count);
+            Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
         }
 
         [Theory]
