@@ -250,6 +250,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         [InlineData("?_sort=a,-b&_sort=-c,d", new[] { "b", "c", "d" }, "a")]
         [InlineData("?_sort=a,-b&_sort=-c,d", new[] { "a", "b", "c", "d" })]
         [InlineData("?_sort=a,b,c", new[] { "a" }, "b,c")]
+        [InlineData("?_sort=", null)]
+        [InlineData("?_sort=", new[] { "a" })]
         [Theory]
         public void GivenSortingParameters_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReReturned(string queryString, string[] unsupportedSortingValues, params string[] expectedValues)
         {

@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// Resolves the URL for the specified route
         /// </summary>
         /// <param name="unsupportedSearchParams">A list of unsupported search parameters.</param>
-        /// <param name="unsupportedSortingParameters">A lite of unsupported sorting parameters</param>
+        /// <param name="unsupportedSortingParameters">A list of unsupported sorting parameters</param>
         /// <param name="continuationToken">The continuation token.</param>
         /// <returns>The URL.</returns>
         Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters = null, string continuationToken = null);
