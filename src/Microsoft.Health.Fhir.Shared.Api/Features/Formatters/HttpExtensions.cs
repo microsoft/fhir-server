@@ -45,23 +45,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             if (!string.IsNullOrWhiteSpace(query))
             {
-                try
+                if (!bool.TryParse(query, out bool isPretty))
                 {
-                    if (!bool.TryParse(query, out bool isPretty))
-                    {
-                        // Assume no pretty formatting if parameter can't be parsed.
-                        isPretty = default;
-                    }
-
-                    logger.LogDebug("Changing response pretty formatting to '{0}'", isPretty);
-
-                    return isPretty;
+                    // Assume no pretty formatting if parameter can't be parsed.
+                    isPretty = default;
                 }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, ex.Message);
-                    throw;
-                }
+
+                logger.LogDebug("Changing response pretty formatting to '{0}'", isPretty);
+
+                return isPretty;
             }
 
             return false;
