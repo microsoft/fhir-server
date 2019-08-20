@@ -7,13 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
@@ -30,11 +31,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
         private readonly SearchOptionsFactory _factory;
+        private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
 
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType).Returns(new SearchParameter { Name = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo());
+            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
 
             _factory = new SearchOptionsFactory(
                 _expressionParser,
@@ -227,14 +230,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenSearchParamWithSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
         {
-            const string sort = "_sort";
-            const string value1 = "abcde";
-            const string value2 = "Seattle";
+            const string paramName = SearchParameterNames.ResourceType;
 
             var queryParameters = new[]
             {
-                Tuple.Create(sort, value1),
-                Tuple.Create(sort, "-" + value2),
+                Tuple.Create(KnownQueryParameterNames.Sort, paramName),
+                Tuple.Create(KnownQueryParameterNames.Sort, "-" + paramName),
             };
 
             SearchOptions options = CreateSearchOptions(
@@ -244,8 +245,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options);
             Assert.NotNull(options.Sort);
             Assert.Equal(2, options.Sort.Count());
-            Assert.Equal(Tuple.Create(value1, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
-            Assert.Equal(Tuple.Create(value2, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
+            Assert.Equal((_resourceTypeSearchParameterInfo, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
+            Assert.Equal((_resourceTypeSearchParameterInfo, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
         }
 
         [Theory]

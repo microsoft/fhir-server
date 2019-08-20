@@ -6,6 +6,7 @@
 using System;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Core
 {
@@ -62,6 +63,16 @@ namespace Microsoft.Health.Fhir.Core
 
             // TODO: This does not work with external reference.
             return reference?.Reference?.StartsWith(ModelInfo.FhirTypeToFhirTypeName(resourceType), StringComparison.Ordinal) ?? false;
+        }
+
+        /// <summary>
+        /// Converts a <see cref="Hl7.Fhir.Rest.SortOrder"/> to a <see cref="SortOrder"/>.
+        /// </summary>
+        /// <param name="input">The <see cref="Hl7.Fhir.Rest.SortOrder"/></param>
+        /// <returns>The <see cref="SortOrder"/></returns>
+        public static SortOrder ToCoreSortOrder(this Hl7.Fhir.Rest.SortOrder input)
+        {
+            return input == Hl7.Fhir.Rest.SortOrder.Ascending ? SortOrder.Ascending : SortOrder.Descending;
         }
     }
 }

@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
-        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
+        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters = null, string continuationToken = null)
         {
             string routeName = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
 
@@ -131,18 +131,57 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 {
                     // Remove the parameter if:
                     // 1. It is the continuation token (if there is a new continuation token, then it will be added again).
-                    // 2. The parameter is not supported.
+                    // 2. It is the _sort parameter and the parameter is not supported for sorting
+                    // 3. The parameter is not supported.
                     if (!string.Equals(searchParam.Key, KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase))
                     {
-                        IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
-
-                        StringValues usedValues = removedValues.Any() ?
-                            new StringValues(searchParam.Value.Except(removedValues).ToArray()) :
-                            searchParam.Value;
-
-                        if (usedValues.Any())
+                        if (unsupportedSortingParameters?.Count > 0 && string.Equals(searchParam.Key, KnownQueryParameterNames.Sort, StringComparison.OrdinalIgnoreCase))
                         {
-                            routeValues.Add(searchParam.Key, usedValues);
+                            var filteredValues = new List<string>(searchParam.Value.Count);
+
+                            foreach (string stringValue in searchParam.Value)
+                            {
+                                // parameters are separated by a comma and can be prefixed with a dash to indicate descending order
+                                string[] tokens = stringValue.Split(',');
+
+                                List<string> values = tokens.Where(sortValue =>
+                                        !unsupportedSortingParameters.Any(p =>
+                                            sortValue.EndsWith(p.parameterName, StringComparison.Ordinal) &&
+                                            (sortValue.Length == p.parameterName.Length ||
+                                             (sortValue.Length > 0 && sortValue.Length == p.parameterName.Length + 1 && sortValue[0] == '-'))))
+                                    .ToList();
+
+                                if (values.Count == tokens.Length)
+                                {
+                                    filteredValues.Add(stringValue);
+                                }
+                                else if (values.Count == 1)
+                                {
+                                    filteredValues.Add(values[0]);
+                                }
+                                else if (values.Count > 0)
+                                {
+                                    filteredValues.Add(string.Join(',', values));
+                                }
+                            }
+
+                            if (filteredValues.Count > 0)
+                            {
+                                routeValues.Add(searchParam.Key, filteredValues.Count == 1 ? new StringValues(filteredValues[0]) : new StringValues(filteredValues.ToArray()));
+                            }
+                        }
+                        else
+                        {
+                            IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
+
+                            StringValues usedValues = removedValues.Any()
+                                ? new StringValues(searchParam.Value.Except(removedValues).ToArray())
+                                : searchParam.Value;
+
+                            if (usedValues.Any())
+                            {
+                                routeValues.Add(searchParam.Key, usedValues);
+                            }
                         }
                     }
                 }
