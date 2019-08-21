@@ -96,12 +96,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     bundle.NextLink = _urlResolver.ResolveRouteUrl(
                         result.UnsupportedSearchParameters,
+                        result.UnsupportedSortingParameters,
                         Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)));
                 }
             }
 
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.UnsupportedSortingParameters);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = type;
