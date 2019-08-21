@@ -65,6 +65,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 jsonWriter.ArrayPool = _charPool;
 
+                if (context.HttpContext.GetIsPretty())
+                {
+                    jsonWriter.Formatting = Formatting.Indented;
+                }
+
                 _fhirJsonSerializer.Serialize((Resource)context.Object, jsonWriter, context.HttpContext.GetSummaryType(_logger));
                 await jsonWriter.FlushAsync();
             }

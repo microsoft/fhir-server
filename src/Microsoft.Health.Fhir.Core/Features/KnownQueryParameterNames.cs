@@ -15,6 +15,12 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// </summary>
         public const string Format = "_format";
 
+        /// <summary>
+        /// The pretty query parameter.
+        /// </summary>
+        /// <remarks>True if the client wishes to request for pretty-printed resources (either in JSON or XML), false otherwise.</remarks>
+        public const string Pretty = "_pretty";
+
         public const string At = "_at";
 
         /// <summary>
