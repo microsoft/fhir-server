@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var request = new SearchResourceHistoryRequest("Patient");
 
-            var searchResult = new SearchResult(Enumerable.Empty<ResourceWrapper>(), new Tuple<string, string>[0], null);
+            var searchResult = new SearchResult(Enumerable.Empty<ResourceWrapper>(), new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
 
             _searchService.SearchHistoryAsync(request.ResourceType, null, null, null, null, null, null, CancellationToken.None).Returns(searchResult);
 

@@ -21,7 +21,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
+        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
+
         private readonly IExpressionParser _expressionParser;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
 
@@ -35,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
 
             _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
@@ -67,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
 
                     // Checks if the continuation token is base 64 bit encoded. Needed for systems that have cached continuation tokens from before they were encoded.
-                    if (Regex.IsMatch(query.Item2, "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$"))
+                    if (Base64FormatRegex.IsMatch(query.Item2))
                     {
                         continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
                     }
@@ -179,6 +183,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
+
+            if (searchParams.Sort?.Count > 0)
+            {
+                var sortings = new List<(SearchParameterInfo, SortOrder)>();
+                List<(string parameterName, string reason)> unsupportedSortings = null;
+
+                foreach (Tuple<string, Hl7.Fhir.Rest.SortOrder> sorting in searchParams.Sort)
+                {
+                    try
+                    {
+                        SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
+                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
+                    }
+                    catch (SearchParameterNotSupportedException)
+                    {
+                        (unsupportedSortings ?? (unsupportedSortings = new List<(string parameterName, string reason)>())).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
+                    }
+                }
+
+                searchOptions.Sort = sortings;
+                searchOptions.UnsupportedSortingParams = (IReadOnlyList<(string parameterName, string reason)>)unsupportedSortings ?? Array.Empty<(string parameterName, string reason)>();
+            }
+            else
+            {
+                searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
+                searchOptions.UnsupportedSortingParams = Array.Empty<(string parameterName, string reason)>();
+            }
 
             return searchOptions;
         }

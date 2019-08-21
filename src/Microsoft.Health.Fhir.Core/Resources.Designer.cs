@@ -707,7 +707,18 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ServiceUnavailable", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to The _sort parameter is not supported..
+        /// </summary>
+        internal static string SortNotSupported
+        {
+            get
+            {
+                return ResourceManager.GetString("SortNotSupported", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
         /// </summary>

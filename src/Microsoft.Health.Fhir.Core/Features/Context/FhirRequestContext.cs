@@ -20,7 +20,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         private Uri _uri;
         private Uri _baseUri;
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1054:Uri parameters should not be strings", Justification = "Lazily initialized to avoid unnecessary allocation.")]
         public FhirRequestContext(
             string method,
             string uriString,
@@ -63,6 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public IDictionary<string, StringValues> RequestHeaders { get; }
 
-        public IDictionary<string, StringValues> ResponseHeaders { get;  }
+        public IDictionary<string, StringValues> ResponseHeaders { get; }
     }
 }

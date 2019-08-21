@@ -269,7 +269,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         {
             if (!response.IsSuccessStatusCode)
             {
-                FhirResponse<OperationOutcome> operationOutcome = await CreateResponseAsync<OperationOutcome>(response);
+                await response.Content.LoadIntoBufferAsync();
+
+                FhirResponse<OperationOutcome> operationOutcome;
+                try
+                {
+                    operationOutcome = await CreateResponseAsync<OperationOutcome>(response);
+                }
+                catch (Exception)
+                {
+                    // The response could not be read as an OperationOutcome. Throw a generic HTTP error.
+                    throw new HttpRequestException($"Status code: {response.StatusCode}; reason phrase: '{response.ReasonPhrase}'; body: '{await response.Content.ReadAsStringAsync()}'");
+                }
 
                 throw new FhirException(operationOutcome);
             }

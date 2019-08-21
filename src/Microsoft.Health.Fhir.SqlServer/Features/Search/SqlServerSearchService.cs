@@ -11,9 +11,11 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Common;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -183,7 +185,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         // call NextResultAsync to get the info messages
                         await reader.NextResultAsync(cancellationToken);
 
-                        return new SearchResult(resources, searchOptions.UnsupportedSearchParams, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null);
+                        IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
+                        if (searchOptions.Sort?.Count > 0)
+                        {
+                            // we don't currently support sort
+                            unsupportedSortingParameters = searchOptions.UnsupportedSortingParams.Concat(searchOptions.Sort.Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
+                        }
+                        else
+                        {
+                            unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
+                        }
+
+                        return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null);
                     }
                 }
             }

@@ -61,6 +61,7 @@
     <None Remove="TestFiles\R4\DocumentReference-example.json" />
     <None Remove="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\InvalidCompartmentDefinition.json" />
+    <None Remove="TestFiles\R4\Location-example-hq.json" />
     <None Remove="TestFiles\R4\MedicinalProduct.json" />
     <None Remove="TestFiles\R4\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\ObservationDefinition-example.json" />
@@ -87,6 +88,7 @@
     <None Remove="TestFiles\Stu3\DocumentReference-example-002.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-003.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example.json" />
+    <None Remove="TestFiles\Stu3\Location-example-hq.json" />
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
@@ -120,6 +122,7 @@
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example.json" />
     <EmbeddedResource Include="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R4\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\R4\MedicinalProduct.json" />
     <EmbeddedResource Include="TestFiles\R4\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationDefinition-example.json" />
@@ -153,6 +156,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-003.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith20MinuteApgarScore.json" />
@@ -181,7 +185,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.0.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
     <PackageReference Include="NSubstitute" Version="4.2.1" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />

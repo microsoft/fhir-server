@@ -438,7 +438,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 resourceWrappers = Array.Empty<ResourceWrapper>();
             }
 
-            return new SearchResult(resourceWrappers, new Tuple<string, string>[0], continuationToken);
+            return new SearchResult(resourceWrappers, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), continuationToken);
         }
     }
 }

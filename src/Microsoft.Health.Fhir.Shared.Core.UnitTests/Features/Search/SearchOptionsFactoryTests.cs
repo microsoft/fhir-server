@@ -9,11 +9,14 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
 
@@ -29,11 +32,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
         private readonly SearchOptionsFactory _factory;
+        private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
 
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType).Returns(new SearchParameter { Name = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo());
+            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
 
             _factory = new SearchOptionsFactory(
                 _expressionParser,
@@ -221,6 +227,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams);
+        }
+
+        [Fact]
+        public void GivenSearchWithSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
+        {
+            const string paramName = SearchParameterNames.ResourceType;
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Sort, paramName),
+                Tuple.Create(KnownQueryParameterNames.Sort, "-" + paramName),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.NotNull(options.Sort);
+            Assert.Equal(2, options.Sort.Count());
+            Assert.Equal((_resourceTypeSearchParameterInfo, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
+            Assert.Equal((_resourceTypeSearchParameterInfo, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
+        }
+
+        [Fact]
+        public void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedSortingList()
+        {
+            const string paramName = "unknownParameter";
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Sort, paramName),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.NotNull(options.Sort);
+            Assert.Empty(options.Sort);
+
+            Assert.Equal(1, options.UnsupportedSortingParams.Count);
+            Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
         }
 
         [Theory]

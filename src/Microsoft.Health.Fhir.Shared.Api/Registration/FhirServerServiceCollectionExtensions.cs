@@ -8,6 +8,7 @@ using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -45,18 +46,23 @@ namespace Microsoft.Extensions.DependencyInjection
                 options.RespectBrowserAcceptHeader = true;
             });
 
+            services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.All;
+            });
+
             var fhirServerConfiguration = new FhirServerConfiguration();
 
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Security));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Conformance));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Features));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Cors));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Operations));
-            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(fhirServerConfiguration.Operations.Export));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Conformance));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
 
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
@@ -105,6 +111,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 return app =>
                 {
                     IHostingEnvironment env = app.ApplicationServices.GetRequiredService<IHostingEnvironment>();
+
+                    app.UseForwardedHeaders();
 
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();

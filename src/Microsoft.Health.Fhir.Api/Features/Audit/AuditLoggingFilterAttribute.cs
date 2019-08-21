@@ -5,23 +5,26 @@
 
 using System;
 using System.Diagnostics;
-using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     [AttributeUsage(AttributeTargets.Class)]
     internal class AuditLoggingFilterAttribute : ActionFilterAttribute
     {
+        private readonly IClaimsExtractor _claimsExtractor;
         private readonly IAuditHelper _auditHelper;
 
-        public AuditLoggingFilterAttribute(IAuditHelper auditHelper)
+        public AuditLoggingFilterAttribute(IClaimsExtractor claimsExtractor, IAuditHelper auditHelper)
         {
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(auditHelper, nameof(auditHelper));
 
+            _claimsExtractor = claimsExtractor;
             _auditHelper = auditHelper;
         }
 
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
             if (actionDescriptor != null)
             {
-                _auditHelper.LogExecuting(actionDescriptor.ControllerName, actionDescriptor.ActionName);
+                _auditHelper.LogExecuting(actionDescriptor.ControllerName, actionDescriptor.ActionName, context.HttpContext, _claimsExtractor);
             }
 
             base.OnActionExecuting(context);
@@ -55,8 +58,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             _auditHelper.LogExecuted(
                 actionDescriptor.ControllerName,
                 actionDescriptor.ActionName,
-                (HttpStatusCode)context.HttpContext.Response.StatusCode,
-                result?.GetResultTypeName());
+                result?.GetResultTypeName(),
+                context.HttpContext,
+                _claimsExtractor);
 
             base.OnResultExecuted(context);
         }
