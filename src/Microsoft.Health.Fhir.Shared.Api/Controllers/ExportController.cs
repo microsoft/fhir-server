@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 idParameter,
                 HttpContext.RequestAborted);
 
-            // If the job is complete, we need to return 200 along the completed data to the client.
+            // If the job is complete, we need to return 200 along with the completed data to the client.
             // Else we need to return 202.
             ExportResult exportActionResult;
             if (getExportResult.StatusCode == HttpStatusCode.OK)

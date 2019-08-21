@@ -156,9 +156,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // Best effort to delete the secret. If it fails to delete, then move on.
                     await _secretStore.DeleteSecretAsync(_exportJobRecord.SecretName, cancellationToken);
                 }
-                catch (SecretStoreException sse)
+                catch (Exception ex)
                 {
-                    _logger.LogWarning(sse, "Failed to delete the secret.");
+                    _logger.LogWarning(ex, "Failed to delete the secret.");
                 }
             }
             catch (JobConflictException)

@@ -105,6 +105,61 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
         }
 
         [Theory]
+        [InlineData(HttpStatusCode.Gone, HttpStatusCode.InternalServerError)]
+        [InlineData(HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized)]
+        [InlineData(HttpStatusCode.Forbidden, HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.Ambiguous, HttpStatusCode.InternalServerError)]
+        [InlineData(HttpStatusCode.ServiceUnavailable, HttpStatusCode.InternalServerError)]
+        public async Task GivenKeyVaultSecretStore_WhenGettingSecretThrowsKeyVaultErrorException_ThenExceptionWillBeThrownWithAppropriateStatusCode(HttpStatusCode keyVaultStatusCode, HttpStatusCode expectedStatusCode)
+        {
+            _retryCount = 0;
+            _secretStore = GetSecretStore(_retryCount);
+            KeyVaultErrorException exception = GetKeyVaultError(keyVaultStatusCode);
+
+            _kvClient.GetSecretWithHttpMessagesAsync(_keyVaultUri.AbsoluteUri, SecretName, secretVersion: string.Empty, customHeaders: null, _cancellationToken)
+                .Returns<AzureOperationResponse<SecretBundle>>(
+                    _ => throw exception);
+
+            SecretStoreException sse = null;
+            try
+            {
+                await _secretStore.GetSecretAsync(SecretName, _cancellationToken);
+            }
+            catch (SecretStoreException ex)
+            {
+                sse = ex;
+            }
+
+            Assert.NotNull(sse);
+            Assert.Equal(expectedStatusCode, sse.ResponseStatusCode);
+        }
+
+        [Fact]
+        public async Task GivenKeyVaultSecretStore_WhenGettingSecretThrowsKeyVaultErrorExceptionWithNoResponse_ThenExceptionWillBeThrownWithInternalServerErrorStatusCode()
+        {
+            _retryCount = 0;
+            _secretStore = GetSecretStore(_retryCount);
+            KeyVaultErrorException exception = new KeyVaultErrorException();
+
+            _kvClient.GetSecretWithHttpMessagesAsync(_keyVaultUri.AbsoluteUri, SecretName, secretVersion: string.Empty, customHeaders: null, _cancellationToken)
+                .Returns<AzureOperationResponse<SecretBundle>>(
+                    _ => throw exception);
+
+            SecretStoreException sse = null;
+            try
+            {
+                await _secretStore.GetSecretAsync(SecretName, _cancellationToken);
+            }
+            catch (SecretStoreException ex)
+            {
+                sse = ex;
+            }
+
+            Assert.NotNull(sse);
+            Assert.Equal(HttpStatusCode.InternalServerError, sse.ResponseStatusCode);
+        }
+
+        [Theory]
         [InlineData(HttpStatusCode.InternalServerError)]
         [InlineData(HttpStatusCode.Unauthorized)]
         [InlineData(HttpStatusCode.BadRequest)]
@@ -166,6 +221,61 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
         }
 
         [Theory]
+        [InlineData(HttpStatusCode.Gone, HttpStatusCode.InternalServerError)]
+        [InlineData(HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized)]
+        [InlineData(HttpStatusCode.Forbidden, HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.Ambiguous, HttpStatusCode.InternalServerError)]
+        [InlineData(HttpStatusCode.ServiceUnavailable, HttpStatusCode.InternalServerError)]
+        public async Task GivenKeyVaultSecretStore_WhenSettingSecretThrowsKeyVaultErrorException_ThenExceptionWillBeThrownWithAppropriateStatusCode(HttpStatusCode keyVaultStatusCode, HttpStatusCode expectedStatusCode)
+        {
+            _retryCount = 0;
+            _secretStore = GetSecretStore(_retryCount);
+            KeyVaultErrorException exception = GetKeyVaultError(keyVaultStatusCode);
+
+            _kvClient.SetSecretWithHttpMessagesAsync(_keyVaultUri.AbsoluteUri, SecretName, SecretValue, tags: null, contentType: null, secretAttributes: null, customHeaders: null, _cancellationToken)
+                .Returns<AzureOperationResponse<SecretBundle>>(
+                    _ => throw exception);
+
+            SecretStoreException sse = null;
+            try
+            {
+                await _secretStore.SetSecretAsync(SecretName, SecretValue, _cancellationToken);
+            }
+            catch (SecretStoreException ex)
+            {
+                sse = ex;
+            }
+
+            Assert.NotNull(sse);
+            Assert.Equal(expectedStatusCode, sse.ResponseStatusCode);
+        }
+
+        [Fact]
+        public async Task GivenKeyVaultSecretStore_WhenSettingSecretThrowsKeyVaultErrorExceptionWithNoResponse_ThenExceptionWillBeThrownWithInternalServerErrorStatusCode()
+        {
+            _retryCount = 0;
+            _secretStore = GetSecretStore(_retryCount);
+            KeyVaultErrorException exception = new KeyVaultErrorException();
+
+            _kvClient.SetSecretWithHttpMessagesAsync(_keyVaultUri.AbsoluteUri, SecretName, SecretValue, tags: null, contentType: null, secretAttributes: null, customHeaders: null, _cancellationToken)
+                .Returns<AzureOperationResponse<SecretBundle>>(
+                    _ => throw exception);
+
+            SecretStoreException sse = null;
+            try
+            {
+                await _secretStore.SetSecretAsync(SecretName, SecretValue, _cancellationToken);
+            }
+            catch (SecretStoreException ex)
+            {
+                sse = ex;
+            }
+
+            Assert.NotNull(sse);
+            Assert.Equal(HttpStatusCode.InternalServerError, sse.ResponseStatusCode);
+        }
+
+        [Theory]
         [InlineData(HttpStatusCode.InternalServerError)]
         [InlineData(HttpStatusCode.Unauthorized)]
         [InlineData(HttpStatusCode.BadRequest)]
@@ -224,6 +334,61 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
                     _ => successfulResult);
 
             await Assert.ThrowsAsync<SecretStoreException>(() => _secretStore.DeleteSecretAsync(SecretName, _cancellationToken));
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.Gone, HttpStatusCode.InternalServerError)]
+        [InlineData(HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized)]
+        [InlineData(HttpStatusCode.Forbidden, HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.Ambiguous, HttpStatusCode.InternalServerError)]
+        [InlineData(HttpStatusCode.ServiceUnavailable, HttpStatusCode.InternalServerError)]
+        public async Task GivenKeyVaultSecretStore_WhenDeletingSecretThrowsKeyVaultErrorException_ThenExceptionWillBeThrownWithAppropriateStatusCode(HttpStatusCode keyVaultStatusCode, HttpStatusCode expectedStatusCode)
+        {
+            _retryCount = 0;
+            _secretStore = GetSecretStore(_retryCount);
+            KeyVaultErrorException exception = GetKeyVaultError(keyVaultStatusCode);
+
+            _kvClient.DeleteSecretWithHttpMessagesAsync(_keyVaultUri.AbsoluteUri, SecretName, customHeaders: null, _cancellationToken)
+                .Returns<AzureOperationResponse<DeletedSecretBundle>>(
+                    _ => throw exception);
+
+            SecretStoreException sse = null;
+            try
+            {
+                await _secretStore.DeleteSecretAsync(SecretName, _cancellationToken);
+            }
+            catch (SecretStoreException ex)
+            {
+                sse = ex;
+            }
+
+            Assert.NotNull(sse);
+            Assert.Equal(expectedStatusCode, sse.ResponseStatusCode);
+        }
+
+        [Fact]
+        public async Task GivenKeyVaultSecretStore_WhenDeletingSecretThrowsKeyVaultErrorExceptionWithNoResponse_ThenExceptionWillBeThrownWithInternalServerErrorStatusCode()
+        {
+            _retryCount = 0;
+            _secretStore = GetSecretStore(_retryCount);
+            KeyVaultErrorException exception = new KeyVaultErrorException();
+
+            _kvClient.DeleteSecretWithHttpMessagesAsync(_keyVaultUri.AbsoluteUri, SecretName, customHeaders: null, _cancellationToken)
+                .Returns<AzureOperationResponse<DeletedSecretBundle>>(
+                    _ => throw exception);
+
+            SecretStoreException sse = null;
+            try
+            {
+                await _secretStore.DeleteSecretAsync(SecretName, _cancellationToken);
+            }
+            catch (SecretStoreException ex)
+            {
+                sse = ex;
+            }
+
+            Assert.NotNull(sse);
+            Assert.Equal(HttpStatusCode.InternalServerError, sse.ResponseStatusCode);
         }
 
         // Helper methods

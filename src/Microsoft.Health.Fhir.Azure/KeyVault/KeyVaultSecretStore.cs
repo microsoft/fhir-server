@@ -72,14 +72,11 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             SecretBundle result;
             try
             {
-                result = await _retryPolicy.ExecuteAsync(async () =>
-                {
-                    return await _keyVaultClient.GetSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
-                });
+                result = await _retryPolicy.ExecuteAsync(() => _keyVaultClient.GetSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken));
             }
             catch (KeyVaultErrorException kve)
             {
-                HttpStatusCode statusCode = kve.Response != null ? kve.Response.StatusCode : HttpStatusCode.InternalServerError;
+                HttpStatusCode statusCode = GetResponseStatusCode(kve);
                 throw new SecretStoreException(SecretStoreErrors.GetSecretError, kve, statusCode);
             }
             catch (Exception ex)
@@ -98,21 +95,19 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             SecretBundle result;
             try
             {
-                result = await _retryPolicy.ExecuteAsync(async () =>
-                {
-                    return await _keyVaultClient.SetSecretAsync(
+                result = await _retryPolicy.ExecuteAsync(() =>
+                    _keyVaultClient.SetSecretAsync(
                         _keyVaultUri.AbsoluteUri,
                         secretName,
                         secretValue,
                         tags: null,
                         contentType: null,
                         secretAttributes: null,
-                        cancellationToken);
-                });
+                        cancellationToken));
             }
             catch (KeyVaultErrorException kve)
             {
-                HttpStatusCode statusCode = kve.Response != null ? kve.Response.StatusCode : HttpStatusCode.InternalServerError;
+                HttpStatusCode statusCode = GetResponseStatusCode(kve);
                 throw new SecretStoreException(SecretStoreErrors.SetSecretError, kve, statusCode);
             }
             catch (Exception ex)
@@ -130,14 +125,11 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             DeletedSecretBundle result;
             try
             {
-                result = await _retryPolicy.ExecuteAsync(async () =>
-                {
-                    return await _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken);
-                });
+                result = await _retryPolicy.ExecuteAsync(() => _keyVaultClient.DeleteSecretAsync(_keyVaultUri.AbsoluteUri, secretName, cancellationToken));
             }
             catch (KeyVaultErrorException kve)
             {
-                HttpStatusCode statusCode = kve.Response != null ? kve.Response.StatusCode : HttpStatusCode.InternalServerError;
+                HttpStatusCode statusCode = GetResponseStatusCode(kve);
                 throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, kve, statusCode);
             }
             catch (Exception ex)
@@ -146,6 +138,25 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
             }
 
             return new SecretWrapper(result.Id, result.Value);
+        }
+
+        // Given a KeyVaultErrorException, this will determine what status code we will
+        // return to the caller. We will forward status codes related to unauhtorized
+        // and return 500 for the rest.
+        private HttpStatusCode GetResponseStatusCode(KeyVaultErrorException kve)
+        {
+            if (kve.Response == null)
+            {
+                return HttpStatusCode.InternalServerError;
+            }
+
+            if (kve.Response.StatusCode == HttpStatusCode.Unauthorized || kve.Response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return kve.Response.StatusCode;
+            }
+
+            // return 500 by default.
+            return HttpStatusCode.InternalServerError;
         }
     }
 }

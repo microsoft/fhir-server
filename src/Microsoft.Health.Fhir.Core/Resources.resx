@@ -249,6 +249,10 @@
   <data name="OpenIdConfiguration" xml:space="preserve">
     <value>Failed to retrieve the OpenId configuration from the authentication provider.</value>
   </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>{0} operation failed for reason: {1}</value>
+    <comment>{0} is operation name, {1} is failure reason.</comment>
+  </data>
   <data name="OrDelimiter" xml:space="preserve">
     <value> or </value>
     <comment>Used as a list delimiter. Note the spaces.</comment>

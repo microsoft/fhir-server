@@ -59,14 +59,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData(OperationStatus.Canceled, HttpStatusCode.InternalServerError)]
         [InlineData(OperationStatus.Failed, HttpStatusCode.BadRequest)]
         [InlineData(OperationStatus.Failed, HttpStatusCode.InternalServerError)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenHttpResponseCodeShouldBeCorrespondingError(OperationStatus operationStatus, HttpStatusCode failureStatusCode)
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(OperationStatus operationStatus, HttpStatusCode failureStatusCode)
         {
             _failureStatusCode = failureStatusCode;
-            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
 
-            Assert.Equal(failureStatusCode, result.StatusCode);
-            Assert.Equal(_failureReason, result.FailureReason);
-            Assert.Null(result.JobResult);
+            OperationFailedException ofe = null;
+            try
+            {
+                await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
+            }
+            catch (OperationFailedException ex)
+            {
+                ofe = ex;
+            }
+
+            Assert.NotNull(ofe);
+            Assert.Equal(failureStatusCode, ofe.ResponseStatusCode);
+            Assert.Contains(_failureReason, ofe.Message);
         }
 
         [Theory]

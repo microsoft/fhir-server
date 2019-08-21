@@ -175,22 +175,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenSetSecretFails_WhenCreatingAnExportJob_ThenFailedResponseShouldBeReturned()
+        public async Task GivenSetSecretFails_WhenCreatingAnExportJob_ThenThrowsOperationFailedException()
         {
             // Set up create export request handler with mock secret store.
             ISecretStore mockSecretStore = Substitute.For<ISecretStore>();
+            HttpStatusCode errorStatusCode = HttpStatusCode.InternalServerError;
             mockSecretStore.SetSecretAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.SetSecretError, innerException: null, statusCode: HttpStatusCode.InternalServerError));
+                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.SetSecretError, innerException: null, statusCode: errorStatusCode));
 
             _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, mockSecretStore);
 
             var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            Assert.False(response.Successful);
-            Assert.False(string.IsNullOrWhiteSpace(response.FailureReason));
-            Assert.Null(response.JobId);
-            Assert.Equal(HttpStatusCode.InternalServerError, response.FailureStatusCode);
+            OperationFailedException ofe = null;
+            try
+            {
+                await _createExportRequestHandler.Handle(request, _cancellationToken);
+            }
+            catch (OperationFailedException ex)
+            {
+                ofe = ex;
+            }
+
+            Assert.NotNull(ofe);
+            Assert.Equal(errorStatusCode, ofe.ResponseStatusCode);
         }
 
         private class MockClaimsExtractor : IClaimsExtractor
