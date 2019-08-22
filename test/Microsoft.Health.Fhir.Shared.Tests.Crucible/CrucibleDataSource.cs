@@ -6,7 +6,6 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Crucible.Client;
@@ -18,10 +17,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
     {
         private const int PastResultsValidInMinutes = 10;
 
-        public CrucibleDataSource(TestFhirServerFactory testFhirServerFactory)
+        public CrucibleDataSource()
         {
-            EnsureArg.IsNotNull(testFhirServerFactory, nameof(testFhirServerFactory));
-
             TestRun = new Lazy<ServerTestRun>(() => GetTestRunAsync().GetAwaiter().GetResult());
         }
 
