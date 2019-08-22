@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
 
         private readonly IExpressionParser _expressionParser;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
 
@@ -37,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
 
             _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
@@ -192,10 +194,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
 
-            // Sort is currently not implimented. The sort parameters are added to the search options to allow for future development.
-            if (searchParams.Sort != null && searchParams.Sort.Count > 0)
+            if (searchParams.Sort?.Count > 0)
             {
-                searchOptions.Sort = searchParams.Sort.Select(sorting => Tuple.Create(sorting.Item1, (SortOrder)sorting.Item2));
+                var sortings = new List<(SearchParameterInfo, SortOrder)>();
+                List<(string parameterName, string reason)> unsupportedSortings = null;
+
+                foreach (Tuple<string, Hl7.Fhir.Rest.SortOrder> sorting in searchParams.Sort)
+                {
+                    try
+                    {
+                        SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
+                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
+                    }
+                    catch (SearchParameterNotSupportedException)
+                    {
+                        (unsupportedSortings ?? (unsupportedSortings = new List<(string parameterName, string reason)>())).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
+                    }
+                }
+
+                searchOptions.Sort = sortings;
+                searchOptions.UnsupportedSortingParams = (IReadOnlyList<(string parameterName, string reason)>)unsupportedSortings ?? Array.Empty<(string parameterName, string reason)>();
+            }
+            else
+            {
+                searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
+                searchOptions.UnsupportedSortingParams = Array.Empty<(string parameterName, string reason)>();
             }
 
             return searchOptions;

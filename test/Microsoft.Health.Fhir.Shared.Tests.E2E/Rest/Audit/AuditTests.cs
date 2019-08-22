@@ -85,6 +85,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                         result = ex.Response;
                     }
 
+                    // The request should have failed.
+                    Assert.NotNull(result);
+
                     return result;
                 },
                 "read",
@@ -448,15 +451,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.Equal(expectedStatusCode, auditEntry.StatusCode);
             Assert.Equal(expectedCorrelationId, auditEntry.CorrelationId);
 
+            // Unfortunately, we cannot test the caller IP because these tests only run in-process, which does not go through network.
+
             if (expectedClaimValue != null)
             {
-                Assert.Equal(1, auditEntry.Claims.Count);
-                Assert.Equal(expectedClaimKey, auditEntry.Claims.Single().Key);
-                Assert.Equal(expectedClaimValue, auditEntry.Claims.Single().Value);
+                Assert.Collection(
+                    auditEntry.CallerClaims,
+                    claim =>
+                    {
+                        Assert.Equal(expectedClaimKey, claim.Key);
+                        Assert.Equal(expectedClaimValue, claim.Value);
+                    });
             }
             else
             {
-                Assert.Empty(auditEntry.Claims);
+                Assert.Empty(auditEntry.CallerClaims);
             }
         }
     }

@@ -14,9 +14,12 @@ using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
+    /// <summary>
+    /// Provides mechanism to log the audit event using default logger.
+    /// </summary>
     public class AuditLogger : IAuditLogger
     {
-        internal const string AuditEventType = "AuditEvent";
+        private const string AuditEventType = "AuditEvent";
 
         private static readonly string AuditMessageFormat =
             "ActionType: {ActionType}" + Environment.NewLine +
@@ -30,18 +33,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             "CorrelationId: {CorrelationId}" + Environment.NewLine +
             "Claims: {Claims}";
 
-        private readonly ILogger<IAuditLogger> _logger;
         private readonly SecurityConfiguration _securityConfiguration;
+        private readonly ILogger<IAuditLogger> _logger;
 
-        public AuditLogger(ILogger<IAuditLogger> logger, IOptions<SecurityConfiguration> securityConfiguration)
+        public AuditLogger(
+            IOptions<SecurityConfiguration> securityConfiguration,
+            ILogger<IAuditLogger> logger)
         {
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _logger = logger;
             _securityConfiguration = securityConfiguration.Value;
+            _logger = logger;
         }
 
+        /// <inheritdoc />
         public void LogAudit(
             AuditAction auditAction,
             string action,
@@ -49,13 +55,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             Uri requestUri,
             HttpStatusCode? statusCode,
             string correlationId,
-            IReadOnlyCollection<KeyValuePair<string, string>> claims)
+            string callerIpAddress,
+            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims)
         {
             string claimsInString = null;
 
-            if (claims != null)
+            if (callerClaims != null)
             {
-                claimsInString = string.Join(";", claims.Select(claim => $"{claim.Key}={claim.Value}"));
+                claimsInString = string.Join(";", callerClaims.Select(claim => $"{claim.Key}={claim.Value}"));
             }
 
             _logger.LogInformation(

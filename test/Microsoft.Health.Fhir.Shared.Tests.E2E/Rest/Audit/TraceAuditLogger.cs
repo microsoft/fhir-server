@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     {
         private BlockingCollection<AuditEntry> _auditEntries = new BlockingCollection<AuditEntry>();
 
-        public void LogAudit(AuditAction auditAction, string action, string resourceType, Uri requestUri, HttpStatusCode? statusCode, string correlationId, IReadOnlyCollection<KeyValuePair<string, string>> claims)
+        public void LogAudit(AuditAction auditAction, string action, string resourceType, Uri requestUri, HttpStatusCode? statusCode, string correlationId, string callerIpAddress, IReadOnlyCollection<KeyValuePair<string, string>> callerClaims)
         {
-            _auditEntries.Add(new AuditEntry(auditAction, action, resourceType, requestUri, statusCode, correlationId, claims));
+            _auditEntries.Add(new AuditEntry(auditAction, action, resourceType, requestUri, statusCode, correlationId, callerIpAddress, callerClaims));
         }
 
         public IReadOnlyList<AuditEntry> GetAuditEntriesByCorrelationId(string correlationId)

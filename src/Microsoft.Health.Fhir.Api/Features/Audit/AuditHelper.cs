@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Logging;
@@ -26,7 +27,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     {
         private readonly IActionDescriptorCollectionProvider _actionDescriptorCollectionProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly IClaimsExtractor _claimsExtractor;
         private readonly IAuditLogger _auditLogger;
         private readonly ILogger<AuditHelper> _logger;
 
@@ -35,19 +35,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         public AuditHelper(
             IActionDescriptorCollectionProvider actionDescriptorCollectionProvider,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IClaimsExtractor claimsExtractor,
             IAuditLogger auditLogger,
             ILogger<AuditHelper> logger)
         {
             EnsureArg.IsNotNull(actionDescriptorCollectionProvider, nameof(actionDescriptorCollectionProvider));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _actionDescriptorCollectionProvider = actionDescriptorCollectionProvider;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _claimsExtractor = claimsExtractor;
             _auditLogger = auditLogger;
             _logger = logger;
         }
@@ -66,15 +63,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         }
 
         /// <inheritdoc />
-        public void LogExecuting(string controllerName, string actionName)
+        public void LogExecuting(string controllerName, string actionName, HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
-            Log(AuditAction.Executing, controllerName, actionName, statusCode: null, resourceType: null);
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
+            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
+
+            Log(AuditAction.Executing, controllerName, actionName, statusCode: null, resourceType: null, httpContext, claimsExtractor);
         }
 
         /// <inheritdoc />
-        public void LogExecuted(string controllerName, string actionName, HttpStatusCode statusCode, string responseResultType)
+        public void LogExecuted(string controllerName, string actionName, string responseResultType, HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
-            Log(AuditAction.Executed, controllerName, actionName, statusCode, responseResultType);
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
+            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
+
+            Log(AuditAction.Executed, controllerName, actionName, (HttpStatusCode)httpContext.Response.StatusCode, responseResultType, httpContext, claimsExtractor);
         }
 
         void IStartable.Start()
@@ -104,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             throw new AuditException(controllerName, actionName);
         }
 
-        private void Log(AuditAction auditAction, string controllerName, string actionName, HttpStatusCode? statusCode, string resourceType)
+        private void Log(AuditAction auditAction, string controllerName, string actionName, HttpStatusCode? statusCode, string resourceType, HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
             Attribute attribute = GetAttribute(controllerName, actionName);
 
@@ -119,12 +122,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
                 _auditLogger.LogAudit(
                     auditAction,
-                    action: auditEventTypeAttribute.AuditEventType,
+                    operation: auditEventTypeAttribute.AuditEventType,
                     resourceType: resourceType,
                     requestUri: fhirRequestContext.Uri,
                     statusCode: statusCode,
                     correlationId: fhirRequestContext.CorrelationId,
-                    claims: _claimsExtractor.Extract());
+                    callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
+                    callerClaims: claimsExtractor.Extract());
             }
         }
     }

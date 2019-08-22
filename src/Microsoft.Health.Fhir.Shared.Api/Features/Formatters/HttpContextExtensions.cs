@@ -8,10 +8,11 @@ using System.Linq;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public static class SummaryTypeExtensions
+    public static class HttpContextExtensions
     {
         public static SummaryType GetSummaryType(this HttpContext context, ILogger logger)
         {
@@ -36,6 +37,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
 
             return SummaryType.False;
+        }
+
+        public static bool GetIsPretty(this HttpContext context)
+        {
+            var query = context.Request.Query[KnownQueryParameterNames.Pretty].FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                if (!bool.TryParse(query, out bool isPretty))
+                {
+                    // Assume no pretty formatting if parameter can't be parsed.
+                    isPretty = default;
+                }
+
+                return isPretty;
+            }
+
+            return false;
         }
     }
 }

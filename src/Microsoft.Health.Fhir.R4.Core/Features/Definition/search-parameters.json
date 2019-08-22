@@ -41777,46 +41777,6 @@
     }
   },
   {
-    "fullUrl" : "http://hl7.org/fhir/SearchParameter/Location-near",
-    "resource" : {
-      "resourceType" : "SearchParameter",
-      "id" : "Location-near",
-      "extension" : [{
-        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-        "valueCode" : "trial-use"
-      }],
-      "url" : "http://hl7.org/fhir/SearchParameter/Location-near",
-      "version" : "4.0.0",
-      "name" : "near",
-      "status" : "draft",
-      "experimental" : false,
-      "date" : "2018-12-27T22:37:54+11:00",
-      "publisher" : "Health Level Seven International (Patient Administration)",
-      "contact" : [{
-        "telecom" : [{
-          "system" : "url",
-          "value" : "http://hl7.org/fhir"
-        }]
-      },
-      {
-        "telecom" : [{
-          "system" : "url",
-          "value" : "http://www.hl7.org/Special/committees/pafm/index.cfm"
-        }]
-      }],
-      "description" : "Search for locations where the location.position is near to, or within a specified distance of, the provided coordinates expressed as [latitude]|[longitude]|[distance]|[units] (using the WGS84 datum, see notes).\nIf the units are omitted, then kms should be assumed. If the distance is omitted, then the server can use its own discretion as to what distances should be considered near (and units are irrelevant)\n\nServers may search using various techniques that might have differing accuracies, depending on implementation efficiency.\n\nRequires the near-distance parameter to be provided also",
-      "code" : "near",
-      "base" : ["Location"],
-      "type" : "special",
-      "expression" : "Location.position",
-      "xpath" : "f:Location/f:position",
-      "xpathUsage" : "nearby",
-      "multipleOr" : true,
-      "multipleAnd" : true,
-      "modifier" : ["missing"]
-    }
-  },
-  {
     "fullUrl" : "http://hl7.org/fhir/SearchParameter/Location-operational-status",
     "resource" : {
       "resourceType" : "SearchParameter",

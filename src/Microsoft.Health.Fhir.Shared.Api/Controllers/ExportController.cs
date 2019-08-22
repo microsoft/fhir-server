@@ -31,7 +31,7 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
-    [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
+    [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [Authorize(PolicyNames.FhirPolicy)]
     [Authorize(PolicyNames.ExportPolicy)]

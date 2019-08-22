@@ -94,6 +94,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenPostingToHttp_GivenALocationResourceWithPosition_TheServerShouldRespondSuccessfully()
+        {
+            Location originalResource = Samples.GetJsonSample("Location-example-hq").ToPoco<Location>();
+
+            FhirResponse<Location> response = await Client.CreateAsync(originalResource);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task WhenPostingToHttp_GivenAnUnsupportedResourceType_TheServerShouldRespondWithANotFoundResponse()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync("NotObservation", Samples.GetDefaultObservation().ToPoco<Observation>()));

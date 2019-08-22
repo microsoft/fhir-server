@@ -314,6 +314,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "searchtest_linkage/SE01P_Linkage",
             "searchtest_list/SE01G_List",
             "searchtest_list/SE01P_List",
+            "searchtest_location/S000_Location",
             "searchtest_location/SE01G_Location",
             "searchtest_location/SE01P_Location",
             "searchtest_measure/SE01G_Measure",
