@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public override void Dispose()
         {
             Server?.Dispose();
+            base.Dispose();
         }
 
         /// <summary>

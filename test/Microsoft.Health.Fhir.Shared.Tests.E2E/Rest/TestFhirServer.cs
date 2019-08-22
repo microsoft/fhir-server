@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
@@ -40,29 +41,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public FhirClient GetFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool cacheable = true)
         {
-            HttpClient CreateHttpClient()
-            {
-                return new HttpClient(new SessionMessageHandler(CreateMessageHandler())) { BaseAddress = BaseAddress };
-            }
-
             if (!cacheable)
             {
-                return new FhirClient(CreateHttpClient(), this, format, clientApplication, user);
+                return CreateFhirClient(format, clientApplication, user);
             }
 
             return _cache.GetOrAdd(
                     (format, clientApplication, user),
                     (tuple, fhirServer) =>
-                        new Lazy<FhirClient>(() =>
-                            new FhirClient(CreateHttpClient(), fhirServer, tuple.format, tuple.clientApplication, tuple.user)),
+                        new Lazy<FhirClient>(() => CreateFhirClient(tuple.format, tuple.clientApplication, tuple.user)),
                     this)
                 .Value;
+        }
+
+        private FhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user)
+        {
+            var httpClient = new HttpClient(new SessionMessageHandler(CreateMessageHandler())) { BaseAddress = BaseAddress };
+
+            (bool securityEnabled, string authorizeUrl, string tokenUrl) securitySettings = (false, null, null);
+
+            var fhirClientWithoutSecurity = new FhirClient(httpClient, this, format, clientApplication, user, securitySettings);
+
+            FhirResponse<CapabilityStatement> readResponse = fhirClientWithoutSecurity.ReadAsync<CapabilityStatement>("metadata").GetAwaiter().GetResult();
+            CapabilityStatement metadata = readResponse.Resource;
+
+            foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))
+            {
+                var oauth = rest.Security?.GetExtension(Core.Features.Security.Constants.SmartOAuthUriExtension);
+                if (oauth != null)
+                {
+                    var tokenUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionToken).Value;
+                    var authorizeUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionAuthorize).Value;
+
+                    securitySettings = (true, authorizeUrl, tokenUrl);
+                    break;
+                }
+            }
+
+            if (securitySettings.securityEnabled)
+            {
+                return new FhirClient(httpClient, this, format, clientApplication, user, securitySettings);
+            }
+
+            return fhirClientWithoutSecurity;
         }
 
         protected abstract HttpMessageHandler CreateMessageHandler();
 
         public virtual void Dispose()
         {
+            foreach (Lazy<FhirClient> cacheValue in _cache.Values)
+            {
+                if (cacheValue.IsValueCreated)
+                {
+                    cacheValue.Value.HttpClient.Dispose();
+                }
+            }
         }
 
         /// <summary>

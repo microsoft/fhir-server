@@ -35,13 +35,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         private readonly Func<string, Resource> _deserialize;
         private readonly MediaTypeWithQualityHeaderValue _mediaType;
 
-        public FhirClient(HttpClient httpClient, TestFhirServer testFhirServer, ResourceFormat format, TestApplication clientApplication, TestUser user)
+        public FhirClient(
+            HttpClient httpClient,
+            TestFhirServer testFhirServer,
+            ResourceFormat format,
+            TestApplication clientApplication,
+            TestUser user,
+            (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) securitySettings)
         {
             _testFhirServer = testFhirServer;
             _clientApplication = clientApplication;
             _user = user;
             HttpClient = httpClient;
             Format = format;
+            SecuritySettings = securitySettings;
 
             if (format == ResourceFormat.Json)
             {
@@ -78,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public ResourceFormat Format { get; }
 
-        public (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) SecuritySettings { get; private set; }
+        public (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) SecuritySettings { get; }
 
         public HttpClient HttpClient { get; }
 
@@ -302,8 +309,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
         {
-            await GetSecuritySettings("metadata");
-
             if (SecuritySettings.SecurityEnabled)
             {
                 var tokenKey = $"{clientApplication.ClientId}:{(user == null ? string.Empty : user.UserId)}";
@@ -363,27 +368,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 new KeyValuePair<string, string>("username", user.UserId),
                 new KeyValuePair<string, string>("password", user.Password),
             };
-        }
-
-        private async Task GetSecuritySettings(string fhirServerMetadataUrl)
-        {
-            FhirResponse<CapabilityStatement> readResponse = await ReadAsync<CapabilityStatement>(fhirServerMetadataUrl);
-            var metadata = readResponse.Resource;
-
-            foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))
-            {
-                var oauth = rest.Security?.GetExtension(Core.Features.Security.Constants.SmartOAuthUriExtension);
-                if (oauth != null)
-                {
-                    var tokenUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionToken).Value;
-                    var authorizeUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionAuthorize).Value;
-
-                    SecuritySettings = (true, authorizeUrl, tokenUrl);
-                    return;
-                }
-            }
-
-            SecuritySettings = (false, null, null);
         }
     }
 }
