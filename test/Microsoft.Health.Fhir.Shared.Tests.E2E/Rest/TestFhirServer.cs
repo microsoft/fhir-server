@@ -39,9 +39,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return GetFhirClient(format, TestApplications.ServiceClient, null, reusable);
         }
 
-        public FhirClient GetFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool cacheable = true)
+        public FhirClient GetFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true)
         {
-            if (!cacheable)
+            if (!reusable)
             {
                 return CreateFhirClient(format, clientApplication, user);
             }
