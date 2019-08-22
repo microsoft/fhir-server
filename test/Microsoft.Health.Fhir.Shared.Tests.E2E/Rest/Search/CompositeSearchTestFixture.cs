@@ -9,11 +9,10 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class CompositeSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class CompositeSearchTestFixture : HttpIntegrationTestFixture
     {
         private static readonly string[] ObservationTestFileNames =
         {
@@ -34,8 +33,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             "DocumentReference-example-003",
         };
 
-        public CompositeSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public CompositeSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+            : base(dataStore, format, testFhirServerFactory)
         {
             Observations = CreateResultDictionary<Observation>(ObservationTestFileNames);
             DocumentReferences = CreateResultDictionary<DocumentReference>(DocumentReferenceTestFiles);

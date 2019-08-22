@@ -8,14 +8,13 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class DateSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class DateSearchTestFixture : HttpIntegrationTestFixture
     {
-        public DateSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public DateSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+            : base(dataStore, format, testFhirServerFactory)
         {
             // Creates a unique code for searches
             Coding = new Coding

@@ -8,14 +8,13 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class TokenSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class TokenSearchTestFixture : HttpIntegrationTestFixture
     {
-        public TokenSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public TokenSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+            : base(dataStore, format, testFhirServerFactory)
         {
             // Prepare the resources used for number search tests.
             FhirClient.DeleteAllResources(ResourceType.Observation).Wait();

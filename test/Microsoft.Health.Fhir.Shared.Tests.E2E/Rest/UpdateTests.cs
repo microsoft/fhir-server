@@ -9,7 +9,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
@@ -17,9 +16,9 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class UpdateTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class UpdateTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        public UpdateTests(HttpIntegrationTestFixture<Startup> fixture)
+        public UpdateTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
         }

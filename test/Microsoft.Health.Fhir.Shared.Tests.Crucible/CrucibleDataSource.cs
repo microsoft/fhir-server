@@ -5,11 +5,11 @@
 
 using System;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Crucible.Client;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
+using Microsoft.Health.Fhir.Tests.E2E.Rest;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
@@ -46,23 +46,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
         public static async Task<string[]> GetSupportedIdsAsync(CrucibleClient client)
         {
             await client.RefreshConformanceStatementAsync();
-            var httpClient = new HttpClient
-            {
-                BaseAddress = new Uri(TestEnvironmentUrl),
-            };
 
-            var fhirClient = new FhirClient(httpClient, ResourceFormat.Json);
-
-            if (fhirClient.SecuritySettings.SecurityEnabled)
+            using (var testFhirServerFactory = new TestFhirServerFactory())
             {
-                await client.AuthorizeServerAsync(fhirClient.SecuritySettings.AuthorizeUrl, fhirClient.SecuritySettings.TokenUrl);
+                var fhirClient = testFhirServerFactory
+                    .GetTestFhirServer(DataStore.CosmosDb, null)
+                    .GetFhirClient(ResourceFormat.Json);
+
+                if (fhirClient.SecuritySettings.SecurityEnabled)
+                {
+                    await client.AuthorizeServerAsync(fhirClient.SecuritySettings.AuthorizeUrl, fhirClient.SecuritySettings.TokenUrl);
+                }
+
+                var supportedTests = await client.GetSupportedTestsAsync();
+
+                var ids = supportedTests.Where(x => x.Supported).Select(x => x.Id).ToArray();
+
+                return ids;
             }
-
-            var supportedTests = await client.GetSupportedTestsAsync();
-
-            var ids = supportedTests.Where(x => x.Supported).Select(x => x.Id).ToArray();
-
-            return ids;
         }
 
         private async Task<ServerTestRun> GetTestRunAsync()
