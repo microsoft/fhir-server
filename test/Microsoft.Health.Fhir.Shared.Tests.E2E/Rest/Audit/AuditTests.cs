@@ -10,7 +10,6 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -263,11 +262,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenARequest_WhenNoAuthorizationTokenIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                client =>
+                () =>
                 {
-                    client.HttpClient.DefaultRequestHeaders.Authorization = null;
+                    FhirClient newClient = _client.Clone();
 
-                    return Task.CompletedTask;
+                    newClient.HttpClient.DefaultRequestHeaders.Authorization = null;
+
+                    return newClient;
                 },
                 HttpStatusCode.Unauthorized,
                 expectedAppId: null);
@@ -277,11 +278,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenARequest_WhenInvalidAuthorizationTokenIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                client =>
+                () =>
                 {
-                    client.HttpClient.SetBearerToken("invalid");
+                    FhirClient newClient = _client.Clone();
 
-                    return Task.CompletedTask;
+                    newClient.HttpClient.SetBearerToken("invalid");
+
+                    return newClient;
                 },
                 HttpStatusCode.Unauthorized,
                 expectedAppId: null);
@@ -291,7 +294,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenARequest_WhenValidAuthorizationTokenWithInvalidAudienceIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                client => client.RunAsClientApplication(TestApplications.WrongAudienceClient),
+                () => _client.CreateClientForClientApplication(TestApplications.WrongAudienceClient),
                 HttpStatusCode.Unauthorized,
                 expectedAppId: null);
         }
@@ -349,7 +352,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenAResource_WhenNotAuthorized_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                client => client.RunAsClientApplication(TestApplications.NativeClient),
+                () => _client.CreateClientForClientApplication(TestApplications.NativeClient),
                 HttpStatusCode.Forbidden,
                 expectedAppId: TestApplications.NativeClient.ClientId);
         }
@@ -403,7 +406,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, null, expectedUri, expectedStatusCode, correlationId, expectedClaimValue, expectedClaimKey));
         }
 
-        private async Task ExecuteAndValidate(Func<FhirClient, Task> clientSetup, HttpStatusCode expectedStatusCode, string expectedAppId)
+        private async Task ExecuteAndValidate(Func<FhirClient> createClient, HttpStatusCode expectedStatusCode, string expectedAppId)
         {
             if (!_fixture.IsUsingInProcTestServer || !_fixture.FhirClient.SecuritySettings.SecurityEnabled)
             {
@@ -414,9 +417,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             const string url = "Patient/123";
 
             // Create a new client with no token supplied.
-            var client = new FhirClient(_fixture.CreateHttpClient(), ResourceFormat.Json);
-
-            await clientSetup(client);
+            var client = createClient();
 
             FhirResponse<OperationOutcome> response = (await Assert.ThrowsAsync<FhirException>(() => client.ReadAsync<Patient>(url))).Response;
 

@@ -13,22 +13,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     {
         private TraceAuditLogger _auditLogger;
 
-        public AuditTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public AuditTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+            : base(dataStore, format, testFhirServerFactory)
         {
         }
 
         public TraceAuditLogger AuditLogger
         {
-            get
-            {
-                if (_auditLogger == null)
-                {
-                    _auditLogger = (TraceAuditLogger)Server?.Host.Services.GetRequiredService<IAuditLogger>();
-                }
-
-                return _auditLogger;
-            }
+            get => _auditLogger ?? (_auditLogger = (TraceAuditLogger)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<IAuditLogger>());
         }
     }
 }
