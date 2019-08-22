@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public FhirClient Clone()
         {
-            return _testFhirServer.GetFhirClient(Format, _clientApplication, _user, cacheable: false);
+            return _testFhirServer.GetFhirClient(Format, _clientApplication, _user, reusable: false);
         }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource)
