@@ -8,6 +8,10 @@ using System.Net.Http;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    /// <summary>
+    /// Represents a <see cref="TestFhirServer"/> that resides out of process that we will
+    /// communicate with over TCP/IP.
+    /// </summary>
     public class RemoteTestFhirServer : TestFhirServer
     {
         public RemoteTestFhirServer(string environmentUrl)

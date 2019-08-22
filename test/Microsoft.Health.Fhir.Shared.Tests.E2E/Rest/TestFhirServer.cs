@@ -16,6 +16,10 @@ using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    /// <summary>
+    /// Represents a FHIR server for end-to-end testing.
+    /// Creates and caches <see cref="FhirClient"/> instances that target the server.
+    /// </summary>
     public abstract class TestFhirServer : IDisposable
     {
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<FhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<FhirClient>>();
@@ -29,13 +33,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Uri BaseAddress { get; }
 
-        public FhirClient GetFhirClient(ResourceFormat format, bool cacheable = true)
+        public FhirClient GetFhirClient(ResourceFormat format, bool reusable = true)
         {
-            return GetFhirClient(format, TestApplications.ServiceClient, null, cacheable);
+            return GetFhirClient(format, TestApplications.ServiceClient, null, reusable);
         }
 
         public FhirClient GetFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool cacheable = true)
         {
+            HttpClient CreateHttpClient()
+            {
+                return new HttpClient(new SessionMessageHandler(CreateMessageHandler())) { BaseAddress = BaseAddress };
+            }
+
             if (!cacheable)
             {
                 return new FhirClient(CreateHttpClient(), this, format, clientApplication, user);
@@ -51,11 +60,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         protected abstract HttpMessageHandler CreateMessageHandler();
-
-        private HttpClient CreateHttpClient()
-        {
-            return new HttpClient(new SessionMessageHandler(CreateMessageHandler())) { BaseAddress = BaseAddress };
-        }
 
         public virtual void Dispose()
         {

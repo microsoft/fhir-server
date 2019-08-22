@@ -10,6 +10,10 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    /// <summary>
+    /// Creates and caches <see cref="TestFhirServer"/> instances. This class is intended to be used as an assembly fixture,
+    /// so that the <see cref="TestFhirServer"/> instances can be reused across test classes in an assembly.
+    /// </summary>
     public class TestFhirServerFactory : IDisposable
     {
         private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<TestFhirServer>> _cache = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<TestFhirServer>>();

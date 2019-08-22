@@ -21,6 +21,10 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    /// <summary>
+    /// A <see cref="TestFhirServer"/> that runs the FHIR server in-process and creates
+    /// using asp.net's <see cref="TestServer"/>.
+    /// </summary>
     public class InProcTestFhirServer : TestFhirServer
     {
         private readonly HttpMessageHandler _messageHandler;

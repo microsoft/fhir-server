@@ -13,10 +13,9 @@ using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
-    /// A test fixture which hosts the target web project in an in-process test server.
-    /// Code adapted from https://docs.microsoft.com/en-us/aspnet/core/mvc/controllers/testing#integration-testing
+    /// A test fixture that is intended to provide a <see cref="FhirClient"/> to end-to-end FHIR test classes.
     /// </summary>
-    /// <typeparam name="TStartup">The target web project startup</typeparam>
+    /// <typeparamref name="TStartup">The type to use as the ASP.NET startup type when hosting the fhir server in-process</typeparamref>
     public class HttpIntegrationTestFixture<TStartup>
     {
         public HttpIntegrationTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
