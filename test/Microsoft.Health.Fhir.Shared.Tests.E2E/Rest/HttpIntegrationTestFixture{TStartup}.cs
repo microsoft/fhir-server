@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <summary>
     /// A test fixture that is intended to provide a <see cref="FhirClient"/> to end-to-end FHIR test classes.
     /// </summary>
-    /// <typeparamref name="TStartup">The type to use as the ASP.NET startup type when hosting the fhir server in-process</typeparamref>
+    /// <typeparam name="TStartup">The type to use as the ASP.NET startup type when hosting the fhir server in-process</typeparam>
     public class HttpIntegrationTestFixture<TStartup>
     {
         public HttpIntegrationTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
