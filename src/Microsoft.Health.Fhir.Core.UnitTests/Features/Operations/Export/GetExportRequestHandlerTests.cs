@@ -63,15 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             _failureStatusCode = failureStatusCode;
 
-            OperationFailedException ofe = null;
-            try
-            {
-                await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
-            }
-            catch (OperationFailedException ex)
-            {
-                ofe = ex;
-            }
+            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetExportJobByIdAsync(operationStatus));
 
             Assert.NotNull(ofe);
             Assert.Equal(failureStatusCode, ofe.ResponseStatusCode);
@@ -87,7 +79,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Null(result.JobResult);
-            Assert.Null(result.FailureReason);
         }
 
         private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus)

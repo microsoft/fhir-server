@@ -89,11 +89,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, destinationType, destinationConnectionString, HttpContext.RequestAborted);
 
-            if (!response.Successful)
-            {
-                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, response.FailureReason), response.FailureStatusCode);
-            }
-
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
 
@@ -141,20 +136,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 HttpContext.RequestAborted);
 
             // If the job is complete, we need to return 200 along with the completed data to the client.
-            // Else we need to return 202.
+            // Else we need to return 202 - Accepted.
             ExportResult exportActionResult;
             if (getExportResult.StatusCode == HttpStatusCode.OK)
             {
                 exportActionResult = ExportResult.Ok(getExportResult.JobResult);
                 exportActionResult.SetContentTypeHeader(OperationsConstants.ExportContentTypeHeaderValue);
             }
-            else if (getExportResult.StatusCode == HttpStatusCode.Accepted)
-            {
-                exportActionResult = ExportResult.Accepted();
-            }
             else
             {
-                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, getExportResult.FailureReason), getExportResult.StatusCode);
+                exportActionResult = ExportResult.Accepted();
             }
 
             return exportActionResult;

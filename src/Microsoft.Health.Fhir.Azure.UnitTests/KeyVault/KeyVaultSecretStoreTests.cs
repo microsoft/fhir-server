@@ -120,15 +120,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
                 .Returns<AzureOperationResponse<SecretBundle>>(
                     _ => throw exception);
 
-            SecretStoreException sse = null;
-            try
-            {
-                await _secretStore.GetSecretAsync(SecretName, _cancellationToken);
-            }
-            catch (SecretStoreException ex)
-            {
-                sse = ex;
-            }
+            SecretStoreException sse = await Assert.ThrowsAsync<SecretStoreException>(() => _secretStore.GetSecretAsync(SecretName, _cancellationToken));
 
             Assert.NotNull(sse);
             Assert.Equal(expectedStatusCode, sse.ResponseStatusCode);
@@ -145,15 +137,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
                 .Returns<AzureOperationResponse<SecretBundle>>(
                     _ => throw exception);
 
-            SecretStoreException sse = null;
-            try
-            {
-                await _secretStore.GetSecretAsync(SecretName, _cancellationToken);
-            }
-            catch (SecretStoreException ex)
-            {
-                sse = ex;
-            }
+            SecretStoreException sse = await Assert.ThrowsAsync<SecretStoreException>(() => _secretStore.GetSecretAsync(SecretName, _cancellationToken));
 
             Assert.NotNull(sse);
             Assert.Equal(HttpStatusCode.InternalServerError, sse.ResponseStatusCode);
@@ -236,15 +220,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
                 .Returns<AzureOperationResponse<SecretBundle>>(
                     _ => throw exception);
 
-            SecretStoreException sse = null;
-            try
-            {
-                await _secretStore.SetSecretAsync(SecretName, SecretValue, _cancellationToken);
-            }
-            catch (SecretStoreException ex)
-            {
-                sse = ex;
-            }
+            SecretStoreException sse = await Assert.ThrowsAsync<SecretStoreException>(() => _secretStore.SetSecretAsync(SecretName, SecretValue, _cancellationToken));
 
             Assert.NotNull(sse);
             Assert.Equal(expectedStatusCode, sse.ResponseStatusCode);
@@ -261,15 +237,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
                 .Returns<AzureOperationResponse<SecretBundle>>(
                     _ => throw exception);
 
-            SecretStoreException sse = null;
-            try
-            {
-                await _secretStore.SetSecretAsync(SecretName, SecretValue, _cancellationToken);
-            }
-            catch (SecretStoreException ex)
-            {
-                sse = ex;
-            }
+            SecretStoreException sse = await Assert.ThrowsAsync<SecretStoreException>(() => _secretStore.SetSecretAsync(SecretName, SecretValue, _cancellationToken));
 
             Assert.NotNull(sse);
             Assert.Equal(HttpStatusCode.InternalServerError, sse.ResponseStatusCode);
@@ -352,15 +320,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
                 .Returns<AzureOperationResponse<DeletedSecretBundle>>(
                     _ => throw exception);
 
-            SecretStoreException sse = null;
-            try
-            {
-                await _secretStore.DeleteSecretAsync(SecretName, _cancellationToken);
-            }
-            catch (SecretStoreException ex)
-            {
-                sse = ex;
-            }
+            SecretStoreException sse = await Assert.ThrowsAsync<SecretStoreException>(() => _secretStore.DeleteSecretAsync(SecretName, _cancellationToken));
 
             Assert.NotNull(sse);
             Assert.Equal(expectedStatusCode, sse.ResponseStatusCode);
@@ -377,15 +337,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.KeyVault
                 .Returns<AzureOperationResponse<DeletedSecretBundle>>(
                     _ => throw exception);
 
-            SecretStoreException sse = null;
-            try
-            {
-                await _secretStore.DeleteSecretAsync(SecretName, _cancellationToken);
-            }
-            catch (SecretStoreException ex)
-            {
-                sse = ex;
-            }
+            SecretStoreException sse = await Assert.ThrowsAsync<SecretStoreException>(() => _secretStore.DeleteSecretAsync(SecretName, _cancellationToken));
 
             Assert.NotNull(sse);
             Assert.Equal(HttpStatusCode.InternalServerError, sse.ResponseStatusCode);

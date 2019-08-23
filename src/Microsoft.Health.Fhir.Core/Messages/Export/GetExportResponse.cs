@@ -15,12 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         {
         }
 
-        public GetExportResponse(HttpStatusCode statusCode, string failureReason)
-            : this(statusCode, jobResult: null)
-        {
-            FailureReason = failureReason;
-        }
-
         public GetExportResponse(HttpStatusCode statusCode, ExportJobResult jobResult)
         {
             StatusCode = statusCode;
@@ -30,7 +24,5 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public HttpStatusCode StatusCode { get; }
 
         public ExportJobResult JobResult { get; }
-
-        public string FailureReason { get; }
     }
 }

@@ -64,9 +64,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            Assert.True(response.Successful);
+            Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.JobId));
-            Assert.Null(response.FailureReason);
 
             SecretWrapper secret = await _secretStore.GetSecretAsync($"Export-Destination-{response.JobId}", _cancellationToken);
 
@@ -84,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            Assert.True(newResponse.Successful);
+            Assert.NotNull(newResponse);
             Assert.Equal(response.JobId, newResponse.JobId);
         }
 
@@ -99,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
-            Assert.True(newResponse.Successful);
+            Assert.NotNull(newResponse);
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
@@ -118,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
-            Assert.True(newResponse.Successful);
+            Assert.NotNull(newResponse);
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
@@ -140,6 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
+            Assert.NotNull(newResponse);
             Assert.Equal(response.JobId, newResponse.JobId);
         }
 
@@ -154,7 +154,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
-            Assert.True(newResponse.Successful);
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
@@ -187,15 +186,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
 
-            OperationFailedException ofe = null;
-            try
-            {
-                await _createExportRequestHandler.Handle(request, _cancellationToken);
-            }
-            catch (OperationFailedException ex)
-            {
-                ofe = ex;
-            }
+            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
 
             Assert.NotNull(ofe);
             Assert.Equal(errorStatusCode, ofe.ResponseStatusCode);
