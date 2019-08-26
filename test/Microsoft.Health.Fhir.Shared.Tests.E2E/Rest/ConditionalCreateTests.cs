@@ -65,10 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}");
 
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
-
-            Observation updatedResource = updateResponse.Resource;
-
-            Assert.Null(updatedResource);
+            Assert.Null(updateResponse.Resource);
         }
 
         [Fact]
@@ -94,6 +91,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}"));
 
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenCreatingConditionallyWithEmptyIfNoneHeader_TheServerShouldFail()
+        {
+            var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(
+                Samples.GetDefaultObservation().ToPoco<Observation>(),
+                "&"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
     }
 }

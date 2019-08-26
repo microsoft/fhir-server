@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             int count = results.Results.Count();
             if (count == 0)
             {
-                // No matches, no id provided: The server creates the resource
+                // No matches: The server creates the resource
                 // TODO: There is a potential contention issue here in that this could create another new resource with a different id
                 return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(message.Resource), cancellationToken);
             }

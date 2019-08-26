@@ -10,7 +10,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 
-namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalUpdates
+namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalCreates
 {
     public class ConditionalCreateFeatureModule : IStartupModule
     {

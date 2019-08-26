@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
     public partial class ResourceHandlerTests
     {
         [Fact]
-        public async Task GivenAResource_WhenCreatingConditionallyWithNoIdAndNoExisting_ThenTheServerShouldReturnTheResourceSuccessfully()
+        public async Task GivenAResource_WhenCreatingConditionallyWithNoExisting_ThenTheServerShouldReturnTheResourceSuccessfully()
         {
             ConditionalCreateResourceRequest message = SetupConditionalCreate(Samples.GetDefaultObservation());
 
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
-        public async Task GivenAResourceWithNoId_WhenCreatingConditionallyWithOneMatch_ThenTheServerShouldReturnTheResourceSuccessfully()
+        public async Task GivenAResource_WhenCreatingConditionallyWithOneMatch_ThenTheServerShouldReturnTheResourceSuccessfully()
         {
             string id = Guid.NewGuid().ToString();
             string version = Guid.NewGuid().ToString();

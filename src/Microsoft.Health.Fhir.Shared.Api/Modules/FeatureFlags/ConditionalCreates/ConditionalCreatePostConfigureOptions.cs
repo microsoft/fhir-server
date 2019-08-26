@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 
-namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalUpdates
+namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalCreates
 {
     public class ConditionalCreatePostConfigureOptions : IPostConfigureOptions<MvcOptions>
     {
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalUpdates
         {
             if (_features.SupportsConditionalCreate)
             {
-                // Turns on conditional updates, even when not configured in the DefaultCapabilities.json
+                // Turns on conditional creates, even when not configured in the DefaultCapabilities.json
                 // If this is not enabled in the capability statement
                 // ConditionalCreateResourceRequest will fail with a MethodNotAllowedException
 
