@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var patientResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient);
             patientResource.ReadHistory = true;
             patientResource.UpdateCreate = true;
-            observationResource.ConditionalUpdate = true;
+            patientResource.ConditionalUpdate = true;
             patientResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
             _conformanceProvider.GetCapabilityStatementAsync().Returns(_conformanceStatement.ToTypedElement().ToResourceElement());
