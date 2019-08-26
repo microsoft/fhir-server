@@ -4,20 +4,25 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net.Http;
+using System.Collections.Generic;
+using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
     public class SmartProxyTestFixture : IDisposable
     {
-        public SmartProxyTestFixture()
+        public SmartProxyTestFixture(TestFhirServerFactory testFhirServerFactory)
         {
+            EnsureArg.IsNotNull(testFhirServerFactory, nameof(testFhirServerFactory));
+
             string environmentUrl = Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
 
             // Only set up test fixture if running against remote server
@@ -26,14 +31,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 var baseUrl = "https://localhost:" + Port;
                 SmartLauncherUrl = baseUrl + "/index.html";
 
-                Environment.SetEnvironmentVariable("FhirServerUrl", environmentUrl);
-                Environment.SetEnvironmentVariable("ClientId", TestApplications.NativeClient.ClientId);
-                Environment.SetEnvironmentVariable("DefaultSmartAppUrl", "/sampleapp/launch.html");
-
                 var builder = WebHost.CreateDefaultBuilder()
                     .ConfigureAppConfiguration((hostingContext, config) =>
                     {
-                        config.AddEnvironmentVariables();
+                        config.AddInMemoryCollection(new Dictionary<string, string>
+                        {
+                            { "FhirServerUrl", environmentUrl },
+                            { "ClientId", TestApplications.NativeClient.ClientId },
+                            { "DefaultSmartAppUrl", "/sampleapp/launch.html" },
+                        });
                     })
                     .UseStartup<SmartLauncher.Startup>()
                     .UseUrls(baseUrl);
@@ -41,9 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 WebServer = builder.Build();
                 WebServer.Start();
 
-                HttpClient = new HttpClient { BaseAddress = new Uri(environmentUrl), };
-
-                FhirClient = new FhirClient(HttpClient, ResourceFormat.Json);
+                FhirClient = testFhirServerFactory.GetTestFhirServer(DataStore.CosmosDb, null).GetFhirClient(ResourceFormat.Json);
             }
         }
 
@@ -53,13 +57,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
         public string SmartLauncherUrl { get; }
 
-        public HttpClient HttpClient { get; }
-
         public FhirClient FhirClient { get; }
 
         public void Dispose()
         {
-            HttpClient?.Dispose();
             WebServer?.Dispose();
         }
     }

@@ -3,20 +3,25 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Xunit;
-using Task = System.Threading.Tasks.Task;
+using System;
+using System.Net.Http;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
-    /// Provides STU3 specific tests.
+    /// Represents a <see cref="TestFhirServer"/> that resides out of process that we will
+    /// communicate with over TCP/IP.
     /// </summary>
-    public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
+    public class RemoteTestFhirServer : TestFhirServer
     {
-        [Fact]
-        public async Task GivenStu3Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
+        public RemoteTestFhirServer(string environmentUrl)
+            : base(new Uri(environmentUrl))
         {
-            await TestCapabilityStatementFhirVersion("3.0.1");
+        }
+
+        protected override HttpMessageHandler CreateMessageHandler()
+        {
+            return new HttpClientHandler();
         }
     }
 }

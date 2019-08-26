@@ -94,17 +94,21 @@ namespace Microsoft.Health.Extensions.Xunit
                 EnsureArg.IsNotNull(@class, nameof(@class));
                 EnsureArg.IsNotNull(testCases, nameof(testCases));
 
-                if (!(testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments))
+                Dictionary<Type, object> combinedMappings = null;
+
+                if (testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments)
                 {
-                    return base.RunTestClassAsync(testClass, @class, testCases);
+                    combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
+
+                    foreach (var variant in classWithFixtureArguments.FixtureArguments)
+                    {
+                        combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
+                    }
                 }
 
-                // this is a test class that needs special logic for instantiating its fixture.
-
-                var combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
-                foreach (var variant in classWithFixtureArguments.FixtureArguments)
+                if (_assemblyFixtureMappings.Count > 0 && combinedMappings == null)
                 {
-                    combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
+                    combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
                 }
 
                 foreach (var assemblyFixtureMapping in _assemblyFixtureMappings)
@@ -121,7 +125,7 @@ namespace Microsoft.Health.Extensions.Xunit
                         TestCaseOrderer,
                         new ExceptionAggregator(Aggregator),
                         CancellationTokenSource,
-                        combinedMappings)
+                        combinedMappings ?? CollectionFixtureMappings)
                     .RunAsync();
             }
         }

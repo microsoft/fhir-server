@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                     {
                         var testName = $"{x.TestId ?? findTest.TestId}/{x.Id}";
                         return x.Status == "fail" && !KnownCrucibleTests.KnownFailures.Contains(testName) && !KnownCrucibleTests.KnownBroken.Contains(testName)
-                            && !x.Message.ToString().Contains(KnownCrucibleTests.BundleCountFilter);
+                               && !x.Message.ToString().Contains(KnownCrucibleTests.BundleCountFilter);
                     })
                     .ToArray();
 

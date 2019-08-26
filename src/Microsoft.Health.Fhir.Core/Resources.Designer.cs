@@ -718,6 +718,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The _sort parameter is not supported..
+        /// </summary>
+        internal static string SortNotSupported {
+            get {
+                return ResourceManager.GetString("SortNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {
