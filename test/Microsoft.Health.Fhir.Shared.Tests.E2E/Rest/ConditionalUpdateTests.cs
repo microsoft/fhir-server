@@ -112,6 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             var identifier = Guid.NewGuid().ToString();
+            string updatedDiv = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Updated!</div>";
 
             observation.Identifier.Add(new Identifier("http://e2etests", identifier));
             FhirResponse<Observation> response = await Client.CreateAsync(observation);
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = response.Resource.Id;
             observation2.Identifier.Add(new Identifier("http://e2etests", identifier));
-            observation2.Text.Div = "<div>Updated!</div>";
+            observation2.Text.Div = updatedDiv;
             FhirResponse<Observation> updateResponse = await Client.ConditionalUpdateAsync(
                 observation2,
                 $"identifier={identifier}");
@@ -131,6 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.NotNull(updatedResource);
             Assert.Equal(response.Resource.Id, updatedResource.Id);
+            Assert.Equal(observation2.Text.Div, updatedResource.Text.Div);
         }
 
         [Fact]
@@ -170,7 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Created, response2.StatusCode);
 
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
-            observation2.Id = Guid.NewGuid().ToString();
+            observation2.Id = null;
 
             var exception = await Assert.ThrowsAsync<FhirException>(() => Client.ConditionalUpdateAsync(
                 observation2,
