@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 var version = WeakETag.FromVersionId(resourceWrapper.Version);
 
                 // One Match, no resource id provided OR (resource id provided and it matches the found resource): The server performs the update against the matching resource
-                if (string.IsNullOrEmpty(resource.Id) || resource.Id == resourceWrapper.ResourceId)
+                if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
                 {
                     resource.Id = resourceWrapper.ResourceId;
                     return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), version), cancellationToken);
