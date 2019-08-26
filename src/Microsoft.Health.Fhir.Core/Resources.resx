@@ -170,12 +170,12 @@
   <data name="CompositeSeparatorNotFound" xml:space="preserve">
     <value>The composite separator cannot be found.</value>
   </data>
+  <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
+    <value>Operation was not attempted because search criteria was not selective enough.</value>
+  </data>
   <data name="ConditionalUpdateMismatchedIds" xml:space="preserve">
     <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
     <comment>{0} is an Id e.g. 123456</comment>
-  </data>
-  <data name="ConditionalUpdateNotSelectiveEnough" xml:space="preserve">
-    <value>Update was not attempted because search criteria was not selective enough.</value>
   </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>

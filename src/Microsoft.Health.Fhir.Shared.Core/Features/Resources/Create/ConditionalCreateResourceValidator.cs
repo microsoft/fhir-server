@@ -4,14 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
-using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Messages.Create;
 
-namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
-    public class ConditionalUpsertResourceValidator : AbstractValidator<ConditionalUpsertResourceRequest>
+    public class ConditionalCreateResourceValidator : AbstractValidator<ConditionalCreateResourceRequest>
     {
-        public ConditionalUpsertResourceValidator()
+        public ConditionalCreateResourceValidator()
         {
             RuleFor(x => x.ConditionalParameters)
                 .NotEmpty().WithMessage(Core.Resources.ConditionalOperationNotSelectiveEnough);

@@ -13,6 +13,7 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -28,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -145,7 +147,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
-            ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
+            StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownFhirHeaders.IfNoneExist];
+
+            ResourceElement response;
+            if (!string.IsNullOrEmpty(conditionalCreateHeader))
+            {
+                Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
+                    .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
+
+                UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters), HttpContext.RequestAborted);
+
+                if (createResponse == null)
+                {
+                    return Ok();
+                }
+
+                response = createResponse.Outcome.Resource;
+            }
+            else
+            {
+                response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
+            }
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
