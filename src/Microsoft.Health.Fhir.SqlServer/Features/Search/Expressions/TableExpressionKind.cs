@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         NotExists,
 
         /// <summary>
-        /// Represents a table expression that yields all possible resource IDs
+        /// Represents a table expression that yields all possible resource IDs.
         /// </summary>
         All,
 
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         Top,
 
         /// <summary>
-        /// Represents a table expression that serves as the JOIN between a resource and target reference
+        /// Represents a table expression that serves as the JOIN between a resource and target reference.
         /// in a chained search.
         /// </summary>
         Chain,
@@ -50,9 +50,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         Include,
 
         /// <summary>
-        /// Represents an expression that is on the resource table to apply denormalized expressions before any other expressions.
-        /// This is used by include when no other expressions are present restrict the base resource types and lastUpdated.
+        /// Represents a table expression that is used to union all of the includes with the base search query.
         /// </summary>
-        HoistedDenormalized,
+        IncludeUnionAll,
     }
 }

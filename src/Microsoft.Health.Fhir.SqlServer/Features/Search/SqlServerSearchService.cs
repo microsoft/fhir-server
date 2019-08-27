@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
-        private readonly BitColumn _ctc = new BitColumn("ctc");
+        private readonly BitColumn _isMatch = new BitColumn("isMatch");
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -109,6 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(_stringOverflowRewriter)
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
+                                               .AcceptVisitor(IncludeDenormalizedRewriter.Instance)
                                                .AcceptVisitor(TopRewriter.Instance, searchOptions)
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
@@ -142,33 +143,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         var resources = new List<ResourceWrapper>(searchOptions.MaxItemCount);
                         long? newContinuationId = null;
                         bool moreResults = false;
-                        int continuationTokenCount = 0;
+                        int matchCount = 0;
 
                         while (await reader.ReadAsync(cancellationToken))
                         {
-                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool continuationTokenCandidate, Stream rawResourceStream) = reader.ReadRow(
+                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, Stream rawResourceStream) = reader.ReadRow(
                                 V1.Resource.ResourceTypeId,
                                 V1.Resource.ResourceId,
                                 V1.Resource.Version,
                                 V1.Resource.IsDeleted,
                                 V1.Resource.ResourceSurrogateId,
                                 V1.Resource.RequestMethod,
-                                _ctc,
+                                _isMatch,
                                 V1.Resource.RawResource);
 
                             // If we get to this point, we know there are more results so we need a continuation token
                             // Additionally, this resource shouldn't be included in the results
-                            if (continuationTokenCount == searchOptions.MaxItemCount)
+                            if (matchCount >= searchOptions.MaxItemCount && isMatch)
                             {
                                 moreResults = true;
                                 continue;
                             }
 
                             // See if this resource is a continuation token candidate and increase the count
-                            if (continuationTokenCandidate)
+                            if (isMatch)
                             {
                                 newContinuationId = resourceSurrogateId;
-                                continuationTokenCount++;
+                                matchCount++;
                             }
 
                             string rawResource;

@@ -17,6 +17,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         internal static readonly IncludeRewriter Instance = new IncludeRewriter();
 
+        private static readonly TableExpression IncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeUnionAll);
+
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
             if (expression.TableExpressions.Count == 1)
@@ -24,16 +26,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
+            bool containsInclude = false;
+
             List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t =>
             {
                 switch (t.SearchParameterQueryGenerator)
                 {
                     case IncludeQueryGenerator _:
+                        containsInclude = true;
                         return 0;
                     default:
                         return 10;
                 }
             }).ToList();
+
+            if (containsInclude)
+            {
+                reorderedExpressions.Add(IncludeUnionAllExpression);
+            }
 
             return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
         }

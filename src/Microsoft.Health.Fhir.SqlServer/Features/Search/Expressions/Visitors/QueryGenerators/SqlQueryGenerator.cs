@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -15,6 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     internal class SqlQueryGenerator : DefaultExpressionVisitor<SearchOptions, object>, ISqlExpressionVisitor<SearchOptions, object>
     {
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
+        private List<string> _includeCtes;
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
@@ -87,8 +89,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(V1.Resource.ResourceSurrogateId, resourceTableAlias).Append(", ")
                     .Append(V1.Resource.RequestMethod, resourceTableAlias).Append(", ");
 
-                // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a continuation token candidate
-                StringBuilder.Append(expression.TableExpressions.Count > 0 ? "cast(ctc as bit) as ctc, " : "cast(1 as bit) as ctc, ");
+                // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match
+                StringBuilder.Append(expression.TableExpressions.Count > 0 ? "cast(isMatch as bit) as isMatch, " : "cast(1 as bit) as isMatch, ");
 
                 StringBuilder
                     .AppendLine(V1.Resource.RawResource, resourceTableAlias);
@@ -136,33 +138,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             switch (tableExpression.Kind)
             {
-                case TableExpressionKind.HoistedDenormalized:
-                    if (tableExpression.ChainLevel == 0)
-                    {
-                        StringBuilder.Append("SELECT  DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") ").Append(V1.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                            .Append("FROM ").AppendLine(V1.Resource);
-                    }
-
-                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
-                    {
-                        AppendHistoryClause(delimited);
-                        AppendDeletedClause(delimited);
-
-                        if (tableExpression.DenormalizedPredicate != null)
-                        {
-                            delimited.BeginDelimitedElement();
-                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
-                        }
-
-                        if (tableExpression.NormalizedPredicate != null)
-                        {
-                            delimited.BeginDelimitedElement();
-                            tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, GetContext());
-                        }
-                    }
-
-                    break;
-
                 case TableExpressionKind.Normal:
 
                     if (tableExpression.ChainLevel == 0)
@@ -257,8 +232,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Top:
-                    // Everything in the top expression is considered a continuation token candidate
-                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 as ctc ")
+                    // Everything in the top expression is considered a match
+                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 as isMatch ")
                         .Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1))
                         .AppendLine("ORDER BY Sid1 ASC");
 
@@ -350,12 +325,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case TableExpressionKind.Include:
                     var includeExpression = (IncludeExpression)tableExpression.NormalizedPredicate;
 
-                    // Select all of the previously supplied resourceSurrogateIds unioned with all of the included types resourceSurrogateIds
-                    StringBuilder.AppendLine("SELECT Sid1, ctc");
-                    StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
-                    StringBuilder.AppendLine("UNION ALL");
                     StringBuilder.Append("SELECT Distinct ");
-                    StringBuilder.Append(V1.Resource.ResourceSurrogateId, "r").AppendLine(" AS Sid1, 0 as ctc")
+                    StringBuilder.Append(V1.Resource.ResourceSurrogateId, "r").AppendLine(" AS Sid1, 0 as isMatch")
                         .Append("FROM ").Append(V1.ReferenceSearchParam).Append(' ').AppendLine(referenceTableAlias)
                         .Append("INNER JOIN ").Append(V1.Resource).Append(' ').AppendLine(resourceTableAlias);
 
@@ -390,6 +361,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(" IN (SELECT TOP(")
                             .Append(Parameters.AddParameter(context.MaxItemCount))
                             .Append(") Sid1 FROM ").Append(_cteMainSelect).AppendLine(")");
+                    }
+
+                    if (_includeCtes == null)
+                    {
+                        _includeCtes = new List<string>();
+                    }
+
+                    _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
+                    break;
+                case TableExpressionKind.IncludeUnionAll:
+                    StringBuilder.AppendLine("SELECT Sid1, isMatch");
+                    StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
+
+                    foreach (var includeCte in _includeCtes)
+                    {
+                        StringBuilder.AppendLine("UNION ALL");
+                        StringBuilder.AppendLine("SELECT SID1, isMatch ");
+                        StringBuilder.Append("FROM ").AppendLine(includeCte);
                     }
 
                     break;

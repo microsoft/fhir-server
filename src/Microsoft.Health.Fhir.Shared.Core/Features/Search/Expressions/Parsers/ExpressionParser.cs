@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
             {
-                throw new InvalidSearchOperationException("Type must be specified");
+                throw new InvalidSearchOperationException(Core.Resources.IncludeMissingType);
             }
 
             SearchParameterInfo refSearchParameter;

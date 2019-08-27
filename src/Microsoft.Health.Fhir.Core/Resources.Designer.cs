@@ -295,6 +295,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The include search is missing the type to search..
+        /// </summary>
+        internal static string IncludeMissingType {
+            get {
+                return ResourceManager.GetString("IncludeMissingType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string InvalidBooleanConfigSetting {
