@@ -150,13 +150,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     })
                 .Where(item => item != null));
 
-            if (searchParams.Include != null)
+            if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q =>
-                    {
-                        return _expressionParser.ParseInclude(parsedResourceType.ToString(), q);
-                    })
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q))
                     .Where(item => item != null));
             }
 

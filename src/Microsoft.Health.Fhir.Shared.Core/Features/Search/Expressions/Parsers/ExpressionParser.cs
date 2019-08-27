@@ -77,11 +77,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             bool wildCard = false;
             ReadOnlySpan<char> targetType;
 
-            if (valueSpan.ToString().Equals("*", StringComparison.InvariantCultureIgnoreCase))
+            if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
             {
                 refSearchParameter = null;
                 wildCard = true;
-                targetType = string.Empty.AsSpan();
+                targetType = ReadOnlySpan<char>.Empty;
             }
             else
             {
