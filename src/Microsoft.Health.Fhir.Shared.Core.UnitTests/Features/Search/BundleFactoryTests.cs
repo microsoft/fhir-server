@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             using (Mock.Property(() => Clock.UtcNowFunc, () => _dateTime))
             {
-                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new ResourceWrapper[0], _unsupportedSearchParameters, _unsupportedSortingParameters, null));
+                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters, _unsupportedSortingParameters, null));
             }
 
             Assert.NotNull(actual);
@@ -83,10 +83,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123");
             ResourceElement observation2 = Samples.GetDefaultObservation().UpdateId("abc");
 
-            var resourceWrappers = new ResourceWrapper[]
+            var resourceWrappers = new SearchResultEntry[]
             {
-                CreateResourceWrapper(observation1),
-                CreateResourceWrapper(observation2),
+                new SearchResultEntry(CreateResourceWrapper(observation1)),
+                new SearchResultEntry(CreateResourceWrapper(observation2)),
             };
 
             var searchResult = new SearchResult(resourceWrappers, _unsupportedSearchParameters, _unsupportedSortingParameters, continuationToken: null);
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters, encodedContinuationToken).Returns(_nextUrl);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
 
-            var searchResult = new SearchResult(new ResourceWrapper[0], _unsupportedSearchParameters, _unsupportedSortingParameters, _continuationToken);
+            var searchResult = new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters, _unsupportedSortingParameters, _continuationToken);
 
             ResourceElement actual = _bundleFactory.CreateSearchBundle(searchResult);
 

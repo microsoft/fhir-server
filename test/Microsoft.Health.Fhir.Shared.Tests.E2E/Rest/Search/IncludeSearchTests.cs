@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 bundle,
                 organizationResponse.Resource,
                 locationResponse.Resource);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Location);
         }
 
         [Fact]
@@ -71,6 +73,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 bundle,
                 organizationResponse.Resource,
                 locationResponse.Resource);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Location);
         }
 
         [Fact]
@@ -86,6 +90,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithPatient,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient);
+
+            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
         [Fact]
@@ -100,12 +106,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient);
 
+            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
             ValidateBundle(
                 bundle,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient);
+
+            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
         [Fact]
@@ -123,6 +133,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient,
                 Fixture.TrumanSnomedObservation);
+
+            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
         [Fact]
@@ -140,6 +152,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient,
                 Fixture.TrumanSnomedObservation);
+
+            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
         [Fact(Skip = "https://github.com/microsoft/fhir-server/issues/563")]
@@ -167,6 +181,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient,
                 Fixture.TrumanSnomedObservation);
+
+            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+        }
+
+        private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
+        {
+            foreach (Bundle.EntryComponent entry in bundle.Entry)
+            {
+                var searchEntryMode = entry.Resource.ResourceType == matchResourceType ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include;
+                Assert.Equal(searchEntryMode, entry.Search.Mode);
+            }
         }
     }
 }

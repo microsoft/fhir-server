@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -140,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             return new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
                         }
 
-                        var resources = new List<ResourceWrapper>(searchOptions.MaxItemCount);
+                        var resources = new List<SearchResultEntry>(searchOptions.MaxItemCount);
                         long? newContinuationId = null;
                         bool moreResults = false;
                         int matchCount = 0;
@@ -181,17 +182,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 rawResource = await streamReader.ReadToEndAsync();
                             }
 
-                            resources.Add(new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                _model.GetResourceTypeName(resourceTypeId),
-                                new RawResource(rawResource, FhirResourceFormat.Json),
-                                new ResourceRequest(requestMethod),
-                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                                isDeleted,
-                                null,
-                                null,
-                                null));
+                            resources.Add(new SearchResultEntry(
+                                new ResourceWrapper(
+                                    resourceId,
+                                    version.ToString(CultureInfo.InvariantCulture),
+                                    _model.GetResourceTypeName(resourceTypeId),
+                                    new RawResource(rawResource, FhirResourceFormat.Json),
+                                    new ResourceRequest(requestMethod),
+                                    new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                                    isDeleted,
+                                    null,
+                                    null,
+                                    null),
+                                isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                         }
 
                         // call NextResultAsync to get the info messages

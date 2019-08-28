@@ -207,10 +207,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
         }
 
-        private async Task ProcessSearchResultsAsync(IEnumerable<ResourceWrapper> searchResults, uint partId, CancellationToken cancellationToken)
+        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
         {
-            foreach (ResourceWrapper resourceWrapper in searchResults)
+            foreach (SearchResultEntry result in searchResults)
             {
+                ResourceWrapper resourceWrapper = result.Resource;
+
                 string resourceType = resourceWrapper.ResourceTypeName;
 
                 // Check whether we already have an existing file for the current resource type.
