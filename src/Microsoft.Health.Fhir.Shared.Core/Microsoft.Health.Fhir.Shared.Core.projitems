@@ -30,13 +30,17 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\BundleFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverter.cs" />

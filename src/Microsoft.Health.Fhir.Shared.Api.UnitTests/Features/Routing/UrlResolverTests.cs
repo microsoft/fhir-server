@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         }
 
         [Fact]
-        public void GivenAQueryWithExistingContinuationToken_WhenSearchUrlIsResolvedWithNoNewContinuationToken_ThenContinuationTokenShouldBeRemoved()
+        public void GivenAQueryWithExistingContinuationToken_WhenSearchUrlIsResolvedWithNoNewContinuationToken_ThenContinuationTokenShouldBeRetained()
         {
             string inputQueryString = $"?param1=value1&{ContinuationTokenQueryParamName}=abc&param2=value2";
             Tuple<string, string>[] unsupportedSearchParams = null;
@@ -216,6 +216,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             {
                 { "param1", new StringValues("value1") },
                 { "param2", new StringValues("value2") },
+                { ContinuationTokenQueryParamName, new StringValues("abc") },
             };
 
             TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, null, continuationToken, expectedRouteValues);
