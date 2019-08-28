@@ -4,7 +4,7 @@ trigger:
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
     resourceGroupRoot: 'msh-fhir-pr'
-    prNumber: '11'
+    prNumber: '12'
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
     DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
