@@ -47,8 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     Resource = resource.Instance.ToPoco<Resource>(),
                     Search = new Bundle.SearchComponent
                     {
-                        // TODO: For now, everything returned is a match. We will need to
-                        // distinct between match and include once we support it.
                         Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
                     },
                 };
