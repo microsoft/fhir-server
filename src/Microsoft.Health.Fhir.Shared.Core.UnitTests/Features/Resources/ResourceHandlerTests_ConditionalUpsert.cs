@@ -57,13 +57,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             string id = Guid.NewGuid().ToString();
             string version = Guid.NewGuid().ToString();
 
-            ResourceWrapper mockResourceWrapper = CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(id), false);
-            mockResourceWrapper.Version.Returns(version);
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(id), false));
+            mockResultEntry.Resource.Version.Returns(version);
 
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
                 Samples.GetDefaultObservation(),
-                mockResourceWrapper);
+                mockResultEntry);
 
             UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
 
@@ -83,13 +83,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             string id = Guid.NewGuid().ToString();
             string version = Guid.NewGuid().ToString();
 
-            ResourceWrapper mockResourceWrapper = CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(id), false);
-            mockResourceWrapper.Version.Returns(version);
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(id), false));
+            mockResultEntry.Resource.Version.Returns(version);
 
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
                 Samples.GetDefaultObservation().UpdateId(id),
-                mockResourceWrapper);
+                mockResultEntry);
 
             UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
 
@@ -106,12 +106,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         [Fact]
         public async Task GivenAResourceWithIncorrectId_WhenUpsertingConditionallyWithOneMatch_TheServerShouldFail()
         {
-            ResourceWrapper mockResourceWrapper = CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false);
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
 
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
                 Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()),
-                mockResourceWrapper);
+                mockResultEntry);
 
             await Assert.ThrowsAsync<BadRequestException>(() => _mediator.Send<UpsertResourceResponse>(message));
         }
@@ -119,19 +119,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         [Fact]
         public async Task GivenAResource_WhenUpsertingConditionallyWithMultipleMatches_TheServerShouldFail()
         {
-            ResourceWrapper mockResourceWrapper1 = CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false);
-            ResourceWrapper mockResourceWrapper2 = CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false);
+            var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            var mockResultEntry2 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
 
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
                 Samples.GetDefaultObservation(),
-                mockResourceWrapper1,
-                mockResourceWrapper2);
+                mockResultEntry1,
+                mockResultEntry2);
 
             await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<UpsertResourceResponse>(message));
         }
 
-        private ConditionalUpsertResourceRequest SetupConditionalUpdate(SaveOutcomeType outcomeType, ResourceElement requestResource, params ResourceWrapper[] searchResults)
+        private ConditionalUpsertResourceRequest SetupConditionalUpdate(SaveOutcomeType outcomeType, ResourceElement requestResource, params SearchResultEntry[] searchResults)
         {
             IReadOnlyList<Tuple<string, string>> list = new[] { Tuple.Create("_tag", Guid.NewGuid().ToString()) };
 

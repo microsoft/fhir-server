@@ -8,14 +8,13 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 {
-    public class IncludeSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class IncludeSearchTestFixture : HttpIntegrationTestFixture
     {
-        public IncludeSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public IncludeSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+            : base(dataStore, format, testFhirServerFactory)
         {
             Tag = Guid.NewGuid().ToString();
 

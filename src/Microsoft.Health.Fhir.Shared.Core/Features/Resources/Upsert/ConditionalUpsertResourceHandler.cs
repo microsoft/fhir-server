@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             }
             else if (count == 1)
             {
-                ResourceWrapper resourceWrapper = results.Results.First();
+                ResourceWrapper resourceWrapper = results.Results.First().Resource;
                 var resource = message.Resource.ToPoco();
                 var version = WeakETag.FromVersionId(resourceWrapper.Version);
 
