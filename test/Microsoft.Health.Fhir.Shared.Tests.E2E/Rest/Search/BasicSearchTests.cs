@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -236,6 +237,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotNull(bundle);
             Assert.Equal(numberOfResources, bundle.Total);
             Assert.Empty(bundle.Entry);
+        }
+
+        [InlineData("_summary", "_count")]
+        [InlineData("_summary", "xyz")]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResources_WhenSearchedWithIncorrectSummaryParams_ThenExceptionShouldBeThrown(string key, string val)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
         [Fact]

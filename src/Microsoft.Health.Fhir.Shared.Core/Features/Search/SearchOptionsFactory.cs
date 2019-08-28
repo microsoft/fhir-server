@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
@@ -98,10 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogInformation(ex, "Failed to parse the query parameter. Skipping.");
-
-                        // There was a problem parsing the parameter. Add it to list of unsupported parameters.
-                        unsupportedSearchParameters.Add(query);
+                        throw new BadRequestException(ex.Message);
                     }
                 }
             }
