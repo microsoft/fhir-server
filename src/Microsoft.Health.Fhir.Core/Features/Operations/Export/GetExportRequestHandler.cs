@@ -48,7 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             else if (outcome.JobRecord.Status == OperationStatus.Failed || outcome.JobRecord.Status == OperationStatus.Canceled)
             {
-                throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, outcome.JobRecord.FailureDetails.FailureReason), outcome.JobRecord.FailureDetails.FailureStatusCode);
+                throw new OperationFailedException(
+                    string.Format(Resources.OperationFailed, OperationsConstants.Export, outcome.JobRecord.FailureDetails.FailureReason),
+                    outcome.JobRecord.FailureDetails.FailureStatusCode);
             }
             else
             {

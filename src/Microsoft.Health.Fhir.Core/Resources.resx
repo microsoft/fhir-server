@@ -351,6 +351,9 @@
   <data name="UnableToSetSecret" xml:space="preserve">
     <value>Unable to set secret in SecretStore</value>
   </data>
+  <data name="UnknownError" xml:space="preserve">
+    <value>Unknown Error.</value>
+  </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>
   </data>
@@ -360,6 +363,9 @@
   </data>
   <data name="UpdateRequestsRequireId" xml:space="preserve">
     <value>Resource id is required for updates.</value>
+  </data>
+  <data name="UserRequestedCancellation" xml:space="preserve">
+    <value>User requested cancellation of operation.</value>
   </data>
   <data name="VersionIdFormatNotETag" xml:space="preserve">
     <value>VersionId should not be in the weak ETag format.</value>

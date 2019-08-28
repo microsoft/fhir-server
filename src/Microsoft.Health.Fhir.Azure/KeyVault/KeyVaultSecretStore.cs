@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
 
         private const int DefaultRetryCount = 3;
         private static readonly Func<int, TimeSpan> DefaultSleepDurationProvider = new Func<int, TimeSpan>(retryCount => TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
-        private static readonly HttpStatusCode[] _defaultStatusCodesToRetry =
+        private static readonly HttpStatusCode[] DefaultStatusCodesToRetry =
         {
             HttpStatusCode.RequestTimeout,
             HttpStatusCode.ServiceUnavailable,
@@ -36,12 +36,7 @@ namespace Microsoft.Health.Fhir.Azure.KeyVault
         private readonly AsyncRetryPolicy _retryPolicy;
 
         public KeyVaultSecretStore(IKeyVaultClient keyVaultClient, Uri keyVaultUri)
-            : this(keyVaultClient, keyVaultUri, DefaultRetryCount, DefaultSleepDurationProvider, _defaultStatusCodesToRetry)
-        {
-        }
-
-        public KeyVaultSecretStore(IKeyVaultClient keyVaultClient, Uri keyVaultUri, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
-            : this(keyVaultClient, keyVaultUri, retryCount, sleepDurationProvider, _defaultStatusCodesToRetry)
+            : this(keyVaultClient, keyVaultUri, DefaultRetryCount, DefaultSleepDurationProvider, DefaultStatusCodesToRetry)
         {
         }
 

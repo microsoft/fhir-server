@@ -707,18 +707,16 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ServiceUnavailable", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The _sort parameter is not supported..
         /// </summary>
-        internal static string SortNotSupported
-        {
-            get
-            {
+        internal static string SortNotSupported {
+            get {
                 return ResourceManager.GetString("SortNotSupported", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
         /// </summary>
@@ -747,6 +745,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unknown Error..
+        /// </summary>
+        internal static string UnknownError {
+            get {
+                return ResourceManager.GetString("UnknownError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {
@@ -770,6 +777,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UpdateRequestsRequireId {
             get {
                 return ResourceManager.GetString("UpdateRequestsRequireId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to User requested cancellation of operation..
+        /// </summary>
+        internal static string UserRequestedCancellation {
+            get {
+                return ResourceManager.GetString("UserRequestedCancellation", resourceCulture);
             }
         }
         
