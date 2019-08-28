@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -187,10 +186,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.TrumanSnomedDiagnosticReport);
         }
 
-        public class ClassFixture : HttpIntegrationTestFixture<Startup>
+        public class ClassFixture : HttpIntegrationTestFixture
         {
-            public ClassFixture(DataStore dataStore, Format format)
-                : base(dataStore, format)
+            public ClassFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+                : base(dataStore, format, testFhirServerFactory)
             {
                 Tag = Guid.NewGuid().ToString();
 

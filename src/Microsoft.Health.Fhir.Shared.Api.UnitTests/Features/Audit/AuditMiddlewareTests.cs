@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Shared.Api.UnitTests;
 using NSubstitute;
 using Xunit;
@@ -22,22 +23,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private const string Action = "Action";
 
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
         private readonly IAuditHelper _auditHelper = Substitute.For<IAuditHelper>();
 
         private readonly AuditMiddleware _auditMiddleware;
 
-        private readonly HttpContext _httpContext;
+        private readonly HttpContext _httpContext = new DefaultHttpContext();
         private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
         public AuditMiddlewareTests()
         {
-            _httpContext = new DefaultHttpContext();
-
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
             _auditMiddleware = new AuditMiddleware(
                 httpContext => Task.CompletedTask,
                 _fhirRequestContextAccessor,
+                _claimsExtractor,
                 _auditHelper);
         }
 
@@ -48,7 +49,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             await _auditMiddleware.Invoke(_httpContext);
 
-            _auditHelper.DidNotReceiveWithAnyArgs().LogExecuted(null, null, HttpStatusCode.OK, null);
+            _auditHelper.DidNotReceiveWithAnyArgs().LogExecuted(
+                controllerName: default,
+                actionName: default,
+                responseResultType: default,
+                httpContext: default,
+                claimsExtractor: default);
         }
 
         [Fact]
@@ -58,7 +64,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             await _auditMiddleware.Invoke(_httpContext);
 
-            _auditHelper.DidNotReceiveWithAnyArgs().LogExecuted(null, null, HttpStatusCode.OK, null);
+            _auditHelper.DidNotReceiveWithAnyArgs().LogExecuted(
+                controllerName: default,
+                actionName: default,
+                responseResultType: default,
+                httpContext: default,
+                claimsExtractor: default);
         }
 
         [Theory]
@@ -76,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             await _auditMiddleware.Invoke(_httpContext);
 
-            _auditHelper.Received(1).LogExecuted(Controller, Action, statusCode, resourceType);
+            _auditHelper.Received(1).LogExecuted(Controller, Action, resourceType, _httpContext, _claimsExtractor);
         }
 
         [Fact]
@@ -90,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             await _auditMiddleware.Invoke(_httpContext);
 
-            _auditHelper.Received(1).LogExecuted(null, null, statusCode, null);
+            _auditHelper.Received(1).LogExecuted(null, null, null, _httpContext, _claimsExtractor);
         }
 
         [Fact]
@@ -104,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             await _auditMiddleware.Invoke(_httpContext);
 
-            _auditHelper.Received(1).LogExecuted(Controller, Action, statusCode, null);
+            _auditHelper.Received(1).LogExecuted(Controller, Action, null, _httpContext, _claimsExtractor);
         }
     }
 }

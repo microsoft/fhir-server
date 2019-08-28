@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
@@ -24,11 +23,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     [CollectionDefinition("History", DisableParallelization = true)]
     [Collection("History")]
-    public class HistoryTests : IClassFixture<HttpIntegrationTestFixture<Startup>>, IDisposable
+    public class HistoryTests : IClassFixture<HttpIntegrationTestFixture>, IDisposable
     {
         private FhirResponse<Observation> _createdResource;
 
-        public HistoryTests(HttpIntegrationTestFixture<Startup> fixture)
+        public HistoryTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
 

@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// <summary>
     /// FHIR Rest API
     /// </summary>
-    [ServiceFilter(typeof(AuditLoggingFilterAttribute), Order = -1)]
+    [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]
     [ValidateResourceTypeFilter]

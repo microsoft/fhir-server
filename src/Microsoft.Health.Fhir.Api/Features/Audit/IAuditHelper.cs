@@ -3,7 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
@@ -26,15 +27,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// </summary>
         /// <param name="controllerName">The controller name.</param>
         /// <param name="actionName">The action name.</param>
-        void LogExecuting(string controllerName, string actionName);
+        /// <param name="httpContext">The HTTP context.</param>
+        /// <param name="claimsExtractor">The extractor used to extract claims.</param>
+        void LogExecuting(string controllerName, string actionName, HttpContext httpContext, IClaimsExtractor claimsExtractor);
 
         /// <summary>
         /// Logs an audit entry for executed the <paramref name="controllerName"/> and <paramref name="actionName"/>.
         /// </summary>
         /// <param name="controllerName">The controller name.</param>
         /// <param name="actionName">The action name.</param>
-        /// <param name="statusCode">The HTTP status code.</param>
         /// <param name="responseResultType">The optional response result type.</param>
-        void LogExecuted(string controllerName, string actionName, HttpStatusCode statusCode, string responseResultType);
+        /// <param name="httpContext">The HTTP context.</param>
+        /// <param name="claimsExtractor">The extractor used to extract claims.</param>
+        void LogExecuted(string controllerName, string actionName, string responseResultType, HttpContext httpContext, IClaimsExtractor claimsExtractor);
     }
 }

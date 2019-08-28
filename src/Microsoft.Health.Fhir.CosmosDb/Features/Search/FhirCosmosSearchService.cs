@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -79,9 +80,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             FhirCosmosResourceWrapper[] wrappers = fetchedResults
                 .Select(r => r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
 
+            IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
+            if (searchOptions.Sort?.Count > 0)
+            {
+                // we don't currently support sort
+                unsupportedSortingParameters = searchOptions.UnsupportedSortingParams.Concat(searchOptions.Sort.Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
+            }
+            else
+            {
+                unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
+            }
+
             return new SearchResult(
                 wrappers,
                 searchOptions.UnsupportedSearchParams,
+                unsupportedSortingParameters,
                 fetchedResults.ResponseContinuation);
         }
     }

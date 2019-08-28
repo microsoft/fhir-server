@@ -9,18 +9,17 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-    public class SchemaTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class SchemaTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly HttpClient _client;
 
-        public SchemaTests(HttpIntegrationTestFixture<Startup> fixture)
+        public SchemaTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.HttpClient;
         }

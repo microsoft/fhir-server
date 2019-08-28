@@ -8,7 +8,6 @@ using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -17,7 +16,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <summary>
     /// Provides R4 specific tests.
     /// </summary>
-    public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {
         [Fact]
         public async Task GivenR4Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()

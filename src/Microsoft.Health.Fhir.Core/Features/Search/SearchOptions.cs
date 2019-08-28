@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -60,8 +61,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParams { get; internal set; }
 
         /// <summary>
-        /// Gets the list of sorting parameters. The second item in a tuple is whether the sort is accending or decending.
+        /// Gets the list of unsupported sorting search parameters that were ignored in the search.
         /// </summary>
-        public IEnumerable<Tuple<string, SortOrder>> Sort { get; internal set; }
+        public IReadOnlyList<(string parameterName, string reason)> UnsupportedSortingParams { get; internal set; }
+
+        /// <summary>
+        /// Gets the list of sorting parameters.
+        /// </summary>
+        public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
     }
 }
