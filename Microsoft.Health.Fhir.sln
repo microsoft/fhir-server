@@ -23,8 +23,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.ValueSets", "src\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj", "{2C4E1934-0AD7-4410-91F7-957F265D7C7B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Tests.Integration", "test\Microsoft.Health.Fhir.Tests.Integration\Microsoft.Health.Fhir.Tests.Integration.csproj", "{567D8DB0-B734-4B66-9626-A64BA490C0BA}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.CosmosDb.UnitTests", "src\Microsoft.Health.Fhir.CosmosDb.UnitTests\Microsoft.Health.Fhir.CosmosDb.UnitTests.csproj", "{C015551C-0009-49CE-8C8D-B206BED0BB42}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Extensions.DependencyInjection", "src\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj", "{E2C2B117-32CD-449F-A4A8-4C8BA874D693}"
@@ -157,10 +155,6 @@ Global
 		{2C4E1934-0AD7-4410-91F7-957F265D7C7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C4E1934-0AD7-4410-91F7-957F265D7C7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C4E1934-0AD7-4410-91F7-957F265D7C7B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{567D8DB0-B734-4B66-9626-A64BA490C0BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{567D8DB0-B734-4B66-9626-A64BA490C0BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{567D8DB0-B734-4B66-9626-A64BA490C0BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{567D8DB0-B734-4B66-9626-A64BA490C0BA}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C015551C-0009-49CE-8C8D-B206BED0BB42}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C015551C-0009-49CE-8C8D-B206BED0BB42}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C015551C-0009-49CE-8C8D-B206BED0BB42}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -274,7 +268,6 @@ Global
 		{DCDE987F-0B50-4233-8661-6B5A251E7CAE} = {8AD2A324-DAB5-4380-94A5-31F7D817C384}
 		{83F1D0BE-F8C4-4244-BB79-B77D92B8F092} = {7457B218-2651-49B5-BED8-22233889516A}
 		{2C4E1934-0AD7-4410-91F7-957F265D7C7B} = {7457B218-2651-49B5-BED8-22233889516A}
-		{567D8DB0-B734-4B66-9626-A64BA490C0BA} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 		{C015551C-0009-49CE-8C8D-B206BED0BB42} = {7457B218-2651-49B5-BED8-22233889516A}
 		{E2C2B117-32CD-449F-A4A8-4C8BA874D693} = {9DC49B6B-EBFC-44F6-B65F-8931078B630D}
 		{614DE061-52A0-4471-A3F1-50C9C907FFDB} = {9DC49B6B-EBFC-44F6-B65F-8931078B630D}
@@ -313,7 +306,7 @@ Global
 		{7F2B9209-2C50-42ED-961B-A09CC8A26A07} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 EndGlobal
