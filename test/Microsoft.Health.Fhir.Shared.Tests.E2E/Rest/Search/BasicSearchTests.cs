@@ -11,16 +11,15 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture<Startup>>
+    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
-        public BasicSearchTests(HttpIntegrationTestFixture<Startup> fixture)
+        public BasicSearchTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
             // Delete all patients before starting the test.

@@ -5,7 +5,6 @@
 
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
@@ -16,11 +15,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Provides version specific tests.
     /// </summary>
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly FhirClient _client;
 
-        public VersionSpecificTests(HttpIntegrationTestFixture<Startup> fixture)
+        public VersionSpecificTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.FhirClient;
         }

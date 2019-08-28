@@ -15,7 +15,9 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json.Linq;
 using Task = System.Threading.Tasks.Task;
@@ -24,32 +26,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public class FhirClient
     {
-        private readonly ResourceFormat _format;
+        private readonly TestFhirServer _testFhirServer;
+        private readonly TestApplication _clientApplication;
+        private readonly TestUser _user;
         private readonly Dictionary<string, string> _bearerTokens = new Dictionary<string, string>();
         private readonly string _contentType;
-
-        private readonly BaseFhirSerializer _serializer;
-        private readonly BaseFhirParser _parser;
 
         private readonly Func<Base, SummaryType, string> _serialize;
         private readonly Func<string, Resource> _deserialize;
         private readonly MediaTypeWithQualityHeaderValue _mediaType;
 
-        public FhirClient(HttpClient httpClient, ResourceFormat format)
+        public FhirClient(
+            HttpClient httpClient,
+            TestFhirServer testFhirServer,
+            ResourceFormat format,
+            TestApplication clientApplication,
+            TestUser user,
+            (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) securitySettings)
         {
+            _testFhirServer = testFhirServer;
+            _clientApplication = clientApplication;
+            _user = user;
             HttpClient = httpClient;
-            _format = format;
+            Format = format;
+            SecuritySettings = securitySettings;
 
             if (format == ResourceFormat.Json)
             {
                 var jsonSerializer = new FhirJsonSerializer();
 
-                _serializer = jsonSerializer;
                 _serialize = (resource, summary) => jsonSerializer.SerializeToString(resource, summary);
 
                 var jsonParser = new FhirJsonParser();
 
-                _parser = jsonParser;
                 _deserialize = jsonParser.Parse<Resource>;
 
                 _contentType = ContentType.JSON_CONTENT_HEADER;
@@ -58,12 +67,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             {
                 var xmlSerializer = new FhirXmlSerializer();
 
-                _serializer = xmlSerializer;
                 _serialize = (resource, summary) => xmlSerializer.SerializeToString(resource, summary);
 
                 var xmlParser = new FhirXmlParser();
 
-                _parser = xmlParser;
                 _deserialize = xmlParser.Parse<Resource>;
 
                 _contentType = ContentType.XML_CONTENT_HEADER;
@@ -74,40 +81,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
 
             _mediaType = MediaTypeWithQualityHeaderValue.Parse(_contentType);
-            SetupAuthenticationAsync(TestApplications.ServiceClient).GetAwaiter().GetResult();
+            SetupAuthenticationAsync(clientApplication, user).GetAwaiter().GetResult();
         }
 
-        public ResourceFormat Format => _format;
+        public ResourceFormat Format { get; }
 
-        public (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) SecuritySettings { get; private set; }
+        public (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) SecuritySettings { get; }
 
         public HttpClient HttpClient { get; }
 
-        public async Task RunAsUser(TestUser user, TestApplication clientApplication)
+        public FhirClient CreateClientForUser(TestUser user, TestApplication clientApplication)
         {
             EnsureArg.IsNotNull(user, nameof(user));
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication, user);
+            return _testFhirServer.GetFhirClient(Format, clientApplication, user);
         }
 
-        public async Task RunAsClientApplication(TestApplication clientApplication)
+        public FhirClient CreateClientForClientApplication(TestApplication clientApplication)
         {
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            await SetupAuthenticationAsync(clientApplication);
+            return _testFhirServer.GetFhirClient(Format, clientApplication, null);
         }
 
-        public Task<FhirResponse<T>> CreateAsync<T>(T resource)
+        public FhirClient Clone()
+        {
+            return _testFhirServer.GetFhirClient(Format, _clientApplication, _user, reusable: false);
+        }
+
+        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null)
             where T : Resource
         {
-            return CreateAsync(resource.ResourceType.ToString(), resource);
+            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource)
+        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null)
             where T : Resource
         {
             var message = new HttpRequestMessage(HttpMethod.Post, uri);
             message.Headers.Accept.Add(_mediaType);
             message.Content = CreateStringContent(resource);
+
+            if (!string.IsNullOrEmpty(conditionalCreateCriteria))
+            {
+                message.Headers.TryAddWithoutValidation(KnownFhirHeaders.IfNoneExist, conditionalCreateCriteria);
+            }
 
             HttpResponseMessage response = await HttpClient.SendAsync(message);
 
@@ -145,6 +162,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             where T : Resource
         {
             return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion);
+        }
+
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null)
+            where T : Resource
+        {
+            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion);
         }
 
         public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)
@@ -298,8 +321,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
         {
-            await GetSecuritySettings("metadata");
-
             if (SecuritySettings.SecurityEnabled)
             {
                 var tokenKey = $"{clientApplication.ClientId}:{(user == null ? string.Empty : user.UserId)}";
@@ -359,27 +380,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 new KeyValuePair<string, string>("username", user.UserId),
                 new KeyValuePair<string, string>("password", user.Password),
             };
-        }
-
-        private async Task GetSecuritySettings(string fhirServerMetadataUrl)
-        {
-            FhirResponse<CapabilityStatement> readResponse = await ReadAsync<CapabilityStatement>(fhirServerMetadataUrl);
-            var metadata = readResponse.Resource;
-
-            foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))
-            {
-                var oauth = rest.Security?.GetExtension(Core.Features.Security.Constants.SmartOAuthUriExtension);
-                if (oauth != null)
-                {
-                    var tokenUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionToken).Value;
-                    var authorizeUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionAuthorize).Value;
-
-                    SecuritySettings = (true, authorizeUrl, tokenUrl);
-                    return;
-                }
-            }
-
-            SecuritySettings = (false, null, null);
         }
     }
 }

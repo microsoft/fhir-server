@@ -214,6 +214,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
+        /// </summary>
+        internal static string ConditionalOperationNotSelectiveEnough {
+            get {
+                return ResourceManager.GetString("ConditionalOperationNotSelectiveEnough", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Found result with Id &apos;{0}&apos;, which did not match the provided Id &apos;{1}&apos;..
+        /// </summary>
+        internal static string ConditionalUpdateMismatchedIds {
+            get {
+                return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {
