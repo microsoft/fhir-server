@@ -8,21 +8,19 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 
-namespace Microsoft.Health.Fhir.Api.Features.Formatters
+namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
 {
-    internal class FormatterConfiguration : IPostConfigureOptions<MvcOptions>
+    internal class XmlFormatterConfiguration : IPostConfigureOptions<MvcOptions>, IProvideCapability
     {
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly IConfiguredConformanceProvider _configuredConformanceProvider;
-        private readonly TextInputFormatter[] _inputFormatters;
-        private readonly TextOutputFormatter[] _outputFormatters;
 
-        public FormatterConfiguration(
+        public XmlFormatterConfiguration(
             IOptions<FeatureConfiguration> featureConfiguration,
             IConfiguredConformanceProvider configuredConformanceProvider,
             IEnumerable<TextInputFormatter> inputFormatters,
@@ -35,27 +33,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             _featureConfiguration = featureConfiguration.Value;
             _configuredConformanceProvider = configuredConformanceProvider;
-            _inputFormatters = inputFormatters.ToArray();
-            _outputFormatters = outputFormatters.ToArray();
         }
 
         public void PostConfigure(string name, MvcOptions options)
         {
-            for (int i = 0; i < _inputFormatters.Length; i++)
+            if (_featureConfiguration.SupportsXml)
             {
-                options.InputFormatters.Insert(i, _inputFormatters[i]);
+                _configuredConformanceProvider.ConfigureOptionalCapabilities(statement => statement.Format = statement.Format.Concat(new[] { KnownContentTypes.XmlContentType }));
             }
+        }
 
-            for (int i = 0; i < _outputFormatters.Length; i++)
+        public void Build(IListedCapabilityStatement statement)
+        {
+            if (_featureConfiguration.SupportsXml)
             {
-                options.OutputFormatters.Insert(i, _outputFormatters[i]);
+                statement.Format.Add(KnownContentTypes.XmlContentType);
             }
-
-            // Disable the built-in global UnsupportedContentTypeFilter
-            // We enable our own ValidateContentTypeFilterAttribute on the FhirController, the built-in filter
-            // short-circuits the response and prevents the operation outcome from being returned.
-            var unsupportedContentTypeFilter = options.Filters.Single(x => x is UnsupportedContentTypeFilter);
-            options.Filters.Remove(unsupportedContentTypeFilter);
         }
     }
 }

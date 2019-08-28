@@ -8,6 +8,8 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -33,6 +35,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
+            services.AddSingleton<IModelAttributeValidator, ModelAttributeValidator>();
         }
     }
 }

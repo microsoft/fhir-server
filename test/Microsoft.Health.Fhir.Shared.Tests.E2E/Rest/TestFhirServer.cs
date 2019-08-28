@@ -5,14 +5,19 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Polly;
+using Polly.Retry;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -74,6 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     var authorizeUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionAuthorize).Value;
 
                     securitySettings = (true, authorizeUrl, tokenUrl);
+
                     break;
                 }
             }
@@ -105,10 +111,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private class SessionMessageHandler : DelegatingHandler
         {
             private readonly AsyncLocal<string> _sessionToken = new AsyncLocal<string>();
+            private readonly AsyncRetryPolicy _polly;
 
             public SessionMessageHandler(HttpMessageHandler innerHandler)
                 : base(innerHandler)
             {
+                _polly = Policy.Handle<HttpRequestException>(x =>
+                {
+                    if (x.InnerException is IOException || x.InnerException is SocketException)
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }).WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
             }
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -122,7 +138,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 request.Headers.TryAddWithoutValidation("x-ms-consistency-level", "Session");
 
-                var response = await base.SendAsync(request, cancellationToken);
+                if (request.Content != null)
+                {
+                    await request.Content.LoadIntoBufferAsync();
+                }
+
+                HttpResponseMessage response = await _polly.ExecuteAsync(async () => await base.SendAsync(request, cancellationToken));
 
                 if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
                 {
