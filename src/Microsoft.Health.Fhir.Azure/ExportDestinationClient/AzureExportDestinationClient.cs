@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,19 +42,11 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             EnsureArg.IsNotNullOrWhiteSpace(connectionSettings, nameof(connectionSettings));
 
-            string decodedConnectionString;
-            try
-            {
-                decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
-            }
-            catch (Exception)
-            {
-                throw new DestinationConnectionException(Resources.InvalidConnectionSettings);
-            }
-
+            // We have already validated that the connection string is base64 encoded when we received the export request.
+            string decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
             if (!CloudStorageAccount.TryParse(decodedConnectionString, out CloudStorageAccount cloudAccount))
             {
-                throw new DestinationConnectionException(Resources.CantConnectToDestination);
+                throw new DestinationConnectionException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
             _blobClient = cloudAccount.CreateCloudBlobClient();
@@ -172,7 +165,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             if (_blobClient == null || _blobContainer == null)
             {
-                throw new DestinationConnectionException(Resources.DestinationClientNotConnected);
+                throw new DestinationConnectionException(Resources.DestinationClientNotConnected, HttpStatusCode.InternalServerError);
             }
         }
     }

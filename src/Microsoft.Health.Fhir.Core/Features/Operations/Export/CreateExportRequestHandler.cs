@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (outcome == null)
             {
-                // Remove the connection settings from the request URI store it in the secret store.
+                // Remove the connection settings from the request URI before we store it in the secret store.
                 NameValueCollection queryParameters = HttpUtility.ParseQueryString(request.RequestUri.Query);
 
                 queryParameters.Remove(KnownQueryParameterNames.DestinationType);
@@ -73,7 +73,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var jobRecord = new ExportJobRecord(uriBuilder.Uri, request.ResourceType, hash, requestorClaims);
 
                 // Store the destination secret.
-                await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInfo.ToJson(), cancellationToken);
+                try
+                {
+                    await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInfo.ToJson(), cancellationToken);
+                }
+                catch (SecretStoreException sse)
+                {
+                    throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, sse.Message), sse.ResponseStatusCode);
+                }
 
                 outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
             }

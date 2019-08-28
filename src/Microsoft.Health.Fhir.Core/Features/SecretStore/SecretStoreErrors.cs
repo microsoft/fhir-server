@@ -3,19 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-
-namespace Microsoft.Health.Fhir.Core.Messages.Export
+namespace Microsoft.Health.Fhir.Core.Features.SecretStore
 {
-    public class CreateExportResponse
+    public static class SecretStoreErrors
     {
-        public CreateExportResponse(string jobId)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+        public static string GetSecretError { get; } = Resources.UnableToGetSecret;
 
-            JobId = jobId;
-        }
+        public static string DeleteSecretError { get; } = Resources.UnableToDeleteSecret;
 
-        public string JobId { get; }
+        public static string SetSecretError { get; } = Resources.UnableToSetSecret;
     }
 }
