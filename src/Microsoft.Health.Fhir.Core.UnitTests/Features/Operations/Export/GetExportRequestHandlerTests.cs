@@ -81,14 +81,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Null(result.JobResult);
         }
 
-        private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus)
+        [Theory]
+        [InlineData(OperationStatus.Canceled)]
+        [InlineData(OperationStatus.Failed)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatusAndNoFailureDetails_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(OperationStatus operationStatus)
+        {
+            _failureStatusCode = HttpStatusCode.BadRequest;
+
+            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetExportJobByIdAsync(operationStatus, addFailureDetails: false));
+
+            Assert.NotNull(ofe);
+            Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
+            Assert.Contains(Resources.UnknownError, ofe.Message);
+        }
+
+        private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus, bool addFailureDetails = true)
         {
             var jobRecord = new ExportJobRecord(_createRequestUri, "Patient", "hash")
             {
                 Status = jobStatus,
             };
 
-            if (jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed)
+            if ((jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed) & addFailureDetails)
             {
                 jobRecord.FailureDetails = new ExportJobFailureDetails(_failureReason, _failureStatusCode);
             }
