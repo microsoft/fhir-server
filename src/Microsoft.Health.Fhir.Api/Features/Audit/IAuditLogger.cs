@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// <param name="correlationId">The correlation ID.</param>
         /// <param name="callerIpAddress">The caller IP address.</param>
         /// <param name="callerClaims">The claims of the caller.</param>
+        /// <param name="customHeaders">Headers added by the caller with data to be added to the audit logs.</param>
         void LogAudit(
             AuditAction auditAction,
             string operation,
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             HttpStatusCode? statusCode,
             string correlationId,
             string callerIpAddress,
-            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims);
+            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
+            IReadOnlyCollection<KeyValuePair<string,string>> customHeaders);
     }
 }

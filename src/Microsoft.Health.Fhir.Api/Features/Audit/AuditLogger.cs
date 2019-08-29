@@ -56,13 +56,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             HttpStatusCode? statusCode,
             string correlationId,
             string callerIpAddress,
-            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
+            IReadOnlyCollection<KeyValuePair<string, string>> customerHeaders)
         {
             string claimsInString = null;
+            string customerHeadersInString = null;
 
             if (callerClaims != null)
             {
                 claimsInString = string.Join(";", callerClaims.Select(claim => $"{claim.Key}={claim.Value}"));
+            }
+
+            if (customerHeaders != null)
+            {
+                customerHeadersInString = string.Join(";", customerHeaders.Select(header => $"{header.Key}={header.Value}"));
             }
 
             _logger.LogInformation(
@@ -76,7 +83,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 action,
                 statusCode,
                 correlationId,
-                claimsInString);
+                claimsInString,
+                customerHeadersInString);
         }
     }
 }
