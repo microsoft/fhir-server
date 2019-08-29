@@ -8,8 +8,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
@@ -19,48 +19,52 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
         private readonly RequestDelegate _next;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
+        private readonly ILogger<ApiNotificationMiddleware> _logger;
 
         public ApiNotificationMiddleware(
             RequestDelegate next,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IMediator mediator)
+            IMediator mediator,
+            ILogger<ApiNotificationMiddleware> logger)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _next = next;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _mediator = mediator;
+            _logger = logger;
         }
 
         public async Task Invoke(HttpContext context)
         {
-            var notification = new ApiResponseNotification();
+            var apiNotification = new ApiResponseNotification();
 
-            try
+            using (var timer = _logger.BeginTimedScope("ApiNotificationMiddleware") as ActionTimer)
             {
-                await _next(context);
-            }
-            finally
-            {
-                notification.SetLatency();
-                RouteData routeData = context.GetRouteData();
-
-                object resourceType = null;
-
-                if (routeData != null && routeData.Values != null)
+                try
                 {
-                    routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out resourceType);
+                    await _next(context);
                 }
+                finally
+                {
+                    apiNotification.Latency = timer.GetElapsedTime();
 
-                notification.Authentication = _fhirRequestContextAccessor.FhirRequestContext.Principal.Identity.AuthenticationType;
-                notification.Operation = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
-                notification.Protocol = context.Request.Scheme;
-                notification.ResourceType = resourceType?.ToString();
-                notification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
+                    apiNotification.Authentication = _fhirRequestContextAccessor.FhirRequestContext.Principal.Identity.AuthenticationType;
+                    apiNotification.Operation = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
+                    apiNotification.Protocol = context.Request.Scheme;
+                    apiNotification.ResourceType = _fhirRequestContextAccessor.FhirRequestContext.ResourceType;
+                    apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
 
-                await _mediator.Publish<ApiResponseNotification>(notification, context.RequestAborted);
+                    await _mediator.Publish(apiNotification, context.RequestAborted);
+
+                    if (_fhirRequestContextAccessor.FhirRequestContext.StorageContext != null)
+                    {
+                        await _mediator.Publish(_fhirRequestContextAccessor.FhirRequestContext.StorageContext, context.RequestAborted);
+                    }
+                }
             }
         }
     }

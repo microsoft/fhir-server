@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Net;
 using EnsureThat;
 using Microsoft.Azure.Documents;
+using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
@@ -34,7 +35,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (ex is DocumentClientException dce)
             {
-                requestContext.AddRequestChargeToResponseHeaders(dce.RequestCharge);
+                requestContext.AddRequestChargeToFhirRequestContext(
+                    responseRequestCharge: dce.RequestCharge,
+                    collectionSizeUsage: null,
+                    statusCode: dce.StatusCode);
 
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -47,13 +51,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
+        public static void UpdateFhirRequestContext<T>(this IFhirRequestContext requestContext, T resourceResponseBase)
+            where T : ResourceResponseBase
+        {
+            requestContext.UpdateFhirRequestContext(resourceResponseBase.SessionToken, resourceResponseBase.RequestCharge, resourceResponseBase.CollectionSizeUsage, resourceResponseBase.StatusCode);
+        }
+
+        public static void UpdateFhirRequestContext<T>(this IFhirRequestContext requestContext, FeedResponse<T> feedResponse)
+        {
+            requestContext.UpdateFhirRequestContext(feedResponse.SessionToken, feedResponse.RequestCharge, feedResponse.CollectionSizeUsage, statusCode: null);
+        }
+
+        public static void UpdateFhirRequestContext<T>(this IFhirRequestContext requestContext, StoredProcedureResponse<T> storedProcedureResponse)
+        {
+            requestContext.UpdateFhirRequestContext(storedProcedureResponse.SessionToken, storedProcedureResponse.RequestCharge, collectionSizeUsageKilobytes: null, statusCode: storedProcedureResponse.StatusCode);
+        }
+
         /// <summary>
-        /// Updates the response headers with the session token and request change values.
+        /// Updates the request context with Cosmos DB info and updates response headers with the session token and request change values.
         /// </summary>
         /// <param name="requestContext">The request context. Allowed to be null.</param>
         /// <param name="sessionToken">THe session token</param>
         /// <param name="responseRequestCharge">The request charge.</param>
-        public static void UpdateResponseHeaders(this IFhirRequestContext requestContext, string sessionToken, double responseRequestCharge)
+        /// <param name="collectionSizeUsageKilobytes">The size usage of the Cosmos collection in kilobytes.</param>
+        /// <param name="statusCode">The HTTP status code.</param>
+        private static void UpdateFhirRequestContext(this IFhirRequestContext requestContext, string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode)
         {
             if (requestContext == null)
             {
@@ -65,10 +87,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 requestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
             }
 
-            requestContext.AddRequestChargeToResponseHeaders(responseRequestCharge);
+            requestContext.StorageContext = requestContext.StorageContext ?? new CosmosStorageContext(requestContext.RouteName);
+
+            requestContext.AddRequestChargeToFhirRequestContext(responseRequestCharge, collectionSizeUsageKilobytes, null);
         }
 
-        private static void AddRequestChargeToResponseHeaders(this IFhirRequestContext requestContext, double responseRequestCharge)
+        private static void AddRequestChargeToFhirRequestContext(this IFhirRequestContext requestContext, double responseRequestCharge, long? collectionSizeUsage, HttpStatusCode? statusCode)
         {
             // If there has already been a request to the database for this request, then there will already by a request charge.
             // We want to update it to the new total.
@@ -84,6 +108,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+
+            var cosmosContext = requestContext.StorageContext as CosmosStorageContext;
+
+            if (cosmosContext == null)
+            {
+                return;
+            }
+
+            cosmosContext.TotalRequestCharge = responseRequestCharge;
+
+            if (collectionSizeUsage.HasValue)
+            {
+                cosmosContext.CollectionSizeUsage = collectionSizeUsage;
+            }
+
+            if (statusCode.HasValue && statusCode == HttpStatusCode.TooManyRequests)
+            {
+                cosmosContext.ThrottledCount += 1;
+            }
         }
     }
 }

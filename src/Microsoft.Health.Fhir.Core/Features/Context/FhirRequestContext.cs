@@ -27,7 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             CodingInfo requestType,
             string correlationId,
             IDictionary<string, StringValues> requestHeaders,
-            IDictionary<string, StringValues> responseHeaders)
+            IDictionary<string, StringValues> responseHeaders,
+            string resourceType)
         {
             EnsureArg.IsNotNullOrWhiteSpace(method, nameof(method));
             EnsureArg.IsNotNullOrWhiteSpace(uriString, nameof(uriString));
@@ -44,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             CorrelationId = correlationId;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
+            ResourceType = resourceType;
         }
 
         public string Method { get; }
@@ -63,5 +65,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public IDictionary<string, StringValues> RequestHeaders { get; }
 
         public IDictionary<string, StringValues> ResponseHeaders { get; }
+
+        public string ResourceType { get; }
+
+        public IStorageContext StorageContext { get; set; }
     }
 }

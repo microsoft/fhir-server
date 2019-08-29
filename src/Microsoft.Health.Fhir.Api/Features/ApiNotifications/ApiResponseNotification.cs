@@ -3,37 +3,29 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Diagnostics;
+using System;
 using System.Net;
 using MediatR;
 
 namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
+    /// <summary>
+    /// A Mediatr message containing information about API responses.
+    /// This gets emitted by the ApiNotificationMiddleware when a response is returned by the server.
+    /// Consume these using Mediatr to collect stats about API responses.
+    /// </summary>
     public class ApiResponseNotification : INotification
     {
-        private Stopwatch _stopwatch;
-
-        public ApiResponseNotification()
-        {
-            _stopwatch = Stopwatch.StartNew();
-        }
-
         public string Operation { get; set; }
 
         public string ResourceType { get; set; }
 
         public HttpStatusCode? StatusCode { get; set; }
 
-        public long LatencyMilliseconds { get; set; }
+        public TimeSpan Latency { get; set; }
 
         public string Authentication { get; set; }
 
         public string Protocol { get; set; }
-
-        public void SetLatency()
-        {
-            _stopwatch.Stop();
-            LatencyMilliseconds = _stopwatch.ElapsedMilliseconds;
-        }
     }
 }

@@ -3,37 +3,29 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Diagnostics;
+using System;
 using System.Net;
 using MediatR;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
+    /// <summary>
+    /// A Mediatr message that contains statistics about Cosmos DB operations.
+    /// This gets emitted in CosmosFhirDataStore.cs. Consume these using Mediatr
+    /// to collect stats about Cosmos DB usage by the server.
+    /// </summary>
     public class CosmosQueryNotification : INotification
     {
-        private Stopwatch _stopwatch;
-
-        public CosmosQueryNotification()
-        {
-            _stopwatch = Stopwatch.StartNew();
-        }
-
         public string Operation { get; set; }
 
         public HttpStatusCode? StatusCode { get; set; }
 
         public double RequestCharge { get; set; }
 
-        public long LatencyMilliseconds { get; set; }
+        public TimeSpan Latency { get; set; }
 
         public long? CollectionSizeUsage { get; set; }
 
         public string ResourceType { get; set; }
-
-        public void SetLatency()
-        {
-            _stopwatch.Stop();
-            LatencyMilliseconds = _stopwatch.ElapsedMilliseconds;
-        }
     }
 }

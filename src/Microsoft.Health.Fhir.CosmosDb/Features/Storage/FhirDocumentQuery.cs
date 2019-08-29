@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 FeedResponse<TResult> response = await _documentQuery.ExecuteNextAsync<TResult>(token);
 
-                _fhirRequestContextAccessor.FhirRequestContext.UpdateResponseHeaders(response.SessionToken, response.RequestCharge);
+                _fhirRequestContextAccessor.FhirRequestContext.UpdateFhirRequestContext(response);
 
                 _continuationToken = response.ResponseContinuation;
 

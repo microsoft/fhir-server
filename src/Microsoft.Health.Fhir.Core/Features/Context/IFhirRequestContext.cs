@@ -30,5 +30,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         IDictionary<string, StringValues> RequestHeaders { get; }
 
         IDictionary<string, StringValues> ResponseHeaders { get; }
+
+        string ResourceType { get; }
+
+        IStorageContext StorageContext { get; set; }
     }
 }
