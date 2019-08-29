@@ -18,6 +18,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultConformanceProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetCapabilitiesHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetOperationVersionsHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IConfiguredConformanceProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ISystemConformanceProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ListedContactPoint.cs" />
