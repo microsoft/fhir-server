@@ -241,6 +241,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [InlineData("_summary", "_count")]
         [InlineData("_summary", "xyz")]
+        [InlineData("_count", "abc")]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithIncorrectSummaryParams_ThenExceptionShouldBeThrown(string key, string val)

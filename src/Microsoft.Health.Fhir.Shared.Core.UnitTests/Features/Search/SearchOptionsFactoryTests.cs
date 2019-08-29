@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASearchParamWithInvalidValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
         {
             const string paramName1 = "_count";
-            const string value1 = "abcde";
+            const string value1 = "";
             const string paramName2 = "address-city";
             const string value2 = "Seattle";
 
