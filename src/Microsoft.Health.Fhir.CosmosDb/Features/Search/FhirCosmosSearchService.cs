@@ -71,11 +71,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             if (searchOptions.CountOnly)
             {
                 return new SearchResult(
-                    (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, "Count", string.Empty, cancellationToken)).Single(),
+                    (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, cancellationToken)).Single(),
                     searchOptions.UnsupportedSearchParams);
             }
 
-            FeedResponse<Document> fetchedResults = await _fhirDataStore.ExecuteDocumentQueryAsync<Document>(sqlQuerySpec, feedOptions, "Search", string.Empty, cancellationToken);
+            FeedResponse<Document> fetchedResults = await _fhirDataStore.ExecuteDocumentQueryAsync<Document>(sqlQuerySpec, feedOptions, cancellationToken);
 
             FhirCosmosResourceWrapper[] wrappers = fetchedResults
                 .Select(r => r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();

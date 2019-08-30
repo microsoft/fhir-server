@@ -177,8 +177,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 var result = await ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
                     sqlQuerySpec,
                     new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
-                    "Get",
-                    key.ResourceType,
                     cancellationToken);
 
                 return result.FirstOrDefault();
@@ -233,7 +231,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        internal async Task<FeedResponse<T>> ExecuteDocumentQueryAsync<T>(SqlQuerySpec sqlQuerySpec, FeedOptions feedOptions, string operation, string resourceType, CancellationToken cancellationToken)
+        internal async Task<FeedResponse<T>> ExecuteDocumentQueryAsync<T>(SqlQuerySpec sqlQuerySpec, FeedOptions feedOptions, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
@@ -243,12 +241,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             using (documentQuery)
             {
-                var notification = new CosmosQueryNotification
-                {
-                    Operation = operation,
-                    ResourceType = resourceType ?? string.Empty,
-                };
-
                 return await documentQuery.ExecuteNextAsync<T>(cancellationToken);
             }
         }

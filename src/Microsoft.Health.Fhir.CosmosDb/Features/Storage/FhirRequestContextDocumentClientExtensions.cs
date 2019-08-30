@@ -87,9 +87,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 requestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
             }
 
-            requestContext.StorageContext = requestContext.StorageContext ?? new CosmosStorageContext(requestContext.RouteName);
+            requestContext.StorageContext = requestContext.StorageContext ?? new CosmosStorageContext(requestContext.RouteName, requestContext.ResourceType);
 
-            requestContext.AddRequestChargeToFhirRequestContext(responseRequestCharge, collectionSizeUsageKilobytes, null);
+            requestContext.AddRequestChargeToFhirRequestContext(responseRequestCharge, collectionSizeUsageKilobytes, statusCode);
         }
 
         private static void AddRequestChargeToFhirRequestContext(this IFhirRequestContext requestContext, double responseRequestCharge, long? collectionSizeUsage, HttpStatusCode? statusCode)
@@ -127,6 +127,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 cosmosContext.ThrottledCount += 1;
             }
+
+            cosmosContext.RequestCount++;
         }
     }
 }

@@ -9,11 +9,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 {
     public class CosmosStorageContext : IStorageContext
     {
-        public CosmosStorageContext(string fhirOperation)
+        public CosmosStorageContext(string fhirOperation, string resourceType)
         {
             EnsureArg.IsNotNullOrEmpty(fhirOperation, nameof(fhirOperation));
 
             FhirOperation = fhirOperation;
+            ResourceType = resourceType;
+            RequestCount = 0;
         }
 
         public double TotalRequestCharge { get; set; }
@@ -22,6 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public int ThrottledCount { get; set; }
 
+        public int RequestCount { get; set; }
+
         public string FhirOperation { get; private set; }
+
+        public string ResourceType { get; private set; }
     }
 }
