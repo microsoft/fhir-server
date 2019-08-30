@@ -5,6 +5,11 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
+    /// <summary>
+    /// A Mediatr notification containing statistics about Cosmos DB usage while handling a request.
+    /// This gets emitted by the ApiNotificationMiddleware when a response is returned by the server.
+    /// Consume these using Mediatr to collect stats about Cosmos DB usage.
+    /// </summary>
     public class CosmosStorageContext : IStorageContext
     {
         public CosmosStorageContext(string fhirOperation, string resourceType)
