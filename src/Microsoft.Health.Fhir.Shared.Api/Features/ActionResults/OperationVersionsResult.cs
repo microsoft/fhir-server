@@ -11,7 +11,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
 

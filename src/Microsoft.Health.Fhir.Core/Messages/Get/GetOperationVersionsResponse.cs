@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
         public GetOperationVersionsResponse(List<string> supportedVersions, string defaultVersion)
         {
             EnsureArg.IsNotNull(supportedVersions, nameof(supportedVersions));
-            EnsureArg.IsNotNull(defaultVersion, nameof(defaultVersion));
+            EnsureArg.IsNotNullOrWhiteSpace(defaultVersion, nameof(defaultVersion));
 
             SupportedVersions = supportedVersions;
             DefaultVersion = defaultVersion;

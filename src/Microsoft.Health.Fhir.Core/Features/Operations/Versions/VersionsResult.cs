@@ -8,7 +8,7 @@ using System.Xml.Serialization;
 using EnsureThat;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Versions
 {
     /// <summary>
     /// Class used to hold data that needs to be returned to the client when the versions operation completes.
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public VersionsResult(List<string> versions, string defaultVersion)
         {
             EnsureArg.IsNotNull(versions, nameof(versions));
-            EnsureArg.IsNotNull(defaultVersion, nameof(defaultVersion));
+            EnsureArg.IsNotNullOrWhiteSpace(defaultVersion, nameof(defaultVersion));
 
             Versions = versions;
             DefaultVersion = defaultVersion;
