@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
-                StoredProcedureResponse<UpsertWithHistoryModel> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _upsertWithHistoryProc.Execute(
                         _documentClientScope.Value,
                         CollectionUri,
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         ct),
                     cancellationToken);
 
-                return new UpsertOutcome(response.Response.Wrapper, response.Response.OutcomeType);
+                return new UpsertOutcome(response.Wrapper, response.OutcomeType);
             }
             catch (DocumentClientException dce)
             {
@@ -180,12 +180,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                var result = await _documentClientScope.Value.ReadDocumentAsync<FhirCosmosResourceWrapper>(
+                return await _documentClientScope.Value.ReadDocumentAsync<FhirCosmosResourceWrapper>(
                     UriFactory.CreateDocumentUri(DatabaseId, CollectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);
-
-                return result;
             }
             catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
