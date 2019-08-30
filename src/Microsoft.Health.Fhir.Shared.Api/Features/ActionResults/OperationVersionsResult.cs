@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -53,16 +54,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 foreach (MediaTypeHeaderValue acceptHeader in _acceptHeaders)
                 {
                     // If the accept header is application/[json/xml]
-                    if (acceptHeader.SubType.ToString() == ContentType.FORMAT_PARAM_XML ||
-                        acceptHeader.SubType.ToString() == ContentType.FORMAT_PARAM_JSON)
+                    if (string.Compare(acceptHeader.SubType.ToString(), ContentType.FORMAT_PARAM_XML, StringComparison.OrdinalIgnoreCase) == 0 ||
+                        string.Compare(acceptHeader.SubType.ToString(), ContentType.FORMAT_PARAM_JSON, StringComparison.OrdinalIgnoreCase) == 0)
                     {
                         // Follow the format outlined in the spec: https://www.hl7.org/fhir/capabilitystatement-operation-versions.html.
                         return _versionsResult;
                     }
 
                     // If the accept header is application/fhir+[json/xml]
-                    if (acceptHeader.ToString() == ContentType.JSON_CONTENT_HEADER ||
-                        acceptHeader.ToString() == ContentType.XML_CONTENT_HEADER)
+                    if (string.Equals("fhir", acceptHeader.Copy().SubTypeWithoutSuffix.ToString(), StringComparison.OrdinalIgnoreCase))
                     {
                         // The returned information should be formatted as a Parameters object.
                         return FormatVersionsResultAsParameters();
