@@ -7,6 +7,7 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core;
@@ -40,6 +41,14 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 
         public async Task Invoke(HttpContext context)
         {
+            if (context.Request.Path.HasValue && context.Request.Path.StartsWithSegments(FhirServerApplicationBuilderExtensions.HealthCheckPath, System.StringComparison.InvariantCultureIgnoreCase))
+            {
+                // Don't emit events for health check
+
+                await _next(context);
+                return;
+            }
+
             var apiNotification = new ApiResponseNotification();
 
             using (var timer = _logger.BeginTimedScope("ApiNotificationMiddleware") as ActionTimer)
