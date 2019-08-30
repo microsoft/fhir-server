@@ -19,16 +19,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             RequestCount = 0;
         }
 
+        /// <summary>
+        /// The total RUs consumed in this context.
+        /// </summary>
         public double TotalRequestCharge { get; set; }
 
-        public long? CollectionSizeUsage { get; set; }
+        /// <summary>
+        /// The size of the backing Cosmos DB collection, in kilobytes.
+        /// </summary>
+        public long? CollectionSizeUsageKilobytes { get; set; }
 
+        /// <summary>
+        /// The number of requests that Cosmos DB responded to with an HTTP status code of 429.
+        /// </summary>
         public int ThrottledCount { get; set; }
 
+        /// <summary>
+        /// The number of requests made to Cosmos DB in this context.
+        /// </summary>
         public int RequestCount { get; set; }
 
+        /// <summary>
+        /// The FHIR operation being performed.
+        /// </summary>
         public string FhirOperation { get; private set; }
 
+        /// <summary>
+        /// The type of FHIR resource associated with this context.
+        /// </summary>
         public string ResourceType { get; private set; }
     }
 }

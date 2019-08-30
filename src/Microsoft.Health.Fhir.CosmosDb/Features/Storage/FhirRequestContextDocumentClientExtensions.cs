@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (collectionSizeUsage.HasValue)
             {
-                cosmosContext.CollectionSizeUsage = collectionSizeUsage;
+                cosmosContext.CollectionSizeUsageKilobytes = collectionSizeUsage;
             }
 
             if (statusCode.HasValue && statusCode == HttpStatusCode.TooManyRequests)

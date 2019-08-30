@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                     apiNotification.Latency = timer.GetElapsedTime();
 
                     apiNotification.Authentication = _fhirRequestContextAccessor.FhirRequestContext.Principal.Identity.AuthenticationType;
-                    apiNotification.Operation = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
+                    apiNotification.FhirOperation = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
                     apiNotification.Protocol = context.Request.Scheme;
                     apiNotification.ResourceType = _fhirRequestContextAccessor.FhirRequestContext.ResourceType;
                     apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
