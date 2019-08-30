@@ -148,6 +148,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenARequestWithCorrectHeadersAndDestinationConnectionThatIsNotBase64Encoded_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
+        {
+            var queryParams = new Dictionary<string, StringValues>()
+            {
+                { KnownQueryParameterNames.DestinationType, SupportedDestinationType },
+                { KnownQueryParameterNames.DestinationConnectionSettings, "***nonbase64encoded****" },
+            };
+
+            var context = CreateContextWithParams(queryParams);
+
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
+        }
+
+        [Fact]
         public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParameter_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var queryParams = new Dictionary<string, StringValues>()

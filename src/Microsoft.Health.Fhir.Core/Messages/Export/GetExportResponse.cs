@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
     public class GetExportResponse
     {
         public GetExportResponse(HttpStatusCode statusCode)
-            : this(statusCode, null)
+            : this(statusCode, jobResult: null)
         {
         }
 

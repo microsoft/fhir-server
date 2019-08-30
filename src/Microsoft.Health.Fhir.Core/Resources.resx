@@ -170,6 +170,13 @@
   <data name="CompositeSeparatorNotFound" xml:space="preserve">
     <value>The composite separator cannot be found.</value>
   </data>
+  <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
+    <value>Operation was not attempted because search criteria was not selective enough.</value>
+  </data>
+  <data name="ConditionalUpdateMismatchedIds" xml:space="preserve">
+    <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
+    <comment>{0} is an Id e.g. 123456</comment>
+  </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
   </data>
@@ -248,6 +255,10 @@
   </data>
   <data name="OpenIdConfiguration" xml:space="preserve">
     <value>Failed to retrieve the OpenId configuration from the authentication provider.</value>
+  </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>{0} operation failed for reason: {1}</value>
+    <comment>{0} is operation name, {1} is failure reason.</comment>
   </data>
   <data name="OrDelimiter" xml:space="preserve">
     <value> or </value>
@@ -338,6 +349,18 @@
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
   </data>
+  <data name="UnableToDeleteSecret" xml:space="preserve">
+    <value>Unable to delete secret from SecretStore</value>
+  </data>
+  <data name="UnableToGetSecret" xml:space="preserve">
+    <value>Unable to get secret from SecretStore</value>
+  </data>
+  <data name="UnableToSetSecret" xml:space="preserve">
+    <value>Unable to set secret in SecretStore</value>
+  </data>
+  <data name="UnknownError" xml:space="preserve">
+    <value>Unknown Error.</value>
+  </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>
   </data>
@@ -347,6 +370,9 @@
   </data>
   <data name="UpdateRequestsRequireId" xml:space="preserve">
     <value>Resource id is required for updates.</value>
+  </data>
+  <data name="UserRequestedCancellation" xml:space="preserve">
+    <value>User requested cancellation of operation.</value>
   </data>
   <data name="VersionIdFormatNotETag" xml:space="preserve">
     <value>VersionId should not be in the weak ETag format.</value>

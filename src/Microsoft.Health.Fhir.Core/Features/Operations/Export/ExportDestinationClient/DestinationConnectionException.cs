@@ -3,23 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Net;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
 {
-    public class DestinationConnectionException : FhirException
+    public class DestinationConnectionException : Exception
     {
-        public DestinationConnectionException(string message)
+        public DestinationConnectionException(string message, HttpStatusCode statusCode)
             : base(message)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
 
-            Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.NotFound,
-                Message));
+            StatusCode = statusCode;
         }
+
+        public HttpStatusCode StatusCode { get; }
     }
 }
