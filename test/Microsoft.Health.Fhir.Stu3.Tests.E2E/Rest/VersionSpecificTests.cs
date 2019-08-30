@@ -20,10 +20,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public Task GivenStu3Server__WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
+        public void GivenStu3Server__WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
         {
             TestSupportedVersion("3.0.1");
-            return Task.CompletedTask;
         }
     }
 }

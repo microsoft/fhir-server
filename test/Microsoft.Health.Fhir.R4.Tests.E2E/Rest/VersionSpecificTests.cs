@@ -63,10 +63,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public Task GivenR4Server_WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
+        public void GivenR4Server_WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
         {
             TestSupportedVersion("4.0.0");
-            return Task.CompletedTask;
         }
     }
 }
