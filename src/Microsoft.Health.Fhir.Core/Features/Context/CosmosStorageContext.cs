@@ -3,16 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
     public class CosmosStorageContext : IStorageContext
     {
         public CosmosStorageContext(string fhirOperation, string resourceType)
         {
-            EnsureArg.IsNotNullOrEmpty(fhirOperation, nameof(fhirOperation));
-
             FhirOperation = fhirOperation;
             ResourceType = resourceType;
             RequestCount = 0;
