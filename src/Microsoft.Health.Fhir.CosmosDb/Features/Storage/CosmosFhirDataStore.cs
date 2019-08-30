@@ -164,8 +164,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 var sqlParameterCollection = new SqlParameterCollection(new[]
                 {
-                        new SqlParameter("@resourceId", key.Id),
-                        new SqlParameter("@version", key.VersionId),
+                    new SqlParameter("@resourceId", key.Id),
+                    new SqlParameter("@version", key.VersionId),
                 });
 
                 var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.resourceId = @resourceId and r.version = @version", sqlParameterCollection);
