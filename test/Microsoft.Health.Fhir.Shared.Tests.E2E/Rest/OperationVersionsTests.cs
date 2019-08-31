@@ -6,12 +6,12 @@
 using System;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Net.Http.Headers;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {
@@ -30,12 +30,22 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("application/xml")]
         [InlineData("application/fhir+json")]
         [InlineData("application/fhir+xml")]
-        [InlineData("*/*")]
         public async Task WhenVersionsEndpointIsCalled_GivenValidAcceptHeaderIsProvided_ThenServerShouldReturnOK(string acceptHeaderValue)
         {
             HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
             HttpResponseMessage response = await _client.SendAsync(request);
 
+            Assert.Equal(acceptHeaderValue, response.Content.Headers.ContentType.MediaType);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task WhenVersionsEndpointIsCalled_GivenNoAcceptHeaderIsProvided_ThenServerShouldReturnOK()
+        {
+            HttpRequestMessage request = GenerateOperationVersionsRequest(string.Empty);
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal("application/fhir+json", response.Content.Headers.ContentType.MediaType);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
