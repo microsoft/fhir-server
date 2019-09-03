@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Notifications
         }
 
         [Fact]
-        public async Task GivenRequestPathButNoStorageContext_WhenInvoked_EmitsMediatRApiEvents()
+        public async Task GivenRequestPathButNoStorageRequestMetrics_WhenInvoked_EmitsMediatRApiEvents()
         {
             _httpContext.Request.Path = "/Observations";
             _fhirRequestContext.StorageRequestMetrics = null;
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Notifications
         }
 
         [Fact]
-        public async Task GivenRequestPathAndStorageContext_WhenInvoked_EmitsMediatRApiAndStorageEvents()
+        public async Task GivenRequestPathAndStorageRequestMetrics_WhenInvoked_EmitsMediatRApiAndStorageEvents()
         {
             _httpContext.Request.Path = "/Observation";
             _fhirRequestContext.StorageRequestMetrics = new CosmosStorageRequestMetrics("search", "Observation");

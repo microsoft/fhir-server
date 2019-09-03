@@ -100,23 +100,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             requestContext.StorageRequestMetrics = requestContext.StorageRequestMetrics ?? new CosmosStorageRequestMetrics(requestContext.RouteName, requestContext.ResourceType);
 
-            var cosmosContext = (CosmosStorageRequestMetrics)requestContext.StorageRequestMetrics;
+            var cosmosMetrics = (CosmosStorageRequestMetrics)requestContext.StorageRequestMetrics;
 
-            cosmosContext.TotalRequestCharge += responseRequestCharge;
+            cosmosMetrics.TotalRequestCharge += responseRequestCharge;
 
-            requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = cosmosContext.TotalRequestCharge.ToString(CultureInfo.InvariantCulture);
+            requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = cosmosMetrics.TotalRequestCharge.ToString(CultureInfo.InvariantCulture);
 
             if (collectionSizeUsage.HasValue)
             {
-                cosmosContext.CollectionSizeUsageKilobytes = collectionSizeUsage;
+                cosmosMetrics.CollectionSizeUsageKilobytes = collectionSizeUsage;
             }
 
             if (statusCode.HasValue && statusCode == HttpStatusCode.TooManyRequests)
             {
-                cosmosContext.ThrottledCount += 1;
+                cosmosMetrics.ThrottledCount += 1;
             }
 
-            cosmosContext.RequestCount++;
+            cosmosMetrics.RequestCount++;
         }
     }
 }
