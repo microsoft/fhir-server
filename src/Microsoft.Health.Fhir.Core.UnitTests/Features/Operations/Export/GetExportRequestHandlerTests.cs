@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Status = jobStatus,
             };
 
-            if ((jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed) & addFailureDetails)
+            if ((jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed) && addFailureDetails)
             {
                 jobRecord.FailureDetails = new ExportJobFailureDetails(_failureReason, _failureStatusCode);
             }
