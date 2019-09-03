@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
@@ -67,11 +68,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                     apiNotification.ResourceType = _fhirRequestContextAccessor.FhirRequestContext.ResourceType;
                     apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
 
-                    await _mediator.Publish(apiNotification, context.RequestAborted);
+                    await _mediator.Publish(apiNotification, CancellationToken.None);
 
-                    if (_fhirRequestContextAccessor.FhirRequestContext.StorageContext != null)
+                    if (_fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics != null)
                     {
-                        await _mediator.Publish(_fhirRequestContextAccessor.FhirRequestContext.StorageContext, context.RequestAborted);
+                        await _mediator.Publish(_fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics, CancellationToken.None);
                     }
                 }
             }

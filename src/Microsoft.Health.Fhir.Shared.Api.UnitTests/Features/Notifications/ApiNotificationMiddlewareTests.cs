@@ -50,22 +50,22 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Notifications
         public async Task GivenRequestPathButNoStorageContext_WhenInvoked_EmitsMediatRApiEvents()
         {
             _httpContext.Request.Path = "/Observations";
-            _fhirRequestContext.StorageContext = null;
+            _fhirRequestContext.StorageRequestMetrics = null;
             await _apiNotificationMiddleware.Invoke(_httpContext);
 
             await _mediator.ReceivedWithAnyArgs(1).Publish<ApiResponseNotification>(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
-            await _mediator.DidNotReceiveWithAnyArgs().Publish<CosmosStorageContext>(Arg.Any<CosmosStorageContext>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceiveWithAnyArgs().Publish<CosmosStorageRequestMetrics>(Arg.Any<CosmosStorageRequestMetrics>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
         public async Task GivenRequestPathAndStorageContext_WhenInvoked_EmitsMediatRApiAndStorageEvents()
         {
             _httpContext.Request.Path = "/Observation";
-            _fhirRequestContext.StorageContext = new CosmosStorageContext("search", "Observation");
+            _fhirRequestContext.StorageRequestMetrics = new CosmosStorageRequestMetrics("search", "Observation");
             await _apiNotificationMiddleware.Invoke(_httpContext);
 
             await _mediator.ReceivedWithAnyArgs(1).Publish<ApiResponseNotification>(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
-            await _mediator.Received(1).Publish<IStorageContext>(Arg.Is<IStorageContext>(_fhirRequestContext.StorageContext), Arg.Any<CancellationToken>());
+            await _mediator.Received(1).Publish<IStorageRequestMetrics>(Arg.Is<IStorageRequestMetrics>(_fhirRequestContext.StorageRequestMetrics), Arg.Any<CancellationToken>());
         }
     }
 }

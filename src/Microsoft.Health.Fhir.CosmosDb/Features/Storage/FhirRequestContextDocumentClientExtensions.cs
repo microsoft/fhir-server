@@ -9,7 +9,6 @@ using System.Net;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -87,8 +86,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 requestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
             }
 
-            requestContext.StorageContext = requestContext.StorageContext ?? new CosmosStorageContext(requestContext.RouteName, requestContext.ResourceType);
-
             requestContext.AddRequestChargeToFhirRequestContext(responseRequestCharge, collectionSizeUsageKilobytes, statusCode);
         }
 
@@ -101,22 +98,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // Also, at the time of writing, we do not typically issue more than one request to the database per request anyway, so the performance impact should
             // not be felt.
 
-            if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingValues) &&
-                double.TryParse(existingValues.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out double existingCharge))
-            {
-                responseRequestCharge += existingCharge;
-            }
+            requestContext.StorageRequestMetrics = requestContext.StorageRequestMetrics ?? new CosmosStorageRequestMetrics(requestContext.RouteName, requestContext.ResourceType);
 
-            requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+            var cosmosContext = (CosmosStorageRequestMetrics)requestContext.StorageRequestMetrics;
 
-            var cosmosContext = requestContext.StorageContext as CosmosStorageContext;
+            cosmosContext.TotalRequestCharge += responseRequestCharge;
 
-            if (cosmosContext == null)
-            {
-                return;
-            }
-
-            cosmosContext.TotalRequestCharge = responseRequestCharge;
+            requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = cosmosContext.TotalRequestCharge.ToString(CultureInfo.InvariantCulture);
 
             if (collectionSizeUsage.HasValue)
             {

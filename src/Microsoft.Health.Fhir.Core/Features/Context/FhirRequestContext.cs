@@ -68,6 +68,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public string ResourceType { get; }
 
-        public IStorageContext StorageContext { get; set; }
+        public IStorageRequestMetrics StorageRequestMetrics { get; set; }
     }
 }
