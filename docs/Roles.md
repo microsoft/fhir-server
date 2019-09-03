@@ -40,7 +40,7 @@ The FHIR server uses a role based access control system. The privileges (Read, W
 ]
 ```
 
-This structure is passed to the FHIR server at startup and enforced using the `roles` claim in the JWT access token presented when cusuming the FHIR server API. 
+This structure is passed to the FHIR server at startup and enforced using the `roles` claim in the JWT access token presented when consuming the FHIR server API. 
 
 When deploying the FHIR server into Azure using the provided [resource manager template](../samples/templates/default-azuredeploy.json) the array of roles can be passed in the `additionalFhirServerConfigProperties` parameter, which will add the roles to the [App Settings](https://docs.microsoft.com/en-us/azure/app-service/web-sites-configure) of the front end [Web App](https://azure.microsoft.com/en-us/services/app-service/web/) running the server. 
 
