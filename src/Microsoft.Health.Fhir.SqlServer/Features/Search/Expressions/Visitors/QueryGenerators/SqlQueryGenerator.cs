@@ -90,17 +90,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(V1.Resource.RequestMethod, resourceTableAlias).Append(", ");
 
                 // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match
-                StringBuilder.Append(expression.TableExpressions.Count > 0 ? "cast(isMatch as bit) as isMatch, " : "cast(1 as bit) as isMatch, ");
+                StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
 
-                StringBuilder
-                    .AppendLine(V1.Resource.RawResource, resourceTableAlias);
+                StringBuilder.AppendLine(V1.Resource.RawResource, resourceTableAlias);
             }
 
             StringBuilder.Append("FROM ").Append(V1.Resource).Append(" ").AppendLine(resourceTableAlias);
 
             if (expression.TableExpressions.Count > 0)
             {
-                StringBuilder.Append("Inner Join ").AppendLine(TableExpressionName(_tableExpressionCounter));
+                StringBuilder.Append("INNER JOIN ").AppendLine(TableExpressionName(_tableExpressionCounter));
                 StringBuilder.Append("ON ").Append(V1.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
             }
 
@@ -233,7 +232,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 case TableExpressionKind.Top:
                     // Everything in the top expression is considered a match
-                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 as isMatch ")
+                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 AS IsMatch ")
                         .Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1))
                         .AppendLine("ORDER BY Sid1 ASC");
 
@@ -325,8 +324,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case TableExpressionKind.Include:
                     var includeExpression = (IncludeExpression)tableExpression.NormalizedPredicate;
 
-                    StringBuilder.Append("SELECT Distinct ");
-                    StringBuilder.Append(V1.Resource.ResourceSurrogateId, "r").AppendLine(" AS Sid1, 0 as isMatch")
+                    StringBuilder.Append("SELECT DISTINCT ");
+                    StringBuilder.Append(V1.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" AS Sid1, 0 AS IsMatch")
                         .Append("FROM ").Append(V1.ReferenceSearchParam).Append(' ').AppendLine(referenceTableAlias)
                         .Append("INNER JOIN ").Append(V1.Resource).Append(' ').AppendLine(resourceTableAlias);
 
@@ -356,11 +355,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ResourceTypeId, referenceTableAlias)
                             .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.ResourceType)));
 
-                        // Limit the join to the main select CTE
+                        // Limit the join to the main select CTE.
+                        // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
                         delimited.BeginDelimitedElement().Append(V1.Resource.ResourceSurrogateId, referenceTableAlias)
                             .Append(" IN (SELECT TOP(")
                             .Append(Parameters.AddParameter(context.MaxItemCount))
-                            .Append(") Sid1 FROM ").Append(_cteMainSelect).AppendLine(")");
+                            .Append(") Sid1 FROM ").Append(_cteMainSelect).Append(")");
                     }
 
                     if (_includeCtes == null)
@@ -371,13 +371,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
                 case TableExpressionKind.IncludeUnionAll:
-                    StringBuilder.AppendLine("SELECT Sid1, isMatch");
+                    StringBuilder.AppendLine("SELECT Sid1, IsMatch");
                     StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
 
                     foreach (var includeCte in _includeCtes)
                     {
                         StringBuilder.AppendLine("UNION ALL");
-                        StringBuilder.AppendLine("SELECT SID1, isMatch ");
+                        StringBuilder.AppendLine("SELECT Sid1, IsMatch ");
                         StringBuilder.Append("FROM ").AppendLine(includeCte);
                     }
 

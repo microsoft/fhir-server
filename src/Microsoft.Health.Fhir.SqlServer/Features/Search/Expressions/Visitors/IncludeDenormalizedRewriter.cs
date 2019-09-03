@@ -10,6 +10,10 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// <summary>
+    /// Rewriter used to add an expression before the top clause if all of the table expressions are include expressions.
+    /// Any denormalized expressions are added to the AllExpression that will be evaluated before the top expression is executed.
+    /// </summary>
     internal class IncludeDenormalizedRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
         public static readonly IncludeDenormalizedRewriter Instance = new IncludeDenormalizedRewriter();
@@ -21,24 +25,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            // If the only table expressions are includes, then we need to hoist denormalized expressions to the top.
-            bool onlyIncludes = expression.TableExpressions.All(te => te.Kind == TableExpressionKind.Include);
-            if (onlyIncludes)
+            if (!expression.TableExpressions.All(te => te.Kind == TableExpressionKind.Include))
             {
-                var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
-                newNormalizedPredicates.AddRange(expression.TableExpressions);
-
-                Expression denormalizedExpression = expression.DenormalizedExpressions.Count > 1 ?
-                    new MultiaryExpression(MultiaryOperator.And, expression.DenormalizedExpressions)
-                    : expression.DenormalizedExpressions[0];
-
-                var newNormalExpression = new TableExpression(null, null, denormalizedExpression, TableExpressionKind.All);
-                newNormalizedPredicates.Add(newNormalExpression);
-
-                return new SqlRootExpression(newNormalizedPredicates, Array.Empty<Expression>());
+                return expression;
             }
 
-            return expression;
+            var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
+            newNormalizedPredicates.AddRange(expression.TableExpressions);
+
+            Expression denormalizedExpression = expression.DenormalizedExpressions.Count > 1 ?
+                Expression.And(expression.DenormalizedExpressions)
+                : expression.DenormalizedExpressions[0];
+
+            var newNormalExpression = new TableExpression(null, null, denormalizedExpression, TableExpressionKind.All);
+            newNormalizedPredicates.Add(newNormalExpression);
+
+            return new SqlRootExpression(newNormalizedPredicates, Array.Empty<Expression>());
         }
     }
 }

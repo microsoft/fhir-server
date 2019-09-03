@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
-        private readonly BitColumn _isMatch = new BitColumn("isMatch");
+        private readonly BitColumn _isMatch = new BitColumn("IsMatch");
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
