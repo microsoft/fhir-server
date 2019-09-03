@@ -5,7 +5,6 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;

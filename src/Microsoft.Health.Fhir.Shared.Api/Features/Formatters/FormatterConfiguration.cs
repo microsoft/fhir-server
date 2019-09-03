@@ -11,12 +11,11 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
-using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    internal class FormatterConfiguration : IPostConfigureOptions<MvcOptions>, IProvideCapability
+    internal class FormatterConfiguration : IPostConfigureOptions<MvcOptions>
     {
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly IConfiguredConformanceProvider _configuredConformanceProvider;
@@ -52,25 +51,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 options.OutputFormatters.Insert(i, _outputFormatters[i]);
             }
 
-            if (_featureConfiguration.SupportsXml)
-            {
-                // TODO: This feature flag should be removed when we support custom capability statements
-                _configuredConformanceProvider.ConfigureOptionalCapabilities(statement => statement.Format = statement.Format.Concat(new[] { KnownContentTypes.XmlContentType }));
-            }
-
             // Disable the built-in global UnsupportedContentTypeFilter
             // We enable our own ValidateContentTypeFilterAttribute on the FhirController, the built-in filter
             // short-circuits the response and prevents the operation outcome from being returned.
             var unsupportedContentTypeFilter = options.Filters.Single(x => x is UnsupportedContentTypeFilter);
             options.Filters.Remove(unsupportedContentTypeFilter);
-        }
-
-        public void Build(IListedCapabilityStatement statement)
-        {
-            if (_featureConfiguration.SupportsXml)
-            {
-                statement.Format.Add(KnownContentTypes.XmlContentType);
-            }
         }
     }
 }

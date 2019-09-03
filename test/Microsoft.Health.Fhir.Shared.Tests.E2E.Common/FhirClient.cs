@@ -15,6 +15,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Net.Http.Headers;
@@ -107,18 +108,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return _testFhirServer.GetFhirClient(Format, _clientApplication, _user, reusable: false);
         }
 
-        public Task<FhirResponse<T>> CreateAsync<T>(T resource)
+        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null)
             where T : Resource
         {
-            return CreateAsync(resource.ResourceType.ToString(), resource);
+            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource)
+        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null)
             where T : Resource
         {
             var message = new HttpRequestMessage(HttpMethod.Post, uri);
             message.Headers.Accept.Add(_mediaType);
             message.Content = CreateStringContent(resource);
+
+            if (!string.IsNullOrEmpty(conditionalCreateCriteria))
+            {
+                message.Headers.TryAddWithoutValidation(KnownFhirHeaders.IfNoneExist, conditionalCreateCriteria);
+            }
 
             HttpResponseMessage response = await HttpClient.SendAsync(message);
 
@@ -156,6 +162,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             where T : Resource
         {
             return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion);
+        }
+
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null)
+            where T : Resource
+        {
+            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion);
         }
 
         public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)

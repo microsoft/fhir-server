@@ -16,16 +16,34 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
     /// </summary>
     public class ApiResponseNotification : INotification
     {
-        public string Operation { get; set; }
+        /// <summary>
+        /// The FHIR operation being performed.
+        /// </summary>
+        public string FhirOperation { get; set; }
 
+        /// <summary>
+        /// The type of FHIR resource associated with this context.
+        /// </summary>
         public string ResourceType { get; set; }
 
+        /// <summary>
+        /// The response HTTP status code to the request.
+        /// </summary>
         public HttpStatusCode? StatusCode { get; set; }
 
+        /// <summary>
+        /// The amount of time elapsed to process the request.
+        /// </summary>
         public TimeSpan Latency { get; set; }
 
+        /// <summary>
+        /// The authentication mechanism used while calling the FHIR server.
+        /// </summary>
         public string Authentication { get; set; }
 
+        /// <summary>
+        /// The protocol used to call the FHIR server.
+        /// </summary>
         public string Protocol { get; set; }
     }
 }

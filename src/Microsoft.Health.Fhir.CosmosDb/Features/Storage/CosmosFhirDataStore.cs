@@ -26,7 +26,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Microsoft.Health.Fhir.ValueSets;
-using Polly;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -105,14 +104,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
 
-            var pollyContext = new Context();
-
             try
             {
                 _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
-                StoredProcedureResponse<UpsertWithHistoryModel> response = await _retryExceptionPolicyFactory.CreateTrackedRetryPolicy(pollyContext).ExecuteAsync(
-                    async (ctx, ct) => await _upsertWithHistoryProc.Execute(
+                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    async ct => await _upsertWithHistoryProc.Execute(
                         _documentClientScope.Value,
                         CollectionUri,
                         cosmosWrapper,
@@ -120,10 +117,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         allowCreate,
                         keepHistory,
                         ct),
-                    pollyContext,
                     cancellationToken);
 
-                return new UpsertOutcome(response.Response.Wrapper, response.Response.OutcomeType);
+                return new UpsertOutcome(response.Wrapper, response.OutcomeType);
             }
             catch (DocumentClientException dce)
             {
@@ -168,8 +164,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 var sqlParameterCollection = new SqlParameterCollection(new[]
                 {
-                        new SqlParameter("@resourceId", key.Id),
-                        new SqlParameter("@version", key.VersionId),
+                    new SqlParameter("@resourceId", key.Id),
+                    new SqlParameter("@version", key.VersionId),
                 });
 
                 var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.resourceId = @resourceId and r.version = @version", sqlParameterCollection);
@@ -184,12 +180,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                var result = await _documentClientScope.Value.ReadDocumentAsync<FhirCosmosResourceWrapper>(
+                return await _documentClientScope.Value.ReadDocumentAsync<FhirCosmosResourceWrapper>(
                     UriFactory.CreateDocumentUri(DatabaseId, CollectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);
-
-                return result;
             }
             catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
             {
@@ -201,19 +195,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
-            var pollyContext = new Context();
-
             try
             {
                 _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
 
-                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateTrackedRetryPolicy(pollyContext).ExecuteAsync(
-                    async (ctx, ct) => await _hardDelete.Execute(
+                StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    async ct => await _hardDelete.Execute(
                         _documentClientScope.Value,
                         CollectionUri,
                         key,
                         ct),
-                    pollyContext,
                     cancellationToken);
 
                 _logger.LogDebug($"Hard-deleted {response.Response.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Response)}.");

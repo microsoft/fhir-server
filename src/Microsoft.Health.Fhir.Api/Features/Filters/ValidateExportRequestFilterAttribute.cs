@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -85,6 +86,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             if (!queryCollection.TryGetValue(KnownQueryParameterNames.DestinationConnectionSettings, out StringValues destinationSettingValue)
                 || string.IsNullOrWhiteSpace(destinationSettingValue))
+            {
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameterValue, KnownQueryParameterNames.DestinationConnectionSettings));
+            }
+
+            // Validate whether the connection string is base-64 encoded.
+            try
+            {
+                Encoding.UTF8.GetString(Convert.FromBase64String(destinationSettingValue));
+            }
+            catch (Exception)
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedParameterValue, KnownQueryParameterNames.DestinationConnectionSettings));
             }

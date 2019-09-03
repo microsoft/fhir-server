@@ -152,6 +152,10 @@
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
   </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>{0} operation failed for reason: {1}</value>
+    <comment>{0} is operation name, {1} is failure reason.</comment>
+  </data>
   <data name="OperationNotImplemented" xml:space="preserve">
     <value>The requested "{0}" operation is not implemented.</value>
     <comment>{0} is the operation name</comment>

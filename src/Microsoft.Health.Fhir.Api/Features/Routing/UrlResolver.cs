@@ -130,63 +130,60 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 foreach (KeyValuePair<string, StringValues> searchParam in Request.Query)
                 {
                     // Remove the parameter if:
-                    // 1. It is the continuation token (if there is a new continuation token, then it will be added again).
-                    // 2. It is the _sort parameter and the parameter is not supported for sorting
-                    // 3. The parameter is not supported.
-                    if (!string.Equals(searchParam.Key, KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase))
+                    // 1. It is the _sort parameter and the parameter is not supported for sorting
+                    // 2. The parameter is not supported.
+                    if (unsupportedSortingParameters?.Count > 0 && string.Equals(searchParam.Key, KnownQueryParameterNames.Sort, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (unsupportedSortingParameters?.Count > 0 && string.Equals(searchParam.Key, KnownQueryParameterNames.Sort, StringComparison.OrdinalIgnoreCase))
+                        var filteredValues = new List<string>(searchParam.Value.Count);
+
+                        foreach (string stringValue in searchParam.Value)
                         {
-                            var filteredValues = new List<string>(searchParam.Value.Count);
+                            // parameters are separated by a comma and can be prefixed with a dash to indicate descending order
+                            string[] tokens = stringValue.Split(',');
 
-                            foreach (string stringValue in searchParam.Value)
+                            List<string> values = tokens.Where(sortValue =>
+                                    !unsupportedSortingParameters.Any(p =>
+                                        sortValue.EndsWith(p.parameterName, StringComparison.Ordinal) &&
+                                        (sortValue.Length == p.parameterName.Length ||
+                                            (sortValue.Length > 0 && sortValue.Length == p.parameterName.Length + 1 && sortValue[0] == '-'))))
+                                .ToList();
+
+                            if (values.Count == tokens.Length)
                             {
-                                // parameters are separated by a comma and can be prefixed with a dash to indicate descending order
-                                string[] tokens = stringValue.Split(',');
-
-                                List<string> values = tokens.Where(sortValue =>
-                                        !unsupportedSortingParameters.Any(p =>
-                                            sortValue.EndsWith(p.parameterName, StringComparison.Ordinal) &&
-                                            (sortValue.Length == p.parameterName.Length ||
-                                             (sortValue.Length > 0 && sortValue.Length == p.parameterName.Length + 1 && sortValue[0] == '-'))))
-                                    .ToList();
-
-                                if (values.Count == tokens.Length)
-                                {
-                                    filteredValues.Add(stringValue);
-                                }
-                                else if (values.Count == 1)
-                                {
-                                    filteredValues.Add(values[0]);
-                                }
-                                else if (values.Count > 0)
-                                {
-                                    filteredValues.Add(string.Join(',', values));
-                                }
+                                filteredValues.Add(stringValue);
                             }
-
-                            if (filteredValues.Count > 0)
+                            else if (values.Count == 1)
                             {
-                                routeValues.Add(searchParam.Key, filteredValues.Count == 1 ? new StringValues(filteredValues[0]) : new StringValues(filteredValues.ToArray()));
+                                filteredValues.Add(values[0]);
+                            }
+                            else if (values.Count > 0)
+                            {
+                                filteredValues.Add(string.Join(',', values));
                             }
                         }
-                        else
+
+                        if (filteredValues.Count > 0)
                         {
-                            IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
+                            routeValues.Add(searchParam.Key, filteredValues.Count == 1 ? new StringValues(filteredValues[0]) : new StringValues(filteredValues.ToArray()));
+                        }
+                    }
+                    else
+                    {
+                        IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
 
-                            StringValues usedValues = removedValues.Any()
-                                ? new StringValues(searchParam.Value.Except(removedValues).ToArray())
-                                : searchParam.Value;
+                        StringValues usedValues = removedValues.Any()
+                            ? new StringValues(searchParam.Value.Except(removedValues).ToArray())
+                            : searchParam.Value;
 
-                            if (usedValues.Any())
-                            {
-                                routeValues.Add(searchParam.Key, usedValues);
-                            }
+                        if (usedValues.Any())
+                        {
+                            routeValues.Add(searchParam.Key, usedValues);
                         }
                     }
                 }
             }
 
+            // Update continuationToken if new value is provided.
             if (continuationToken != null)
             {
                 routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;

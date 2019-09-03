@@ -11,7 +11,6 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Shared.Api.UnitTests;
 using NSubstitute;
 using Xunit;
 
@@ -81,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _httpContext.Response.StatusCode = (int)statusCode;
 
-            RouteData routeData = RouteDataHelpers.SetupRouteData(_fhirRequestContext, _httpContext, Controller, Action);
+            RouteData routeData = SetupRouteData(Controller, Action);
 
             routeData.Values.Add(KnownActionParameterNames.ResourceType, resourceType);
 
@@ -97,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _httpContext.Response.StatusCode = (int)statusCode;
 
-            RouteData routeData = RouteDataHelpers.SetupRouteData(_fhirRequestContext, _httpContext, controllerName: null, actionName: null);
+            RouteData routeData = SetupRouteData(controllerName: null, actionName: null);
 
             await _auditMiddleware.Invoke(_httpContext);
 
@@ -111,11 +110,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _httpContext.Response.StatusCode = (int)statusCode;
 
-            RouteData routeData = RouteDataHelpers.SetupRouteData(_fhirRequestContext, _httpContext, Controller, Action);
+            RouteData routeData = SetupRouteData(Controller, Action);
 
             await _auditMiddleware.Invoke(_httpContext);
 
             _auditHelper.Received(1).LogExecuted(Controller, Action, null, _httpContext, _claimsExtractor);
+        }
+
+        private RouteData SetupRouteData(string controllerName = Controller, string actionName = Action)
+        {
+            _fhirRequestContext.RouteName.Returns((string)null);
+
+            var routeData = new RouteData();
+
+            routeData.Values.Add("controller", controllerName);
+            routeData.Values.Add("action", actionName);
+
+            IRoutingFeature routingFeature = Substitute.For<IRoutingFeature>();
+
+            routingFeature.RouteData.Returns(routeData);
+
+            _httpContext.Features[typeof(IRoutingFeature)] = routingFeature;
+
+            return routeData;
         }
     }
 }

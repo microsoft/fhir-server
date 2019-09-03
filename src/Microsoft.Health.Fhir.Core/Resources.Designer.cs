@@ -214,6 +214,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
+        /// </summary>
+        internal static string ConditionalOperationNotSelectiveEnough {
+            get {
+                return ResourceManager.GetString("ConditionalOperationNotSelectiveEnough", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Found result with Id &apos;{0}&apos;, which did not match the provided Id &apos;{1}&apos;..
+        /// </summary>
+        internal static string ConditionalUpdateMismatchedIds {
+            get {
+                return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {
@@ -444,6 +462,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string OpenIdConfiguration {
             get {
                 return ResourceManager.GetString("OpenIdConfiguration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
+        /// </summary>
+        internal static string OperationFailed {
+            get {
+                return ResourceManager.GetString("OperationFailed", resourceCulture);
             }
         }
         
@@ -709,6 +736,42 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
+        /// </summary>
+        internal static string UnableToDeleteSecret {
+            get {
+                return ResourceManager.GetString("UnableToDeleteSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to get secret from SecretStore.
+        /// </summary>
+        internal static string UnableToGetSecret {
+            get {
+                return ResourceManager.GetString("UnableToGetSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to set secret in SecretStore.
+        /// </summary>
+        internal static string UnableToSetSecret {
+            get {
+                return ResourceManager.GetString("UnableToSetSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown Error..
+        /// </summary>
+        internal static string UnknownError {
+            get {
+                return ResourceManager.GetString("UnknownError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {
@@ -732,6 +795,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UpdateRequestsRequireId {
             get {
                 return ResourceManager.GetString("UpdateRequestsRequireId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to User requested cancellation of operation..
+        /// </summary>
+        internal static string UserRequestedCancellation {
+            get {
+                return ResourceManager.GetString("UserRequestedCancellation", resourceCulture);
             }
         }
         

@@ -3,15 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Net;
-
-namespace Microsoft.Health.Fhir.Api.Extensions
+namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
-    public static class HttpStatusCodeExtensions
+    public static class KnownFhirHeaders
     {
-        public static string ToStatusCodeClass(this HttpStatusCode input)
-        {
-            return $"{(int)input / 100}xx";
-        }
+        public const string IfNoneExist = "If-None-Exist";
     }
 }

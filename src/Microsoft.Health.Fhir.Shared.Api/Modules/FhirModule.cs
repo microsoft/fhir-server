@@ -25,8 +25,6 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -93,24 +91,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<FormatterConfiguration>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IPostConfigureOptions<MvcOptions>>()
-                .AsService<IProvideCapability>();
+                .AsService<IPostConfigureOptions<MvcOptions>>();
 
             services.AddSingleton<IContentTypeService, ContentTypeService>();
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
-
-            // HTML
-            // If UI is supported, then add the formatter so that the
-            // document can be output in HTML view.
-            if (_featureConfiguration.SupportsUI)
-            {
-                services.Add<HtmlOutputFormatter>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<TextOutputFormatter>();
-            }
 
             services.Add<FhirJsonInputFormatter>()
                 .Singleton()
@@ -121,19 +107,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<TextOutputFormatter>();
-
-            if (_featureConfiguration.SupportsXml)
-            {
-                services.Add<FhirXmlInputFormatter>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<TextInputFormatter>();
-
-                services.Add<FhirXmlOutputFormatter>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<TextOutputFormatter>();
-            }
 
             services.Add<FhirRequestContextAccessor>()
                 .Singleton()
@@ -164,10 +137,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AssignableTo<IProvideCapability>()
                 .Transient()
                 .AsService<IProvideCapability>();
-
-            services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
-
-            services.AddSingleton<IModelAttributeValidator, ModelAttributeValidator>();
 
             services.AddSingleton<IClaimsExtractor, PrincipalClaimsExtractor>();
 
