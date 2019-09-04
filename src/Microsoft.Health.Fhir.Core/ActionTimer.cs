@@ -30,6 +30,11 @@ namespace Microsoft.Health.Fhir.Core
             _stopwatch.Start();
         }
 
+        public TimeSpan GetElapsedTime()
+        {
+            return _stopwatch.Elapsed;
+        }
+
         public void Dispose()
         {
             _stopwatch.Stop();
