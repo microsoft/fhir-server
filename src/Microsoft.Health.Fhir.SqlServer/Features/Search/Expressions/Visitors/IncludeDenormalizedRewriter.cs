@@ -33,9 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
             newNormalizedPredicates.AddRange(expression.TableExpressions);
 
-            Expression denormalizedExpression = expression.DenormalizedExpressions.Count > 1 ?
-                Expression.And(expression.DenormalizedExpressions)
-                : expression.DenormalizedExpressions[0];
+            Expression denormalizedExpression = Expression.And(expression.DenormalizedExpressions);
 
             var newNormalExpression = new TableExpression(null, null, denormalizedExpression, TableExpressionKind.All);
             newNormalizedPredicates.Add(newNormalExpression);

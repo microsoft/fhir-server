@@ -313,7 +313,16 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The include search is missing the type to search..
+        ///   Looks up a localized string similar to The _include search cannot be used against the base route..
+        /// </summary>
+        internal static string IncludeCannotBeAgainstBase {
+            get {
+                return ResourceManager.GetString("IncludeCannotBeAgainstBase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The _include search is missing the type to search..
         /// </summary>
         internal static string IncludeMissingType {
             get {

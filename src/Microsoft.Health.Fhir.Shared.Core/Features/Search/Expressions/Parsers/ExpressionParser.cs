@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
@@ -71,6 +72,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
             {
                 throw new InvalidSearchOperationException(Core.Resources.IncludeMissingType);
+            }
+
+            if (resourceType.Equals(typeof(DomainResource).Name, StringComparison.InvariantCultureIgnoreCase))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
             }
 
             SearchParameterInfo refSearchParameter;

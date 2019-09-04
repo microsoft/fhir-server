@@ -204,8 +204,13 @@
   <data name="IllegalHtmlParsingError" xml:space="preserve">
     <value>Error while parsing XHTML: {0} Line: {1} Col: {2}.</value>
   </data>
+  <data name="IncludeCannotBeAgainstBase" xml:space="preserve">
+    <value>The _include search cannot be used against the base route.</value>
+    <comment>_include is a query parameter.</comment>
+  </data>
   <data name="IncludeMissingType" xml:space="preserve">
-    <value>The include search is missing the type to search.</value>
+    <value>The _include search is missing the type to search.</value>
+    <comment>_include is a query parameter.</comment>
   </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
