@@ -18,11 +18,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             await TestCapabilityStatementFhirVersion("3.0.1");
         }
-
-        [Fact]
-        public void GivenStu3Server_WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
-        {
-            TestSupportedVersion("3.0.1");
-        }
     }
 }

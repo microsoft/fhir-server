@@ -61,11 +61,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
         }
-
-        [Fact]
-        public void GivenR4Server_WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
-        {
-            TestSupportedVersion("4.0.0");
-        }
     }
 }

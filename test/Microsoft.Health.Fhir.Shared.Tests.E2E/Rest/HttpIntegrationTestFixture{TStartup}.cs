@@ -7,8 +7,6 @@ using System;
 using System.Net.Http;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using Microsoft.Health.Fhir.Core;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
@@ -41,8 +39,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirClient = TestFhirServer.GetFhirClient(resourceFormat);
 
-            Provider = new VersionSpecificModelInfoProvider();
-
             IsUsingInProcTestServer = TestFhirServer is InProcTestFhirServer;
         }
 
@@ -51,8 +47,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public HttpClient HttpClient => FhirClient.HttpClient;
 
         public FhirClient FhirClient { get; }
-
-        public IModelInfoProvider Provider { get; }
 
         protected TestFhirServer TestFhirServer { get; }
 
