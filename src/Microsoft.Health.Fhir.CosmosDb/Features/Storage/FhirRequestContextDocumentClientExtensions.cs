@@ -100,7 +100,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             requestContext.StorageRequestMetrics = requestContext.StorageRequestMetrics ?? new CosmosStorageRequestMetrics(requestContext.RouteName, requestContext.ResourceType);
 
-            var cosmosMetrics = (CosmosStorageRequestMetrics)requestContext.StorageRequestMetrics;
+            var cosmosMetrics = requestContext.StorageRequestMetrics as CosmosStorageRequestMetrics;
+
+            if (cosmosMetrics == null)
+            {
+                return;
+            }
 
             cosmosMetrics.TotalRequestCharge += responseRequestCharge;
 
