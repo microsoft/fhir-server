@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
         /// <summary>
         /// The response HTTP status code to the request.
         /// </summary>
-        public HttpStatusCode? StatusCode { get; set; }
+        public HttpStatusCode StatusCode { get; set; }
 
         /// <summary>
         /// The amount of time elapsed to process the request.
