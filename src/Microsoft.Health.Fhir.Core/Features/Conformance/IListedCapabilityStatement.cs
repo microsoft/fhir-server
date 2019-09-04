@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         IList<string> Format { get; }
 
+        bool SupportsInclude { get; set; }
+
         void TryAddRestInteraction(string resourceType, string interaction);
 
         void TryAddRestInteraction(string systemInteraction);
