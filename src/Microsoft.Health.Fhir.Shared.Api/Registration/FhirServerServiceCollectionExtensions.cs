@@ -8,7 +8,6 @@ using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -44,11 +43,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddMvc(options =>
             {
                 options.RespectBrowserAcceptHeader = true;
-            });
-
-            services.Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders = ForwardedHeaders.All;
             });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
@@ -111,8 +105,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 return app =>
                 {
                     IHostingEnvironment env = app.ApplicationServices.GetRequiredService<IHostingEnvironment>();
-
-                    app.UseForwardedHeaders();
 
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();
