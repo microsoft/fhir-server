@@ -6,6 +6,8 @@
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -44,6 +46,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             string correlationId = correlationIdProvider.Invoke();
 
+            object resourceType = null;
+
+            RouteData routeData = context.GetRouteData();
+            if (routeData != null && routeData.Values != null)
+            {
+                routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out resourceType);
+            }
+
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
                 uriString: uriInString,
@@ -51,7 +61,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 requestType: new CodingInfo(AuditEventType.System, AuditEventType.RestFulOperationCode),
                 correlationId: correlationId,
                 requestHeaders: context.Request.Headers,
-                responseHeaders: context.Response.Headers);
+                responseHeaders: context.Response.Headers,
+                resourceType: resourceType?.ToString());
 
             context.Response.Headers[RequestIdHeaderName] = correlationId;
 
