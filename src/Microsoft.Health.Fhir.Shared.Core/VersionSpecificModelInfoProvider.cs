@@ -17,6 +17,14 @@ namespace Microsoft.Health.Fhir.Core
     /// </summary>
     public partial class VersionSpecificModelInfoProvider : IModelInfoProvider
     {
+        public Version SupportedVersion
+        {
+            get
+            {
+                return new Version(ModelInfo.Version);
+            }
+        }
+
         public string GetFhirTypeNameForType(Type type)
         {
             return ModelInfo.GetFhirTypeNameForType(type);
