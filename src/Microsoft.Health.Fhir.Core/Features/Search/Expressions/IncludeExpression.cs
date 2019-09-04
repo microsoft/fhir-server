@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             if (!wildCard)
             {
-                EnsureArg.IsNotNullOrWhiteSpace(targetResourceType, nameof(targetResourceType));
                 EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
             }
 
@@ -47,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public SearchParameterInfo ReferenceSearchParameter { get; }
 
         /// <summary>
-        /// Gets the target resource type.
+        /// Gets the target resource type. Value will be null if none are specified.
         /// </summary>
         public string TargetResourceType { get; }
 
@@ -65,7 +64,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return "(Include " + (WildCard ? "wildcard)" : $"{ReferenceSearchParameter.Name}:{TargetResourceType})");
+            if (WildCard)
+            {
+                return "(Include wildcard)";
+            }
+
+            var targetType = TargetResourceType != null ? $":{TargetResourceType}" : string.Empty;
+            return $"(Include {ReferenceSearchParameter.Name}{targetType})";
         }
     }
 }

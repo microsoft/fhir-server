@@ -345,8 +345,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.SearchParamId, referenceTableAlias)
                                 .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url)));
 
-                            delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ReferenceResourceTypeId, referenceTableAlias)
-                                .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType)));
+                            if (includeExpression.TargetResourceType != null)
+                            {
+                                delimited.BeginDelimitedElement().Append(V1.ReferenceSearchParam.ReferenceResourceTypeId, referenceTableAlias)
+                                    .Append(" = ").Append(Parameters.AddParameter(V1.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType)));
+                            }
                         }
 
                         AppendHistoryClause(delimited, resourceTableAlias);

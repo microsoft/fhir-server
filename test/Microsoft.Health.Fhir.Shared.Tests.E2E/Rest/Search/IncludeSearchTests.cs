@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
 
-            string query = $"_include=Location:Organization:organization";
+            string query = $"_include=Location:organization:Organization";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
 
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
 
-            string query = $"_include=Location:Organization:organization&_lastUpdated=lt{locationResponse2.Resource.Meta.LastUpdated:o}";
+            string query = $"_include=Location:organization:Organization&_lastUpdated=lt{locationResponse2.Resource.Meta.LastUpdated:o}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
 
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearch_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:Patient:patient&code=429858000";
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:Patient:patient&code=429858000&_count=1";
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:Patient:patient&_include=DiagnosticReport:Observation:result&code=429858000";
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     Result = new List<ResourceReference> { new ResourceReference($"Observation/{Fixture.TrumanSnomedObservation.Id}") },
                 });
 
-            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:Patient:patient&_include=DiagnosticReport:Observation:result&code=429858000&_lastUpdated=lt{Fixture.PatientGroup.Meta.LastUpdated.Value:o}";
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000&_lastUpdated=lt{Fixture.PatientGroup.Meta.LastUpdated.Value:o}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -183,6 +183,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+        }
+
+        [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithNoTargetType_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&_include=Observation:performer";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsLoincObservation,
+                Fixture.SmithLoincObservation,
+                Fixture.SmithSnomedObservation,
+                Fixture.TrumanLoincObservation,
+                Fixture.TrumanSnomedObservation,
+                Fixture.Practitioner,
+                Fixture.Organization);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)

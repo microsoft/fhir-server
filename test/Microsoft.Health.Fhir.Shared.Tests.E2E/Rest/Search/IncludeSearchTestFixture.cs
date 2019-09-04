@@ -30,10 +30,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     },
             };
 
-            var organization = FhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
+            Organization = FhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
+            Practitioner = FhirClient.CreateAsync(new Practitioner { Meta = meta }).Result.Resource;
 
             AdamsPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
-            SmithPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") }).Result.Resource;
+            SmithPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}") }).Result.Resource;
             TrumanPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
 
             AdamsLoincObservation = CreateObservation(AdamsPatient, loincCode);
@@ -79,12 +80,22 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                 return FhirClient.CreateAsync(
                     new Observation()
                     {
+                        Meta = meta,
                         Status = ObservationStatus.Final,
                         Code = code,
                         Subject = new ResourceReference($"Patient/{patient.Id}"),
+                        Performer = new List<ResourceReference>
+                        {
+                            new ResourceReference($"Organization/{Organization.Id}"),
+                            new ResourceReference($"Practitioner/{Practitioner.Id}"),
+                        },
                     }).Result.Resource;
             }
         }
+
+        public Organization Organization { get; }
+
+        public Practitioner Practitioner { get; }
 
         public Group PatientGroup { get; }
 

@@ -75,21 +75,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             SearchParameterInfo refSearchParameter;
             bool wildCard = false;
-            ReadOnlySpan<char> targetType;
+            string targetType = null;
 
             if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
             {
                 refSearchParameter = null;
                 wildCard = true;
-                targetType = ReadOnlySpan<char>.Empty;
             }
             else
             {
-                TrySplit(SearchSplitChar, ref valueSpan, out targetType);
-                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), valueSpan.ToString());
+                if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> searchParam))
+                {
+                    searchParam = valueSpan;
+                }
+                else
+                {
+                    targetType = valueSpan.ToString();
+                }
+
+                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
-            return new IncludeExpression(resourceType, refSearchParameter, targetType.ToString(), wildCard);
+            return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard);
         }
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)
