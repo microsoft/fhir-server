@@ -172,5 +172,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             return CompartmentSearchParameterQueryGenerator.Instance;
         }
+
+        public NormalizedSearchParameterQueryGenerator VisitInclude(IncludeExpression expression, object context)
+        {
+            return IncludeQueryGenerator.Instance;
+        }
     }
 }

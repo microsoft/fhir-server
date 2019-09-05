@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
+namespace Microsoft.Health.Fhir.ValueSets
 {
-    public interface IExpressionParser
+    public enum SearchEntryMode
     {
-        Expression Parse(string resourceType, string key, string value);
-
-        IncludeExpression ParseInclude(string resourceType, string value);
+        Include,
+        Match,
+        Outcome,
     }
 }

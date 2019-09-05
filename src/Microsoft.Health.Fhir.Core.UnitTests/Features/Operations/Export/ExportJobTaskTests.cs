@@ -224,17 +224,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new ResourceWrapper(
-                                count.ToString(CultureInfo.InvariantCulture),
-                                "1",
-                                "Patient",
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                null,
-                                DateTimeOffset.MinValue,
-                                false,
-                                null,
-                                null,
-                                null),
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    count.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
                         },
                         continuationToken: "ct");
                 });
@@ -271,17 +272,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new ResourceWrapper(
-                                count.ToString(CultureInfo.InvariantCulture),
-                                "1",
-                                "Patient",
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                null,
-                                DateTimeOffset.MinValue,
-                                false,
-                                null,
-                                null,
-                                null),
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    count.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
                         },
                         continuationToken: "ct");
                 });
@@ -388,17 +390,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new ResourceWrapper(
-                                count.ToString(CultureInfo.InvariantCulture),
-                                "1",
-                                "Patient",
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                null,
-                                DateTimeOffset.MinValue,
-                                false,
-                                null,
-                                null,
-                                null),
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    count.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
                         },
                         continuationToken: "ct");
                 });
@@ -431,11 +434,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("23", exportedIds);
         }
 
-        private SearchResult CreateSearchResult(IEnumerable<ResourceWrapper> resourceWrappers = null, string continuationToken = null)
+        private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
         {
             if (resourceWrappers == null)
             {
-                resourceWrappers = Array.Empty<ResourceWrapper>();
+                resourceWrappers = Array.Empty<SearchResultEntry>();
             }
 
             return new SearchResult(resourceWrappers, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), continuationToken);

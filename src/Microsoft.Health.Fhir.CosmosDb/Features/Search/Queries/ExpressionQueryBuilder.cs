@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         public object VisitChained(ChainedExpression expression, Context context)
         {
             // TODO: This will be removed once it's implemented.
-            throw new SearchOperationNotSupportedException("ChainedExpression is not supported.");
+            throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
         }
 
         public object VisitMissingField(MissingFieldExpression expression, Context context)
@@ -273,6 +273,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             AppendArrayContainsFilter(GetCompartmentIndicesParamName(expression.CompartmentType), expression.CompartmentId);
             return null;
+        }
+
+        public object VisitInclude(IncludeExpression expression, Context context)
+        {
+            // TODO: This will be removed once it's implemented.
+            throw new SearchOperationNotSupportedException(Resources.IncludeExpressionNotSupported);
         }
 
         private static string GetCompartmentIndicesParamName(string compartmentType)

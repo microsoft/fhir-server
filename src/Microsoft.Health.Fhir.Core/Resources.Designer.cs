@@ -313,6 +313,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The _include search cannot be used against the base route..
+        /// </summary>
+        internal static string IncludeCannotBeAgainstBase {
+            get {
+                return ResourceManager.GetString("IncludeCannotBeAgainstBase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The _include search is missing the type to search..
+        /// </summary>
+        internal static string IncludeMissingType {
+            get {
+                return ResourceManager.GetString("IncludeMissingType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string InvalidBooleanConfigSetting {
