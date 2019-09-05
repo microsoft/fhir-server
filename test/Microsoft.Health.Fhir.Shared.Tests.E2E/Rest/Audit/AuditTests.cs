@@ -339,13 +339,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             };
 
             var content = new FormUrlEncodedContent(formFields);
+            content.Headers.Add(AuditConstants.CustomAuditHeaderPrefix + "test", "test");
             await ExecuteAndValidate(
                 async () => await _client.HttpClient.PostAsync(pathSegment, content),
                 "smart-on-fhir-token",
                 pathSegment,
                 HttpStatusCode.BadRequest,
                 "1234",
-                "client_id");
+                "client_id",
+                new Dictionary<string, string>() { [AuditConstants.CustomAuditHeaderPrefix + "test"] = "test" });
         }
 
         [Fact]
@@ -384,7 +386,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
-        private async Task ExecuteAndValidate(Func<Task<HttpResponseMessage>> action, string expectedAction, string expectedPathSegment, HttpStatusCode expectedStatusCode, string expectedClaimValue, string expectedClaimKey)
+        private async Task ExecuteAndValidate(Func<Task<HttpResponseMessage>> action, string expectedAction, string expectedPathSegment, HttpStatusCode expectedStatusCode, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -402,8 +404,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutingAuditEntry(ae, expectedAction, expectedUri, correlationId, expectedClaimValue, expectedClaimKey),
-                ae => ValidateExecutedAuditEntry(ae, expectedAction, null, expectedUri, expectedStatusCode, correlationId, expectedClaimValue, expectedClaimKey));
+                ae => ValidateExecutingAuditEntry(ae, expectedAction, expectedUri, correlationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders),
+                ae => ValidateExecutedAuditEntry(ae, expectedAction, null, expectedUri, expectedStatusCode, correlationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders));
         }
 
         private async Task ExecuteAndValidate(Func<FhirClient> createClient, HttpStatusCode expectedStatusCode, string expectedAppId)
@@ -432,17 +434,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, "read", ResourceType.Patient, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
-        private void ValidateExecutingAuditEntry(AuditEntry auditEntry, string expectedAction, Uri expectedUri, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey)
+        private void ValidateExecutingAuditEntry(AuditEntry auditEntry, string expectedAction, Uri expectedUri, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
-            ValidateAuditEntry(auditEntry, AuditAction.Executing, expectedAction, null, expectedUri, null, expectedCorrelationId, expectedClaimValue, expectedClaimKey);
+            ValidateAuditEntry(auditEntry, AuditAction.Executing, expectedAction, null, expectedUri, null, expectedCorrelationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders);
         }
 
-        private void ValidateExecutedAuditEntry(AuditEntry auditEntry, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey)
+        private void ValidateExecutedAuditEntry(AuditEntry auditEntry, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
-            ValidateAuditEntry(auditEntry, AuditAction.Executed, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, expectedCorrelationId, expectedClaimValue, expectedClaimKey);
+            ValidateAuditEntry(auditEntry, AuditAction.Executed, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, expectedCorrelationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders);
         }
 
-        private void ValidateAuditEntry(AuditEntry auditEntry, AuditAction expectedAuditAction, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey)
+        private void ValidateAuditEntry(AuditEntry auditEntry, AuditAction expectedAuditAction, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
             Assert.NotNull(auditEntry);
             Assert.Equal(expectedAuditAction, auditEntry.AuditAction);
@@ -467,6 +469,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             else
             {
                 Assert.Empty(auditEntry.CallerClaims);
+            }
+
+            if (expectedCustomAuditHeaders != null)
+            {
+                Assert.Equal(expectedCustomAuditHeaders, auditEntry.CustomHeaders);
+            }
+            else
+            {
+                Assert.Empty(auditEntry.CustomHeaders);
             }
         }
     }

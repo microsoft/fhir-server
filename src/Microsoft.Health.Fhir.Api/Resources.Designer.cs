@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The value of the header {0} is  {1} and is too long so will not be added to the audit logs.  The maximum allowed size is {2}.  Please retry the request with a smaller value..
+        /// </summary>
+        public static string CustomAuditHeaderTooLarge {
+            get {
+                return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
         public static string Forbidden {
@@ -228,6 +237,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ToggleNavigation {
             get {
                 return ResourceManager.GetString("ToggleNavigation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A maximum of {0} custom audit headers allowed in the request.  {1} headers were detected.  Please retry the request with fewer cutom headers..
+        /// </summary>
+        public static string TooManyCustomAuditHeaders {
+            get {
+                return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
             }
         }
         

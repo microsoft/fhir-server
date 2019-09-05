@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             string correlationId,
             string callerIpAddress,
             IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
-            IReadOnlyCollection<KeyValuePair<string, string>> customerHeaders)
+            IReadOnlyDictionary<string, string> customerHeaders = null)
         {
             string claimsInString = null;
             string customerHeadersInString = null;

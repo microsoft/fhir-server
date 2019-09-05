@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IAuditLogger, AuditLogger>();
 
+            services.AddSingleton<IAuditHeaderReader, AuditHeaderReader>();
+
             services.Add<AuditHelper>()
                 .Singleton()
                 .AsService<IAuditHelper>();
