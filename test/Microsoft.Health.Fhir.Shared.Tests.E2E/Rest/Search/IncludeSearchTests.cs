@@ -46,6 +46,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAnIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
+        {
+            // Delete all locations before starting the test.
+            await Client.DeleteAllResources(ResourceType.Location);
+            var organizationResponse = await Client.CreateAsync(new Organization());
+
+            var locationResponse = await Client.CreateAsync(new Location
+            {
+                ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
+            });
+
+            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), ("_include", "Location:organization:Organization"));
+
+            ValidateBundle(
+                bundle,
+                organizationResponse.Resource,
+                locationResponse.Resource);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Location);
+        }
+
+        [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             // Delete all locations before starting the test.
