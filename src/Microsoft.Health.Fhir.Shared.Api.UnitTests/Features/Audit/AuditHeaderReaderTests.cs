@@ -8,8 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Configs;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
@@ -17,16 +20,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
     public class AuditHeaderReaderTests
     {
         private readonly HttpContext _httpContext;
+        private readonly IOptions<AuditConfiguration> _optionsAuditConfiguration;
+        private static readonly string _customAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
 
         public AuditHeaderReaderTests()
         {
             _httpContext = new DefaultHttpContext();
+
+            var auditConfiguration = new AuditConfiguration()
+            {
+                CustomAuditHeaderPrefix = _customAuditHeaderPrefix,
+            };
+
+            _optionsAuditConfiguration = Substitute.For<IOptions<AuditConfiguration>>();
+            _optionsAuditConfiguration.Value.Returns(auditConfiguration);
         }
 
         [Fact]
         public void GivenNoCustomHeaders_EmptyDictionaryReturned()
         {
-            var headerReader = new AuditHeaderReader();
+            var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
 
             // No headers at all
             var result = headerReader.Read(_httpContext);
@@ -47,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         [MemberData(nameof(GenerateRandomHeaders), 10, -1)]
         public void GivenMixedHeaders_OnlyCorrectCustomHeadersReturn(IReadOnlyDictionary<string, string> headers, int expectedCustomHeaderCount)
         {
-            var headerReader = new AuditHeaderReader();
+            var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             _httpContext.Request.Headers.Clear();
 
             foreach (var header in headers)
@@ -62,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         [Fact]
         public void GivenHeaderWithNoValue_HeaderNameWithEmptyValueIsReturned()
         {
-            var headerReader = new AuditHeaderReader();
+            var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             var headers = GenerateRandomHeaders(1, 5).ToList()[0][0] as Dictionary<string, string>;
             foreach (var header in headers)
             {
@@ -82,17 +95,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         [Fact]
         public void GivenMultipleValuesOfSameHeader_ConcatenatedStringValueReturend()
         {
-            var headerReader = new AuditHeaderReader();
-            _httpContext.Request.Headers.Add(AuditConstants.CustomAuditHeaderPrefix + "repeated", new StringValues(new[] { "item1", "item2" }));
+            var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
+            _httpContext.Request.Headers.Add(_optionsAuditConfiguration.Value.CustomAuditHeaderPrefix + "repeated", new StringValues(new[] { "item1", "item2" }));
 
             var result = headerReader.Read(_httpContext);
-            Assert.Equal("item1,item2", result[AuditConstants.CustomAuditHeaderPrefix + "repeated"]);
+            Assert.Equal("item1,item2", result[_optionsAuditConfiguration.Value.CustomAuditHeaderPrefix + "repeated"]);
         }
 
         [Fact]
         public void GivenTooManyCustomHeaders_AuditHeaderExceptionIsThrown()
         {
-            var headerReader = new AuditHeaderReader();
+            var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             _httpContext.Request.Headers.Clear();
             var headers = GenerateRandomHeaders(1, 11).ToList()[0][0] as Dictionary<string, string>;
             foreach (var header in headers)
@@ -107,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         public void GivenAHeaderWithTooLargeValue_AuditHeaderExceptionIsThrown()
         {
             var d = new Dictionary<string, string>() { ["a"] = "b" };
-            var headerReader = new AuditHeaderReader();
+            var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             _httpContext.Request.Headers.Clear();
             var headers = GenerateRandomHeaders(1, 9).ToList()[0][0] as Dictionary<string, string>;
             foreach (var header in headers)
@@ -115,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 _httpContext.Request.Headers.Add(header.Key, new StringValues(header.Value));
             }
 
-            _httpContext.Request.Headers.Add(AuditConstants.CustomAuditHeaderPrefix + "big", GenerateRandomString(2049));
+            _httpContext.Request.Headers.Add(_optionsAuditConfiguration.Value.CustomAuditHeaderPrefix + "big", GenerateRandomString(2049));
 
             Assert.Throws<AuditHeaderException>(() => headerReader.Read(_httpContext));
         }
@@ -123,7 +136,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         [Fact]
         public void WithMultipleCallsUsingTheSameHttpContext_HttpContextItemsIsUsed()
         {
-            var headerReader = new AuditHeaderReader();
+            var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
 
             var headers = GenerateRandomHeaders(1, 5).ToList()[0][0] as Dictionary<string, string>;
             foreach (var header in headers)
@@ -156,7 +169,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 var headers = new Dictionary<string, string>();
                 for (var headerIndex = 0; headerIndex < numberOfAuditHeaders; headerIndex++)
                 {
-                    var headerName = new StringBuilder(AuditConstants.CustomAuditHeaderPrefix);
+                    var headerName = new StringBuilder(_customAuditHeaderPrefix);
                     headerName.Append(GenerateRandomString(20));
                     headers[headerName.ToString()] = GenerateRandomString(random.Next(1, 2048));
                 }

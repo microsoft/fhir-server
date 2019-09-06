@@ -3,14 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public static class AuditConstants
+    public class AuditConfiguration
     {
-        public const string CustomAuditHeaderKeyValue = "CustomAuditHeaderCollectionKeyValue";
-
-        public const int MaximumNumberOfCustomHeaders = 10;
-
-        public const int MaximumLengthOfCustomHeader = 2048;
+        public string CustomAuditHeaderPrefix { get; set; } = "X-MS-AZUREFHIR-AUDIT-";
     }
 }

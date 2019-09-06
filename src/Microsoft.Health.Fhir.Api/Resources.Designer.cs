@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The value of the header {0} is  {1} and is too long so will not be added to the audit logs.  The maximum allowed size is {2}.  Please retry the request with a smaller value..
+        ///   Looks up a localized string similar to The value of the header {0} is {1} and is too long so will not be added to the audit logs.  The maximum allowed size is {2}.  Please retry the request with a smaller value..
         /// </summary>
         public static string CustomAuditHeaderTooLarge {
             get {

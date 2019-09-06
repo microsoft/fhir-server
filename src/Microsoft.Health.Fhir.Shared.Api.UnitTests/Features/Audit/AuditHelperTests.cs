@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
         private readonly HttpContext _httpContext = new DefaultHttpContext();
         private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
-        private readonly IAuditHeaderReader _auditHeaderReader = new AuditHeaderReader();
+        private readonly IAuditHeaderReader _auditHeaderReader = Substitute.For<IAuditHeaderReader>();
 
         public AuditHelperTests()
         {

@@ -6,11 +6,20 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
     public class AuditHeaderReader : IAuditHeaderReader
     {
+        private readonly AuditConfiguration _auditConfiguration;
+
+        public AuditHeaderReader(IOptions<AuditConfiguration> auditConfiguration)
+        {
+            _auditConfiguration = auditConfiguration.Value;
+        }
+
         public IReadOnlyDictionary<string, string> Read(HttpContext httpContext)
         {
             if (!httpContext.Items.ContainsKey(AuditConstants.CustomAuditHeaderKeyValue))
@@ -19,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
                 foreach (var headerName in httpContext.Request.Headers.Keys)
                 {
-                    if (headerName.StartsWith(AuditConstants.CustomAuditHeaderPrefix, StringComparison.OrdinalIgnoreCase))
+                    if (headerName.StartsWith(_auditConfiguration.CustomAuditHeaderPrefix, StringComparison.OrdinalIgnoreCase))
                     {
                         var headerValue = httpContext.Request.Headers[headerName].ToString();
                         if (headerValue.Length > AuditConstants.MaximumLengthOfCustomHeader)
@@ -31,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     }
                 }
 
-                if (customHeaders.Count > 10)
+                if (customHeaders.Count > AuditConstants.MaximumNumberOfCustomHeaders)
                 {
                     throw new AuditHeaderException(customHeaders.Count);
                 }

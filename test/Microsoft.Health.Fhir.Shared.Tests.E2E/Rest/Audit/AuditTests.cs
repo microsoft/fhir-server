@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     public class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
+        private const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
         private const string ExpectedClaimKey = "appid";
 
         private readonly AuditTestFixture _fixture;
@@ -339,7 +340,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             };
 
             var content = new FormUrlEncodedContent(formFields);
-            content.Headers.Add(AuditConstants.CustomAuditHeaderPrefix + "test", "test");
+            content.Headers.Add(CustomAuditHeaderPrefix + "test", "test");
             await ExecuteAndValidate(
                 async () => await _client.HttpClient.PostAsync(pathSegment, content),
                 "smart-on-fhir-token",
@@ -347,7 +348,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.BadRequest,
                 "1234",
                 "client_id",
-                new Dictionary<string, string>() { [AuditConstants.CustomAuditHeaderPrefix + "test"] = "test" });
+                new Dictionary<string, string>() { [CustomAuditHeaderPrefix + "test"] = "test" });
         }
 
         [Fact]
