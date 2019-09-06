@@ -15,6 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     {
         private async Task<UpsertOutcome> UpsertAsync(UpsertResourceRequest message, ResourceWrapper resourceWrapper, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
         {
+            // In STU3, the server returns a 409 Conflict status code if the version id given in the If-Match header does not match
             UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, allowCreate, keepHistory, cancellationToken);
             return result;
         }

@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             }
             catch (ResourceConflictException)
             {
+                // In R4, the server returns a 412 Precondition Failed status code if the version id given in the If-Match header does not match
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, message.WeakETag?.VersionId));
             }
 
