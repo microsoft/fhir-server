@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
 
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Notifications
         public ApiNotificationMiddlewareTests()
         {
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContext.RequestType.Returns(new CodingInfo("system", "code"));
 
             _apiNotificationMiddleware = new ApiNotificationMiddleware(
                     httpContext => Task.CompletedTask,
