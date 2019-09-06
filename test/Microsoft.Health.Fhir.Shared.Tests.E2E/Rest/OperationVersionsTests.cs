@@ -15,7 +15,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class OperationVersionsTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly HttpClient _client;
@@ -27,16 +27,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
         [Theory]
         [InlineData("application/json")]
-        [InlineData("application/xml")]
         [InlineData("application/fhir+json")]
-        [InlineData("application/fhir+xml")]
-        public async Task WhenVersionsEndpointIsCalled_GivenValidAcceptHeaderIsProvided_ThenServerShouldReturnOK(string acceptHeaderValue)
+        [HttpIntegrationFixtureArgumentSets(formats: Format.Json)]
+        public async Task WhenVersionsEndpointIsCalled_GivenAValidJsonAcceptHeaderIsProvided_ThenServerShouldReturnOK(string acceptHeaderValue)
         {
-            HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
-            HttpResponseMessage response = await _client.SendAsync(request);
+            await CheckContentType(acceptHeaderValue);
+        }
 
-            Assert.Equal(acceptHeaderValue, response.Content.Headers.ContentType.MediaType);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        [Theory]
+        [InlineData("application/xml")]
+        [InlineData("application/fhir+xml")]
+        [HttpIntegrationFixtureArgumentSets(formats: Format.Xml)]
+        public async Task WhenVersionsEndpointIsCalledWithXml_GivenAValidXmlAcceptHeaderIsProvided_ThenServerShouldReturnOK(string acceptHeaderValue)
+        {
+            await CheckContentType(acceptHeaderValue);
         }
 
         [Fact]
@@ -58,6 +62,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
+        }
+
+        private async Task CheckContentType(string acceptHeaderValue)
+        {
+            HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(acceptHeaderValue, response.Content.Headers.ContentType.MediaType);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
         private HttpRequestMessage GenerateOperationVersionsRequest(
