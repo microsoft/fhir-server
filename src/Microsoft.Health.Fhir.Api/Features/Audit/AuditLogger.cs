@@ -31,7 +31,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             "Action: {Action}" + Environment.NewLine +
             "StatusCode: {StatusCode}" + Environment.NewLine +
             "CorrelationId: {CorrelationId}" + Environment.NewLine +
-            "Claims: {Claims}";
+            "Claims: {Claims}" + Environment.NewLine +
+            "CustomHeaderValues: {CustomHeaderValues}";
 
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<IAuditLogger> _logger;
