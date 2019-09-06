@@ -150,6 +150,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     })
                 .Where(item => item != null));
 
+            if (searchParams.Include?.Count > 0)
+            {
+                searchExpressions.AddRange(searchParams.Include.Select(
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q))
+                    .Where(item => item != null));
+            }
+
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
                 if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))

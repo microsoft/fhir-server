@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         internal void Build()
         {
-            ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattendList()
+            ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattenedList()
                 .ToLookup(
                     entry => entry.ResourceType,
                     entry => entry.SearchParameter);
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 ;
         }
 
-        private List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattendList()
+        private List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList()
         {
             var issues = new List<OperationOutcomeIssue>();
 

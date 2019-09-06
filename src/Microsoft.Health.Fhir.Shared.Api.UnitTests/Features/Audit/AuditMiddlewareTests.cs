@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _httpContext.Response.StatusCode = (int)statusCode;
 
-            RouteData routeData = SetupRouteData();
+            RouteData routeData = SetupRouteData(Controller, Action);
 
             routeData.Values.Add(KnownActionParameterNames.ResourceType, resourceType);
 
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _httpContext.Response.StatusCode = (int)statusCode;
 
-            RouteData routeData = SetupRouteData();
+            RouteData routeData = SetupRouteData(Controller, Action);
 
             await _auditMiddleware.Invoke(_httpContext);
 

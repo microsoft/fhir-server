@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq.Expressions;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -190,6 +191,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
+            Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureDetails.FailureReason));
         }
 
         [Theory]
@@ -222,17 +224,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new ResourceWrapper(
-                                count.ToString(CultureInfo.InvariantCulture),
-                                "1",
-                                "Patient",
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                null,
-                                DateTimeOffset.MinValue,
-                                false,
-                                null,
-                                null,
-                                null),
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    count.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
                         },
                         continuationToken: "ct");
                 });
@@ -269,17 +272,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new ResourceWrapper(
-                                count.ToString(CultureInfo.InvariantCulture),
-                                "1",
-                                "Patient",
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                null,
-                                DateTimeOffset.MinValue,
-                                false,
-                                null,
-                                null,
-                                null),
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    count.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
                         },
                         continuationToken: "ct");
                 });
@@ -301,12 +305,62 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(CreateSearchResult());
 
-            _secretStore.DeleteSecretAsync(Arg.Any<string>(), _cancellationToken).Returns<SecretWrapper>(_ => throw new Exception());
+            _secretStore.DeleteSecretAsync(Arg.Any<string>(), _cancellationToken)
+                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, innerException: null, statusCode: HttpStatusCode.InternalServerError));
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Null(_lastExportJobOutcome.JobRecord.FailureDetails);
+        }
+
+        [Fact]
+        public async Task GivenGetSecretFailed_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(CreateSearchResult());
+
+            _secretStore.GetSecretAsync(Arg.Any<string>(), _cancellationToken)
+                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.GetSecretError, innerException: null, statusCode: HttpStatusCode.InternalServerError));
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(SecretStoreErrors.GetSecretError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        [Fact]
+        public async Task GivenConnectingToDestinationFails_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            // Setup export destination client.
+            string connectionFailure = "failedToConnectToDestination";
+            IExportDestinationClient mockExportDestinationClient = Substitute.For<IExportDestinationClient>();
+            mockExportDestinationClient.ConnectAsync(Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
+                .Returns<Task>(x => throw new DestinationConnectionException(connectionFailure, HttpStatusCode.BadRequest));
+
+            _exportDestinationClientFactory.Create("in-memory").Returns(mockExportDestinationClient);
+
+            var exportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                _secretStore,
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _resourceToByteArraySerializer,
+                _exportDestinationClientFactory,
+                NullLogger<ExportJobTask>.Instance);
+
+            await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
         [Fact]
@@ -336,17 +390,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new ResourceWrapper(
-                                count.ToString(CultureInfo.InvariantCulture),
-                                "1",
-                                "Patient",
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                null,
-                                DateTimeOffset.MinValue,
-                                false,
-                                null,
-                                null,
-                                null),
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    count.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
                         },
                         continuationToken: "ct");
                 });
@@ -379,11 +434,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("23", exportedIds);
         }
 
-        private SearchResult CreateSearchResult(IEnumerable<ResourceWrapper> resourceWrappers = null, string continuationToken = null)
+        private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
         {
             if (resourceWrappers == null)
             {
-                resourceWrappers = Array.Empty<ResourceWrapper>();
+                resourceWrappers = Array.Empty<SearchResultEntry>();
             }
 
             return new SearchResult(resourceWrappers, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), continuationToken);

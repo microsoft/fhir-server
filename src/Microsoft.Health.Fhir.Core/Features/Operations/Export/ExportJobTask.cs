@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -166,12 +167,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // but we will not be updating the job record.
                 _logger.LogTrace("The job was updated by another process.");
             }
+            catch (SecretStoreException sse)
+            {
+                _logger.LogError(sse, "Secret store error. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(sse.Message, sse.ResponseStatusCode);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            catch (DestinationConnectionException dce)
+            {
+                _logger.LogError(dce, "Can't connect to destination. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(dce.Message, dce.StatusCode);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (Exception ex)
             {
                 // The job has encountered an error it cannot recover from.
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(Resources.UnknownError, HttpStatusCode.InternalServerError);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
         }
@@ -207,10 +223,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
         }
 
-        private async Task ProcessSearchResultsAsync(IEnumerable<ResourceWrapper> searchResults, uint partId, CancellationToken cancellationToken)
+        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
         {
-            foreach (ResourceWrapper resourceWrapper in searchResults)
+            foreach (SearchResultEntry result in searchResults)
             {
+                ResourceWrapper resourceWrapper = result.Resource;
+
                 string resourceType = resourceWrapper.ResourceTypeName;
 
                 // Check whether we already have an existing file for the current resource type.

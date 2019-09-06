@@ -156,19 +156,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private T ProcessResponse<T>(T response)
             where T : ResourceResponseBase
         {
-            _fhirRequestContextAccessor.FhirRequestContext.UpdateResponseHeaders(response.SessionToken, response.RequestCharge);
+            _fhirRequestContextAccessor.FhirRequestContext.UpdateFhirRequestContext(response);
             return response;
         }
 
         private FeedResponse<T> ProcessResponse<T>(FeedResponse<T> response)
         {
-            _fhirRequestContextAccessor.FhirRequestContext.UpdateResponseHeaders(response.SessionToken, response.RequestCharge);
+            _fhirRequestContextAccessor.FhirRequestContext.UpdateFhirRequestContext(response);
             return response;
         }
 
         private StoredProcedureResponse<T> ProcessResponse<T>(StoredProcedureResponse<T> response)
         {
-            _fhirRequestContextAccessor.FhirRequestContext.UpdateResponseHeaders(response.SessionToken, response.RequestCharge);
+            _fhirRequestContextAccessor.FhirRequestContext.UpdateFhirRequestContext(response);
             return response;
         }
 

@@ -77,8 +77,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             FeedResponse<Document> fetchedResults = await _fhirDataStore.ExecuteDocumentQueryAsync<Document>(sqlQuerySpec, feedOptions, cancellationToken);
 
-            FhirCosmosResourceWrapper[] wrappers = fetchedResults
-                .Select(r => r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName)).ToArray();
+            SearchResultEntry[] wrappers = fetchedResults
+                .Select(r => new SearchResultEntry(r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName))).ToArray();
 
             IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
             if (searchOptions.Sort?.Count > 0)

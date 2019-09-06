@@ -186,6 +186,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "search001/SE05.5P",
             "search001/SE05.6G",
             "search001/SE05.6P",
+            "search001/SE06G",
+            "search001/SE06P",
             "search001/SE21G",
             "search001/SE21P",
             "search001/SE22G",

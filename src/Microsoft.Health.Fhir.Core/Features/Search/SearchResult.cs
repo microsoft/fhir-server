@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -23,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
         /// <param name="unsupportedSortingParameters">The list of unsupported sorting search parameters.</param>
         /// <param name="continuationToken">The continuation token.</param>
-        public SearchResult(IEnumerable<ResourceWrapper> results, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters, string continuationToken)
+        public SearchResult(IEnumerable<SearchResultEntry> results, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters, string continuationToken)
         {
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
@@ -39,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
 
-            Results = Enumerable.Empty<ResourceWrapper>();
+            Results = Enumerable.Empty<SearchResultEntry>();
             UnsupportedSearchParameters = unsupportedSearchParameters;
             TotalCount = totalCount;
             UnsupportedSortingParameters = Array.Empty<(string parameterName, string reason)>();
@@ -48,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets the search results.
         /// </summary>
-        public IEnumerable<ResourceWrapper> Results { get; }
+        public IEnumerable<SearchResultEntry> Results { get; }
 
         /// <summary>
         /// Gets the list of unsupported search parameters.

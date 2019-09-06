@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;
 
-            if (outcome.JobRecord.Status.IsFinished())
+            if (outcome.JobRecord.Status == OperationStatus.Completed)
             {
                 var jobResult = new ExportJobResult(
                     outcome.JobRecord.QueuedTime,
@@ -45,6 +45,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     outcome.JobRecord.Error);
 
                 exportResponse = new GetExportResponse(HttpStatusCode.OK, jobResult);
+            }
+            else if (outcome.JobRecord.Status == OperationStatus.Failed || outcome.JobRecord.Status == OperationStatus.Canceled)
+            {
+                string failureReason = outcome.JobRecord.FailureDetails != null ? outcome.JobRecord.FailureDetails.FailureReason : Resources.UnknownError;
+                HttpStatusCode failureStatusCode = outcome.JobRecord.FailureDetails != null ? outcome.JobRecord.FailureDetails.FailureStatusCode : HttpStatusCode.InternalServerError;
+
+                throw new OperationFailedException(
+                    string.Format(Resources.OperationFailed, OperationsConstants.Export, failureReason), failureStatusCode);
             }
             else
             {

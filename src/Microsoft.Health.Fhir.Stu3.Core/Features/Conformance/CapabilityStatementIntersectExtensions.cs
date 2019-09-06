@@ -105,6 +105,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     var configuredComponent = configuredRest.Resource.Single(x => x.Type == systemComponent.Type);
 
+                    // If the system has been set to support include, then build the possible include params from the search parameters
+                    if (system.SupportsInclude)
+                    {
+                        systemComponent.SearchInclude = systemComponent.SearchParam.Where(sp => sp.Type == SearchParamType.Reference).Select(sp => $"{systemComponent.Type.ToString()}.{sp.Name}").ToList();
+                    }
+
                     var interaction = new CapabilityStatement.ResourceComponent
                     {
                         // System predefined values
@@ -120,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         ConditionalUpdate = systemComponent.ConditionalUpdate.IntersectBool(configuredComponent.ConditionalUpdate, issues, $"Rest.Resource['{systemComponent.Type}'].ConditionalUpdate"),
 
                         // List intersections
-                        SearchInclude = systemComponent.SearchInclude.IntersectList(configuredComponent.SearchInclude, x => x, issues, $"Rest.Resource['{systemComponent.Type}'].SearchInclude").ToList(),
+                        SearchInclude = system.SupportsInclude ? systemComponent.SearchInclude.IntersectList(configuredComponent.SearchInclude, x => x, issues, $"Rest.Resource['{systemComponent.Type}'].SearchInclude").ToList() : Enumerable.Empty<string>(),
                         SearchRevInclude = systemComponent.SearchRevInclude.IntersectList(configuredComponent.SearchRevInclude, x => x, issues, $"Rest.Resource['{systemComponent.Type}'].SearchRevInclude").ToList(),
                         Interaction = systemComponent.Interaction.IntersectList(configuredComponent.Interaction, x => x.Code, issues, $"Rest.Resource['{systemComponent.Type}'].Interaction"),
                         ReferencePolicy = systemComponent.ReferencePolicy.IntersectList(configuredComponent.ReferencePolicy, x => x, issues, $"Rest.Resource['{systemComponent.Type}'].ReferencePolicy"),

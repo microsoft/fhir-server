@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Xunit;
 
@@ -16,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenResults_WhenInitialized_ThenCorrectResultsShouldBeSet()
         {
-            var expectedResourceWrapper = new ResourceWrapper[0];
+            var expectedResourceWrapper = new SearchResultEntry[0];
             var expectedUnsupportedSearchParameters = new List<Tuple<string, string>>();
             var expectedUnsupportedSortingParameters = new List<(string searchParameterName, string reason)>();
 

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterExpressionParser _searchParameterExpressionParser;
 
-        private const char ChainSplitChar = ':';
+        private const char SearchSplitChar = ':';
         private const char ChainParameter = '.';
         private const string ReverseChainParameter = "_has:";
 
@@ -65,16 +66,55 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceType, key.AsSpan(), value);
         }
 
+        public IncludeExpression ParseInclude(string resourceType, string includeValue)
+        {
+            var valueSpan = includeValue.AsSpan();
+            if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.IncludeMissingType);
+            }
+
+            if (resourceType.Equals(typeof(DomainResource).Name, StringComparison.InvariantCultureIgnoreCase))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
+            }
+
+            SearchParameterInfo refSearchParameter;
+            bool wildCard = false;
+            string targetType = null;
+
+            if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+            {
+                refSearchParameter = null;
+                wildCard = true;
+            }
+            else
+            {
+                if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> searchParam))
+                {
+                    searchParam = valueSpan;
+                }
+                else
+                {
+                    targetType = valueSpan.ToString();
+                }
+
+                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
+            }
+
+            return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard);
+        }
+
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)
         {
             if (TryConsume(ReverseChainParameter.AsSpan(), ref key))
             {
-                if (!TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> type))
+                if (!TrySplit(SearchSplitChar, ref key, out ReadOnlySpan<char> type))
                 {
                     throw new InvalidSearchOperationException(Core.Resources.ReverseChainMissingType);
                 }
 
-                if (!TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> refParam))
+                if (!TrySplit(SearchSplitChar, ref key, out ReadOnlySpan<char> refParam))
                 {
                     throw new InvalidSearchOperationException(Core.Resources.ReverseChainMissingReference);
                 }
@@ -89,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 ReadOnlySpan<char> targetTypeName;
 
-                if (TrySplit(ChainSplitChar, ref chainedInput, out ReadOnlySpan<char> refParamName))
+                if (TrySplit(SearchSplitChar, ref chainedInput, out ReadOnlySpan<char> refParamName))
                 {
                     targetTypeName = chainedInput;
                 }
@@ -111,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             ReadOnlySpan<char> modifier;
 
-            if (TrySplit(ChainSplitChar, ref key, out ReadOnlySpan<char> paramName))
+            if (TrySplit(SearchSplitChar, ref key, out ReadOnlySpan<char> paramName))
             {
                 modifier = key;
             }

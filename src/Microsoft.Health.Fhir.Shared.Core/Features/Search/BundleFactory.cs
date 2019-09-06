@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             return CreateBundle(result, Bundle.BundleType.Searchset, r =>
             {
-                ResourceElement resource = _deserializer.Deserialize(r);
+                ResourceElement resource = _deserializer.Deserialize(r.Resource);
 
                 return new Bundle.EntryComponent
                 {
@@ -46,9 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     Resource = resource.Instance.ToPoco<Resource>(),
                     Search = new Bundle.SearchComponent
                     {
-                        // TODO: For now, everything returned is a match. We will need to
-                        // distinct between match and include once we support it.
-                        Mode = Bundle.SearchEntryMode.Match,
+                        Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
                     },
                 };
             });
@@ -58,8 +57,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             return CreateBundle(result, Bundle.BundleType.History, r =>
             {
-                var resource = _deserializer.Deserialize(r);
-                var hasVerb = Enum.TryParse(r.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
+                var resource = _deserializer.Deserialize(r.Resource);
+                var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 
                 return new Bundle.EntryComponent
                 {
@@ -72,14 +71,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     },
                     Response = new Bundle.ResponseComponent
                     {
-                        LastModified = r.LastModified,
-                        Etag = WeakETag.FromVersionId(r.Version).ToString(),
+                        LastModified = r.Resource.LastModified,
+                        Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
                     },
                 };
             });
         }
 
-        private ResourceElement CreateBundle(SearchResult result, Bundle.BundleType type, Func<ResourceWrapper, Bundle.EntryComponent> selectionFunction)
+        private ResourceElement CreateBundle(SearchResult result, Bundle.BundleType type, Func<SearchResultEntry, Bundle.EntryComponent> selectionFunction)
         {
             EnsureArg.IsNotNull(result, nameof(result));
 

@@ -74,6 +74,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Account.owner",
+                        "Account.patient",
+                        "Account.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -199,6 +204,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ActivityDefinition.composed-of",
+                        "ActivityDefinition.depends-on",
+                        "ActivityDefinition.derived-from",
+                        "ActivityDefinition.predecessor",
+                        "ActivityDefinition.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -408,6 +420,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "AdverseEvent.location",
+                        "AdverseEvent.recorder",
+                        "AdverseEvent.resultingcondition",
+                        "AdverseEvent.study",
+                        "AdverseEvent.subject",
+                        "AdverseEvent.substance"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -557,6 +577,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "AllergyIntolerance.asserter",
+                        "AllergyIntolerance.patient",
+                        "AllergyIntolerance.recorder"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -730,6 +755,16 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Appointment.actor",
+                        "Appointment.based-on",
+                        "Appointment.location",
+                        "Appointment.patient",
+                        "Appointment.practitioner",
+                        "Appointment.reason-reference",
+                        "Appointment.slot",
+                        "Appointment.supporting-info"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -909,6 +944,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "AppointmentResponse.actor",
+                        "AppointmentResponse.appointment",
+                        "AppointmentResponse.location",
+                        "AppointmentResponse.patient",
+                        "AppointmentResponse.practitioner"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -1011,6 +1053,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "AuditEvent.agent",
+                        "AuditEvent.entity",
+                        "AuditEvent.patient",
+                        "AuditEvent.source"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -1196,6 +1244,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Basic.author",
+                        "Basic.patient",
+                        "Basic.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -1381,6 +1434,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "BodyStructure.patient"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -1482,6 +1538,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Bundle.composition",
+                        "Bundle.message"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -1589,6 +1649,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "CapabilityStatement.guide",
+                        "CapabilityStatement.resource-profile",
+                        "CapabilityStatement.supported-profile"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -1804,6 +1869,20 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "CarePlan.activity-reference",
+                        "CarePlan.based-on",
+                        "CarePlan.care-team",
+                        "CarePlan.condition",
+                        "CarePlan.encounter",
+                        "CarePlan.goal",
+                        "CarePlan.instantiates-canonical",
+                        "CarePlan.part-of",
+                        "CarePlan.patient",
+                        "CarePlan.performer",
+                        "CarePlan.replaces",
+                        "CarePlan.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -2001,6 +2080,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "CareTeam.encounter",
+                        "CareTeam.participant",
+                        "CareTeam.patient",
+                        "CareTeam.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -2167,6 +2252,17 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ChargeItem.account",
+                        "ChargeItem.context",
+                        "ChargeItem.enterer",
+                        "ChargeItem.patient",
+                        "ChargeItem.performer-actor",
+                        "ChargeItem.performing-organization",
+                        "ChargeItem.requesting-organization",
+                        "ChargeItem.service",
+                        "ChargeItem.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -2513,6 +2609,20 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Claim.care-team",
+                        "Claim.detail-udi",
+                        "Claim.encounter",
+                        "Claim.enterer",
+                        "Claim.facility",
+                        "Claim.insurer",
+                        "Claim.item-udi",
+                        "Claim.patient",
+                        "Claim.payee",
+                        "Claim.procedure-udi",
+                        "Claim.provider",
+                        "Claim.subdetail-udi"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -2692,6 +2802,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ClaimResponse.insurer",
+                        "ClaimResponse.patient",
+                        "ClaimResponse.request",
+                        "ClaimResponse.requestor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -2835,6 +2951,17 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ClinicalImpression.assessor",
+                        "ClinicalImpression.encounter",
+                        "ClinicalImpression.finding-ref",
+                        "ClinicalImpression.investigation",
+                        "ClinicalImpression.patient",
+                        "ClinicalImpression.previous",
+                        "ClinicalImpression.problem",
+                        "ClinicalImpression.subject",
+                        "ClinicalImpression.supporting-info"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -2990,6 +3117,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "CodeSystem.supplements"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -3187,6 +3317,16 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Communication.based-on",
+                        "Communication.encounter",
+                        "Communication.instantiates-canonical",
+                        "Communication.part-of",
+                        "Communication.patient",
+                        "Communication.recipient",
+                        "Communication.sender",
+                        "Communication.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -3354,6 +3494,16 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "CommunicationRequest.based-on",
+                        "CommunicationRequest.encounter",
+                        "CommunicationRequest.patient",
+                        "CommunicationRequest.recipient",
+                        "CommunicationRequest.replaces",
+                        "CommunicationRequest.requester",
+                        "CommunicationRequest.sender",
+                        "CommunicationRequest.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -3688,6 +3838,15 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Composition.attester",
+                        "Composition.author",
+                        "Composition.encounter",
+                        "Composition.entry",
+                        "Composition.patient",
+                        "Composition.related-ref",
+                        "Composition.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -3873,6 +4032,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ConceptMap.other",
+                        "ConceptMap.source",
+                        "ConceptMap.source-uri",
+                        "ConceptMap.target",
+                        "ConceptMap.target-uri"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -4106,6 +4272,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Condition.asserter",
+                        "Condition.encounter",
+                        "Condition.evidence-detail",
+                        "Condition.patient",
+                        "Condition.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -4309,6 +4482,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Consent.actor",
+                        "Consent.consentor",
+                        "Consent.data",
+                        "Consent.organization",
+                        "Consent.patient",
+                        "Consent.source-reference"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -4476,6 +4657,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Contract.authority",
+                        "Contract.domain",
+                        "Contract.patient",
+                        "Contract.signer",
+                        "Contract.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -4613,6 +4801,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Coverage.beneficiary",
+                        "Coverage.patient",
+                        "Coverage.payor",
+                        "Coverage.policy-holder",
+                        "Coverage.subscriber"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -4756,6 +4951,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "CoverageEligibilityRequest.enterer",
+                        "CoverageEligibilityRequest.facility",
+                        "CoverageEligibilityRequest.patient",
+                        "CoverageEligibilityRequest.provider"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -4875,6 +5076,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "CoverageEligibilityResponse.insurer",
+                        "CoverageEligibilityResponse.patient",
+                        "CoverageEligibilityResponse.request",
+                        "CoverageEligibilityResponse.requestor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -5006,6 +5213,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "DetectedIssue.author",
+                        "DetectedIssue.implicated",
+                        "DetectedIssue.patient"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -5119,6 +5331,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Device.location",
+                        "Device.organization",
+                        "Device.patient"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -5268,6 +5485,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "DeviceDefinition.parent"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -5363,6 +5583,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "DeviceMetric.parent",
+                        "DeviceMetric.source"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -5470,6 +5694,18 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "DeviceRequest.based-on",
+                        "DeviceRequest.device",
+                        "DeviceRequest.encounter",
+                        "DeviceRequest.instantiates-canonical",
+                        "DeviceRequest.insurance",
+                        "DeviceRequest.patient",
+                        "DeviceRequest.performer",
+                        "DeviceRequest.prior-request",
+                        "DeviceRequest.requester",
+                        "DeviceRequest.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -5655,6 +5891,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "DeviceUseStatement.device",
+                        "DeviceUseStatement.patient",
+                        "DeviceUseStatement.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -5756,6 +5997,17 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "DiagnosticReport.based-on",
+                        "DiagnosticReport.encounter",
+                        "DiagnosticReport.media",
+                        "DiagnosticReport.patient",
+                        "DiagnosticReport.performer",
+                        "DiagnosticReport.result",
+                        "DiagnosticReport.results-interpreter",
+                        "DiagnosticReport.specimen",
+                        "DiagnosticReport.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -5929,6 +6181,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "DocumentManifest.author",
+                        "DocumentManifest.item",
+                        "DocumentManifest.patient",
+                        "DocumentManifest.recipient",
+                        "DocumentManifest.related-ref",
+                        "DocumentManifest.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -6084,6 +6344,16 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "DocumentReference.authenticator",
+                        "DocumentReference.author",
+                        "DocumentReference.custodian",
+                        "DocumentReference.encounter",
+                        "DocumentReference.patient",
+                        "DocumentReference.related",
+                        "DocumentReference.relatesto",
+                        "DocumentReference.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -6484,6 +6754,21 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Encounter.account",
+                        "Encounter.appointment",
+                        "Encounter.based-on",
+                        "Encounter.diagnosis",
+                        "Encounter.episode-of-care",
+                        "Encounter.location",
+                        "Encounter.participant",
+                        "Encounter.part-of",
+                        "Encounter.patient",
+                        "Encounter.practitioner",
+                        "Encounter.reason-reference",
+                        "Encounter.service-provider",
+                        "Encounter.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -6699,6 +6984,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Endpoint.organization"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -6812,6 +7100,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "EnrollmentRequest.patient",
+                        "EnrollmentRequest.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -6913,6 +7205,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "EnrollmentResponse.request"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -7008,6 +7303,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "EpisodeOfCare.care-manager",
+                        "EpisodeOfCare.condition",
+                        "EpisodeOfCare.incoming-referral",
+                        "EpisodeOfCare.organization",
+                        "EpisodeOfCare.patient"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -7139,6 +7441,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "EventDefinition.composed-of",
+                        "EventDefinition.depends-on",
+                        "EventDefinition.derived-from",
+                        "EventDefinition.predecessor",
+                        "EventDefinition.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -7348,6 +7657,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Evidence.composed-of",
+                        "Evidence.depends-on",
+                        "Evidence.derived-from",
+                        "Evidence.predecessor",
+                        "Evidence.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -7557,6 +7873,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "EvidenceVariable.composed-of",
+                        "EvidenceVariable.depends-on",
+                        "EvidenceVariable.derived-from",
+                        "EvidenceVariable.predecessor",
+                        "EvidenceVariable.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -7921,6 +8244,21 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ExplanationOfBenefit.care-team",
+                        "ExplanationOfBenefit.claim",
+                        "ExplanationOfBenefit.coverage",
+                        "ExplanationOfBenefit.detail-udi",
+                        "ExplanationOfBenefit.encounter",
+                        "ExplanationOfBenefit.enterer",
+                        "ExplanationOfBenefit.facility",
+                        "ExplanationOfBenefit.item-udi",
+                        "ExplanationOfBenefit.patient",
+                        "ExplanationOfBenefit.payee",
+                        "ExplanationOfBenefit.procedure-udi",
+                        "ExplanationOfBenefit.provider",
+                        "ExplanationOfBenefit.subdetail-udi"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -8100,6 +8438,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "FamilyMemberHistory.instantiates-canonical",
+                        "FamilyMemberHistory.patient"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -8231,6 +8573,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Flag.author",
+                        "Flag.encounter",
+                        "Flag.patient",
+                        "Flag.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -8344,6 +8692,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Goal.patient",
+                        "Goal.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -8630,6 +8982,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Group.managing-entity",
+                        "Group.member"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -8767,6 +9123,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "GuidanceResponse.patient",
+                        "GuidanceResponse.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -8868,6 +9228,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "HealthcareService.coverage-area",
+                        "HealthcareService.endpoint",
+                        "HealthcareService.location",
+                        "HealthcareService.organization"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -9017,6 +9383,16 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ImagingStudy.basedon",
+                        "ImagingStudy.encounter",
+                        "ImagingStudy.endpoint",
+                        "ImagingStudy.interpreter",
+                        "ImagingStudy.patient",
+                        "ImagingStudy.performer",
+                        "ImagingStudy.referrer",
+                        "ImagingStudy.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -9196,6 +9572,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Immunization.location",
+                        "Immunization.manufacturer",
+                        "Immunization.patient",
+                        "Immunization.performer",
+                        "Immunization.reaction",
+                        "Immunization.reason-reference"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -9369,6 +9753,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ImmunizationEvaluation.immunization-event",
+                        "ImmunizationEvaluation.patient"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -9488,6 +9876,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ImmunizationRecommendation.information",
+                        "ImmunizationRecommendation.patient",
+                        "ImmunizationRecommendation.support"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -9613,6 +10006,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ImplementationGuide.depends-on",
+                        "ImplementationGuide.global",
+                        "ImplementationGuide.resource"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -9798,6 +10196,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "InsurancePlan.administered-by",
+                        "InsurancePlan.endpoint",
+                        "InsurancePlan.owned-by"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -9959,6 +10362,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Invoice.account",
+                        "Invoice.issuer",
+                        "Invoice.participant",
+                        "Invoice.patient",
+                        "Invoice.recipient",
+                        "Invoice.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -10114,6 +10525,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Library.composed-of",
+                        "Library.depends-on",
+                        "Library.derived-from",
+                        "Library.predecessor",
+                        "Library.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -10335,6 +10753,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Linkage.author",
+                        "Linkage.item",
+                        "Linkage.source"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -10430,6 +10853,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "List.encounter",
+                        "List.item",
+                        "List.patient",
+                        "List.source",
+                        "List.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -10579,6 +11009,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Location.endpoint",
+                        "Location.organization",
+                        "Location.partof"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -10740,6 +11175,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Measure.composed-of",
+                        "Measure.depends-on",
+                        "Measure.derived-from",
+                        "Measure.predecessor",
+                        "Measure.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -10949,6 +11391,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MeasureReport.evaluated-resource",
+                        "MeasureReport.measure",
+                        "MeasureReport.patient",
+                        "MeasureReport.reporter",
+                        "MeasureReport.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -11080,6 +11529,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Media.based-on",
+                        "Media.device",
+                        "Media.encounter",
+                        "Media.operator",
+                        "Media.patient",
+                        "Media.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -11235,6 +11692,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Medication.ingredient",
+                        "Medication.manufacturer"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -11366,6 +11827,15 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicationAdministration.context",
+                        "MedicationAdministration.device",
+                        "MedicationAdministration.medication",
+                        "MedicationAdministration.patient",
+                        "MedicationAdministration.performer",
+                        "MedicationAdministration.request",
+                        "MedicationAdministration.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -11521,6 +11991,17 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicationDispense.context",
+                        "MedicationDispense.destination",
+                        "MedicationDispense.medication",
+                        "MedicationDispense.patient",
+                        "MedicationDispense.performer",
+                        "MedicationDispense.prescription",
+                        "MedicationDispense.receiver",
+                        "MedicationDispense.responsibleparty",
+                        "MedicationDispense.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -11688,6 +12169,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicationKnowledge.ingredient",
+                        "MedicationKnowledge.manufacturer",
+                        "MedicationKnowledge.monograph"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -11843,6 +12329,15 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicationRequest.encounter",
+                        "MedicationRequest.intended-dispenser",
+                        "MedicationRequest.intended-performer",
+                        "MedicationRequest.medication",
+                        "MedicationRequest.patient",
+                        "MedicationRequest.requester",
+                        "MedicationRequest.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -12016,6 +12511,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicationStatement.context",
+                        "MedicationStatement.medication",
+                        "MedicationStatement.part-of",
+                        "MedicationStatement.patient",
+                        "MedicationStatement.source",
+                        "MedicationStatement.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -12254,6 +12757,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicinalProductAuthorization.holder",
+                        "MedicinalProductAuthorization.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -12361,6 +12868,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicinalProductContraindication.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -12444,6 +12954,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicinalProductIndication.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -12568,6 +13081,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicinalProductInteraction.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -12692,6 +13208,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicinalProductPackaged.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -12876,6 +13395,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MedicinalProductUndesirableEffect.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -12959,6 +13481,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MessageDefinition.parent"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -13150,6 +13675,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "MolecularSequence.patient"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -13496,6 +14024,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "NutritionOrder.encounter",
+                        "NutritionOrder.instantiates-canonical",
+                        "NutritionOrder.patient",
+                        "NutritionOrder.provider"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -13645,6 +14179,19 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Observation.based-on",
+                        "Observation.derived-from",
+                        "Observation.device",
+                        "Observation.encounter",
+                        "Observation.focus",
+                        "Observation.has-member",
+                        "Observation.part-of",
+                        "Observation.patient",
+                        "Observation.performer",
+                        "Observation.specimen",
+                        "Observation.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -13991,6 +14538,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "OperationDefinition.base",
+                        "OperationDefinition.input-profile",
+                        "OperationDefinition.output-profile"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -14241,6 +14793,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Organization.endpoint",
+                        "Organization.partof"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -14396,6 +14952,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "OrganizationAffiliation.endpoint",
+                        "OrganizationAffiliation.location",
+                        "OrganizationAffiliation.network",
+                        "OrganizationAffiliation.participating-organization",
+                        "OrganizationAffiliation.primary-organization",
+                        "OrganizationAffiliation.service"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -14565,6 +15129,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Patient.general-practitioner",
+                        "Patient.link",
+                        "Patient.organization"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -14780,6 +15349,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "PaymentNotice.provider",
+                        "PaymentNotice.request",
+                        "PaymentNotice.response"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -14899,6 +15473,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "PaymentReconciliation.payment-issuer",
+                        "PaymentReconciliation.request",
+                        "PaymentReconciliation.requestor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -15024,6 +15603,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Person.link",
+                        "Person.organization",
+                        "Person.patient",
+                        "Person.practitioner",
+                        "Person.relatedperson"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -15215,6 +15801,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "PlanDefinition.composed-of",
+                        "PlanDefinition.definition",
+                        "PlanDefinition.depends-on",
+                        "PlanDefinition.derived-from",
+                        "PlanDefinition.predecessor",
+                        "PlanDefinition.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -15615,6 +16209,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "PractitionerRole.endpoint",
+                        "PractitionerRole.location",
+                        "PractitionerRole.organization",
+                        "PractitionerRole.practitioner",
+                        "PractitionerRole.service"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -15770,6 +16371,17 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Procedure.based-on",
+                        "Procedure.encounter",
+                        "Procedure.instantiates-canonical",
+                        "Procedure.location",
+                        "Procedure.part-of",
+                        "Procedure.patient",
+                        "Procedure.performer",
+                        "Procedure.reason-reference",
+                        "Procedure.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -15943,6 +16555,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Provenance.agent",
+                        "Provenance.entity",
+                        "Provenance.location",
+                        "Provenance.patient",
+                        "Provenance.target"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -16271,6 +16890,16 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "QuestionnaireResponse.author",
+                        "QuestionnaireResponse.based-on",
+                        "QuestionnaireResponse.encounter",
+                        "QuestionnaireResponse.part-of",
+                        "QuestionnaireResponse.patient",
+                        "QuestionnaireResponse.questionnaire",
+                        "QuestionnaireResponse.source",
+                        "QuestionnaireResponse.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -16414,6 +17043,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "RelatedPerson.patient"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -16593,6 +17225,14 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "RequestGroup.author",
+                        "RequestGroup.encounter",
+                        "RequestGroup.instantiates-canonical",
+                        "RequestGroup.participant",
+                        "RequestGroup.patient",
+                        "RequestGroup.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -16754,6 +17394,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ResearchDefinition.composed-of",
+                        "ResearchDefinition.depends-on",
+                        "ResearchDefinition.derived-from",
+                        "ResearchDefinition.predecessor",
+                        "ResearchDefinition.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -16963,6 +17610,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ResearchElementDefinition.composed-of",
+                        "ResearchElementDefinition.depends-on",
+                        "ResearchElementDefinition.derived-from",
+                        "ResearchElementDefinition.predecessor",
+                        "ResearchElementDefinition.successor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -17172,6 +17826,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ResearchStudy.partof",
+                        "ResearchStudy.principalinvestigator",
+                        "ResearchStudy.protocol",
+                        "ResearchStudy.site",
+                        "ResearchStudy.sponsor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -17327,6 +17988,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ResearchSubject.individual",
+                        "ResearchSubject.patient",
+                        "ResearchSubject.study"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -17440,6 +18106,13 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "RiskAssessment.condition",
+                        "RiskAssessment.encounter",
+                        "RiskAssessment.patient",
+                        "RiskAssessment.performer",
+                        "RiskAssessment.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -17750,6 +18423,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Schedule.actor"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -17869,6 +18545,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "SearchParameter.component",
+                        "SearchParameter.derived-from"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -18060,6 +18740,17 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "ServiceRequest.based-on",
+                        "ServiceRequest.encounter",
+                        "ServiceRequest.instantiates-canonical",
+                        "ServiceRequest.patient",
+                        "ServiceRequest.performer",
+                        "ServiceRequest.replaces",
+                        "ServiceRequest.requester",
+                        "ServiceRequest.specimen",
+                        "ServiceRequest.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -18263,6 +18954,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Slot.schedule"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -18388,6 +19082,12 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Specimen.collector",
+                        "Specimen.parent",
+                        "Specimen.patient",
+                        "Specimen.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -18632,6 +19332,10 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "StructureDefinition.base",
+                        "StructureDefinition.valueset"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -19145,6 +19849,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Substance.substance-reference"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -19558,6 +20265,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "SupplyDelivery.patient",
+                        "SupplyDelivery.receiver",
+                        "SupplyDelivery.supplier"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -19665,6 +20377,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "SupplyRequest.requester",
+                        "SupplyRequest.subject",
+                        "SupplyRequest.supplier"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -19784,6 +20501,16 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "Task.based-on",
+                        "Task.encounter",
+                        "Task.focus",
+                        "Task.owner",
+                        "Task.part-of",
+                        "Task.patient",
+                        "Task.requester",
+                        "Task.subject"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -20136,6 +20863,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "TestReport.testscript"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -20607,6 +21337,9 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "VerificationResult.target"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
@@ -20690,6 +21423,11 @@
                     "conditionalRead": "not-supported",
                     "conditionalUpdate": false,
                     "conditionalDelete": "not-supported",
+                    "searchInclude": [
+                        "VisionPrescription.encounter",
+                        "VisionPrescription.patient",
+                        "VisionPrescription.prescriber"
+                    ],
                     "searchParam": [
                         {
                             "name": "_id",
