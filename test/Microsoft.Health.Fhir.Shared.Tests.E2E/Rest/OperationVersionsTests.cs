@@ -13,7 +13,7 @@ using Microsoft.Net.Http.Headers;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class OperationVersionsTests : IClassFixture<HttpIntegrationTestFixture<Startup>>

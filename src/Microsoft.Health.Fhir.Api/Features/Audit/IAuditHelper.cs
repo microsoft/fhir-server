@@ -14,15 +14,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     public interface IAuditHelper
     {
         /// <summary>
-        /// Gets the audit event type from the <paramref name="controllerName"/> and <paramref name="actionName"/>.
-        /// </summary>
-        /// <param name="controllerName">The controller name.</param>
-        /// <param name="actionName">The action name.</param>
-        /// <returns>The audit event type if exists; <c>null</c> if anonymous access is allowed.</returns>
-        /// <exception cref="AuditException">Thrown when the audit event type could not be found.</exception>
-        string GetAuditEventType(string controllerName, string actionName);
-
-        /// <summary>
         /// Logs an audit entry for executing the <paramref name="controllerName"/> and <paramref name="actionName"/>.
         /// </summary>
         /// <param name="controllerName">The controller name.</param>

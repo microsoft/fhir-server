@@ -33,7 +33,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add<AuditHelper>()
                 .Singleton()
-                .AsService<IAuditHelper>()
+                .AsService<IAuditHelper>();
+
+            services.Add<AuditEventTypeMapping>()
+                .Singleton()
+                .AsService<IAuditEventTypeMapping>()
                 .AsService<IStartable>();
         }
     }
