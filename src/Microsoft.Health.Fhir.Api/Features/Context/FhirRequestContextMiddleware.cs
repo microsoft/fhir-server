@@ -9,8 +9,6 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -58,7 +56,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 method: request.Method,
                 uriString: uriInString,
                 baseUriString: baseUriInString,
-                requestType: new CodingInfo(AuditEventType.System, AuditEventType.RestFulOperationCode),
                 correlationId: correlationId,
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers,
