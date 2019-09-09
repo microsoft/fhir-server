@@ -18,17 +18,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
     public class FhirRequestContextMiddlewareTests
     {
         [Fact]
-        public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectRequestTypeShouldBeSet()
-        {
-            IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());
-
-            Assert.NotNull(fhirRequestContext.RequestType);
-
-            Assert.Equal(ValueSets.AuditEventType.System, fhirRequestContext.RequestType.System);
-            Assert.Equal(ValueSets.AuditEventType.RestFulOperationCode, fhirRequestContext.RequestType.Code);
-        }
-
-        [Fact]
         public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectUriShouldBeSet()
         {
             IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());

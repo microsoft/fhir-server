@@ -62,17 +62,23 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 {
                     apiNotification.Latency = timer.GetElapsedTime();
 
-                    apiNotification.Authentication = _fhirRequestContextAccessor.FhirRequestContext.Principal.Identity.AuthenticationType;
-                    apiNotification.FhirOperation = _fhirRequestContextAccessor.FhirRequestContext.RequestType.Code;
-                    apiNotification.Protocol = context.Request.Scheme;
-                    apiNotification.ResourceType = _fhirRequestContextAccessor.FhirRequestContext.ResourceType;
-                    apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
+                    IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-                    await _mediator.Publish(apiNotification, CancellationToken.None);
-
-                    if (_fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics != null)
+                    // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
+                    if (fhirRequestContext.AuditEventType != null)
                     {
-                        await _mediator.Publish(_fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics, CancellationToken.None);
+                        apiNotification.Authentication = fhirRequestContext.Principal.Identity.AuthenticationType;
+                        apiNotification.FhirOperation = fhirRequestContext.AuditEventType;
+                        apiNotification.Protocol = context.Request.Scheme;
+                        apiNotification.ResourceType = fhirRequestContext.ResourceType;
+                        apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
+
+                        await _mediator.Publish(apiNotification, CancellationToken.None);
+
+                        if (fhirRequestContext.StorageRequestMetrics != null)
+                        {
+                            await _mediator.Publish(fhirRequestContext.StorageRequestMetrics, CancellationToken.None);
+                        }
                     }
                 }
             }
