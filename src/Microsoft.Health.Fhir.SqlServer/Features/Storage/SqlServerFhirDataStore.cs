@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             case SqlErrorCodes.NotFound:
                                 throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             case SqlErrorCodes.PreconditionFailed:
-                                throw new ResourceConflictException(weakETag);
+                                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
                             default:
                                 _logger.LogError(e, "Error from SQL database on upsert");
                                 throw;
