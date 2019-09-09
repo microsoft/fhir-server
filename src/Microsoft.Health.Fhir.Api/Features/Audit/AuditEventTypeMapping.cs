@@ -18,6 +18,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     /// <summary>
     /// Provides the ability to lookup audit event type.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Normally, the MVC middleware handles the routing which maps the controller name and action name to a method within the controller.
+    /// </para>
+    /// <para>
+    /// The <see cref="AuditEventTypeAttribute"/> that contains the audit event type information is defined on the method so we need the method
+    /// in order to be able to retrieve the attribute. However, since authentication middleware runs before the MVC middleware, if the authentication
+    /// rejects the call for whatever reason, we will not be able to retrieve the attribute and therefore, will not be able to get the corresponding audit event type.
+    /// </para>
+    /// <para>
+    /// This class builds the mapping ahead of time so that we can lookup the audit event type any time during the pipeline given the controller name and action name.
+    /// </para>
+    /// </remarks>
     public class AuditEventTypeMapping : IAuditEventTypeMapping, IStartable
     {
         private readonly IActionDescriptorCollectionProvider _actionDescriptorCollectionProvider;

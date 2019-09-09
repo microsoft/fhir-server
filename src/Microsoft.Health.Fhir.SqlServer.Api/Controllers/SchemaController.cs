@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route(KnownRoutes.Versions)]
         public ActionResult AvailableVersions()
         {
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route(KnownRoutes.Current)]
         public ActionResult CurrentVersion()
         {
@@ -63,6 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route(KnownRoutes.Script, Name = RouteNames.Script)]
         public ActionResult SqlScript(int id)
         {
@@ -72,6 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route(KnownRoutes.Compatibility)]
         public ActionResult Compatibility()
         {
