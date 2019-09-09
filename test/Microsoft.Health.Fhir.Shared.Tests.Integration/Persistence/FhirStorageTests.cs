@@ -37,7 +37,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
-    public class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
+    public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly CapabilityStatement _conformance;
@@ -245,18 +245,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var allObservations = list.Select(x => ((Quantity)x.Result.Resource.Instance.ToPoco<Observation>().Value).Value.GetValueOrDefault()).Distinct();
             Assert.Equal(itemsToCreate, allObservations.Count());
-        }
-
-        [Fact]
-        public async Task GivenASavedResource_WhenUpsertingWithIncorrectVersionId_ThenAResourceConflictIsThrown()
-        {
-            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-
-            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = saveResult.Resource.Id;
-
-            await Assert.ThrowsAsync<ResourceConflictException>(async () =>
-                await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("incorrectVersion")));
         }
 
         [Fact]
