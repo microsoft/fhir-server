@@ -17,6 +17,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\StartupWithTraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\TraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BasicAuthTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
@@ -61,6 +62,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\TransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />

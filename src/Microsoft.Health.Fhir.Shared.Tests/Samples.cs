@@ -39,6 +39,16 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Organization");
         }
 
+        public static ResourceElement GetDefaultBatch()
+        {
+            return GetJsonSample("Bundle-Batch");
+        }
+
+        public static ResourceElement GetDefaultTransaction()
+        {
+            return GetJsonSample("Bundle-Transaction");
+        }
+
         /// <summary>
         /// Gets back a resource from a json sample file.
         /// </summary>

@@ -378,6 +378,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Searches across all resource types.
         /// </summary>
+        [HttpGet]
         [Route("", Name = RouteNames.SearchAllResources)]
         [AuditEventType(AuditEventSubType.SearchSystem)]
         [Authorize(PolicyNames.ReadPolicy)]
@@ -511,6 +512,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             VersionsResult response = await _mediator.GetOperationVersionsAsync(HttpContext.RequestAborted);
 
             return new OperationVersionsResult(response, HttpStatusCode.OK);
+        }
+
+        /// <summary>
+        /// Handles batch and transaction requests
+        /// </summary>
+        /// <param name="bundle">The bundle being posted</param>
+        [HttpPost]
+        [Route("", Name = RouteNames.PostBundle)]
+        [AuditEventType(AuditEventSubType.Batch)] // TODO: Our current auditing implementation only allows one audit event type attribute even though this action handles two.
+        [Authorize(PolicyNames.WritePolicy)]
+        public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
+        {
+            ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
+
+            return FhirResult.Create(bundleResponse);
         }
     }
 }
