@@ -32,14 +32,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.MethodNotAllowed, ex.StatusCode);
         }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingATransaction_GivenANonBundleResource_ThenBadRequestIsReturned()
-        {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PostBundleAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
-
-            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
-        }
     }
 }
