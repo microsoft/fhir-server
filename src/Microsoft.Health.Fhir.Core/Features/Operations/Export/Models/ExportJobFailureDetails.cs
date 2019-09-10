@@ -25,9 +25,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         }
 
         [JsonProperty(JobRecordProperties.FailureReason)]
-        public string FailureReason { get; }
+        public string FailureReason { get; private set; }
 
         [JsonProperty(JobRecordProperties.FailureStatusCode)]
-        public HttpStatusCode FailureStatusCode { get; }
+        public HttpStatusCode FailureStatusCode { get; private set; }
     }
 }
