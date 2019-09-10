@@ -43,6 +43,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders.Returns(_requestHeaders);
             _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Returns(_responseHeaders);
 
+            var cosmosStorageMetrics = new CosmosStorageRequestMetrics("test operation", "test resource");
+            _fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics.Returns(cosmosStorageMetrics);
+
             _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null);
         }
 

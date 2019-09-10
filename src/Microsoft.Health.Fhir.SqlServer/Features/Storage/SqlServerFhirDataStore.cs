@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
@@ -224,6 +225,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public void Build(IListedCapabilityStatement statement)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
+
+            statement.SupportsInclude = true;
 
             foreach (var resource in ModelInfoProvider.GetResourceTypeNames())
             {

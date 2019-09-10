@@ -39,6 +39,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public IList<string> Format { get; set; }
 
+        public bool SupportsInclude { get; set; }
+
         public IList<ListedRestComponent> Rest { get; set; }
 
         public IList<Code<PublicationStatus>> StatusElement { get; set; }

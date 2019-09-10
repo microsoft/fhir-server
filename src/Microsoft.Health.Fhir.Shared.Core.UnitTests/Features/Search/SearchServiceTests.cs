@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchOptionsFactory.Create(resourceType, _queryParameters).Returns(expectedSearchOptions);
 
-            var expectedSearchResult = new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            var expectedSearchResult = new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             _searchService.SearchImplementation = options =>
             {
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, _queryParameters).Returns(expectedSearchOptions);
 
-            var expectedSearchResult = new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            var expectedSearchResult = new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             _searchService.SearchImplementation = options =>
             {
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string resourceType = "Observation";
             const string resourceId = "abc";
 
-            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, CancellationToken.None));
         }
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var resourceWrapper =
                 new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
-            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
 

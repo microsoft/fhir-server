@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -21,14 +20,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         string CorrelationId { get; }
 
-        CodingInfo RequestType { get; }
-
         string RouteName { get; set; }
+
+        string AuditEventType { get; set; }
 
         ClaimsPrincipal Principal { get; set; }
 
         IDictionary<string, StringValues> RequestHeaders { get; }
 
         IDictionary<string, StringValues> ResponseHeaders { get; }
+
+        string ResourceType { get; }
+
+        IStorageRequestMetrics StorageRequestMetrics { get; set; }
     }
 }

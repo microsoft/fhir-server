@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -24,15 +23,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             string method,
             string uriString,
             string baseUriString,
-            CodingInfo requestType,
             string correlationId,
             IDictionary<string, StringValues> requestHeaders,
-            IDictionary<string, StringValues> responseHeaders)
+            IDictionary<string, StringValues> responseHeaders,
+            string resourceType)
         {
             EnsureArg.IsNotNullOrWhiteSpace(method, nameof(method));
             EnsureArg.IsNotNullOrWhiteSpace(uriString, nameof(uriString));
             EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
-            EnsureArg.IsNotNull(requestType, nameof(requestType));
             EnsureArg.IsNotNullOrWhiteSpace(correlationId, nameof(correlationId));
             EnsureArg.IsNotNull(responseHeaders, nameof(responseHeaders));
             EnsureArg.IsNotNull(requestHeaders, nameof(requestHeaders));
@@ -40,10 +38,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             Method = method;
             _uriString = uriString;
             _baseUriString = baseUriString;
-            RequestType = requestType;
             CorrelationId = correlationId;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
+            ResourceType = resourceType;
         }
 
         public string Method { get; }
@@ -54,14 +52,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public string CorrelationId { get; }
 
-        public CodingInfo RequestType { get; }
-
         public string RouteName { get; set; }
+
+        public string AuditEventType { get; set; }
 
         public ClaimsPrincipal Principal { get; set; }
 
         public IDictionary<string, StringValues> RequestHeaders { get; }
 
         public IDictionary<string, StringValues> ResponseHeaders { get; }
+
+        public string ResourceType { get; }
+
+        public IStorageRequestMetrics StorageRequestMetrics { get; set; }
     }
 }

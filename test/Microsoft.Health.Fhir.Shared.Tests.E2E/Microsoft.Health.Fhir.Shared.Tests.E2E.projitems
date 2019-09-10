@@ -31,6 +31,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture{TStartup}.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExceptionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\InProcTestFhirServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\MetadataTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\OperationVersionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
@@ -39,6 +41,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\QuantitySearchTestFixture.cs" />

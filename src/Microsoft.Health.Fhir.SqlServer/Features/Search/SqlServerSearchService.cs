@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
+        private readonly BitColumn _isMatch = new BitColumn("IsMatch");
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -108,7 +110,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(_stringOverflowRewriter)
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
+                                               .AcceptVisitor(IncludeDenormalizedRewriter.Instance)
                                                .AcceptVisitor(TopRewriter.Instance, searchOptions)
+                                               .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
@@ -137,28 +141,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             return new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
                         }
 
-                        var resources = new List<ResourceWrapper>(searchOptions.MaxItemCount);
+                        var resources = new List<SearchResultEntry>(searchOptions.MaxItemCount);
                         long? newContinuationId = null;
                         bool moreResults = false;
+                        int matchCount = 0;
 
                         while (await reader.ReadAsync(cancellationToken))
                         {
-                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, Stream rawResourceStream) = reader.ReadRow(
+                            (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, Stream rawResourceStream) = reader.ReadRow(
                                 V1.Resource.ResourceTypeId,
                                 V1.Resource.ResourceId,
                                 V1.Resource.Version,
                                 V1.Resource.IsDeleted,
                                 V1.Resource.ResourceSurrogateId,
                                 V1.Resource.RequestMethod,
+                                _isMatch,
                                 V1.Resource.RawResource);
 
-                            if (resources.Count == searchOptions.MaxItemCount)
+                            // If we get to this point, we know there are more results so we need a continuation token
+                            // Additionally, this resource shouldn't be included in the results
+                            if (matchCount >= searchOptions.MaxItemCount && isMatch)
                             {
                                 moreResults = true;
-                                break;
+                                continue;
                             }
 
-                            newContinuationId = resourceSurrogateId;
+                            // See if this resource is a continuation token candidate and increase the count
+                            if (isMatch)
+                            {
+                                newContinuationId = resourceSurrogateId;
+                                matchCount++;
+                            }
 
                             string rawResource;
 
@@ -169,17 +182,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 rawResource = await streamReader.ReadToEndAsync();
                             }
 
-                            resources.Add(new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                _model.GetResourceTypeName(resourceTypeId),
-                                new RawResource(rawResource, FhirResourceFormat.Json),
-                                new ResourceRequest(requestMethod),
-                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                                isDeleted,
-                                null,
-                                null,
-                                null));
+                            resources.Add(new SearchResultEntry(
+                                new ResourceWrapper(
+                                    resourceId,
+                                    version.ToString(CultureInfo.InvariantCulture),
+                                    _model.GetResourceTypeName(resourceTypeId),
+                                    new RawResource(rawResource, FhirResourceFormat.Json),
+                                    new ResourceRequest(requestMethod),
+                                    new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                                    isDeleted,
+                                    null,
+                                    null,
+                                    null),
+                                isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                         }
 
                         // call NextResultAsync to get the info messages

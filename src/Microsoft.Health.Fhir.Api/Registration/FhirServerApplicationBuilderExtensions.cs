@@ -16,6 +16,8 @@ namespace Microsoft.AspNetCore.Builder
 {
     public static class FhirServerApplicationBuilderExtensions
     {
+        public static readonly PathString HealthCheckPath = "/health/check";
+
         /// <summary>
         /// Adds FHIR server functionality to the pipeline.
         /// </summary>
@@ -25,7 +27,7 @@ namespace Microsoft.AspNetCore.Builder
         {
             EnsureArg.IsNotNull(app, nameof(app));
 
-            app.UseHealthChecks("/health/check", new HealthCheckOptions
+            app.UseHealthChecks(HealthCheckPath, new HealthCheckOptions
             {
                 ResponseWriter = async (httpContext, healthReport) =>
                 {

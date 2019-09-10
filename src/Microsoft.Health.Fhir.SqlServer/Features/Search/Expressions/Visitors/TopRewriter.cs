@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
             newNormalizedPredicates.AddRange(expression.TableExpressions);
+
             newNormalizedPredicates.Add(TopTableExpression);
 
             return new SqlRootExpression(newNormalizedPredicates, expression.DenormalizedExpressions);
