@@ -124,7 +124,7 @@
     <value>The "content-type" header is required.</value>
   </data>
   <data name="CustomAuditHeaderTooLarge" xml:space="preserve">
-    <value>The value of the header {0} is {1} and is too long so will not be added to the audit logs.  The maximum allowed size is {2}.  Please retry the request with a smaller value.</value>
+    <value>The size of the header {0} is {1}.  The maximum allowed size is {2}.  Please retry the request with a smaller value.</value>
   </data>
   <data name="Forbidden" xml:space="preserve">
     <value>Authorization failed.</value>
@@ -183,7 +183,7 @@
     <value>Toggle navigation</value>
   </data>
   <data name="TooManyCustomAuditHeaders" xml:space="preserve">
-    <value>A maximum of {0} custom audit headers allowed in the request.  {1} headers were detected.  Please retry the request with fewer cutom headers.</value>
+    <value>A maximum of {0} custom audit headers allowed in the request.  {1} headers were detected.  Please retry the request with fewer custom headers.</value>
   </data>
   <data name="UnableToObtainOpenIdConfiguration" xml:space="preserve">
     <value>Unable to obtain OpenID configuration.</value>
