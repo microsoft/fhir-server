@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource);
+            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource, createdResource.Meta.VersionId);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
 
