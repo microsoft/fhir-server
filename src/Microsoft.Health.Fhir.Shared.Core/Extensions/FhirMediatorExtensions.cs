@@ -11,6 +11,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -128,6 +129,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             var response = await mediator.Send(new GetOperationVersionsRequest(), cancellationToken);
 
             return new VersionsResult(response.SupportedVersions, response.DefaultVersion);
+        }
+
+        public static async Task<ResourceElement> PostBundle(this IMediator mediator, ResourceElement bundle, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(bundle, nameof(bundle));
+
+            BundleResponse result = await mediator.Send<BundleResponse>(new BundleRequest(bundle), cancellationToken);
+
+            return result.Bundle;
         }
     }
 }

@@ -123,6 +123,10 @@
   <data name="AuthorizationPermissionDefinitionInvalid" xml:space="preserve">
     <value>The authorization permission definition contains one or more invalid entries.</value>
   </data>
+  <data name="BundleRequiredForBatchOrTransaction" xml:space="preserve">
+    <value>Only a bundle can be submitted for batch or transaction processing.</value>
+    <comment>Bundle is a FHIR resource type.</comment>
+  </data>
   <data name="CapabilityStatementSingleRestItem" xml:space="preserve">
     <value>CapabilityStatement must have only a single item in the 'Rest' collection.</value>
   </data>

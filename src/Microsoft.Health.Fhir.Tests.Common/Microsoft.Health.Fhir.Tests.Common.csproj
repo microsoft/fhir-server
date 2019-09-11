@@ -54,6 +54,8 @@
     <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\R4\BloodGlucose.json" />
     <None Remove="TestFiles\R4\BloodPressure.json" />
+    <None Remove="TestFiles\R4\Bundle-Batch.json" />
+    <None Remove="TestFiles\R4\Bundle-Transaction.json" />
     <None Remove="TestFiles\R4\Condition-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\Device-d1.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-002.json" />
@@ -85,6 +87,8 @@
     <None Remove="TestFiles\R4\Weight.json" />
     <None Remove="TestFiles\R4\WeightInGrams.json" />
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
+    <None Remove="TestFiles\Stu3\Bundle-Batch.json" />
+    <None Remove="TestFiles\Stu3\Bundle-Transaction.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-002.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-003.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example.json" />
@@ -115,6 +119,8 @@
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R4\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\R4\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-Batch.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-Transaction.json" />
     <EmbeddedResource Include="TestFiles\R4\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-002.json" />
@@ -149,6 +155,8 @@
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-Batch.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-Transaction.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DeviceComponent-For-Device-d1.json" />

@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Only a bundle can be submitted for batch or transaction processing..
+        /// </summary>
+        internal static string BundleRequiredForBatchOrTransaction {
+            get {
+                return ResourceManager.GetString("BundleRequiredForBatchOrTransaction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to CapabilityStatement must have only a single item in the &apos;Rest&apos; collection..
         /// </summary>
         internal static string CapabilityStatementSingleRestItem {

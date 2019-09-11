@@ -283,6 +283,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return contentLocation.First();
         }
 
+        public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle)
+        {
+            var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
+            {
+                Content = CreateStringContent(bundle),
+            };
+
+            message.Headers.Accept.Add(_mediaType);
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<Bundle>(response);
+        }
+
         private StringContent CreateStringContent(Resource resource)
         {
             return new StringContent(_serialize(resource, SummaryType.False), Encoding.UTF8, _contentType);
