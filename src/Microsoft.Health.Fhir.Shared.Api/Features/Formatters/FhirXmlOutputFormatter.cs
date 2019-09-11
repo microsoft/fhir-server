@@ -5,12 +5,10 @@
 
 using System;
 using System.IO;
-using System.Net;
 using System.Text;
 using System.Xml;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -62,10 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     writer.Formatting = Formatting.Indented;
                 }
 
-                _fhirXmlSerializer.Serialize(
-                    (Resource)context.Object,
-                    writer,
-                    (context.HttpContext.Response.StatusCode == (int)HttpStatusCode.OK) ? context.HttpContext.GetSummaryType(_logger) : SummaryType.False);
+                _fhirXmlSerializer.Serialize((Resource)context.Object, writer, context.HttpContext.GetSummaryType(_logger));
             }
 
             return Task.CompletedTask;

@@ -45,12 +45,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         }
 
         [Fact]
-        public void GivenARequestWithUnknownSummaryType_WhenSerializingTheResponse_ThenFalseIsReturned()
+        public void GivenARequestWithUnknownSummaryType_WhenSerializingTheResponse_ThenExceptionIsThrown()
         {
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_summary", "abc");
 
             Assert.Throws<ArgumentException>(() => context.GetSummaryType(_logger));
+        }
+
+        [Theory]
+        [InlineData(500)]
+        [InlineData(400)]
+        [InlineData(202)]
+        public void GivenARequestWithNon200Response_WhenSerializingTheResponse_ThenFalseIsReturned(int statusCode)
+        {
+            var context = new DefaultHttpContext();
+            context.Response.StatusCode = statusCode;
+
+            Assert.Equal(SummaryType.False, context.GetSummaryType(_logger));
         }
 
         [Fact]

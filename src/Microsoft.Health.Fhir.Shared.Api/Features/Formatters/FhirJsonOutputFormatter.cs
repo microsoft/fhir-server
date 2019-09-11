@@ -6,11 +6,9 @@
 using System;
 using System.Buffers;
 using System.IO;
-using System.Net;
 using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -72,10 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     jsonWriter.Formatting = Formatting.Indented;
                 }
 
-                _fhirJsonSerializer.Serialize(
-                    (Resource)context.Object,
-                    jsonWriter,
-                    (context.HttpContext.Response.StatusCode == (int)HttpStatusCode.OK) ? context.HttpContext.GetSummaryType(_logger) : SummaryType.False);
+                _fhirJsonSerializer.Serialize((Resource)context.Object, jsonWriter, context.HttpContext.GetSummaryType(_logger));
                 await jsonWriter.FlushAsync();
             }
         }

@@ -95,6 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // Parse the search parameters.
                     try
                     {
+                        // Basic format checking (e.g. integer value for _count key etc.).
                         searchParams.Add(query.Item1, query.Item2);
                     }
                     catch (Exception ex)
