@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                         if (weakETag != null)
                         {
-                            throw new ResourceConflictException(weakETag);
+                            throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                         }
                         else if (!allowCreate)
                         {
