@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using System.Net;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             var query = context.Request.Query[SearchParams.SEARCH_PARAM_SUMMARY].FirstOrDefault();
 
-            if (!string.IsNullOrWhiteSpace(query))
+            if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
             {
                 try
                 {
