@@ -202,6 +202,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task WhenUpsertingWithCreateEnabledAndInvalidETagHeader_GivenANonexistentResourceAndCosmosDb_ThenResourceNotFoundIsThrown()
+        {
+            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            observation.UpdateCreate = true;
+            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
+        }
+
+        [Fact]
         public async Task GivenASavedResource_WhenUpsertingWithNoETagHeader_ThenTheExistingResourceIsUpdated()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));

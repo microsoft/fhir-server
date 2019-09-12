@@ -40,17 +40,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task WhenUpsertingANonexistentResourceWithInvalidETagHeader_GivenR4ServerAndCosmosDb_ThenResourceNotFoundIsThrown()
-        {
-            Resource newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = Guid.NewGuid().ToString();
-
-            await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
-                await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("incorrectVersion")));
-        }
-
-        [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task WhenUpsertingANonexistentResourceWithInvalidETagHeader_GivenR4ServerAndSqlServer_ThenPreconditionFailedIsThrown()
         {
