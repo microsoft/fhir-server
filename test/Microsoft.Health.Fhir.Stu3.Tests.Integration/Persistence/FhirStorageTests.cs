@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         [Fact]
-        public async Task WhenUpsertingASavedResourceWithInvalidVersionId_GivenStu3Server_ThenAResourceConflictIsThrown()
+        public async Task WhenUpsertingASavedResourceWithInvalidETagHeader_GivenStu3Server_ThenAResourceConflictIsThrown()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task WhenUpsertingANonexistentResourceWithCreateDisabledAndInvalidVersionId_GivenStu3ServerAndSqlServer_ThenAResourceConflictIsThrown()
+        public async Task WhenUpsertingANonexistentResourceWithCreateDisabledAndInvalidETagHeader_GivenStu3ServerAndSqlServer_ThenAResourceConflictIsThrown()
         {
             var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
             observation.UpdateCreate = false;
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task WhenUpsertingANonexistentResourceWithInvalidVersionId_GivenStu3ServerAndCosmosDb_ThenResourceNotFoundIsThrown()
+        public async Task WhenUpsertingANonexistentResourceWithInvalidETagHeader_GivenStu3ServerAndCosmosDb_ThenResourceNotFoundIsThrown()
         {
             Resource newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
             newResourceValues.Id = Guid.NewGuid().ToString();
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task WhenUpsertingANonexistentResourceWithInvalidVersionId_GivenStu3ServerAndSqlServer_ThenAResourceConflictIsThrown()
+        public async Task WhenUpsertingANonexistentResourceWithInvalidETagHeader_GivenStu3ServerAndSqlServer_ThenAResourceConflictIsThrown()
         {
             Resource newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
             newResourceValues.Id = Guid.NewGuid().ToString();

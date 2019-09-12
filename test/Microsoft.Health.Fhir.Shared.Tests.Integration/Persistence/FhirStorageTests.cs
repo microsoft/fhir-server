@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task WhenUpsertingWithCreateDisabledAndInvalidVersionId_GivenANonexistentResourceAndCosmosDb_ThenAResourceNotFoundIsThrown()
+        public async Task WhenUpsertingWithCreateDisabledAndInvalidETagHeader_GivenANonexistentResourceAndCosmosDb_ThenAResourceNotFoundIsThrown()
         {
             var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
             observation.UpdateCreate = false;
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASavedResource_WhenUpsertingWithNoVersionId_ThenTheExistingResourceIsUpdated()
+        public async Task GivenASavedResource_WhenUpsertingWithNoETagHeader_ThenTheExistingResourceIsUpdated()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASavedResource_WhenConcurrentlyUpsertingWithNoVersionId_ThenTheExistingResourceIsUpdated()
+        public async Task GivenASavedResource_WhenConcurrentlyUpsertingWithNoETagHeader_ThenTheExistingResourceIsUpdated()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 

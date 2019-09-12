@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         [Fact]
-        public async Task WhenUpsertingASavedResourceWithInvalidVersionId_GivenR4Server_ThenPreconditionFailedIsThrown()
+        public async Task WhenUpsertingASavedResourceWithInvalidETagHeader_GivenR4Server_ThenPreconditionFailedIsThrown()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task WhenUpsertingANonexistentResourceWithCreateDisabledAndInvalidVersionId_GivenR4ServerAndSqlServer_ThenPreconditionFailedIsThrown()
+        public async Task WhenUpsertingANonexistentResourceWithCreateDisabledAndInvalidETagHeader_GivenR4ServerAndSqlServer_ThenPreconditionFailedIsThrown()
         {
             var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
             observation.UpdateCreate = false;
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task WhenUpsertingANonexistentResourceWithInvalidVersionId_GivenR4ServerAndCosmosDb_ThenResourceNotFoundIsThrown()
+        public async Task WhenUpsertingANonexistentResourceWithInvalidETagHeader_GivenR4ServerAndCosmosDb_ThenResourceNotFoundIsThrown()
         {
             Resource newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
             newResourceValues.Id = Guid.NewGuid().ToString();
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task WhenUpsertingANonexistentResourceWithInvalidVersionId_GivenR4ServerAndSqlServer_ThenPreconditionFailedIsThrown()
+        public async Task WhenUpsertingANonexistentResourceWithInvalidETagHeader_GivenR4ServerAndSqlServer_ThenPreconditionFailedIsThrown()
         {
             Resource newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
             newResourceValues.Id = Guid.NewGuid().ToString();
