@@ -120,14 +120,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         switch (e.Number)
                         {
-                            case SqlErrorCodes.NotFound:
-                                throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId));
                             case SqlErrorCodes.PreconditionFailed:
                                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                            case SqlErrorCodes.NotFound:
+                                if (weakETag != null)
+                                {
+                                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                                }
+
+                                if (!allowCreate)
+                                {
+                                    throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                                }
+
+                                break;
                             default:
                                 _logger.LogError(e, "Error from SQL database on upsert");
                                 throw;
                         }
+
+                        _logger.LogError(e, "Unhandled Document Client Exception");
+
+                        throw;
                     }
                 }
             }
