@@ -147,13 +147,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("1")]
         [InlineData("-1")]
         [InlineData("0")]
-        public async Task WhenUpsertingWithIntegerETagHeader_GivenAResourceThatDoesNotExist_TheServerShouldReturnResourceNotFoundResponse(string versionId)
+        public async Task WhenUpsertingWithCreateEnabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
-            Resource newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = Guid.NewGuid().ToString();
+            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            observation.UpdateCreate = true;
+            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
-                await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(versionId)));
+                await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
+        }
+
+        [Theory]
+        [InlineData("1")]
+        [InlineData("-1")]
+        [InlineData("0")]
+        public async Task WhenUpsertingWithCreateDisabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
+        {
+            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            observation.UpdateCreate = false;
+            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
+                await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
         }
 
         [Fact]
