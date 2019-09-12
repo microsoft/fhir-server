@@ -143,6 +143,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(saveResult.Resource.Id, updateResult.Resource.Id);
         }
 
+        [Theory]
+        [InlineData("1")]
+        [InlineData("-1")]
+        [InlineData("0")]
+        public async Task WhenUpsertingWithIntegerETagHeader_GivenAResourceThatDoesNotExist_TheServerShouldReturnResourceNotFoundResponse(string versionId)
+        {
+            Resource newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
+            newResourceValues.Id = Guid.NewGuid().ToString();
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
+                await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(versionId)));
+        }
+
         [Fact]
         public async Task GivenAResource_WhenUpsertingDifferentTypeWithTheSameId_ThenTheExistingResourceIsNotOverridden()
         {
