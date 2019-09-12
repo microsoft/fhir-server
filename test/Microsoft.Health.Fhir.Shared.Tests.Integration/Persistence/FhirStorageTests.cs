@@ -446,6 +446,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), false); });
         }
 
+        [Fact]
+        public async Task WhenUpsertingWithValidETagHeader_GivenADeletedResource_ThenTheDeletedResourceIsRevived()
+        {
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), false);
+
+            Assert.NotEqual(saveResult.Resource.VersionId, deletedResourceKey.ResourceKey.VersionId);
+            await Assert.ThrowsAsync<ResourceGoneException>(
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
+
+            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
+            newResourceValues.Id = saveResult.Resource.Id;
+
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), deletedResourceKey.WeakETag);
+
+            Assert.NotNull(updateResult);
+            Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
+
+            Assert.NotNull(updateResult.Resource);
+            Assert.Equal(saveResult.Resource.Id, updateResult.Resource.Id);
+        }
+
         private async Task ExecuteAndVerifyException<TException>(Func<Task> action)
             where TException : Exception
         {
