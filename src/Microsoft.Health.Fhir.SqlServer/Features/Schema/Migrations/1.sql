@@ -1383,6 +1383,11 @@ AS
     IF (@previousResourceSurrogateId IS NULL) BEGIN
         -- There is no previous version of this resource
 
+        IF (@etag IS NOT NULL) BEGIN
+        -- You can't update a resource with a specified version if the resource does not exist
+            THROW 50404, 'Resource with specified version not found', 1;
+        END
+
         IF (@isDeleted = 1) BEGIN
             -- Don't bother marking the resource as deleted since it already does not exist.
             COMMIT TRANSACTION
