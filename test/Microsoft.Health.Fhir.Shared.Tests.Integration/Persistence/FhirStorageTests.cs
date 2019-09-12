@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenANewResource_WhenUpsertingWithCreateDisabled_ThenAMethodNotAllowedExceptionIsThrown()
+        public async Task WhenUpsertingWithCreateDisabled_GivenANonexistentResource_ThenAMethodNotAllowedExceptionIsThrown()
         {
             var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
             observation.UpdateCreate = false;
@@ -192,21 +192,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenANewResource_WhenUpsertingWithCreateEnabledAndJunkEtag_ThenAMethodNotAllowedExceptionIsThrown()
-        {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = true;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
-            await Assert.ThrowsAsync<ResourceConflictException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("junk")));
-        }
-
-        [Fact]
-        public async Task GivenANewResource_WhenUpsertingWithCreateDisabledAndJunkEtag_ThenAMethodNotAllowedExceptionIsThrown()
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task WhenUpsertingWithCreateDisabledAndInvalidVersionId_GivenANonexistentResourceAndCosmosDb_ThenAResourceNotFoundIsThrown()
         {
             var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
             observation.UpdateCreate = false;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
-            await Assert.ThrowsAsync<ResourceConflictException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("junk")));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
         [Fact]

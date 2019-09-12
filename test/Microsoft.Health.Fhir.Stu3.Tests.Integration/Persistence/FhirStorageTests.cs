@@ -26,7 +26,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             newResourceValues.Id = saveResult.Resource.Id;
 
             await Assert.ThrowsAsync<ResourceConflictException>(async () =>
-                await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("incorrectVersion")));
+                await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("invalidVersion")));
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task WhenUpsertingANonexistentResourceWithCreateDisabledAndInvalidVersionId_GivenStu3ServerAndSqlServer_ThenAResourceConflictIsThrown()
+        {
+            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            observation.UpdateCreate = false;
+            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            await Assert.ThrowsAsync<ResourceConflictException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
         [Fact]
