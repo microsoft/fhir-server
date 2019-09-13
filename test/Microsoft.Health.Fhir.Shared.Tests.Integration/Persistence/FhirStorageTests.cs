@@ -149,9 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("0")]
         public async Task WhenUpsertingWithCreateEnabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = true;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            SetAllowCreate(true);
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
                 await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
@@ -163,9 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("0")]
         public async Task WhenUpsertingWithCreateDisabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = false;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            SetAllowCreate(false);
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
                 await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
@@ -198,9 +194,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task WhenUpsertingWithCreateDisabled_GivenANonexistentResource_ThenAMethodNotAllowedExceptionIsThrown()
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = false;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            SetAllowCreate(false);
             var ex = await Assert.ThrowsAsync<MethodNotAllowedException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight")));
 
             Assert.Equal(Resources.ResourceCreationNotAllowed, ex.Message);
@@ -210,9 +204,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task WhenUpsertingWithCreateDisabledAndInvalidETagHeader_GivenANonexistentResourceAndCosmosDb_ThenAResourceNotFoundIsThrown()
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = false;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            SetAllowCreate(false);
+
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
@@ -220,9 +213,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task WhenUpsertingWithCreateEnabledAndInvalidETagHeader_GivenANonexistentResourceAndCosmosDb_ThenResourceNotFoundIsThrown()
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = true;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            SetAllowCreate(true);
+
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
@@ -472,6 +464,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             where TException : Exception
         {
             await Assert.ThrowsAsync<TException>(action);
+        }
+
+        private void SetAllowCreate(bool allowCreate)
+        {
+            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            observation.UpdateCreate = allowCreate;
+            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
         }
     }
 }

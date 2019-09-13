@@ -32,9 +32,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task WhenUpsertingANonexistentResourceWithCreateDisabledAndInvalidETagHeader_GivenStu3ServerAndSqlServer_ThenAResourceConflictIsThrown()
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = false;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            SetAllowCreate(false);
+
             await Assert.ThrowsAsync<ResourceConflictException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 

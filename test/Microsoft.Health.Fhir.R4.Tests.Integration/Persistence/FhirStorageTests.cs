@@ -33,9 +33,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task WhenUpsertingANonexistentResourceWithCreateDisabledAndInvalidETagHeader_GivenR4ServerAndSqlServer_ThenPreconditionFailedIsThrown()
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = false;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            SetAllowCreate(false);
+
             await Assert.ThrowsAsync<PreconditionFailedException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
