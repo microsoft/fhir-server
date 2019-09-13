@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 throw;
                         }
 
-                        _logger.LogError(e, "Unhandled Document Client Exception");
+                        _logger.LogError(e, "Unhandled SQL Exception");
 
                         throw;
                     }
