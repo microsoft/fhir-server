@@ -1395,7 +1395,7 @@ AS
         END
 
         IF (@allowCreate = 0) BEGIN
-            THROW 50404, 'Resource does not exist and create is not allowed', 1;
+            THROW 50405, 'Resource does not exist and create is not allowed', 1;
         END
 
         SET @version = 1
