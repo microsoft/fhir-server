@@ -263,8 +263,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             void AddIssue(string format, params object[] args)
             {
                 issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Fatal,
-                    OperationOutcomeConstants.IssueType.Invalid,
+                    ValueSets.IssueSeverity.Fatal,
+                    ValueSets.IssueType.Invalid,
                     string.Format(CultureInfo.InvariantCulture, format, args)));
             }
 

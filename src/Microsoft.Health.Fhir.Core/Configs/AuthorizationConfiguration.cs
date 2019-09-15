@@ -8,6 +8,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -28,8 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 foreach (var validationError in role.Validate(new ValidationContext(role)))
                 {
                     issues.Add(new OperationOutcomeIssue(
-                        OperationOutcomeConstants.IssueSeverity.Fatal,
-                        OperationOutcomeConstants.IssueType.Invalid,
+                        IssueSeverity.Fatal,
+                        IssueType.Invalid,
                         validationError.ErrorMessage));
                 }
             }

@@ -5,6 +5,7 @@
 
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
 {
@@ -14,8 +15,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
             : base(string.Format(Resources.UnsupportedDestinationTypeMessage, destinationType))
         {
             Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.NotFound,
+                IssueSeverity.Error,
+                IssueType.NotFound,
                 Message));
         }
     }

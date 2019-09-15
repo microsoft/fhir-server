@@ -8,6 +8,7 @@ using EnsureThat;
 using FluentValidation.Results;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
@@ -39,9 +40,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 else
                 {
                     Issues.Add(new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Error,
-                            OperationOutcomeConstants.IssueType.Invalid,
-                            failure.ErrorMessage));
+                        IssueSeverity.Error,
+                        IssueType.Invalid,
+                        failure.ErrorMessage));
                 }
             }
         }

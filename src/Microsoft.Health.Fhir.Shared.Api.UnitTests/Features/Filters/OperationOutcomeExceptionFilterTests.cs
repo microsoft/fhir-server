@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
@@ -95,8 +96,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             var operation = ValidateOperationOutcome(
                 Substitute.For<FhirException>(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Invalid,
+                    IssueSeverity.Error,
+                    IssueType.Invalid,
                     reason)),
                 HttpStatusCode.BadRequest).Result;
 

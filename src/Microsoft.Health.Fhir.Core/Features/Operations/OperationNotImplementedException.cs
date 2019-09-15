@@ -6,6 +6,7 @@
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
@@ -17,8 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
 
             Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.NotSupported,
+                IssueSeverity.Error,
+                IssueType.NotSupported,
                 message));
         }
     }

@@ -11,6 +11,7 @@ using FluentValidation.Validators;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
@@ -71,8 +72,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     fullFhirPath,
                     error,
                     new OperationOutcomeIssue(
-                        OperationOutcomeConstants.IssueSeverity.Error,
-                        OperationOutcomeConstants.IssueType.Structure,
+                        IssueSeverity.Error,
+                        IssueType.Structure,
                         error,
                         location: new[] { fullFhirPath }));
             }

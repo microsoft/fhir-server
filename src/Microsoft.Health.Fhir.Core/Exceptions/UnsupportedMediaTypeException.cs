@@ -5,6 +5,7 @@
 
 using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
@@ -16,9 +17,9 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
 
             Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.NotSupported,
-                    message));
+                IssueSeverity.Error,
+                IssueType.NotSupported,
+                message));
         }
     }
 }

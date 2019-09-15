@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -23,8 +24,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 var validationErrors = context.ModelState
                     .SelectMany(x => x.Value.Errors.Select(error => new OperationOutcomeIssue(
-                        OperationOutcomeConstants.IssueSeverity.Error,
-                        OperationOutcomeConstants.IssueType.Invalid,
+                        IssueSeverity.Error,
+                        IssueType.Invalid,
                         $"{QuoteField(x.Key)}{error.ErrorMessage}"))).ToArray();
 
                 throw new ResourceNotValidException(validationErrors);

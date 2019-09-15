@@ -8,6 +8,7 @@ using System.Diagnostics;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -55,8 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private void AddIssue(string diagnostics)
         {
             Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.Forbidden,
+                IssueSeverity.Error,
+                IssueType.Forbidden,
                 diagnostics));
         }
     }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
@@ -12,9 +13,9 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
         public OpenIdConfigurationException()
         {
             Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Security,
-                    Resources.OpenIdConfiguration));
+                IssueSeverity.Error,
+                IssueType.Security,
+                Resources.OpenIdConfiguration));
         }
     }
 }

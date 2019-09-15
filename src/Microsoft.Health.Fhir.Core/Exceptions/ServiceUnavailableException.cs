@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
@@ -13,9 +14,9 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
             : base(Resources.ServiceUnavailable)
         {
             Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Processing,
-                    Resources.ServiceUnavailable));
+                IssueSeverity.Error,
+                IssueType.Processing,
+                Resources.ServiceUnavailable));
         }
     }
 }

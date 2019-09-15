@@ -7,6 +7,7 @@ using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features
 {
@@ -33,9 +34,9 @@ namespace Microsoft.Health.Fhir.Core.Features
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
             Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Forbidden,
-                    string.Format(Core.Resources.ResourceNotSupported, resourceType)));
+                IssueSeverity.Error,
+                IssueType.Forbidden,
+                string.Format(Core.Resources.ResourceNotSupported, resourceType)));
         }
     }
 }

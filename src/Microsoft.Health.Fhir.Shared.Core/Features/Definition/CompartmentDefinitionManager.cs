@@ -14,6 +14,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
 using static Hl7.Fhir.Model.Bundle;
 using static Hl7.Fhir.Model.CompartmentDefinition;
@@ -145,8 +146,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             void AddIssue(string format, params object[] args)
             {
                 issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Fatal,
-                    OperationOutcomeConstants.IssueType.Invalid,
+                    IssueSeverity.Fatal,
+                    IssueType.Invalid,
                     string.Format(CultureInfo.InvariantCulture, format, args)));
             }
         }

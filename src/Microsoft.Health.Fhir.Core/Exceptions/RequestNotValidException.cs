@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
@@ -16,8 +17,8 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
             EnsureArg.IsNotNull(message, nameof(message));
 
             Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.Invalid,
+                IssueSeverity.Error,
+                IssueType.Invalid,
                 message));
         }
     }

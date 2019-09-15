@@ -6,6 +6,7 @@
 using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -16,9 +17,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Debug.Assert(etag != null, "ETag should not be null");
 
             Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Conflict,
-                    string.Format(Core.Resources.ResourceVersionConflict, etag?.VersionId)));
+                IssueSeverity.Error,
+                IssueType.Conflict,
+                string.Format(Core.Resources.ResourceVersionConflict, etag?.VersionId)));
         }
     }
 }

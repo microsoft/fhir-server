@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (strictConfig && issues.Any())
             {
-                throw new UnsupportedConfigurationException(Core.Resources.UnsupportedConfigurationMessage, issues.Select(i => new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, i)).ToArray());
+                throw new UnsupportedConfigurationException(Core.Resources.UnsupportedConfigurationMessage, issues.Select(i => new OperationOutcomeIssue(ValueSets.IssueSeverity.Error, ValueSets.IssueType.Exception, i)).ToArray());
             }
 
             return intersecting;

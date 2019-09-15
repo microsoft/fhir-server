@@ -6,6 +6,7 @@
 using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -23,8 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             Debug.Assert(!string.IsNullOrWhiteSpace(message), $"{nameof(message)} should not be null or whitespace.");
 
             Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.Forbidden,
+                IssueSeverity.Error,
+                IssueType.Forbidden,
                 message));
         }
     }

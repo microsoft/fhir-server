@@ -5,6 +5,7 @@
 
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -13,9 +14,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public BadRequestException(string errorMessage)
         {
             Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Invalid,
-                    errorMessage));
+                IssueSeverity.Error,
+                IssueType.Invalid,
+                errorMessage));
         }
     }
 }

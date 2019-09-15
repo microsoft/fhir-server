@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
 
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest>(validators);
             var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
 
-            var operationOutcomeIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, "Id was Invalid");
+            var operationOutcomeIssue = new OperationOutcomeIssue(IssueSeverity.Error, IssueType.Invalid, "Id was Invalid");
 
             var validationError = Task.FromResult(new ValidationResult(new[] { new FhirValidationFailure("Id", operationOutcomeIssue.Diagnostics, operationOutcomeIssue) }));
 
