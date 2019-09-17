@@ -128,17 +128,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                     throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                                 }
 
-                                break;
+                                goto default;
                             case SqlErrorCodes.MethodNotAllowed:
                                 throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             default:
                                 _logger.LogError(e, "Error from SQL database on upsert");
                                 throw;
                         }
-
-                        _logger.LogError(e, "Unhandled SQL Exception");
-
-                        throw;
                     }
                 }
             }
