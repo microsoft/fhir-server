@@ -342,9 +342,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     var approximateModifier = Math.Abs(number * Convert.ToDecimal(ApproximateMultiplier));
                     lowerBound -= approximateModifier;
                     upperBound += approximateModifier;
-                    return Expression.And(
-                        Expression.GreaterThanOrEqual(fieldName, _componentIndex, lowerBound),
-                        Expression.LessThanOrEqual(fieldName, _componentIndex, upperBound));
+                    goto case SearchComparator.Eq;
                 case SearchComparator.Eq:
                     return Expression.And(
                         Expression.GreaterThanOrEqual(fieldName, _componentIndex, lowerBound),
