@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             int etag = 0;
             if (weakETag != null && !int.TryParse(weakETag.VersionId, out etag))
             {
-                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                etag = -1;
             }
 
             var resourceMetadata = new ResourceMetadata(

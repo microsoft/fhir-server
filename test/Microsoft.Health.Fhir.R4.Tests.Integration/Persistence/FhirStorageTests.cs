@@ -28,25 +28,5 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Assert.ThrowsAsync<PreconditionFailedException>(async () =>
                 await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("invalidVersion")));
         }
-
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task WhenUpsertingANonexistentResourceWithCreateDisabledAndInvalidETagHeader_GivenR4ServerAndSqlServer_ThenPreconditionFailedIsThrown()
-        {
-            SetAllowCreate(false);
-
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
-        }
-
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task WhenUpsertingANonexistentResourceWithInvalidETagHeader_GivenR4ServerAndSqlServer_ThenPreconditionFailedIsThrown()
-        {
-            Resource newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = Guid.NewGuid().ToString();
-
-            await Assert.ThrowsAsync<PreconditionFailedException>(async () =>
-                await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("incorrectVersion")));
-        }
     }
 }

@@ -147,6 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("1")]
         [InlineData("-1")]
         [InlineData("0")]
+        [InlineData("InvalidVersion")]
         public async Task WhenUpsertingWithCreateEnabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
             SetAllowCreate(true);
@@ -159,6 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("1")]
         [InlineData("-1")]
         [InlineData("0")]
+        [InlineData("InvalidVersion")]
         public async Task WhenUpsertingWithCreateDisabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
             SetAllowCreate(false);
