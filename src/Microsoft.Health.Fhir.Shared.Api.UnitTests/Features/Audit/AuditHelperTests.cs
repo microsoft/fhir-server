@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _claimsExtractor.Extract().Returns(Claims);
 
-            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditEventTypeMapping, _auditLogger, NullLogger<AuditHelper>.Instance);
+            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditEventTypeMapping, _auditLogger, NullLogger<AuditHelper>.Instance, _auditHeaderReader);
         }
 
         [Fact]

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using NSubstitute;
 using Xunit;
 
@@ -153,6 +154,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             result = headerReader.Read(_httpContext);
             Assert.Equal(changedHeaders, result);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        public void GivenEmptyPrefixValue_InvalidDefinitionExceptionIsThrown(string prefix)
+        {
+            var auditConfiguration = new AuditConfiguration();
+            Assert.Throws<InvalidDefinitionException>(() => auditConfiguration.CustomAuditHeaderPrefix = prefix);
         }
 
         public static IEnumerable<object[]> GenerateRandomHeaders(int testCount, int numberOfAuditHeaders)

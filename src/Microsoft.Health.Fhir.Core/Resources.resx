@@ -181,6 +181,9 @@
     <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
     <comment>{0} is an Id e.g. 123456</comment>
   </data>
+  <data name="CustomHeaderPrefixCannotBeEmpty" xml:space="preserve">
+    <value>The prefix used to identify custom audit headers cannot be empty.</value>
+  </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
   </data>

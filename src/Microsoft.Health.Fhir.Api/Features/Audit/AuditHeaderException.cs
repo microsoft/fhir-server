@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     public class AuditHeaderException : FhirException
     {
         public AuditHeaderException(string headerName, int size)
-            : base(string.Format(Resources.CustomAuditHeaderTooLarge, headerName, size, AuditConstants.MaximumLengthOfCustomHeader))
+            : base(string.Format(Resources.CustomAuditHeaderTooLarge, AuditConstants.MaximumLengthOfCustomHeader, headerName, size))
         {
         }
 

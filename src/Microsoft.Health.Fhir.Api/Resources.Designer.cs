@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The value of the header {0} is {1} and is too long so will not be added to the audit logs.  The maximum allowed size is {2}.  Please retry the request with a smaller value..
+        ///   Looks up a localized string similar to The maximum length of a custom audit header value is {0}. The supplied custom audit header &apos;{1}&apos; has length of {2}..
         /// </summary>
         public static string CustomAuditHeaderTooLarge {
             get {
@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A maximum of {0} custom audit headers allowed in the request.  {1} headers were detected.  Please retry the request with fewer cutom headers..
+        ///   Looks up a localized string similar to The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}..
         /// </summary>
         public static string TooManyCustomAuditHeaders {
             get {

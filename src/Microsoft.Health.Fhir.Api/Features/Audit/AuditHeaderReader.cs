@@ -5,8 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
@@ -17,41 +19,45 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
         public AuditHeaderReader(IOptions<AuditConfiguration> auditConfiguration)
         {
+            EnsureArg.IsNotNull(auditConfiguration?.Value, nameof(auditConfiguration));
+
             _auditConfiguration = auditConfiguration.Value;
         }
 
         public IReadOnlyDictionary<string, string> Read(HttpContext httpContext)
         {
-            if (!httpContext.Items.ContainsKey(AuditConstants.CustomAuditHeaderKeyValue))
-            {
-                var customHeaders = new Dictionary<string, string>();
+            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-                foreach (var headerName in httpContext.Request.Headers.Keys)
+            object cachedCustomHeaders;
+
+            if (httpContext.Items.TryGetValue(AuditConstants.CustomAuditHeaderKeyValue, out cachedCustomHeaders))
+            {
+                return cachedCustomHeaders as IReadOnlyDictionary<string, string>;
+            }
+
+            var customHeaders = new Dictionary<string, string>();
+
+            foreach (KeyValuePair<string, StringValues> header in httpContext.Request.Headers)
+            {
+                if (header.Key.StartsWith(_auditConfiguration.CustomAuditHeaderPrefix, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (headerName.StartsWith(_auditConfiguration.CustomAuditHeaderPrefix, StringComparison.OrdinalIgnoreCase))
+                    var headerValue = header.Value.ToString();
+                    if (headerValue.Length > AuditConstants.MaximumLengthOfCustomHeader)
                     {
-                        var headerValue = httpContext.Request.Headers[headerName].ToString();
-                        if (headerValue.Length > AuditConstants.MaximumLengthOfCustomHeader)
-                        {
-                            throw new AuditHeaderException(headerName, headerValue.Length);
-                        }
-
-                        customHeaders[headerName] = headerValue;
+                        throw new AuditHeaderException(header.Key, headerValue.Length);
                     }
-                }
 
-                if (customHeaders.Count > AuditConstants.MaximumNumberOfCustomHeaders)
-                {
-                    throw new AuditHeaderException(customHeaders.Count);
+                    customHeaders[header.Key] = headerValue;
                 }
-
-                httpContext.Items[AuditConstants.CustomAuditHeaderKeyValue] = customHeaders;
-                return customHeaders;
             }
-            else
+
+            if (customHeaders.Count > AuditConstants.MaximumNumberOfCustomHeaders)
             {
-                return httpContext.Items[AuditConstants.CustomAuditHeaderKeyValue] as IReadOnlyDictionary<string, string>;
+                throw new AuditHeaderException(customHeaders.Count);
             }
+
+            httpContext.Items[AuditConstants.CustomAuditHeaderKeyValue] = customHeaders;
+            return customHeaders;
         }
     }
 }
