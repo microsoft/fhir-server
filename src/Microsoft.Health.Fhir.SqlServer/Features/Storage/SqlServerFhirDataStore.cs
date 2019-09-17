@@ -68,6 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             int etag = 0;
             if (weakETag != null && !int.TryParse(weakETag.VersionId, out etag))
             {
+                // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
                 etag = -1;
             }
 
