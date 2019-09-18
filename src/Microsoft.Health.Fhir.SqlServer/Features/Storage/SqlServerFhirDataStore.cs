@@ -69,7 +69,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             int etag = 0;
             if (weakETag != null && !int.TryParse(weakETag.VersionId, out etag))
             {
-                throw new ResourceConflictException(weakETag);
+                // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
+                etag = -1;
             }
 
             var resourceMetadata = new ResourceMetadata(
@@ -121,10 +122,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         switch (e.Number)
                         {
-                            case SqlErrorCodes.NotFound:
-                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             case SqlErrorCodes.PreconditionFailed:
-                                throw new ResourceConflictException(weakETag);
+                                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                            case SqlErrorCodes.NotFound:
+                                if (weakETag != null)
+                                {
+                                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                                }
+
+                                goto default;
+                            case SqlErrorCodes.MethodNotAllowed:
+                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             default:
                                 _logger.LogError(e, "Error from SQL database on upsert");
                                 throw;

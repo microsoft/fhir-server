@@ -21,6 +21,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public const int NotFound = CustomErrorCodeBase + 404;
 
         /// <summary>
+        /// The client used an unacceptable HTTP method during the request
+        /// </summary>
+        public const int MethodNotAllowed = CustomErrorCodeBase + 405;
+
+        /// <summary>
         /// An optimistic concurrency precondition failed
         /// </summary>
         public const int PreconditionFailed = CustomErrorCodeBase + 412;

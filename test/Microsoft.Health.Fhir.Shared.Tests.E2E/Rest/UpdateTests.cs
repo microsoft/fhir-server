@@ -16,7 +16,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class UpdateTests : IClassFixture<HttpIntegrationTestFixture>
+    public partial class UpdateTests : IClassFixture<HttpIntegrationTestFixture>
     {
         public UpdateTests(HttpIntegrationTestFixture fixture)
         {
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource);
+            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource, createdResource.Meta.VersionId);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
 
@@ -146,17 +146,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Contains(updatedResource.Meta.VersionId, updateResponse.Headers.ETag.Tag);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAnIncorrectETagHeader_TheServerShouldReturnAConflictResponse()
-        {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
-
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.UpdateAsync(createdResource, Guid.NewGuid().ToString()));
-
-            Assert.Equal(System.Net.HttpStatusCode.Conflict, ex.StatusCode);
         }
     }
 }

@@ -37,7 +37,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
-    public class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
+    public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly CapabilityStatement _conformance;
@@ -143,6 +143,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(saveResult.Resource.Id, updateResult.Resource.Id);
         }
 
+        [Theory]
+        [InlineData("1")]
+        [InlineData("-1")]
+        [InlineData("0")]
+        [InlineData("InvalidVersion")]
+        public async Task WhenUpsertingWithCreateEnabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
+        {
+            SetAllowCreate(true);
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
+                await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
+        }
+
+        [Theory]
+        [InlineData("1")]
+        [InlineData("-1")]
+        [InlineData("0")]
+        [InlineData("InvalidVersion")]
+        public async Task WhenUpsertingWithCreateDisabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
+        {
+            SetAllowCreate(false);
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
+                await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
+        }
+
         [Fact]
         public async Task GivenAResource_WhenUpsertingDifferentTypeWithTheSameId_ThenTheExistingResourceIsNotOverridden()
         {
@@ -168,36 +194,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenANewResource_WhenUpsertingWithCreateDisabled_ThenAMethodNotAllowedExceptionIsThrown()
+        public async Task WhenUpsertingWithCreateDisabled_GivenANonexistentResource_ThenAMethodNotAllowedExceptionIsThrown()
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = false;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            SetAllowCreate(false);
             var ex = await Assert.ThrowsAsync<MethodNotAllowedException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight")));
 
             Assert.Equal(Resources.ResourceCreationNotAllowed, ex.Message);
         }
 
         [Fact]
-        public async Task GivenANewResource_WhenUpsertingWithCreateEnabledAndJunkEtag_ThenAMethodNotAllowedExceptionIsThrown()
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task WhenUpsertingWithCreateDisabledAndInvalidETagHeader_GivenANonexistentResourceAndCosmosDb_ThenAResourceNotFoundIsThrown()
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = true;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
-            await Assert.ThrowsAsync<ResourceConflictException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("junk")));
+            SetAllowCreate(false);
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
         [Fact]
-        public async Task GivenANewResource_WhenUpsertingWithCreateDisabledAndJunkEtag_ThenAMethodNotAllowedExceptionIsThrown()
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task WhenUpsertingWithCreateEnabledAndInvalidETagHeader_GivenANonexistentResourceAndCosmosDb_ThenResourceNotFoundIsThrown()
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observation.UpdateCreate = false;
-            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
-            await Assert.ThrowsAsync<ResourceConflictException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("junk")));
+            SetAllowCreate(true);
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
         [Fact]
-        public async Task GivenASavedResource_WhenUpsertingWithNoVersionId_ThenTheExistingResourceIsUpdated()
+        public async Task GivenASavedResource_WhenUpsertingWithNoETagHeader_ThenTheExistingResourceIsUpdated()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
@@ -214,7 +238,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASavedResource_WhenConcurrentlyUpsertingWithNoVersionId_ThenTheExistingResourceIsUpdated()
+        public async Task GivenASavedResource_WhenConcurrentlyUpsertingWithNoETagHeader_ThenTheExistingResourceIsUpdated()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
@@ -245,18 +269,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var allObservations = list.Select(x => ((Quantity)x.Result.Resource.Instance.ToPoco<Observation>().Value).Value.GetValueOrDefault()).Distinct();
             Assert.Equal(itemsToCreate, allObservations.Count());
-        }
-
-        [Fact]
-        public async Task GivenASavedResource_WhenUpsertingWithIncorrectVersionId_ThenAResourceConflictIsThrown()
-        {
-            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-
-            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = saveResult.Resource.Id;
-
-            await Assert.ThrowsAsync<ResourceConflictException>(async () =>
-                await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("incorrectVersion")));
         }
 
         [Fact]
@@ -428,10 +440,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), false); });
         }
 
+        [Fact]
+        public async Task WhenUpsertingWithValidETagHeader_GivenADeletedResource_ThenTheDeletedResourceIsRevived()
+        {
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), false);
+
+            Assert.NotEqual(saveResult.Resource.VersionId, deletedResourceKey.ResourceKey.VersionId);
+            await Assert.ThrowsAsync<ResourceGoneException>(
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.Resource.Id)));
+
+            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
+            newResourceValues.Id = saveResult.Resource.Id;
+
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), deletedResourceKey.WeakETag);
+
+            Assert.NotNull(updateResult);
+            Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
+
+            Assert.NotNull(updateResult.Resource);
+            Assert.Equal(saveResult.Resource.Id, updateResult.Resource.Id);
+        }
+
         private async Task ExecuteAndVerifyException<TException>(Func<Task> action)
             where TException : Exception
         {
             await Assert.ThrowsAsync<TException>(action);
+        }
+
+        private void SetAllowCreate(bool allowCreate)
+        {
+            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            observation.UpdateCreate = allowCreate;
+            observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
         }
     }
 }

@@ -1389,8 +1389,13 @@ AS
             RETURN
         END
 
+        IF (@etag IS NOT NULL) BEGIN
+        -- You can't update a resource with a specified version if the resource does not exist
+            THROW 50404, 'Resource with specified version not found', 1;
+        END
+
         IF (@allowCreate = 0) BEGIN
-            THROW 50404, 'Resource does not exist and create is not allowed', 1;
+            THROW 50405, 'Resource does not exist and create is not allowed', 1;
         END
 
         SET @version = 1

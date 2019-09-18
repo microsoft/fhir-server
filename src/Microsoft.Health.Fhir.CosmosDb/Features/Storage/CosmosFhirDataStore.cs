@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (dce.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        throw new ResourceConflictException(weakETag);
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
                     case HttpStatusCode.NotFound:
                         if (cosmosWrapper.IsDeleted)
                         {
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                         if (weakETag != null)
                         {
-                            throw new ResourceConflictException(weakETag);
+                            throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                         }
                         else if (!allowCreate)
                         {
