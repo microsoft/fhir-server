@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenNoCustomHeaders_EmptyDictionaryReturned()
+        public void GivenNoCustomHeaders_WhenHeadersRead_ThenEmptyDictionaryReturned()
         {
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
 
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
         [Theory]
         [MemberData(nameof(GenerateRandomHeaders), 10, -1)]
-        public void GivenMixedHeaders_OnlyCorrectCustomHeadersReturn(IReadOnlyDictionary<string, string> headers, int expectedCustomHeaderCount)
+        public void GivenMixedHeaders_WhenHeadersRead_ThenOnlyCorrectCustomHeadersReturn(IReadOnlyDictionary<string, string> headers, int expectedCustomHeaderCount)
         {
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             _httpContext.Request.Headers.Clear();
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenHeaderWithNoValue_HeaderNameWithEmptyValueIsReturned()
+        public void GivenHeaderWithNoValue_WhenHeadersRead_ThenHeaderNameWithEmptyValueIsReturned()
         {
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             var headers = GenerateRandomHeaders(1, 5).ToList()[0][0] as Dictionary<string, string>;
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenMultipleValuesOfSameHeader_ConcatenatedStringValueReturend()
+        public void GivenMultipleValuesOfSameHeader_WhenHeadersRead_ThenConcatenatedStringValueReturend()
         {
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             _httpContext.Request.Headers.Add(_optionsAuditConfiguration.Value.CustomAuditHeaderPrefix + "repeated", new StringValues(new[] { "item1", "item2" }));
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenTooManyCustomHeaders_AuditHeaderExceptionIsThrown()
+        public void GivenTooManyCustomHeaders_WhenHeadersRead_ThenAuditHeaderExceptionIsThrown()
         {
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             _httpContext.Request.Headers.Clear();
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAHeaderWithTooLargeValue_AuditHeaderExceptionIsThrown()
+        public void GivenAHeaderWithTooLargeValue_WhenHeadersRead_ThenAuditHeaderExceptionIsThrown()
         {
             var d = new Dictionary<string, string>() { ["a"] = "b" };
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void WithMultipleCallsUsingTheSameHttpContext_HttpContextItemsIsUsed()
+        public void GivenCustomHeaders_WhenMultipleCallsUsingTheSameHttpContext_ThenHttpContextItemsIsUsed()
         {
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
 
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         [Theory]
         [InlineData(null)]
         [InlineData("")]
-        public void GivenEmptyPrefixValue_InvalidDefinitionExceptionIsThrown(string prefix)
+        public void GivenEmptyPrefixValue_WhenConfigurationValueSet_ThenInvalidDefinitionExceptionIsThrown(string prefix)
         {
             var auditConfiguration = new AuditConfiguration();
             Assert.Throws<InvalidDefinitionException>(() => auditConfiguration.CustomAuditHeaderPrefix = prefix);
