@@ -38,11 +38,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 }
                 else
                 {
+                    string[] location = failure.PropertyName == null ? null : new[] { failure.PropertyName };
+
                     Issues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,
                             OperationOutcomeConstants.IssueType.Invalid,
                             failure.ErrorMessage,
-                            new[] { failure.PropertyName }));
+                            location));
                 }
             }
         }

@@ -43,7 +43,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     foreach (var error in results)
                     {
                         ITypedElement typedElement = resourceElement.Instance;
-                        var fullFhirPath = typedElement.InstanceType + "." + error.MemberNames?.FirstOrDefault();
+
+                        var fullFhirPath = typedElement.InstanceType;
+                        fullFhirPath += error.MemberNames?.FirstOrDefault() == null ? $"" : "." + error.MemberNames?.FirstOrDefault();
 
                         yield return new ValidationFailure(fullFhirPath, error.ErrorMessage);
                     }
