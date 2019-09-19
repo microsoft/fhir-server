@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 }
                 else
                 {
-                    string[] location = failure.PropertyName == null ? null : new[] { failure.PropertyName };
+                    string[] location = string.IsNullOrEmpty(failure.PropertyName) ? null : new[] { failure.PropertyName };
 
                     Issues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,
