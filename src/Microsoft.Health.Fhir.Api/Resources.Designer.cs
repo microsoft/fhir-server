@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
@@ -75,6 +75,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ContentTypeHeaderRequired {
             get {
                 return ResourceManager.GetString("ContentTypeHeaderRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The maximum length of a custom audit header value is {0}. The supplied custom audit header &apos;{1}&apos; has length of {2}..
+        /// </summary>
+        public static string CustomAuditHeaderTooLarge {
+            get {
+                return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
             }
         }
         
@@ -228,6 +237,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ToggleNavigation {
             get {
                 return ResourceManager.GetString("ToggleNavigation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}..
+        /// </summary>
+        public static string TooManyCustomAuditHeaders {
+            get {
+                return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
             }
         }
         

@@ -12,7 +12,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
     public class AuditEntry
     {
-        public AuditEntry(AuditAction auditAction, string action, string resourceType, Uri requestUri, HttpStatusCode? statusCode, string correlationId, string callerIpAddress, IReadOnlyCollection<KeyValuePair<string, string>> callerClaims)
+        public AuditEntry(
+            AuditAction auditAction,
+            string action,
+            string resourceType,
+            Uri requestUri,
+            HttpStatusCode? statusCode,
+            string correlationId,
+            string callerIpAddress,
+            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
+            IReadOnlyCollection<KeyValuePair<string, string>> customHeaders)
         {
             AuditAction = auditAction;
             Action = action;
@@ -22,6 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             CorrelationId = correlationId;
             CallerIpAddress = callerIpAddress;
             CallerClaims = callerClaims;
+            CustomHeaders = customHeaders;
         }
 
         public AuditAction AuditAction { get; }
@@ -39,5 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public string CallerIpAddress { get; }
 
         public IReadOnlyCollection<KeyValuePair<string, string>> CallerClaims { get; }
+
+        public IReadOnlyCollection<KeyValuePair<string, string>> CustomHeaders { get; }
     }
 }

@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Redirect URL passed to Authorize failed to resolve.");
+                _logger.LogDebug(ex, "Redirect URL passed to Authorize failed to resolve.");
             }
 
             if (!_isAadV2 && !string.IsNullOrEmpty(aud))

@@ -21,12 +21,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly IAuditLogger _auditLogger;
         private readonly ILogger<AuditHelper> _logger;
+        private readonly IAuditHeaderReader _auditHeaderReader;
 
         public AuditHelper(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IAuditEventTypeMapping auditEventTypeMapping,
             IAuditLogger auditLogger,
-            ILogger<AuditHelper> logger)
+            ILogger<AuditHelper> logger,
+            IAuditHeaderReader auditHeaderReader)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
@@ -37,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             _auditEventTypeMapping = auditEventTypeMapping;
             _auditLogger = auditLogger;
             _logger = logger;
+            _auditHeaderReader = auditHeaderReader;
         }
 
         /// <inheritdoc />
@@ -74,7 +77,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     statusCode: statusCode,
                     correlationId: fhirRequestContext.CorrelationId,
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
-                    callerClaims: claimsExtractor.Extract());
+                    callerClaims: claimsExtractor.Extract(),
+                    customHeaders: _auditHeaderReader.Read(httpContext));
             }
         }
     }

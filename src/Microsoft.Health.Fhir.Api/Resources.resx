@@ -123,6 +123,10 @@
   <data name="ContentTypeHeaderRequired" xml:space="preserve">
     <value>The "content-type" header is required.</value>
   </data>
+  <data name="CustomAuditHeaderTooLarge" xml:space="preserve">
+    <value>The maximum length of a custom audit header value is {0}. The supplied custom audit header '{1}' has length of {2}.</value>
+    <comment>PH0 is a constant defining the max length of a header.  PH1 is the name  of the header sent in the request.  PH2 is the length of the incoming header value.  Example: The maximum length of a custom audit header value is 2048. The supplied custom audit header 'X-MS-AZUREFHIR-AUDIT-SITE' has length of 3072.</comment>
+  </data>
   <data name="Forbidden" xml:space="preserve">
     <value>Authorization failed.</value>
   </data>
@@ -178,6 +182,10 @@
   </data>
   <data name="ToggleNavigation" xml:space="preserve">
     <value>Toggle navigation</value>
+  </data>
+  <data name="TooManyCustomAuditHeaders" xml:space="preserve">
+    <value>The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}.</value>
+    <comment>PH0 is a constant defining the max number of custom headers.  PH1 is the count of custom headers sent in the request.  Example: The maximum number of custom audit headers allowed is 10. The number of custom audit headers supplied is 12.</comment>
   </data>
   <data name="UnableToObtainOpenIdConfiguration" xml:space="preserve">
     <value>Unable to obtain OpenID configuration.</value>

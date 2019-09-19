@@ -241,6 +241,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
+        /// </summary>
+        internal static string CustomHeaderPrefixCannotBeEmpty {
+            get {
+                return ResourceManager.GetString("CustomHeaderPrefixCannotBeEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {
