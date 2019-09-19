@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
                     .AsSelf()
                     .AsService<TextOutputFormatter>();
 
-                services.Add<XmlSerializerOutputFormatter>()
+                services.Add<NonFhirResourceXmlOutputFormatter>()
                     .Singleton()
                     .AsSelf()
                     .AsService<TextOutputFormatter>();
