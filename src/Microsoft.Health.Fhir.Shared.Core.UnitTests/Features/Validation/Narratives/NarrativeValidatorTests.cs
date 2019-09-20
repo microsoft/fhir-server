@@ -36,11 +36,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
 
-            var resourceElement = defaultObservation.ToResourceElement();
-
             IEnumerable<ValidationFailure> result = _validator.Validate(
                 new PropertyValidatorContext(
-                    new ValidationContext(resourceElement),
+                    new ValidationContext(defaultObservation.ToResourceElement()),
                     PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
                     "Resource"));
 
@@ -48,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             Assert.NotEmpty(validationFailures);
 
             var actualFhirPath = validationFailures.FirstOrDefault()?.PropertyName;
-            var expectedFhirPath = resourceElement.Instance.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
+            var expectedFhirPath = defaultObservation.TypeName + "." + KnownFhirPaths.ResourceNarrative;
 
             Assert.Equal(expectedFhirPath, actualFhirPath);
         }
@@ -59,11 +57,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
         {
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
-            var observationInstance = defaultObservation.ToResourceElement().Instance;
 
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
             defaultPatient.Text.Div = maliciousNarrative;
-            var patientInstance = defaultPatient.ToResourceElement().Instance;
 
             var bundle = new Bundle();
             bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultObservation });
@@ -78,8 +74,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
             Assert.NotEmpty(validationFailures);
 
-            var expectedObservationFhirPath = observationInstance.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
-            var expectedPatientFhirPath = patientInstance.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
+            var expectedObservationFhirPath = defaultObservation.TypeName + "." + KnownFhirPaths.ResourceNarrative;
+            var expectedPatientFhirPath = defaultPatient.TypeName + "." + KnownFhirPaths.ResourceNarrative;
 
             Assert.Equal(expectedObservationFhirPath, validationFailures[0].PropertyName);
             Assert.Equal(expectedPatientFhirPath, validationFailures[1].PropertyName);
