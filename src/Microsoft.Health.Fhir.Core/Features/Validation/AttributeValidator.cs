@@ -10,6 +10,7 @@ using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
@@ -41,7 +42,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     foreach (var error in results)
                     {
-                        yield return new ValidationFailure(error.MemberNames?.FirstOrDefault(), error.ErrorMessage);
+                        var fullFhirPath = resourceElement.InstanceType;
+                        fullFhirPath += string.IsNullOrEmpty(error.MemberNames?.FirstOrDefault()) ? string.Empty : "." + error.MemberNames?.FirstOrDefault();
+
+                        yield return new ValidationFailure(fullFhirPath, error.ErrorMessage);
                     }
                 }
             }

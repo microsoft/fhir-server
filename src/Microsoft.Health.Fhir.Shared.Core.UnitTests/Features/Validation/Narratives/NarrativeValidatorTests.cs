@@ -3,9 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.Linq;
 using FluentValidation;
 using FluentValidation.Internal;
+using FluentValidation.Results;
 using FluentValidation.Validators;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -27,23 +31,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 
         [Theory]
         [MemberData(nameof(XssStrings))]
-        public void GivenAnInvalidNarrative_WhenProcessingAResource_ThenAValidationMessageIsCreated(string maliciousNarrative)
+        public void GivenAnInvalidNarrative_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated(string maliciousNarrative)
         {
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
 
-            var result = _validator.Validate(
+            IEnumerable<ValidationFailure> result = _validator.Validate(
                 new PropertyValidatorContext(
                     new ValidationContext(defaultObservation.ToResourceElement()),
                     PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
                     "Resource"));
 
-            Assert.NotEmpty(result);
+            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
+            Assert.NotEmpty(validationFailures);
+
+            var actualFhirPath = validationFailures.FirstOrDefault()?.PropertyName;
+            var expectedFhirPath = defaultObservation.TypeName + "." + KnownFhirPaths.ResourceNarrative;
+
+            Assert.Equal(expectedFhirPath, actualFhirPath);
         }
 
         [Theory]
         [MemberData(nameof(XssStrings))]
-        public void GivenAnInvalidNarrative_WhenProcessingABundle_ThenAValidationMessageIsCreated(string maliciousNarrative)
+        public void GivenAnInvalidNarrative_WhenProcessingABundle_ThenAValidationMessageWithAFhirPathIsCreated(string maliciousNarrative)
         {
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
@@ -61,7 +71,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
                     PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
                     "Resource"));
 
-            Assert.NotEmpty(result);
+            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
+            Assert.NotEmpty(validationFailures);
+
+            var expectedObservationFhirPath = defaultObservation.TypeName + "." + KnownFhirPaths.ResourceNarrative;
+            var expectedPatientFhirPath = defaultPatient.TypeName + "." + KnownFhirPaths.ResourceNarrative;
+
+            Assert.Equal(expectedObservationFhirPath, validationFailures[0].PropertyName);
+            Assert.Equal(expectedPatientFhirPath, validationFailures[1].PropertyName);
         }
     }
 }
