@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("text/xml")]
         [InlineData("ttl")]
         [InlineData("xml")]
-        public async Task GivenARequestWithAnInvalidFormatQuerystring_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string requestFormat)
+        public async Task GivenARequestWithAnInvalidFormatQuerystring_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown(string requestFormat)
         {
             var filter = CreateFilter();
 
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             context.HttpContext.Request.QueryString = new QueryString($"?_format={requestFormat}");
 
-            await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
+            await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
         [Theory]
