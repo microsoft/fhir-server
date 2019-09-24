@@ -64,15 +64,10 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             }
             else
             {
-                var isAcceptHeaderValid = true;
+                if (acceptHeaders != null && acceptHeaders.All(a => a.MediaType != "*/*"))
+                {
+                    var isAcceptHeaderValid = false;
 
-                if (acceptHeaders == null)
-                {
-                    // A null Accept header indicates that an invalid or empty header value has been provided.
-                    isAcceptHeaderValid = false;
-                }
-                else if (acceptHeaders.All(a => a.MediaType != "*/*"))
-                {
                     foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
                     {
                         isAcceptHeaderValid = await IsFormatSupportedAsync(acceptHeader.MediaType.ToString());
@@ -82,11 +77,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                             break;
                         }
                     }
-                }
 
-                if (!isAcceptHeaderValid)
-                {
-                    throw new NotAcceptableException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
+                    if (!isAcceptHeaderValid)
+                    {
+                        throw new NotAcceptableException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
+                    }
                 }
             }
         }
