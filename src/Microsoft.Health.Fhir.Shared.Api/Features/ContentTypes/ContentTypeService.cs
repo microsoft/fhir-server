@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                 ResourceFormat resourceFormat = ContentType.GetResourceFormatFromFormatParam(formatOverride);
                 if (!await IsFormatSupportedAsync(resourceFormat))
                 {
-                    throw new UnsupportedMediaTypeException(Resources.UnsupportedFormatParameter);
+                    throw new NotAcceptableException(Resources.UnsupportedFormatParameter);
                 }
 
                 string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), acceptHeaders?.Select(x => x.MediaType.Value));
@@ -64,10 +64,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             }
             else
             {
-                if (acceptHeaders != null && acceptHeaders.All(a => a.MediaType != "*/*"))
-                {
-                    var isAcceptHeaderValid = false;
+                var isAcceptHeaderValid = true;
 
+                if (acceptHeaders == null)
+                {
+                    // A null Accept header indicates that an invalid or empty header value has been provided.
+                    isAcceptHeaderValid = false;
+                }
+                else if (acceptHeaders.All(a => a.MediaType != "*/*"))
+                {
                     foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
                     {
                         isAcceptHeaderValid = await IsFormatSupportedAsync(acceptHeader.MediaType.ToString());
@@ -77,11 +82,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                             break;
                         }
                     }
+                }
 
-                    if (!isAcceptHeaderValid)
-                    {
-                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
-                    }
+                if (!isAcceptHeaderValid)
+                {
+                    throw new NotAcceptableException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
                 }
             }
         }
