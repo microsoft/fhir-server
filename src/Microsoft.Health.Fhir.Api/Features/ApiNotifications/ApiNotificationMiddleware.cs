@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                     catch (Exception e)
                     {
                         // Failures in publishing API notifications should not cause the API to return an error.
-                        _logger.LogError(e, "Failure while publishing API notification.");
+                        _logger.LogCritical(e, "Failure while publishing API notification.");
                     }
                 }
             }
