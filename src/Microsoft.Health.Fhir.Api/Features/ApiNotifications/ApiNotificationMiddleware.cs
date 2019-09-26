@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,23 +63,31 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 {
                     apiNotification.Latency = timer.GetElapsedTime();
 
-                    IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
-
-                    // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
-                    if (fhirRequestContext.AuditEventType != null)
+                    try
                     {
-                        apiNotification.Authentication = fhirRequestContext.Principal.Identity.AuthenticationType;
-                        apiNotification.FhirOperation = fhirRequestContext.AuditEventType;
-                        apiNotification.Protocol = context.Request.Scheme;
-                        apiNotification.ResourceType = fhirRequestContext.ResourceType;
-                        apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
+                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-                        await _mediator.Publish(apiNotification, CancellationToken.None);
-
-                        if (fhirRequestContext.StorageRequestMetrics != null)
+                        // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
+                        if (fhirRequestContext?.AuditEventType != null)
                         {
-                            await _mediator.Publish(fhirRequestContext.StorageRequestMetrics, CancellationToken.None);
+                            apiNotification.Authentication = fhirRequestContext.Principal?.Identity.AuthenticationType;
+                            apiNotification.FhirOperation = fhirRequestContext.AuditEventType;
+                            apiNotification.Protocol = context.Request.Scheme;
+                            apiNotification.ResourceType = fhirRequestContext.ResourceType;
+                            apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
+
+                            await _mediator.Publish(apiNotification, CancellationToken.None);
+
+                            if (fhirRequestContext.StorageRequestMetrics != null)
+                            {
+                                await _mediator.Publish(fhirRequestContext.StorageRequestMetrics, CancellationToken.None);
+                            }
                         }
+                    }
+                    catch (Exception e)
+                    {
+                        // Failures in publishing API notifications should not cause the API to return an error.
+                        _logger.LogError(e, "Failure while publishing API notification.");
                     }
                 }
             }
