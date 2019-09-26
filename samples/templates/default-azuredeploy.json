@@ -137,10 +137,10 @@
     "variables": {
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
         "serviceName": "[toLower(parameters('serviceName'))]",
-        "identityResourceId": "[concat(resourceId('Microsoft.Web/sites', variables('serviceName')),'/providers/Microsoft.ManagedIdentity/Identities/default')]",
         "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
         "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
         "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
+        "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
         "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
         "deploySourceCode": "[and(not(empty(parameters('repositoryUrl'))),not(empty(parameters('repositoryBranch'))))]",
         "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
@@ -221,7 +221,7 @@
                     "name": "appsettings",
                     "type": "config",
                     "dependsOn": [
-                        "[concat('Microsoft.Web/Sites/', variables('serviceName'))]",
+                        "[variables('appServiceResourceId')]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],
                     "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights:InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
@@ -232,7 +232,7 @@
                     "type": "sourcecontrols",
                     "condition": "[variables('deploySourceCode')]",
                     "dependsOn": [
-                        "[resourceId('Microsoft.Web/Sites', variables('serviceName'))]",
+                        "[variables('appServiceResourceId')]",
                         "[resourceId('Microsoft.Web/Sites/config', variables('serviceName'), 'appsettings')]"
                     ],
                     "properties": {
@@ -251,7 +251,7 @@
             "condition": "[variables('deployAppInsights')]",
             "kind": "web",
             "tags": {
-                "[concat('hidden-link:', resourceId('Microsoft.Web/sites', variables('serviceName')))]": "Resource",
+                "[concat('hidden-link:', variables('appServiceResourceId'))]": "Resource",
                 "displayName": "AppInsightsComponent",
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
@@ -293,11 +293,11 @@
                     "family": "A",
                     "name": "Standard"
                 },
-                "tenantId": "[reference(variables('identityResourceId'), '2015-08-31-PREVIEW').tenantId]",
+                "tenantId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.tenantId]",
                 "accessPolicies": [
                     {
-                        "tenantId": "[reference(variables('identityResourceId'), '2015-08-31-PREVIEW').tenantId]",
-                        "objectId": "[reference(variables('identityResourceId'), '2015-08-31-PREVIEW').principalId]",
+                        "tenantId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.tenantId]",
+                        "objectId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]",
                         "permissions": {
                             "secrets": [
                                 "get",
@@ -310,7 +310,7 @@
                 "enabledForDeployment": false
             },
             "dependsOn": [
-                "[concat('Microsoft.Web/sites/', variables('serviceName'))]"
+                "[variables('appServiceResourceId')]"
             ]
         },
         {
