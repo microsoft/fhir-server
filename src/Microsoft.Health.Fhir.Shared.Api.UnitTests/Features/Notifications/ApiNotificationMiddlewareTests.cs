@@ -67,5 +67,30 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Notifications
             await _mediator.ReceivedWithAnyArgs(1).Publish<ApiResponseNotification>(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
             await _mediator.Received(1).Publish<IStorageRequestMetrics>(Arg.Is<IStorageRequestMetrics>(_fhirRequestContext.StorageRequestMetrics), Arg.Any<CancellationToken>());
         }
+
+        [Fact]
+        public async Task GivenRequestPath_AndNullFhirRequestContext_WhenInvoked_DoesNotFail_AndDoesNotEmitMediatREvents()
+        {
+            _fhirRequestContextAccessor.FhirRequestContext.Returns((IFhirRequestContext)null);
+
+            _httpContext.Request.Path = "/Observation";
+            _fhirRequestContext.StorageRequestMetrics = new CosmosStorageRequestMetrics("search", "Observation");
+            await _apiNotificationMiddleware.Invoke(_httpContext);
+
+            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenRequestPath_WhenMediatRFails_NoExceptionIsThrown()
+        {
+            await Task.CompletedTask;
+            _mediator.WhenForAnyArgs(async x => await x.Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>())).Throw(new System.Exception("Failure"));
+
+            _httpContext.Request.Path = "/Observation";
+            _fhirRequestContext.StorageRequestMetrics = new CosmosStorageRequestMetrics("search", "Observation");
+            await _apiNotificationMiddleware.Invoke(_httpContext);
+
+            await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+        }
     }
 }
