@@ -372,11 +372,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [InlineData("ap2016-02-01", "2015-11-23T02:24:00.0000000+00:00", "2016-04-11T21:35:59.9999999+00:00")]
         [InlineData("ap2016-02-01T10:00", "2015-11-23T11:00:06.0000000+00:00", "2016-04-11T09:00:53.9999999+00:00")]
         [InlineData("ap2016-02-01T10:00-07:00", "2015-11-23T18:42:06.0000000+00:00", "2016-04-11T15:18:53.9999999+00:00")]
-        [InlineData("ap2220", "2240-04-19T09:36:00.0000000+00:00", "2200-09-13T14:23:59.9999999+00:00")]
-        [InlineData("ap2220-02", "2240-04-19T19:12:00.0000000+00:00", "2199-12-12T04:47:59.9999999+00:00")]
-        [InlineData("ap2220-02-01", "2240-04-17T00:00:00.0000000+00:00", "2199-11-16T23:59:59.9999999+00:00")]
-        [InlineData("ap2220-02-01T10:00", "2240-04-17T08:36:06.0000000+00:00", "2199-11-16T11:24:53.9999999+00:00")]
-        [InlineData("ap2220-02-01T10:00-07:00", "2240-04-17T16:18:06.0000000+00:00", "2199-11-16T17:42:53.9999999+00:00")]
+        [InlineData("ap2220", "2240-04-19T09:35:59.9999999+00:00", "2200-09-13T14:24:00.0000000+00:00")]
+        [InlineData("ap2220-02", "2240-04-19T19:11:59.9999999+00:00", "2199-12-12T04:48:00.0000000+00:00")]
+        [InlineData("ap2220-02-01", "2240-04-16T23:59:59.9999999+00:00", "2199-11-17T00:00:00.0000000+00:00")]
+        [InlineData("ap2220-02-01T10:00", "2240-04-17T08:36:05.9999999+00:00", "2199-11-16T11:24:54.0000000+00:00")]
+        [InlineData("ap2220-02-01T10:00-07:00", "2240-04-17T16:18:05.9999999+00:00", "2199-11-16T17:42:54.0000000+00:00")]
         public void GivenADateWithApComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string input, string expectedStartValue, string expectedEndValue)
         {
             using (Mock.Property(() => Clock.UtcNowFunc, () => DateTimeOffset.Parse("2018-01-01T00:00Z")))
@@ -405,15 +405,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual)]
-        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual)]
-        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual)]
-        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan)]
+        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95, 15.05)]
+        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95, 15.05)]
+        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 13.45, 16.55)]
+        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, 14.95, 15.05)]
         public void GivenANumberWithComparatorOfMultipleBinaryOperator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(
             string prefix,
             MultiaryOperator multiaryOperator,
             BinaryOperator lowerBoundOperator,
-            BinaryOperator upperBoundOperator)
+            BinaryOperator upperBoundOperator,
+            decimal lowerBoundValue,
+            decimal upperBoundValue)
         {
             Validate(
                 CreateSearchParameter(SearchParamType.Number),
@@ -422,8 +424,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateMultiaryExpression(
                     e,
                     multiaryOperator,
-                    e1 => ValidateBinaryExpression(e1, FieldName.Number, lowerBoundOperator, 14.95m),
-                    e1 => ValidateBinaryExpression(e1, FieldName.Number, upperBoundOperator, 15.05m)));
+                    e1 => ValidateBinaryExpression(e1, FieldName.Number, lowerBoundOperator, lowerBoundValue),
+                    e1 => ValidateBinaryExpression(e1, FieldName.Number, upperBoundOperator, upperBoundValue)));
         }
 
         [Theory]
@@ -453,15 +455,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual)]
-        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual)]
-        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual)]
-        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan)]
+        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045, 6.055)]
+        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045, 6.055)]
+        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 5.440, 6.66)]
+        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, 6.045, 6.055)]
         public void GivenAQuantityWithComparatorOfMultipleBinaryOperator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(
             string prefix,
             MultiaryOperator multiaryOperator,
             BinaryOperator lowerBoundOperator,
-            BinaryOperator upperBoundOperator)
+            BinaryOperator upperBoundOperator,
+            decimal lowerBoundValue,
+            decimal upperBoundValue)
         {
             const string system = "system";
             const string code = "code";
@@ -478,8 +482,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateMultiaryExpression(
                         e1,
                         multiaryOperator,
-                        e2 => ValidateBinaryExpression(e2, FieldName.Quantity, lowerBoundOperator, 6.045m),
-                        e2 => ValidateBinaryExpression(e2, FieldName.Quantity, upperBoundOperator, 6.055m))));
+                        e2 => ValidateBinaryExpression(e2, FieldName.Quantity, lowerBoundOperator, lowerBoundValue),
+                        e2 => ValidateBinaryExpression(e2, FieldName.Quantity, upperBoundOperator, upperBoundValue))));
         }
 
         [Theory]
