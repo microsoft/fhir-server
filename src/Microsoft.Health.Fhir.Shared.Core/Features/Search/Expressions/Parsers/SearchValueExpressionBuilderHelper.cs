@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     internal class SearchValueExpressionBuilderHelper : ISearchValueVisitor
     {
-        private const double ApproximateMultiplier = .1;
+        private const decimal ApproximateMultiplier = .1M;
 
         private string _searchParameterName;
         private SearchModifierCode? _modifier;
@@ -339,7 +339,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             switch (_comparator)
             {
                 case SearchComparator.Ap:
-                    var approximateModifier = Math.Abs(number * Convert.ToDecimal(ApproximateMultiplier));
+                    var approximateModifier = Math.Abs(number * ApproximateMultiplier);
                     lowerBound -= approximateModifier;
                     upperBound += approximateModifier;
                     goto case SearchComparator.Eq;
