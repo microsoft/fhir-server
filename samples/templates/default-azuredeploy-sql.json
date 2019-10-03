@@ -4,6 +4,8 @@
     "parameters": {
         "serviceName": {
             "type": "string",
+            "minLength": 3,
+            "maxLength": 24,
             "metadata": {
                 "description": "Name of the FHIR service Web App."
             }
