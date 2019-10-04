@@ -206,6 +206,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
 
+            // delete the extra entry added
             await Fixture.FhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
         }
 
