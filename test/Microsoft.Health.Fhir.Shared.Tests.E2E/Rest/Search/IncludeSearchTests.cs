@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
-        [Fact(Skip = "https://github.com/microsoft/fhir-server/issues/563")]
+        [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReportResponse = await Fixture.FhirClient.CreateAsync(
@@ -205,6 +205,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+
+            // delete the extra entry added
+            await Fixture.FhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
         }
 
         [Fact]

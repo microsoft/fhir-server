@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
                 else
                 {
-                    denormalizedPredicates?.Add(expression);
+                    denormalizedPredicates?.Add(childExpression);
                 }
             }
 
