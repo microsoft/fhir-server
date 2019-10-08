@@ -5,15 +5,20 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -36,6 +41,7 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using RouteContext = Microsoft.AspNetCore.Routing.RouteContext;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -56,6 +62,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly IAuthorizationService _authorizationService;
         private readonly FeatureConfiguration _featureConfiguration;
+        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly FhirJsonSerializer _fhirJsonSerializer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -66,13 +75,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="urlResolver">The urlResolver.</param>
         /// <param name="uiConfiguration">The UI configuration.</param>
         /// <param name="authorizationService">The authorization service.</param>
+        /// <param name="serviceProvider">The service provider.</param>
+        /// <param name="fhirJsonParser">The fhir json parser.</param>
+        /// <param name="fhirJsonSerializer">The fhir json serializer.</param>
         public FhirController(
             IMediator mediator,
             ILogger<FhirController> logger,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
-            IAuthorizationService authorizationService)
+            IAuthorizationService authorizationService,
+            IServiceProvider serviceProvider,
+            FhirJsonParser fhirJsonParser,
+            FhirJsonSerializer fhirJsonSerializer)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -81,6 +96,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(uiConfiguration, nameof(uiConfiguration));
             EnsureArg.IsNotNull(uiConfiguration.Value, nameof(uiConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(serviceProvider, nameof(serviceProvider));
+            EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
+            EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
 
             _mediator = mediator;
             _logger = logger;
@@ -88,6 +106,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _urlResolver = urlResolver;
             _authorizationService = authorizationService;
             _featureConfiguration = uiConfiguration.Value;
+            _serviceProvider = serviceProvider;
+            _fhirJsonParser = fhirJsonParser;
+            _fhirJsonSerializer = fhirJsonSerializer;
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -277,10 +298,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.HistorySystem)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SystemHistory(
-            [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
-            [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
+            [FromQuery(Name = KnownQueryParameterNames.At)]
+            PartialDateTime at,
+            [FromQuery(Name = KnownQueryParameterNames.Since)]
+            PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Before)]
+            PartialDateTime before,
+            [FromQuery(Name = KnownQueryParameterNames.Count)]
+            int? count,
             string ct)
         {
             ResourceElement response = await _mediator.SearchResourceHistoryAsync(since, before, at, count, ct, HttpContext.RequestAborted);
@@ -303,10 +328,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> TypeHistory(
             string typeParameter,
-            [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
-            [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
+            [FromQuery(Name = KnownQueryParameterNames.At)]
+            PartialDateTime at,
+            [FromQuery(Name = KnownQueryParameterNames.Since)]
+            PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Before)]
+            PartialDateTime before,
+            [FromQuery(Name = KnownQueryParameterNames.Count)]
+            int? count,
             string ct)
         {
             ResourceElement response = await _mediator.SearchResourceHistoryAsync(typeParameter, since, before, at, count, ct, HttpContext.RequestAborted);
@@ -331,10 +360,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> History(
             string typeParameter,
             string idParameter,
-            [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
-            [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
+            [FromQuery(Name = KnownQueryParameterNames.At)]
+            PartialDateTime at,
+            [FromQuery(Name = KnownQueryParameterNames.Since)]
+            PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Before)]
+            PartialDateTime before,
+            [FromQuery(Name = KnownQueryParameterNames.Count)]
+            int? count,
             string ct)
         {
             ResourceElement response = await _mediator.SearchResourceHistoryAsync(typeParameter, idParameter, since, before, at, count, ct, HttpContext.RequestAborted);
@@ -357,8 +390,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.OK)
-                    .SetETagHeader()
-                    .SetLastModifiedHeader();
+                .SetETagHeader()
+                .SetLastModifiedHeader();
         }
 
         /// <summary>
@@ -370,7 +403,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
-        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery]bool hardDelete)
+        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
         {
             string policy = PolicyNames.WritePolicy;
             if (hardDelete)
@@ -539,9 +572,90 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
-            ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
+            using (var requestServices = _serviceProvider.CreateScope())
+            {
+                var bundleResource = (Bundle)bundle;
 
-            return FhirResult.Create(bundleResponse);
+                var requests = new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>();
+
+                foreach (var entry in bundleResource.Entry)
+                {
+                    HttpContext context = new DefaultHttpContext { RequestServices = requestServices.ServiceProvider };
+                    context.Response.Body = new MemoryStream();
+
+                    string requestPath = entry.Request.Url;
+
+                    if (!requestPath.StartsWith('/'))
+                    {
+                        requestPath = "/" + requestPath;
+                    }
+
+                    var splitPath = requestPath.Split('?');
+
+                    if (splitPath.Length > 1)
+                    {
+                        context.Request.QueryString = new QueryString($"?{splitPath[1]}");
+                    }
+
+                    context.Request.Path = splitPath[0];
+                    context.Request.Method = entry.Request.Method.ToString();
+
+                    switch (entry.Request.Method)
+                    {
+                        case Bundle.HTTPVerb.POST:
+                        case Bundle.HTTPVerb.PUT:
+                            byte[] serialized = _fhirJsonSerializer.SerializeToBytes(entry.Resource);
+                            var stringSerialized = _fhirJsonSerializer.SerializeToString(entry.Resource);
+                            var memoryStream = new MemoryStream();
+                            memoryStream.Write(serialized);
+                            memoryStream.Seek(0, SeekOrigin.Begin);
+                            context.Request.Body = memoryStream;
+                            context.Request.Headers.Add("content-type", "application/fhir+json");
+                            break;
+                    }
+
+                    var routeContext = new RouteContext(context);
+
+                    ////foreach (var routeDataRouter in RouteData.Routers)
+                    ////{
+                    await RouteData.Routers.First().RouteAsync(routeContext);
+
+                    if (routeContext.Handler == null)
+                    {
+                        continue;
+                    }
+
+                    context.Features[typeof(IRoutingFeature)] = new RoutingFeature()
+                    {
+                        RouteData = routeContext.RouteData,
+                    };
+
+                    requests.Add((requestPath, context, routeContext));
+                    ////}
+                }
+
+                var responseBundle = new Bundle();
+
+                foreach (var request in requests)
+                {
+                    await request.routeContext.Handler.Invoke(request.routeContext.HttpContext);
+
+                    request.httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+                    string bodyContent = new StreamReader(request.httpContext.Response.Body).ReadToEnd();
+
+                    var entryComponent = new Bundle.EntryComponent();
+                    if (!string.IsNullOrWhiteSpace(bodyContent))
+                    {
+                        entryComponent.Resource = _fhirJsonParser.Parse<Resource>(bodyContent);
+                    }
+
+                    entryComponent.Response = new Bundle.ResponseComponent { Status = request.httpContext.Response.StatusCode.ToString() };
+
+                    responseBundle.Entry.Add(entryComponent);
+                }
+
+                return FhirResult.Create(responseBundle.ToResourceElement());
+            }
         }
     }
 }
