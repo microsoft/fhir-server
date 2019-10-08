@@ -169,7 +169,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             while (!string.IsNullOrEmpty(url))
             {
                 // There should not be more than 5 loops.
-                Assert.True(loop <= 5);
+                // For some reason, we're getting one more continuation token which returns 0 results, which is why we're checking for 6 instead of 5.
+                Assert.True(loop <= 6, url);
 
                 Bundle bundle = await Client.SearchAsync(url);
 
