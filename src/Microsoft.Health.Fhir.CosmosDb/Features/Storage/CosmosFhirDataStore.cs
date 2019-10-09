@@ -257,6 +257,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     builder.UpdateCreate = true;
                 });
             }
+
+            statement.TryAddRestInteraction(SystemRestfulInteraction.Batch);
         }
     }
 }

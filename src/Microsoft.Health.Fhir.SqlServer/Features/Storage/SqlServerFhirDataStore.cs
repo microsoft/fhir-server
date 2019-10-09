@@ -247,6 +247,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     builder.UpdateCreate = true;
                 });
             }
+
+            statement.TryAddRestInteraction(SystemRestfulInteraction.Batch);
+            statement.TryAddRestInteraction(SystemRestfulInteraction.Transaction);
         }
     }
 }

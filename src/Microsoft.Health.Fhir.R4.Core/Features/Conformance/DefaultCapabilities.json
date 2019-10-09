@@ -21500,7 +21500,15 @@
             ],
             "interaction": [
                 {
+                    "code": "batch",
+                    "documentation": "Implemented per the specification"
+                },
+                {
                     "code": "history-system"
+                },
+                {
+                    "code": "transaction",
+                    "documentation": "Implemented per the specification"
                 }
             ]
         }

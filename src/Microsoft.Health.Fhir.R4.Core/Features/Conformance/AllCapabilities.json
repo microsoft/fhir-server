@@ -29595,13 +29595,20 @@
             ],
             "interaction": [
                 {
-                    "code": "transaction"
+                    "code": "transaction",
+                    "documentation": "Implemented per the specification"
                 },
                 {
-                    "code": "search-system"
+                    "code": "batch",
+                    "documentation": "Implemented per the specification"
                 },
                 {
-                    "code": "history-system"
+                    "code": "history-system",
+                    "documentation": "Implemented per the specification"
+                },
+                {
+                    "code": "search-system",
+                    "documentation": "Implemented per the specification"
                 }
             ],
             "operation": [
