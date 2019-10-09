@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("ttl")]
         [InlineData("xml")]
         [InlineData("blah")]
-        public async Task GivenARequestWithAnInvalidFormatQueryStringAndNotAllowedContentTypeHeader_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown(string requestFormat)
+        public async Task GivenARequestWithAnInvalidFormatQueryStringAndInvalidContentTypeHeader_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown(string requestFormat)
         {
             var filter = CreateFilter();
 
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("application/blah")]
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
-        public async Task GivenARequestWithNotAllowedAcceptHeader_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown(string acceptHeader)
+        public async Task GivenARequestWithInvalidAcceptHeader_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown(string acceptHeader)
         {
             var filter = CreateFilter();
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("application/blah")]
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
-        public async Task GivenARequestWithNotAllowedAcceptHeaderAndNotAllowedContentTypeHeader_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown(string acceptHeader)
+        public async Task GivenARequestWithInvalidAcceptHeaderAndInvalidContentTypeHeader_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown(string acceptHeader)
         {
             var filter = CreateFilter();
 
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("xml")]
         [InlineData("json")]
         [InlineData("blah")]
-        public async Task GivenARequestWithAcceptHeaderToIgnoreAndNotAllowedContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string acceptHeader)
+        public async Task GivenARequestWithAcceptHeaderToIgnoreAndInvalidContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string acceptHeader)
         {
             var filter = CreateFilter();
 
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
         [InlineData("")]
-        public async Task GivenARequestWithNotAllowedContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string contentTypeHeader)
+        public async Task GivenARequestWithInvalidContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string contentTypeHeader)
         {
             var filter = CreateFilter();
 
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Theory]
         [InlineData("json", "application/fhir+xml")]
         [InlineData("application/fhir+json", "application/fhir+xml")]
-        public async Task GivenARequestWithAnAllowedFormatAndNotAllowedContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string requestFormat, string contentTypeHeader)
+        public async Task GivenARequestWithAValidFormatAndInvalidContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string requestFormat, string contentTypeHeader)
         {
             var filter = CreateFilter();
 
