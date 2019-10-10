@@ -116,7 +116,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     combinedMappings.Add(assemblyFixtureMapping.Key, assemblyFixtureMapping.Value);
                 }
 
-                return new XunitTestClassRunner(
+                return new ExecutionContextFlowingClassRunner(
                         testClass,
                         @class,
                         testCases,
@@ -127,6 +127,40 @@ namespace Microsoft.Health.Extensions.Xunit
                         CancellationTokenSource,
                         combinedMappings ?? CollectionFixtureMappings)
                     .RunAsync();
+            }
+        }
+
+        /// <summary>
+        /// An <see cref="XunitTestClassRunner"/> that runs tests in the same <see cref="ExecutionContext"/> as when all fixture constructors ran.
+        /// This means that <see cref="AsyncLocal{T}"/>s set during a fixture constructor can be read during test method execution.
+        /// </summary>
+        private class ExecutionContextFlowingClassRunner : XunitTestClassRunner
+        {
+            private ExecutionContext _context;
+
+            public ExecutionContextFlowingClassRunner(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource, IDictionary<Type, object> collectionFixtureMappings)
+                : base(testClass, @class, testCases, diagnosticMessageSink, messageBus, testCaseOrderer, aggregator, cancellationTokenSource, collectionFixtureMappings)
+            {
+            }
+
+            protected override void CreateClassFixture(Type fixtureType)
+            {
+                base.CreateClassFixture(fixtureType);
+                _context = ExecutionContext.Capture();
+            }
+
+            protected override Task<RunSummary> RunTestMethodsAsync()
+            {
+                if (_context == null)
+                {
+                    // no class fixtures, so context needed
+
+                    return base.RunTestMethodsAsync();
+                }
+
+                Task<RunSummary> result = null;
+                ExecutionContext.Run(_context, state => result = base.RunTestMethodsAsync(), null);
+                return result;
             }
         }
 

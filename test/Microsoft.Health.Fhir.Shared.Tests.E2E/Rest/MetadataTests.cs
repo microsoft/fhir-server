@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -30,6 +31,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<CapabilityStatement> readAsync = await Client.ReadAsync<CapabilityStatement>("metadata?system=true");
 
             Assert.NotEmpty(readAsync.Resource.Rest);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenGettingMetadata_GivenInvalidFormatParameter_TheServerShouldReturnNotAcceptable()
+        {
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<CapabilityStatement>("metadata?_format=blah"));
+            Assert.Equal(HttpStatusCode.NotAcceptable, ex.StatusCode);
         }
     }
 }
