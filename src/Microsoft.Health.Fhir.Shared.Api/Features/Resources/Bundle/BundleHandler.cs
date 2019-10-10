@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,10 +25,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
 {
     public class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
-        private IHttpContextAccessor _httpContextAccessor;
-        private IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private FhirJsonSerializer _fhirJsonSerializer;
-        private FhirJsonParser _fhirJsonParser;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly FhirJsonSerializer _fhirJsonSerializer;
+        private readonly FhirJsonParser _fhirJsonParser;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser)
         {
@@ -45,6 +46,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
         {
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
+            if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
+            {
+                throw new System.NotImplementedException();
+            }
+
             var requests = new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>>
             {
                 { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
@@ -55,9 +62,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
 
             var httpAuthenticationFeature = _httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
 
-            var router = _httpContextAccessor.HttpContext.GetRouteData().Routers.First();
+            IRouter router = _httpContextAccessor.HttpContext.GetRouteData().Routers.First();
 
-            foreach (var entry in bundleResource.Entry)
+            foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleResource.Entry)
             {
                 HttpContext context = new DefaultHttpContext { RequestServices = _httpContextAccessor.HttpContext.RequestServices };
                 context.Response.Body = new MemoryStream();
@@ -88,10 +95,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
                 {
                     case Hl7.Fhir.Model.Bundle.HTTPVerb.POST:
                     case Hl7.Fhir.Model.Bundle.HTTPVerb.PUT:
-                        byte[] serialized = _fhirJsonSerializer.SerializeToBytes(entry.Resource);
-                        var stringSerialized = _fhirJsonSerializer.SerializeToString(entry.Resource);
-                        var memoryStream = new MemoryStream();
-                        memoryStream.Write(serialized);
+                        var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
                         memoryStream.Seek(0, SeekOrigin.Begin);
                         context.Request.Body = memoryStream;
                         break;
@@ -115,7 +119,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
                 requests[entry.Request.Method.Value].Add((requestPath, context, routeContext));
             }
 
-            var responseBundle = new Hl7.Fhir.Model.Bundle();
+            var responseBundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Hl7.Fhir.Model.Bundle.BundleType.BatchResponse,
+            };
 
             await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE]);
             await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.POST]);
@@ -134,13 +141,35 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
                 request.httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
                 string bodyContent = new StreamReader(request.httpContext.Response.Body).ReadToEnd();
 
-                var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
-                if (!string.IsNullOrWhiteSpace(bodyContent))
+                var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent
                 {
-                    entryComponent.Resource = _fhirJsonParser.Parse<Resource>(bodyContent);
+                    Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                    {
+                        Status = request.httpContext.Response.StatusCode.ToString(),
+                        Location = request.httpContext.Response.Headers["Location"],
+                        Etag = request.httpContext.Response.Headers["ETag"],
+                    },
+                };
+
+                string lastModifiedHeader = request.httpContext.Response.Headers["Last-Modified"];
+                if (!string.IsNullOrWhiteSpace(lastModifiedHeader))
+                {
+                    entryComponent.Response.LastModified = DateTimeOffset.Parse(lastModifiedHeader);
                 }
 
-                entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent { Status = request.httpContext.Response.StatusCode.ToString() };
+                if (!string.IsNullOrWhiteSpace(bodyContent))
+                {
+                    var entryComponentResource = _fhirJsonParser.Parse<Resource>(bodyContent);
+
+                    if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
+                    {
+                        entryComponent.Response.Outcome = entryComponentResource;
+                    }
+                    else
+                    {
+                        entryComponent.Resource = entryComponentResource;
+                    }
+                }
 
                 responseBundle.Entry.Add(entryComponent);
             }
