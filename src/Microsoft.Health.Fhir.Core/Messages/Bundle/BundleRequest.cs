@@ -3,15 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 {
-    public class BundleRequest : IRequest<BundleResponse>, IRequest, IRequireCapability
+    public class BundleRequest : IRequest<BundleResponse>, IRequest
     {
         public BundleRequest(ResourceElement bundle)
         {
@@ -21,12 +19,5 @@ namespace Microsoft.Health.Fhir.Core.Messages.Bundle
         }
 
         public ResourceElement Bundle { get; }
-
-        public IEnumerable<CapabilityQuery> RequiredCapabilities()
-        {
-            var bundleType = Bundle.Scalar<string>(KnownFhirPaths.BundleType);
-
-            yield return new CapabilityQuery($"CapabilityStatement.rest.interaction.where(code = '{bundleType}').exists()");
-        }
     }
 }
