@@ -31,9 +31,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly FeatureConfiguration _featureConfiguration = new FeatureConfiguration();
         private readonly IAuthorizationService _authorizationService = Substitute.For<IAuthorizationService>();
         private readonly FhirController _controller;
-        private readonly IServiceProvider _serviceProvider = Substitute.For<IServiceProvider>();
-        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
-        private readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
 
         public FhirControllerTests()
         {
@@ -43,10 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _contextAccessor,
                 _urlResolver,
                 Options.Create(_featureConfiguration),
-                _authorizationService,
-                _serviceProvider,
-                _fhirJsonParser,
-                _fhirJsonSerializer);
+                _authorizationService);
         }
 
         [Fact]

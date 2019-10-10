@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
 {
@@ -44,8 +45,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
         {
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
-
-            var requests = new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>();
+            var requests = new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>>
+            {
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+            };
 
             var httpAuthenticationFeature = _httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
 
@@ -106,11 +112,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
                 };
                 context.Features[typeof(IHttpAuthenticationFeature)] = httpAuthenticationFeature;
 
-                requests.Add((requestPath, context, routeContext));
+                requests[entry.Request.Method.Value].Add((requestPath, context, routeContext));
             }
 
             var responseBundle = new Hl7.Fhir.Model.Bundle();
 
+            await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE]);
+            await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.POST]);
+            await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.PUT]);
+            await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.GET]);
+
+            return new BundleResponse(responseBundle.ToResourceElement());
+        }
+
+        private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)> requests)
+        {
             foreach (var request in requests)
             {
                 await request.routeContext.Handler.Invoke(request.routeContext.HttpContext);
@@ -128,8 +144,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
 
                 responseBundle.Entry.Add(entryComponent);
             }
-
-            return new BundleResponse(responseBundle.ToResourceElement());
         }
     }
 }
