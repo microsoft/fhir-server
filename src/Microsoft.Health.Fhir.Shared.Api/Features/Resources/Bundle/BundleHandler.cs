@@ -25,10 +25,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
 {
     public class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
+        private readonly Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>> _requests;
+        private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
+        private readonly IRouter _router;
+        private readonly IServiceProvider _requestServices;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser)
         {
@@ -37,10 +40,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
 
-            _httpContextAccessor = httpContextAccessor;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
+
+            _requests = new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>>
+            {
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+            };
+
+            _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
+            _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
+            _requestServices = httpContextAccessor.HttpContext.RequestServices;
         }
 
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
@@ -52,22 +66,28 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
                 throw new System.NotImplementedException();
             }
 
-            var requests = new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>>
+            await FillRequestLists(bundleResource.Entry);
+
+            var responseBundle = new Hl7.Fhir.Model.Bundle
             {
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+                Type = Hl7.Fhir.Model.Bundle.BundleType.BatchResponse,
             };
 
-            var httpAuthenticationFeature = _httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
+            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE);
+            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.POST);
+            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.PUT);
+            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.GET);
 
-            IRouter router = _httpContextAccessor.HttpContext.GetRouteData().Routers.First();
+            return new BundleResponse(responseBundle.ToResourceElement());
+        }
 
-            foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleResource.Entry)
+        private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
+        {
+            foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
             {
-                HttpContext context = new DefaultHttpContext { RequestServices = _httpContextAccessor.HttpContext.RequestServices };
-                context.Response.Body = new MemoryStream();
+                HttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
+                httpContext.Features[typeof(IHttpAuthenticationFeature)] = _httpAuthenticationFeature;
+                httpContext.Response.Body = new MemoryStream();
 
                 string requestPath = entry.Request.Url;
 
@@ -80,15 +100,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
 
                 if (splitPath.Length > 1)
                 {
-                    context.Request.QueryString = new QueryString($"?{splitPath[1]}");
+                    httpContext.Request.QueryString = new QueryString($"?{splitPath[1]}");
                 }
 
-                context.Request.Path = splitPath[0];
-                context.Request.Method = entry.Request.Method.ToString();
+                httpContext.Request.Path = splitPath[0];
+                httpContext.Request.Method = entry.Request.Method.ToString();
 
                 foreach (var header in _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders)
                 {
-                    context.Request.Headers.Add(header);
+                    httpContext.Request.Headers.Add(header);
                 }
 
                 switch (entry.Request.Method)
@@ -97,44 +117,31 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
                     case Hl7.Fhir.Model.Bundle.HTTPVerb.PUT:
                         var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
                         memoryStream.Seek(0, SeekOrigin.Begin);
-                        context.Request.Body = memoryStream;
+                        httpContext.Request.Body = memoryStream;
                         break;
                 }
 
-                var routeContext = new RouteContext(context);
+                var routeContext = new RouteContext(httpContext);
 
-                await router.RouteAsync(routeContext);
+                await _router.RouteAsync(routeContext);
 
                 if (routeContext.Handler == null)
                 {
                     continue;
                 }
 
-                context.Features[typeof(IRoutingFeature)] = new RoutingFeature()
+                httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature()
                 {
                     RouteData = routeContext.RouteData,
                 };
-                context.Features[typeof(IHttpAuthenticationFeature)] = httpAuthenticationFeature;
 
-                requests[entry.Request.Method.Value].Add((requestPath, context, routeContext));
+                _requests[entry.Request.Method.Value].Add((requestPath, httpContext, routeContext));
             }
-
-            var responseBundle = new Hl7.Fhir.Model.Bundle
-            {
-                Type = Hl7.Fhir.Model.Bundle.BundleType.BatchResponse,
-            };
-
-            await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE]);
-            await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.POST]);
-            await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.PUT]);
-            await ExecuteRequests(responseBundle, requests[Hl7.Fhir.Model.Bundle.HTTPVerb.GET]);
-
-            return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)> requests)
+        private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb)
         {
-            foreach (var request in requests)
+            foreach (var request in _requests[httpVerb])
             {
                 await request.routeContext.Handler.Invoke(request.routeContext.HttpContext);
 
