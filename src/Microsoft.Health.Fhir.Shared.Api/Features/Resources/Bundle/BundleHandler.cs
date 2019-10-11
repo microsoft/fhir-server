@@ -16,19 +16,20 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
+namespace Microsoft.Health.Fhir.Shared.Api.Features.Resources.Bundle
 {
     public class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>> _requests;
+        private readonly Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<RouteContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
@@ -44,12 +45,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
 
-            _requests = new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>>
+            _requests = new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<RouteContext>>
             {
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<(string originalUrl, HttpContext httpContext, RouteContext routeContext)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<RouteContext>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<RouteContext>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.HEAD, new List<RouteContext>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.PATCH, new List<RouteContext>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<RouteContext>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<RouteContext>() },
             };
 
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
@@ -63,7 +66,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
 
             if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
             {
-                throw new System.NotImplementedException();
+                throw new MethodNotAllowedException(Microsoft.Health.Fhir.Api.Resources.TransactionsNotSupported);
             }
 
             await FillRequestLists(bundleResource.Entry);
@@ -76,7 +79,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
             await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE);
             await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.POST);
             await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.PUT);
+            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.PATCH);
             await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.GET);
+            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.HEAD);
 
             return new BundleResponse(responseBundle.ToResourceElement());
         }
@@ -85,25 +90,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
         {
             foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
             {
+                if (entry.Request.Method == null)
+                {
+                    continue;
+                }
+
                 HttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
                 httpContext.Features[typeof(IHttpAuthenticationFeature)] = _httpAuthenticationFeature;
                 httpContext.Response.Body = new MemoryStream();
 
-                string requestPath = entry.Request.Url;
-
-                if (!requestPath.StartsWith('/'))
-                {
-                    requestPath = "/" + requestPath;
-                }
-
-                var splitPath = requestPath.Split('?');
-
-                if (splitPath.Length > 1)
-                {
-                    httpContext.Request.QueryString = new QueryString($"?{splitPath[1]}");
-                }
-
-                httpContext.Request.Path = splitPath[0];
+                var requestUri = new Uri(_fhirRequestContextAccessor.FhirRequestContext.BaseUri, entry.Request.Url);
+                httpContext.Request.Path = requestUri.LocalPath;
+                httpContext.Request.QueryString = new QueryString(requestUri.Query);
                 httpContext.Request.Method = entry.Request.Method.ToString();
 
                 foreach (var header in _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders)
@@ -125,6 +123,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
 
                 await _router.RouteAsync(routeContext);
 
+                // PATCH does not resolve a handler so it current no-ops. This needs to be updated to always return a 404.
                 if (routeContext.Handler == null)
                 {
                     continue;
@@ -135,30 +134,31 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Resources.Bundle
                     RouteData = routeContext.RouteData,
                 };
 
-                _requests[entry.Request.Method.Value].Add((requestPath, httpContext, routeContext));
+                _requests[entry.Request.Method.Value].Add(routeContext);
             }
         }
 
         private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb)
         {
-            foreach (var request in _requests[httpVerb])
+            foreach (RouteContext request in _requests[httpVerb])
             {
-                await request.routeContext.Handler.Invoke(request.routeContext.HttpContext);
+                HttpContext httpContext = request.HttpContext;
+                await request.Handler.Invoke(httpContext);
 
-                request.httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-                string bodyContent = new StreamReader(request.httpContext.Response.Body).ReadToEnd();
+                httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+                string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
 
                 var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent
                 {
                     Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
                     {
-                        Status = request.httpContext.Response.StatusCode.ToString(),
-                        Location = request.httpContext.Response.Headers["Location"],
-                        Etag = request.httpContext.Response.Headers["ETag"],
+                        Status = httpContext.Response.StatusCode.ToString(),
+                        Location = httpContext.Response.Headers["Location"],
+                        Etag = httpContext.Response.Headers["ETag"],
                     },
                 };
 
-                string lastModifiedHeader = request.httpContext.Response.Headers["Last-Modified"];
+                string lastModifiedHeader = httpContext.Response.Headers["Last-Modified"];
                 if (!string.IsNullOrWhiteSpace(lastModifiedHeader))
                 {
                     entryComponent.Response.LastModified = DateTimeOffset.Parse(lastModifiedHeader);

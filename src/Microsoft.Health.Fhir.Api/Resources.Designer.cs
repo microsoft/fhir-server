@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
@@ -246,6 +246,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TooManyCustomAuditHeaders {
             get {
                 return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Transactions are not currently supported..
+        /// </summary>
+        public static string TransactionsNotSupported {
+            get {
+                return ResourceManager.GetString("TransactionsNotSupported", resourceCulture);
             }
         }
         
