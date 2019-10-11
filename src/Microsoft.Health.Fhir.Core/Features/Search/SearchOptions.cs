@@ -31,6 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public bool CountOnly { get; internal set; }
 
         /// <summary>
+        /// Gets true if the total number of resources that match the search parameters should be calculated, false otherwise.
+        /// </summary>
+        public bool IncludeTotal { get; internal set; } // TODO: make this an enum?
+
+        /// <summary>
         /// Gets the maximum number of items to find.
         /// </summary>
         public int MaxItemCount

@@ -41,5 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string DestinationConnectionSettings = "_destinationConnectionSettings";
 
         public const string Sort = "_sort";
+
+        // TODO: Add comment
+        public const string Total = "_total";
     }
 }

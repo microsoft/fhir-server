@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets total number of documents
         /// </summary>
-        public int? TotalCount { get; }
+        public int? TotalCount { get; set; } // TODO: Remove setter and add constructor if the double query is abstracted to the database layer.
 
         /// <summary>
         /// Gets the continuation token.

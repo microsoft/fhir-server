@@ -40,10 +40,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            return await ExecuteSearchAsync(
+            // TODO: Can this be abstracted to the database layer?
+            SearchResult searchResult = await ExecuteSearchAsync(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions),
                 searchOptions,
                 cancellationToken);
+
+            if (searchOptions.IncludeTotal && !searchOptions.CountOnly)
+            {
+                searchOptions.CountOnly = true;
+                var totalSearchResult = await ExecuteSearchAsync(
+                    _queryBuilder.BuildSqlQuerySpec(searchOptions),
+                    searchOptions,
+                    cancellationToken);
+
+                searchResult.TotalCount = totalSearchResult.TotalCount;
+            }
+
+            return searchResult;
         }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(
