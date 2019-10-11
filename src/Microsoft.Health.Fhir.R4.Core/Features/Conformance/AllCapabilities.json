@@ -29595,10 +29595,6 @@
             ],
             "interaction": [
                 {
-                    "code": "transaction",
-                    "documentation": "Implemented per the specification"
-                },
-                {
                     "code": "batch",
                     "documentation": "Implemented per the specification"
                 },
@@ -29608,6 +29604,10 @@
                 },
                 {
                     "code": "search-system",
+                    "documentation": "Implemented per the specification"
+                },
+                {
+                    "code": "transaction",
                     "documentation": "Implemented per the specification"
                 }
             ],

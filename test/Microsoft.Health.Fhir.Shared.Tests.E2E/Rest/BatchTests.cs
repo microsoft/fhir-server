@@ -28,9 +28,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenSubmittingABatch_GivenAProperBundle_ThenNotImplementedIsReturned()
         {
-             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco<Bundle>()));
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco<Bundle>()));
 
-             Assert.Equal(HttpStatusCode.NotImplemented, ex.StatusCode);
+            Assert.Equal(HttpStatusCode.NotImplemented, ex.StatusCode);
         }
 
         [Fact]
