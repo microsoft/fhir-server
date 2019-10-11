@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -29,6 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public abstract class TestFhirServer : IDisposable
     {
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<FhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<FhirClient>>();
+        private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
 
         protected TestFhirServer(Uri baseAddress)
         {
@@ -46,6 +46,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public FhirClient GetFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true)
         {
+            if (_asyncLocalSessionTokenContainer.Value == null)
+            {
+                // Ensure that we are able to preserve session tokens across requests in this execution context and its children.
+                _asyncLocalSessionTokenContainer.Value = new SessionTokenContainer();
+            }
+
             if (!reusable)
             {
                 return CreateFhirClient(format, clientApplication, user);
@@ -61,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private FhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user)
         {
-            var httpClient = new HttpClient(new SessionMessageHandler(CreateMessageHandler())) { BaseAddress = BaseAddress };
+            var httpClient = new HttpClient(new SessionMessageHandler(CreateMessageHandler(), _asyncLocalSessionTokenContainer)) { BaseAddress = BaseAddress };
 
             (bool securityEnabled, string authorizeUrl, string tokenUrl) securitySettings = (false, null, null);
 
@@ -110,12 +116,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// </summary>
         private class SessionMessageHandler : DelegatingHandler
         {
-            private readonly AsyncLocal<string> _sessionToken = new AsyncLocal<string>();
+            private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer;
             private readonly AsyncRetryPolicy _polly;
 
-            public SessionMessageHandler(HttpMessageHandler innerHandler)
+            public SessionMessageHandler(HttpMessageHandler innerHandler, AsyncLocal<SessionTokenContainer> asyncLocalSessionTokenContainer)
                 : base(innerHandler)
             {
+                _asyncLocalSessionTokenContainer = asyncLocalSessionTokenContainer;
+                EnsureArg.IsNotNull(asyncLocalSessionTokenContainer, nameof(asyncLocalSessionTokenContainer));
                 _polly = Policy.Handle<HttpRequestException>(x =>
                 {
                     if (x.InnerException is IOException || x.InnerException is SocketException)
@@ -129,7 +137,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
-                string latestValue = _sessionToken.Value;
+                SessionTokenContainer sessionTokenContainer = _asyncLocalSessionTokenContainer.Value;
+                if (sessionTokenContainer == null)
+                {
+                    throw new InvalidOperationException($"{nameof(SessionTokenContainer)} has not been set for the execution context");
+                }
+
+                string latestValue = sessionTokenContainer.SessionToken;
 
                 if (!string.IsNullOrEmpty(latestValue))
                 {
@@ -147,11 +161,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
                 {
-                    _sessionToken.Value = tokens.SingleOrDefault();
+                    sessionTokenContainer.SessionToken = tokens.SingleOrDefault();
                 }
 
                 return response;
             }
+        }
+
+        private class SessionTokenContainer
+        {
+            public string SessionToken { get; set; }
         }
     }
 }
