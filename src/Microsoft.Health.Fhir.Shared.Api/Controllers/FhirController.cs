@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
-        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
+        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery]bool hardDelete)
         {
             string policy = PolicyNames.WritePolicy;
             if (hardDelete)
@@ -535,8 +535,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route("", Name = RouteNames.PostBundle)]
         [AuditEventType(AuditEventSubType.Batch)] // TODO: Our current auditing implementation only allows one audit event type attribute even though this action handles two.
-        ////[Authorize(PolicyNames.ReadPolicy)]
-        ////[Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
