@@ -45,12 +45,11 @@ namespace Microsoft.Health.Fhir.Shared.Api.Features.Resources.Bundle
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
 
+            // Patch and Head aren't supported enums in the STU3 version of the library.
             _requests = new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<RouteContext>>
             {
                 { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<RouteContext>() },
                 { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.HEAD, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.PATCH, new List<RouteContext>() },
                 { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<RouteContext>() },
                 { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<RouteContext>() },
             };
@@ -79,9 +78,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.Features.Resources.Bundle
             await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE);
             await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.POST);
             await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.PUT);
-            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.PATCH);
             await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.GET);
-            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.HEAD);
 
             return new BundleResponse(responseBundle.ToResourceElement());
         }
