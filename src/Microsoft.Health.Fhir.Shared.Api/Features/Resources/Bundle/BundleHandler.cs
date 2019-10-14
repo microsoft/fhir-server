@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Io;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -16,6 +17,9 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -95,19 +99,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.QueryString = new QueryString(requestUri.Query);
                 httpContext.Request.Method = entry.Request.Method.ToString();
 
-                foreach (var header in _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders)
-                {
-                    httpContext.Request.Headers.Add(header);
-                }
+                AddHeaderIfNeeded(HeaderNames.IfMatch, entry.Request.IfMatch, httpContext);
+                AddHeaderIfNeeded(HeaderNames.IfModifiedSince, entry.Request.IfModifiedSince?.ToString(), httpContext);
+                AddHeaderIfNeeded(HeaderNames.IfNoneMatch, entry.Request.IfNoneMatch, httpContext);
+                AddHeaderIfNeeded(KnownFhirHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
-                switch (entry.Request.Method)
+                if (entry.Request.Method == Hl7.Fhir.Model.Bundle.HTTPVerb.POST ||
+                   entry.Request.Method == Hl7.Fhir.Model.Bundle.HTTPVerb.PUT)
                 {
-                    case Hl7.Fhir.Model.Bundle.HTTPVerb.POST:
-                    case Hl7.Fhir.Model.Bundle.HTTPVerb.PUT:
-                        var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
-                        memoryStream.Seek(0, SeekOrigin.Begin);
-                        httpContext.Request.Body = memoryStream;
-                        break;
+                    httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
+
+                    var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
+                    memoryStream.Seek(0, SeekOrigin.Begin);
+                    httpContext.Request.Body = memoryStream;
                 }
 
                 var routeContext = new RouteContext(httpContext);
@@ -126,6 +130,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 };
 
                 _requests[entry.Request.Method.Value].Add(routeContext);
+            }
+        }
+
+        private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
+        {
+            if (!string.IsNullOrWhiteSpace(headerValue))
+            {
+                httpContext.Request.Headers.Add(headerKey, new StringValues(headerValue));
             }
         }
 
