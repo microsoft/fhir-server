@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 if (viewResult.View == null)
                 {
-                    throw new FileNotFoundException(Resources.ViewNotFound, $"{viewName}.cshtml");
+                    throw new FileNotFoundException(Api.Resources.ViewNotFound, $"{viewName}.cshtml");
                 }
 
                 var resourceInstance = (Resource)context.Object;

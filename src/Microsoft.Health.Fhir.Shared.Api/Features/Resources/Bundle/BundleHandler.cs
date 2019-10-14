@@ -22,9 +22,12 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Api.Features.Resources.Bundle
+namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
+    /// <summary>
+    /// Handler for bundles of type transaction and batch.
+    /// </summary>
+    public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
@@ -45,14 +48,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.Features.Resources.Bundle
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
 
-            // Patch and Head aren't supported enums in the STU3 version of the library.
-            _requests = new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<RouteContext>>
-            {
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<RouteContext>() },
-            };
+            // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
+            _requests = GenerateRequestDictionary();
 
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
@@ -75,10 +72,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.Features.Resources.Bundle
                 Type = Hl7.Fhir.Model.Bundle.BundleType.BatchResponse,
             };
 
-            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE);
-            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.POST);
-            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.PUT);
-            await ExecuteRequests(responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb.GET);
+            await ExecuteAllRequests(responseBundle);
 
             return new BundleResponse(responseBundle.ToResourceElement());
         }
