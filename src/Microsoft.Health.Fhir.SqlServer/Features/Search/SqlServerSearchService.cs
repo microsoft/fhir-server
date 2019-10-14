@@ -67,9 +67,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _logger = logger;
         }
 
-        protected override Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+        protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            return SearchImpl(searchOptions, false, cancellationToken);
+            // TODO: Can this be abstracted to the database layer?
+            var searchResult = await SearchImpl(searchOptions, false, cancellationToken);
+
+            if (searchOptions.IncludeTotal && !searchOptions.CountOnly)
+            {
+                searchOptions.CountOnly = true;
+                var totalSearchResult = await SearchImpl(searchOptions, false, cancellationToken);
+
+                searchResult.TotalCount = totalSearchResult.TotalCount;
+            }
+
+            return searchResult;
         }
 
         protected override Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
