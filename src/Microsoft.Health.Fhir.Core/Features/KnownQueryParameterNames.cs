@@ -42,7 +42,10 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string Sort = "_sort";
 
-        // TODO: Add comment
+        /// <summary>
+        /// The total query parameter.
+        /// </summary>
+        /// <remarks>Specifies if the total number of matching search results should be included in the returned Bundle.</remarks>
         public const string Total = "_total";
     }
 }
