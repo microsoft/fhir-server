@@ -11,7 +11,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="2.10.0" />
     <PackageReference Include="Microsoft.SqlServer.DacFx" Version="150.4384.2-preview" />
     <PackageReference Include="System.CommandLine.DragonFruit" Version="0.2.0-alpha.19174.3" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.6.1" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.7.0" />
   </ItemGroup>
 
 </Project>
