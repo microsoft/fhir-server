@@ -161,34 +161,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = healthExceptionResult;
                 context.ExceptionHandled = true;
             }
-            else if (context.Exception is SystemException systemException)
-            {
-                OperationOutcomeResult healthExceptionResult;
-
-                switch (systemException)
-                {
-                    case NotImplementedException ex:
-                        healthExceptionResult = new OperationOutcomeResult(
-                            new OperationOutcome
-                            {
-                                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                            }, HttpStatusCode.NotImplemented);
-                        healthExceptionResult.StatusCode = HttpStatusCode.NotImplemented;
-
-                        break;
-                    default:
-                        healthExceptionResult = new OperationOutcomeResult(
-                            new OperationOutcome
-                            {
-                                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                            }, HttpStatusCode.InternalServerError);
-                        healthExceptionResult.StatusCode = HttpStatusCode.InternalServerError;
-                        break;
-                }
-
-                context.Result = healthExceptionResult;
-                context.ExceptionHandled = true;
-            }
         }
     }
 }

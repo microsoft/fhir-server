@@ -73,8 +73,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         {
             statement.TryAddRestInteraction(resourceType, TypeRestfulInteraction.Read);
             statement.TryAddRestInteraction(resourceType, TypeRestfulInteraction.Vread);
-            statement.TryAddRestInteraction(SystemRestfulInteraction.Batch);
-            statement.TryAddRestInteraction(SystemRestfulInteraction.Transaction);
         }
     }
 }
