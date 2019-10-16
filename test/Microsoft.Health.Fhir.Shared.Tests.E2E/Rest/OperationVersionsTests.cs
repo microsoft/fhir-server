@@ -56,12 +56,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("application/json1")]
         [InlineData("applicaiton/xml")]
-        public async Task WhenVersionsEndpointIsCalled_GivenInvalidAcceptHeaderIsProvided_ThenServerShouldReturnUnsupportedMediaType(string acceptHeaderValue)
+        public async Task WhenVersionsEndpointIsCalled_GivenInvalidAcceptHeaderIsProvided_ThenServerShouldReturnNotAcceptable(string acceptHeaderValue)
         {
             HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
             HttpResponseMessage response = await _client.SendAsync(request);
 
-            Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
+            Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
         }
 
         private async Task CheckContentType(string acceptHeaderValue)
