@@ -85,7 +85,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TotalType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ModelAttributeValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)VersionSpecificModelInfoProvider.cs" />
