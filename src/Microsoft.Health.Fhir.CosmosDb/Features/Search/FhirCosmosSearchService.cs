@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 searchOptions,
                 cancellationToken);
 
-            if (searchOptions.IncludeTotal && !searchOptions.CountOnly)
+            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
                 searchOptions.CountOnly = true;
                 var totalSearchResult = await ExecuteSearchAsync(

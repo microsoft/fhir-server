@@ -92,14 +92,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Total)
                 {
-                    // TODO: Get rid of "magic" strings, use enums.
-                    if (string.Compare(query.Item2, "accurate", StringComparison.OrdinalIgnoreCase) == 0)
+                    if (string.Compare(query.Item2, TotalType.Accurate.ToString(), StringComparison.OrdinalIgnoreCase) == 0)
                     {
-                        searchOptions.IncludeTotal = true;
+                        searchOptions.IncludeTotal = TotalType.Accurate;
                     }
-                    else if (string.Compare(query.Item2, "none", StringComparison.OrdinalIgnoreCase) == 0)
+                    else if (string.Compare(query.Item2, TotalType.None.ToString(), StringComparison.OrdinalIgnoreCase) == 0)
                     {
-                        searchOptions.IncludeTotal = false;
+                        searchOptions.IncludeTotal = TotalType.None;
                     }
                 }
                 else

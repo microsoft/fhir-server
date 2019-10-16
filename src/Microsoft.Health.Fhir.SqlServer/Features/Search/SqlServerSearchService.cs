@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 SearchResult searchResult;
 
                 // If we should include the total count of matching search results
-                if (searchOptions.IncludeTotal && !searchOptions.CountOnly)
+                if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
                 {
                     // Begin a transaction so we can perform two atomic reads.
                     using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
