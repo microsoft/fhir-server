@@ -156,6 +156,9 @@
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
   </data>
+  <data name="OnlyCertainBundleTypesSupported" xml:space="preserve">
+    <value>Only bundles of the type batch are supported.</value>
+  </data>
   <data name="OperationFailed" xml:space="preserve">
     <value>{0} operation failed for reason: {1}</value>
     <comment>{0} is operation name, {1} is failure reason.</comment>
@@ -186,9 +189,6 @@
   <data name="TooManyCustomAuditHeaders" xml:space="preserve">
     <value>The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}.</value>
     <comment>PH0 is a constant defining the max number of custom headers.  PH1 is the count of custom headers sent in the request.  Example: The maximum number of custom audit headers allowed is 10. The number of custom audit headers supplied is 12.</comment>
-  </data>
-  <data name="TransactionsNotSupported" xml:space="preserve">
-    <value>Transactions are not currently supported.</value>
   </data>
   <data name="UnableToObtainOpenIdConfiguration" xml:space="preserve">
     <value>Unable to obtain OpenID configuration.</value>

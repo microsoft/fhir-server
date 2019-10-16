@@ -169,6 +169,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Only bundles of the type batch are supported..
+        /// </summary>
+        public static string OnlyCertainBundleTypesSupported {
+            get {
+                return ResourceManager.GetString("OnlyCertainBundleTypesSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
         /// </summary>
         public static string OperationFailed {
@@ -246,15 +255,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TooManyCustomAuditHeaders {
             get {
                 return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Transactions are not currently supported..
-        /// </summary>
-        public static string TransactionsNotSupported {
-            get {
-                return ResourceManager.GetString("TransactionsNotSupported", resourceCulture);
             }
         }
         
