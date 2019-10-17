@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            // TODO: Can this be abstracted to the database layer?
             SearchResult searchResult = await ExecuteSearchAsync(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions),
                 searchOptions,
