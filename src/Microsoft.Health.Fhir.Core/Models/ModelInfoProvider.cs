@@ -6,6 +6,7 @@
 using System;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -87,6 +88,12 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             EnsureProvider();
             return _modelInfoProvider.GetEvaluationContext(element);
+        }
+
+        public static IStructureDefinitionSummaryProvider GetStructureDefinitionSummaryProvider()
+        {
+            EnsureProvider();
+            return _modelInfoProvider.GetStructureDefinitionSummaryProvider();
         }
 
         public static void EnsureValidResourceType(string resourceName, string parameterName)

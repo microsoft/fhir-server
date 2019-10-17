@@ -5,6 +5,7 @@
 
 using System;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -28,5 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         Type GetTypeForFhirType(string resourceType);
 
         EvaluationContext GetEvaluationContext(ITypedElement element);
+
+        IStructureDefinitionSummaryProvider GetStructureDefinitionSummaryProvider();
     }
 }

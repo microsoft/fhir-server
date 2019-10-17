@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         /// <summary>
         /// Allows this component to add capabilities into the specified ListedCapabilityStatement.
         /// </summary>
-        /// <param name="statement">The ListedCapabilityStatement to be added to.</param>
-        void Build(IListedCapabilityStatement statement);
+        /// <param name="builder">The ListedCapabilityStatement to be added to.</param>
+        void Build(ICapabilityStatementBuilder builder);
     }
 }

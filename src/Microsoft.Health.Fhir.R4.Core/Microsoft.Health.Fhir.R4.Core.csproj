@@ -6,16 +6,10 @@
   <PropertyGroup>
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
-  <ItemGroup>
-    <None Remove="Features\Conformance\DefaultCapabilities.json" />
-  </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Features\Conformance\AllCapabilities.json" />
-    <EmbeddedResource Include="Features\Conformance\DefaultCapabilities.json" />
     <EmbeddedResource Include="Features\Definition\search-parameters.json" />
     <EmbeddedResource Include="Features\Definition\compartment.json" />
-    <EmbeddedResource Include="Features\Conformance\BaseCapabilities.json" />
   </ItemGroup>
 
   <ItemGroup>

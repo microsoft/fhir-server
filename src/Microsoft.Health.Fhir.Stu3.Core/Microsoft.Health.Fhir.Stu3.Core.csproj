@@ -15,9 +15,6 @@
   <ItemGroup>
     <EmbeddedResource Include="Features\Definition\compartment.json" />
     <EmbeddedResource Include="Features\Definition\search-parameters.json" />
-    <EmbeddedResource Include="Features\Conformance\AllCapabilities.json" />
-    <EmbeddedResource Include="Features\Conformance\BaseCapabilities.json" />
-    <EmbeddedResource Include="Features\Conformance\DefaultCapabilities.json" />
   </ItemGroup>
 
   <ItemGroup>

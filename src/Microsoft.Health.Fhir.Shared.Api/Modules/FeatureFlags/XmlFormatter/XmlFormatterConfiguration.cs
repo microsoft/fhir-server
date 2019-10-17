@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
@@ -39,15 +40,16 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
         {
             if (_featureConfiguration.SupportsXml)
             {
-                _configuredConformanceProvider.ConfigureOptionalCapabilities(statement => statement.Format = statement.Format.Concat(new[] { KnownContentTypes.XmlContentType }));
+                _configuredConformanceProvider
+                    .ConfigureOptionalCapabilities(statement => statement.Format.Add(KnownContentTypes.XmlContentType));
             }
         }
 
-        public void Build(IListedCapabilityStatement statement)
+        public void Build(ICapabilityStatementBuilder builder)
         {
             if (_featureConfiguration.SupportsXml)
             {
-                statement.Format.Add(KnownContentTypes.XmlContentType);
+                builder.Update(x => x.Format.Add(KnownContentTypes.XmlContentType));
             }
         }
     }

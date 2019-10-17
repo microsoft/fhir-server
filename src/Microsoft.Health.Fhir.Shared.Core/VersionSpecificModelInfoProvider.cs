@@ -7,6 +7,7 @@ using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -58,6 +59,11 @@ namespace Microsoft.Health.Fhir.Core
         public EvaluationContext GetEvaluationContext(ITypedElement element)
         {
             return new FhirEvaluationContext(element);
+        }
+
+        public IStructureDefinitionSummaryProvider GetStructureDefinitionSummaryProvider()
+        {
+            return new PocoStructureDefinitionSummaryProvider();
         }
     }
 }

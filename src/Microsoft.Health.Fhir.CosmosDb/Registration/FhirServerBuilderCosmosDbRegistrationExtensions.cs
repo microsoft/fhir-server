@@ -111,6 +111,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();
 
+            services.Add<SearchCapabilityProvider>()
+                .Transient()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

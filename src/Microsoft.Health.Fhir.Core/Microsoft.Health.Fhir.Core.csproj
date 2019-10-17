@@ -3,6 +3,17 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Features\Conformance\R4\BaseCapabilities.json" />
+    <None Remove="Features\Conformance\Stu3\BaseCapabilities.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Features\Conformance\R4\BaseCapabilities.json" />
+    <EmbeddedResource Include="Features\Conformance\Stu3\BaseCapabilities.json" />
+    <EmbeddedResource Include="Features\Specification\R4.fhir.schema.json" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.13.0" />
@@ -15,6 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="2.2.0" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="1.3.0" />
     <PackageReference Include="Hl7.FhirPath" Version="1.3.0" />
+    <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.11" />
     <PackageReference Include="Polly" Version="7.1.1" />
     <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />

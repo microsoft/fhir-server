@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
@@ -22,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
     {
         private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly bool _featureEnabled;
 
         public ConditionalCreateResourceHandler(
@@ -30,15 +32,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
             IMediator mediator,
-            IsEnabled featureEnabled)
+            IsEnabled featureEnabled,
+            IModelInfoProvider modelInfoProvider)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(featureEnabled, nameof(featureEnabled));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchService = searchService;
             _mediator = mediator;
+            _modelInfoProvider = modelInfoProvider;
             _featureEnabled = featureEnabled();
         }
 
@@ -68,11 +73,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             }
         }
 
-        protected override void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
+        public void Build(ICapabilityStatementBuilder builder)
         {
             if (_featureEnabled)
             {
-                statement.BuildRestResourceComponent(resourceType, x => x.ConditionalCreate = true);
+                foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
+                {
+                    builder.UpdateRestResourceComponent(resource, c => c.ConditionalCreate = true);
+                }
             }
         }
     }

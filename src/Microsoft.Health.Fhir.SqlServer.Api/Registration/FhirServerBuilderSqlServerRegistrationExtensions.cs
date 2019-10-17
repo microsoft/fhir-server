@@ -99,6 +99,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<SearchCapabilityProvider>()
+                .Transient()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

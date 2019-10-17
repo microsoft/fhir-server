@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources
 {
-    public abstract class BaseResourceHandler : IProvideCapability
+    public abstract class BaseResourceHandler
     {
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
@@ -52,18 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             ResourceWrapper resourceWrapper = _resourceWrapperFactory.Create(resource.ToResourceElement(), deleted);
 
             return resourceWrapper;
-        }
-
-        public void Build(IListedCapabilityStatement statement)
-        {
-            foreach (var resource in ModelInfo.SupportedResources)
-            {
-                AddResourceCapability(statement, resource);
-            }
-        }
-
-        protected virtual void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
-        {
         }
     }
 }

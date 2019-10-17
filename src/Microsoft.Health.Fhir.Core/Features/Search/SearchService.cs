@@ -196,15 +196,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 
-        public void Build(IListedCapabilityStatement statement)
+        public virtual void Build(ICapabilityStatementBuilder builder)
         {
             foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
             {
-                statement.TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryType);
-                statement.TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryInstance);
+                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryType);
+                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryInstance);
             }
 
-            statement.TryAddRestInteraction(SystemRestfulInteraction.HistorySystem);
+            builder.TryAddRestInteraction(SystemRestfulInteraction.HistorySystem);
         }
     }
 }

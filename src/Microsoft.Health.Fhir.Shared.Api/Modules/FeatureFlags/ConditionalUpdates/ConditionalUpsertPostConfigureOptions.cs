@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalUpdates
 {
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalUpdates
                 _configuredConformanceProvider
                     .ConfigureOptionalCapabilities(x =>
                     {
-                        foreach (var r in x.Rest.First().Resource)
+                        foreach (ListedResourceComponent r in x.Rest.Server().Resource)
                         {
                             r.ConditionalUpdate = true;
                         }

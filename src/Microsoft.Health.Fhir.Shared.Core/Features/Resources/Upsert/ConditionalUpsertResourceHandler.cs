@@ -16,16 +16,19 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 {
     /// <summary>
     /// Handles Conditional Update logic as defined in the spec https://www.hl7.org/fhir/http.html#cond-update
     /// </summary>
-    public class ConditionalUpsertResourceHandler : BaseResourceHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
+    public class ConditionalUpsertResourceHandler
+        : BaseResourceHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>, IProvideCapability
     {
         private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly bool _featureEnabled;
 
         public ConditionalUpsertResourceHandler(
@@ -34,15 +37,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
             IMediator mediator,
-            IsEnabled featureEnabled)
+            IsEnabled featureEnabled,
+            IModelInfoProvider modelInfoProvider)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(featureEnabled, nameof(featureEnabled));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchService = searchService;
             _mediator = mediator;
+            _modelInfoProvider = modelInfoProvider;
             _featureEnabled = featureEnabled();
         }
 
@@ -94,11 +100,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             }
         }
 
-        protected override void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
+        public void Build(ICapabilityStatementBuilder builder)
         {
             if (_featureEnabled)
             {
-                statement.BuildRestResourceComponent(resourceType, x => x.ConditionalUpdate = true);
+                foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
+                {
+                    builder.UpdateRestResourceComponent(resource, c => c.ConditionalUpdate = true);
+                }
             }
         }
     }

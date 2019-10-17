@@ -12,6 +12,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\CompartmentIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\SearchCompartmentHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentDefinitionManagerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializerTests.cs" />
