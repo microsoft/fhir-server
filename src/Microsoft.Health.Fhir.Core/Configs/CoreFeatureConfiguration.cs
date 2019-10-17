@@ -6,7 +6,7 @@
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     /// <summary>
-    /// Core configurations
+    /// core feature configurations
     /// </summary>
     public class CoreFeatureConfiguration
     {
