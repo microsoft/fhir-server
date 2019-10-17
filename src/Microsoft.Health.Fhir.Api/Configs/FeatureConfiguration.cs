@@ -29,15 +29,5 @@ namespace Microsoft.Health.Fhir.Api.Configs
         /// Gets or sets a value indicating whether Conditional Create is enabled or not.
         /// </summary>
         public bool SupportsConditionalCreate { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether Batch is enabled or not.
-        /// </summary>
-        public bool SupportsBatch { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether Transaction is enabled or not.
-        /// </summary>
-        public bool SupportsTransaction { get; set; }
     }
 }

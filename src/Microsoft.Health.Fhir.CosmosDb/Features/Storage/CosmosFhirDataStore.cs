@@ -19,7 +19,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
-        private readonly FeatureConfiguration _features;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="modelInfoProvider">The model provider</param>
-        /// <param name="features">The feature configuration</param>
+        /// <param name="coreFeatures">The core feature configuration</param>
         public CosmosFhirDataStore(
             IScoped<IDocumentClient> documentClientScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
             IModelInfoProvider modelInfoProvider,
-            IOptions<FeatureConfiguration> features)
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             EnsureArg.IsNotNull(documentClientScope, nameof(documentClientScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -74,14 +74,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-            EnsureArg.IsNotNull(features, nameof(features));
+            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
 
             _documentClientScope = documentClientScope;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _modelInfoProvider = modelInfoProvider;
-            _features = features.Value;
+            _coreFeatures = coreFeatures.Value;
 
             CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
 
@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 });
             }
 
-            if (_features.SupportsBatch)
+            if (_coreFeatures.SupportsBatch)
             {
                 statement.TryAddRestInteraction(SystemRestfulInteraction.Batch);
             }

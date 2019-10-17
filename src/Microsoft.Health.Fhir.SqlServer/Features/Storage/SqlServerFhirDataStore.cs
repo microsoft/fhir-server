@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
-        private readonly FeatureConfiguration _features;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
         public SqlServerFhirDataStore(
             SqlServerDataStoreConfiguration configuration,
@@ -50,14 +50,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
             ILogger<SqlServerFhirDataStore> logger,
-            IOptions<FeatureConfiguration> features)
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(features, nameof(features));
+            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
 
             _configuration = configuration;
             _model = model;
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
             _logger = logger;
             _memoryStreamManager = new RecyclableMemoryStreamManager();
-            _features = features.Value;
+            _coreFeatures = coreFeatures.Value;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
@@ -254,13 +254,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 });
             }
 
-            if (_features.SupportsBatch)
+            if (_coreFeatures.SupportsBatch)
             {
+                // Batch supported added in listedCapability
                 statement.TryAddRestInteraction(SystemRestfulInteraction.Batch);
             }
 
-            if (_features.SupportsTransaction)
+            if (_coreFeatures.SupportsTransaction)
             {
+                // Transaction supported added in listedCapability
                 statement.TryAddRestInteraction(SystemRestfulInteraction.Transaction);
             }
         }

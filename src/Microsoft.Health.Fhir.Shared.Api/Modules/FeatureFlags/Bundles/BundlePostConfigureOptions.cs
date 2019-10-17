@@ -8,7 +8,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using static Hl7.Fhir.Model.CapabilityStatement;
 
@@ -16,21 +16,21 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.Bundles
 {
     public class BundlePostConfigureOptions : IPostConfigureOptions<MvcOptions>
     {
-        private readonly FeatureConfiguration _features;
+        private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly IConfiguredConformanceProvider _configuredConformanceProvider;
 
-        public BundlePostConfigureOptions(IOptions<FeatureConfiguration> features, IConfiguredConformanceProvider configuredConformanceProvider)
+        public BundlePostConfigureOptions(IOptions<CoreFeatureConfiguration> coreFeatures, IConfiguredConformanceProvider configuredConformanceProvider)
         {
-            EnsureArg.IsNotNull(features, nameof(features));
+            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(configuredConformanceProvider, nameof(configuredConformanceProvider));
 
-            _features = features.Value;
+            _coreFeatures = coreFeatures.Value;
             _configuredConformanceProvider = configuredConformanceProvider;
         }
 
         public void PostConfigure(string name, MvcOptions options)
         {
-            if (_features.SupportsBatch)
+            if (_coreFeatures.SupportsBatch)
             {
                 // Turns on batch, even when not configured in the DefaultCapabilities.json
                 // If this is not enabled in the capability statement
@@ -46,7 +46,8 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.Bundles
                     });
             }
 
-            if (_features.SupportsTransaction)
+            // _supportTransaction flag should always be turned off if CosmosDb is choosen as a persistence layer.
+            if (_coreFeatures.SupportsTransaction)
             {
                 // Turns on transaction, even when not configured in the DefaultCapabilities.json
                 // If this is not enabled in the capability statement
