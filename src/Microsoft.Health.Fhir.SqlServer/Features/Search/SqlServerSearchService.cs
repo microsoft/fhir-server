@@ -101,11 +101,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        protected override Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+        protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
-                return SearchImpl(searchOptions, true, connection, cancellationToken);
+                connection.Open();
+
+                return await SearchImpl(searchOptions, true, connection, cancellationToken);
             }
         }
 
