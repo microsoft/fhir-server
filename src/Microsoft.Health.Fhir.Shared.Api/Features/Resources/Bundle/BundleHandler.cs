@@ -17,6 +17,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features.Authentication;
+using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
@@ -150,18 +151,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
                     string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
 
+                    ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
                     entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
                     {
                         Status = httpContext.Response.StatusCode.ToString(),
-                        Location = httpContext.Response.Headers["Location"],
-                        Etag = httpContext.Response.Headers["ETag"],
+                        Location = responseHeaders.Location?.OriginalString,
+                        Etag = responseHeaders.ETag?.ToString(),
+                        LastModified = responseHeaders.LastModified,
                     };
-
-                    string lastModifiedHeader = httpContext.Response.Headers["Last-Modified"];
-                    if (!string.IsNullOrWhiteSpace(lastModifiedHeader))
-                    {
-                        entryComponent.Response.LastModified = DateTimeOffset.Parse(lastModifiedHeader);
-                    }
 
                     if (!string.IsNullOrWhiteSpace(bodyContent))
                     {
