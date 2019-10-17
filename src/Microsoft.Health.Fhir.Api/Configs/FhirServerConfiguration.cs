@@ -20,5 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public OperationsConfiguration Operations { get; } = new OperationsConfiguration();
 
         public AuditConfiguration Audit { get; } = new AuditConfiguration();
+
+        public CoreFeatureConfiguration CoreFeatures { get; } = new CoreFeatureConfiguration();
     }
 }

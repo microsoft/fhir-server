@@ -34,6 +34,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\KnownFhirHeaders.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Bundles\BundleFeatureModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Bundles\BundlePostConfigureOptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalCreates\ConditionalCreateFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalCreates\ConditionalCreatePostConfigureOptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalUpdates\ConditionalUpsertFeatureModule.cs" />
