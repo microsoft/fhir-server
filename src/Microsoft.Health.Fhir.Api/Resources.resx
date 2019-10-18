@@ -156,6 +156,9 @@
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
   </data>
+  <data name="OnlyCertainBundleTypesSupported" xml:space="preserve">
+    <value>Only bundles of the type batch are supported.</value>
+  </data>
   <data name="OperationFailed" xml:space="preserve">
     <value>{0} operation failed for reason: {1}</value>
     <comment>{0} is operation name, {1} is failure reason.</comment>

@@ -358,8 +358,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.OK)
-                    .SetETagHeader()
-                    .SetLastModifiedHeader();
+                .SetETagHeader()
+                .SetLastModifiedHeader();
         }
 
         /// <summary>
@@ -552,8 +552,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route("", Name = RouteNames.PostBundle)]
         [AuditEventType(AuditEventSubType.Batch)] // TODO: Our current auditing implementation only allows one audit event type attribute even though this action handles two.
-        [Authorize(PolicyNames.ReadPolicy)]
-        [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());

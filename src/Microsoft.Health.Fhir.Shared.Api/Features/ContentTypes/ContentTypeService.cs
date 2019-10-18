@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                 ResourceFormat resourceFormat = ContentType.GetResourceFormatFromFormatParam(formatOverride);
                 if (!await IsFormatSupportedAsync(resourceFormat))
                 {
-                    throw new NotAcceptableException(Resources.UnsupportedFormatParameter);
+                    throw new NotAcceptableException(Api.Resources.UnsupportedFormatParameter);
                 }
 
                 string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), acceptHeaders?.Select(x => x.MediaType.Value));
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 
                     if (!isAcceptHeaderValid)
                     {
-                        throw new NotAcceptableException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
+                        throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, HeaderNames.Accept));
                     }
                 }
             }
