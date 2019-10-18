@@ -168,6 +168,10 @@
     <value>FHIR Server</value>
     <comment>{NumberedPlaceHolder=”FHIR”}</comment>
   </data>
+  <data name="PatchNotSupported" xml:space="preserve">
+    <value>PATCH is not currently supported.</value>
+    <comment>{NumberedPlaceHolder="PATCH"}</comment>
+  </data>
   <data name="RequireHttpsMetadataError" xml:space="preserve">
     <value>The security configuration requires the authority to be set to an https address.</value>
   </data>
