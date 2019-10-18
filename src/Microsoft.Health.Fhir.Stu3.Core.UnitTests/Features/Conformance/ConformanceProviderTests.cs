@@ -75,6 +75,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal("Microsoft Corporation", capabilityStatement.Publisher);
             Assert.NotNull(capabilityStatement.Rest.Single().Resource.Single().Interaction.FirstOrDefault(x => x.Code == CapabilityStatement.TypeRestfulInteraction.Create));
             Assert.Equal(ResourceIdentity.Core(FHIRAllTypes.Account).AbsoluteUri, capabilityStatement.Rest.Single().Resource.Single().Profile.Url.ToString());
+            Assert.Equal(CapabilityStatement.SystemRestfulInteraction.Batch, capabilityStatement.Rest.Single().Interaction.First().Code);
+            Assert.Equal(CapabilityStatement.SystemRestfulInteraction.Transaction, capabilityStatement.Rest.Single().Interaction.Last().Code);
         }
 
         [Fact]
@@ -105,7 +107,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 .When(x => x.Build(Arg.Any<ListedCapabilityStatement>()))
                 .Do(callback => callback.ArgAt<ListedCapabilityStatement>(0).TryAddRestInteraction(ResourceType.Account, CapabilityStatement.TypeRestfulInteraction.Create)
                     .TryAddRestInteraction(ResourceType.Account, CapabilityStatement.TypeRestfulInteraction.Read)
-                    .TryAddRestInteraction(ResourceType.Account, CapabilityStatement.TypeRestfulInteraction.Vread));
+                    .TryAddRestInteraction(ResourceType.Account, CapabilityStatement.TypeRestfulInteraction.Vread)
+                    .TryAddRestInteraction(CapabilityStatement.SystemRestfulInteraction.Batch)
+                    .TryAddRestInteraction(CapabilityStatement.SystemRestfulInteraction.Transaction));
 
             var owned = Substitute.For<IScoped<IEnumerable<IProvideCapability>>>();
             owned.Value.Returns(new[] { createCapability });
