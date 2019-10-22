@@ -92,13 +92,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Total)
                 {
-                    if (string.Compare(query.Item2, TotalType.Accurate.ToString(), StringComparison.OrdinalIgnoreCase) == 0)
+                    if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
                     {
-                        searchOptions.IncludeTotal = TotalType.Accurate;
-                    }
-                    else if (string.Compare(query.Item2, TotalType.None.ToString(), StringComparison.OrdinalIgnoreCase) == 0)
-                    {
-                        searchOptions.IncludeTotal = TotalType.None;
+                        if (totalType == TotalType.Accurate)
+                        {
+                            searchOptions.IncludeTotal = TotalType.Accurate;
+                        }
+                        else if (totalType == TotalType.None)
+                        {
+                            searchOptions.IncludeTotal = TotalType.None;
+                        }
                     }
                 }
                 else

@@ -6,27 +6,17 @@
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     /// <summary>
-    /// Type-safe enum for the _total parameter values.
+    /// Enum for the _total parameter values.
     /// </summary>
-    /// <remarks>Taken from https://stackoverflow.com/questions/424366/string-representation-of-an-enum and adapted.</remarks>
-    public sealed class TotalType
+    public enum TotalType
     {
-        private readonly string name;
-        private readonly int value;
+        // There is no need to populate the total count; the client will not use it.
+        None = 0,
 
-        public static readonly TotalType Accurate = new TotalType(1, "accurate");
-        public static readonly TotalType None = new TotalType(2, "none");
-        public static readonly TotalType Estimate = new TotalType(3, "estimate");
+        // The client requests that the server provide an exact total of the number of matching resources.
+        Accurate = 1,
 
-        private TotalType(int value, string name)
-        {
-            this.name = name;
-            this.value = value;
-        }
-
-        public override string ToString()
-        {
-            return name;
-        }
+        // A rough estimate of the number of matching resources is sufficient.
+        Estimate = 2,
     }
 }
