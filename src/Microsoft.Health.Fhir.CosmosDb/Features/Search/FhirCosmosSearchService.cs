@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                searchOptions.CountOnly = true;
+                searchOptions.AsCountOnly(true);
                 var totalSearchResult = await ExecuteSearchAsync(
                     _queryBuilder.BuildSqlQuerySpec(searchOptions),
                     searchOptions,

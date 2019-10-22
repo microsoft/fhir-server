@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
                         // Perform a second read to get the count.
-                        searchOptions.CountOnly = true;
+                        searchOptions.AsCountOnly(true);
                         var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
