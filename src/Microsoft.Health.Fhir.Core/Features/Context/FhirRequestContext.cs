@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -64,6 +65,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public string ResourceType { get; }
 
-        public IStorageRequestMetrics StorageRequestMetrics { get; set; }
+        public IMetricsNotification StorageRequestMetrics { get; set; }
     }
 }

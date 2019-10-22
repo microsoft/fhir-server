@@ -12,6 +12,7 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -98,9 +99,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // Also, at the time of writing, we do not typically issue more than one request to the database per request anyway, so the performance impact should
             // not be felt.
 
-            requestContext.StorageRequestMetrics = requestContext.StorageRequestMetrics ?? new CosmosStorageRequestMetrics(requestContext.AuditEventType, requestContext.ResourceType);
+            requestContext.StorageRequestMetrics = requestContext.StorageRequestMetrics ?? new CosmosStorageRequestMetricsNotification(requestContext.AuditEventType, requestContext.ResourceType);
 
-            var cosmosMetrics = requestContext.StorageRequestMetrics as CosmosStorageRequestMetrics;
+            var cosmosMetrics = requestContext.StorageRequestMetrics as CosmosStorageRequestMetricsNotification;
 
             if (cosmosMetrics == null)
             {

@@ -3,16 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Context
+using Microsoft.Health.Fhir.Core.Features.Metrics;
+
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
 {
     /// <summary>
-    /// A Mediatr notification containing statistics about Cosmos DB usage while handling a request.
-    /// This gets emitted by the ApiNotificationMiddleware when a response is returned by the server.
-    /// Consume these using Mediatr to collect stats about Cosmos DB usage.
+    /// A MediatR notification containing statistics about Cosmos DB usage while handling a request.
     /// </summary>
-    public class CosmosStorageRequestMetrics : IStorageRequestMetrics
+    public class CosmosStorageRequestMetricsNotification : IMetricsNotification
     {
-        public CosmosStorageRequestMetrics(string fhirOperation, string resourceType)
+        public CosmosStorageRequestMetricsNotification(string fhirOperation, string resourceType)
         {
             FhirOperation = fhirOperation;
             ResourceType = resourceType;

@@ -18,6 +18,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Newtonsoft.Json;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders.Returns(_requestHeaders);
             _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Returns(_responseHeaders);
 
-            var cosmosStorageMetrics = new CosmosStorageRequestMetrics("test operation", "test resource");
+            var cosmosStorageMetrics = new CosmosStorageRequestMetricsNotification("test operation", "test resource");
             _fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics.Returns(cosmosStorageMetrics);
 
             _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null);
