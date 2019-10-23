@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Conformance.Schema;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
@@ -14,28 +13,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         public ListedRestComponent()
         {
             Resource = new HashSet<ListedResourceComponent>(new PropertyEqualityComparer<ListedResourceComponent>(x => x.Type));
-            Interaction = new HashSet<ResourceInteractionComponent>();
-            SearchParam = new HashSet<SearchParamComponent>();
-            Operation = new HashSet<OperationComponent>();
+            Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
+            SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
+            Operation = new HashSet<OperationComponent>(new PropertyEqualityComparer<OperationComponent>(x => x.Name, x => x.Definition));
         }
 
         public string Documentation { get; set; }
 
-        [SchemaConst]
         public string Mode { get; set; }
 
-        [SchemaOptions]
-        public HashSet<ListedResourceComponent> Resource { get; set; }
+        public ICollection<ListedResourceComponent> Resource { get; set; }
 
         public SecurityComponent Security { get; set; }
 
-        [SchemaOptions]
-        public HashSet<ResourceInteractionComponent> Interaction { get; set; }
+        public ICollection<ResourceInteractionComponent> Interaction { get; set; }
 
-        [SchemaOptions]
-        public HashSet<SearchParamComponent> SearchParam { get; set; }
+        public ICollection<SearchParamComponent> SearchParam { get; set; }
 
-        [SchemaOptions]
-        public HashSet<OperationComponent> Operation { get; set; }
+        public ICollection<OperationComponent> Operation { get; set; }
     }
 }

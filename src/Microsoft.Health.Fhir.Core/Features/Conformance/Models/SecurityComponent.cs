@@ -19,6 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public JObject Extension { get; set; }
 
-        public IList<Coding> Service { get; set; }
+        public ICollection<Coding> Service { get; set; }
     }
 }

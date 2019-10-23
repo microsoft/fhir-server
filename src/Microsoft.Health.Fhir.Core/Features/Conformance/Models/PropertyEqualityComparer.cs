@@ -24,11 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         {
             foreach (var property in _propertiesToCompare)
             {
-                if (ReferenceEquals(null, property(x)))
-                {
-                    return false;
-                }
-
                 if (!ReferenceEquals(property(x), property(y)) && property(x) != property(y))
                 {
                     return false;

@@ -4,8 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Conformance.Schema;
-using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
@@ -27,45 +25,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             ConditionalRead = new HashSet<string>();
         }
 
-        [SchemaOptions]
         public bool? UpdateCreate { get; set; }
 
-        [SchemaOptions]
         public bool? ConditionalUpdate { get; set; }
 
-        [SchemaOptions]
         public bool? ConditionalCreate { get; set; }
 
-        [SchemaOptions]
         public bool? ReadHistory { get; set; }
 
-        [SchemaConst]
         public string Type { get; set; }
 
         public string Profile { get; set; }
 
-        [SchemaOptions]
-        public HashSet<ResourceInteractionComponent> Interaction { get; set; }
+        public ICollection<ResourceInteractionComponent> Interaction { get; set; }
 
-        [SchemaOptions]
-        public HashSet<SearchParamComponent> SearchParam { get; set; }
+        public ICollection<SearchParamComponent> SearchParam { get; set; }
 
-        [SchemaOptions]
-        public HashSet<string> ConditionalDelete { get; set; }
+        public ICollection<string> ConditionalDelete { get; set; }
 
-        [SchemaOptions]
-        public HashSet<string> ConditionalRead { get; set; }
+        public ICollection<string> ConditionalRead { get; set; }
 
-        [SelectSingle]
-        public HashSet<string> Versioning { get; set; }
+        public ICollection<string> Versioning { get; set; }
 
-        [SchemaOptions]
-        public HashSet<string> ReferencePolicy { get; set; }
+        public ICollection<string> ReferencePolicy { get; set; }
 
-        [SchemaOptions]
-        public HashSet<string> SearchRevInclude { get; set; }
+        public ICollection<string> SearchRevInclude { get; set; }
 
-        [SchemaOptions]
-        public HashSet<string> SearchInclude { get; set; }
+        public ICollection<string> SearchInclude { get; set; }
     }
 }

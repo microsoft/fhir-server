@@ -5,8 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Conformance.Schema;
-using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -26,7 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             Format = new HashSet<string>();
         }
 
-        [SchemaConst]
         public string ResourceType { get; } = CapabilityStatement;
 
         public Uri Url { get; set; }
@@ -37,25 +34,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Name { get; set; }
 
-        [SelectSingle]
         public ICollection<string> Status { get; protected set; }
 
         public bool Experimental { get; set; }
 
         public string Publisher { get; set; }
 
-        [SelectSingle]
         public ICollection<string> Kind { get; protected set; }
 
         public SoftwareComponent Software { get; set; }
 
-        [SchemaConst]
         public string FhirVersion { get; set; }
 
-        [SchemaOptions]
         public ICollection<string> Format { get; protected set; }
 
-        [SchemaOptions]
         public ICollection<ListedRestComponent> Rest { get; protected set; }
 
         [JsonExtensionData]
