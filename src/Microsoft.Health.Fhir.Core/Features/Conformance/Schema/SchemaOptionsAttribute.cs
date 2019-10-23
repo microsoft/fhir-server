@@ -8,7 +8,7 @@ using System;
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Schema
 {
     [AttributeUsage(AttributeTargets.Property)]
-    public class SchemaOptionsAttribute : Attribute
+    internal class SchemaOptionsAttribute : Attribute
     {
     }
 }

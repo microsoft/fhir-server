@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Schema;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
@@ -18,9 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public ListedCapabilityStatement()
         {
-            Status = new HashSet<string>();
-            Contact = new HashSet<ListedContactTypes>();
-            Kind = new HashSet<string>();
+            Status = new DefaultOptionHashSet<string>("draft");
+            Kind = new DefaultOptionHashSet<string>("capability");
             Rest = new HashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));
             Format = new HashSet<string>();
         }
@@ -36,16 +37,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Name { get; set; }
 
-        [SelectSingle("draft")]
+        [SelectSingle]
         public ICollection<string> Status { get; protected set; }
 
         public bool Experimental { get; set; }
 
         public string Publisher { get; set; }
 
-        public ICollection<ListedContactTypes> Contact { get; set; }
-
-        [SelectSingle("capability")]
+        [SelectSingle]
         public ICollection<string> Kind { get; protected set; }
 
         public SoftwareComponent Software { get; set; }
@@ -58,5 +57,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         [SchemaOptions]
         public ICollection<ListedRestComponent> Rest { get; protected set; }
+
+        [JsonExtensionData]
+        public IDictionary<string, JToken> AdditionalData { get; set; }
     }
 }

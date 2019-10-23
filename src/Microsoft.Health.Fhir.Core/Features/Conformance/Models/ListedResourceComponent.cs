@@ -14,9 +14,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
     {
         public ListedResourceComponent()
         {
-            Interaction = new HashSet<ResourceInteractionComponent>();
-            SearchParam = new HashSet<SearchParamComponent>();
-            Versioning = new HashSet<string>();
+            Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
+            SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
+            Versioning = new DefaultOptionHashSet<string>("versioned");
             SearchRevInclude = new HashSet<string>();
             SearchInclude = new HashSet<string>();
             ReferencePolicy = new HashSet<string>();
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         [SchemaOptions]
         public HashSet<string> ConditionalRead { get; set; }
 
-        [SelectSingle("versioned")]
+        [SelectSingle]
         public HashSet<string> Versioning { get; set; }
 
         [SchemaOptions]

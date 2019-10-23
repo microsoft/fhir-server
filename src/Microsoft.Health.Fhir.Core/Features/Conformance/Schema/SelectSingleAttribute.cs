@@ -4,20 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
+namespace Microsoft.Health.Fhir.Core.Features.Conformance.Schema
 {
     [AttributeUsage(AttributeTargets.Property)]
     internal class SelectSingleAttribute : Attribute
     {
-        public SelectSingleAttribute(string defaultValue)
-        {
-            EnsureArg.IsNotNull(defaultValue, nameof(defaultValue));
-
-            DefaultValue = defaultValue;
-        }
-
-        public string DefaultValue { get; set; }
     }
 }

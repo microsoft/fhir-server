@@ -11,28 +11,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
     internal class PropertyEqualityComparer<T> : IEqualityComparer<T>
     {
-        private readonly Func<T, string> _propertyToCompare;
+        private readonly Func<T, string>[] _propertiesToCompare;
 
-        public PropertyEqualityComparer(Func<T, string> propertyToCompare)
+        public PropertyEqualityComparer(params Func<T, string>[] propertiesToCompare)
         {
-            EnsureArg.IsNotNull(propertyToCompare, nameof(propertyToCompare));
+            EnsureArg.IsNotNull(propertiesToCompare, nameof(propertiesToCompare));
 
-            _propertyToCompare = propertyToCompare;
+            _propertiesToCompare = propertiesToCompare;
         }
 
         public bool Equals(T x, T y)
         {
-            if (ReferenceEquals(null, x))
+            foreach (var property in _propertiesToCompare)
             {
-                return false;
+                if (ReferenceEquals(null, property(x)))
+                {
+                    return false;
+                }
+
+                if (!ReferenceEquals(property(x), property(y)) && property(x) != property(y))
+                {
+                    return false;
+                }
             }
 
-            if (ReferenceEquals(x, y))
-            {
-                return true;
-            }
-
-            return _propertyToCompare(x) == _propertyToCompare(y);
+            return true;
         }
 
         public int GetHashCode(T obj)

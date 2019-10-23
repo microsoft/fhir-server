@@ -1,6 +1,4 @@
 ﻿{
-    "resourceType": "CapabilityStatement",
-    "id": "metadata",
     "url": "/metadata",
     "version": "1.0.0.0",
     "name": "Microsoft FHIR Server",
@@ -15,7 +13,6 @@
     ],
     "kind": [ "capability" ],
     "fhirVersion": "3.0.1",
-    "acceptUnknown": [ "both" ],
     "format": [
         "json"
     ],

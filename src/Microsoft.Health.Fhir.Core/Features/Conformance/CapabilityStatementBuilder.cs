@@ -116,7 +116,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             var json = JsonConvert.SerializeObject(_statement, new JsonSerializerSettings
             {
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
-                Converters = new List<JsonConverter> { new ListedCapabilityStatementConverter() },
+                Converters = new List<JsonConverter>
+                {
+                    new DefaultOptionHashSetJsonConverter(),
+                    new EnumLiteralJsonConverter(),
+                },
+                NullValueHandling = NullValueHandling.Ignore,
             });
 
             ISourceNode jsonStatement = FhirJsonNode.Parse(json);

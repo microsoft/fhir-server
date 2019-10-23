@@ -5,6 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Features\Specification\**" />
+    <EmbeddedResource Remove="Features\Specification\**" />
+    <None Remove="Features\Specification\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Features\Conformance\R4\BaseCapabilities.json" />
     <None Remove="Features\Conformance\Stu3\BaseCapabilities.json" />
   </ItemGroup>
@@ -12,7 +18,6 @@
   <ItemGroup>
     <EmbeddedResource Include="Features\Conformance\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Features\Conformance\Stu3\BaseCapabilities.json" />
-    <EmbeddedResource Include="Features\Specification\R4.fhir.schema.json" />
   </ItemGroup>
   
   <ItemGroup>

@@ -1,5 +1,4 @@
 ﻿{
-    "resourceType": "CapabilityStatement",
     "url": "/metadata",
     "version": "1.0.0.0",
     "name": "Microsoft FHIR Server",

@@ -12,7 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
     {
         public ListedContactTypes()
         {
-            Telecom = new HashSet<ListedContactPoint>();
+            Telecom = new HashSet<ListedContactPoint>(
+                new PropertyEqualityComparer<ListedContactPoint>(x => x.System, x => x.Use, x => x.Value));
         }
 
         public ICollection<ListedContactPoint> Telecom { get; protected set; }
