@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
                 {
                     // Begin a transaction so we can perform two atomic reads.
-                    using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
+                    using (var transaction = connection.BeginTransaction(IsolationLevel.Snapshot))
                     {
                         searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 

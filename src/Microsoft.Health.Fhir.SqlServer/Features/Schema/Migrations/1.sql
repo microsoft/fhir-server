@@ -43,6 +43,9 @@ IF ((SELECT is_ansi_nulls_on FROM sys.databases WHERE database_id = DB_ID()) = 0
     ALTER DATABASE CURRENT SET ANSI_NULLS ON
 END
 
+-- Allow access to versioned rows if Snapshot isolation level is set for a specific transaction
+ALTER DATABASE CURRENT SET ALLOW_SNAPSHOT_ISOLATION ON
+
 GO
 
 /*************************************************************
