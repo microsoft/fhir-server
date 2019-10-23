@@ -94,14 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
                     {
-                        if (totalType == TotalType.Accurate)
-                        {
-                            searchOptions.IncludeTotal = TotalType.Accurate;
-                        }
-                        else if (totalType == TotalType.None)
-                        {
-                            searchOptions.IncludeTotal = TotalType.None;
-                        }
+                        searchOptions.IncludeTotal = totalType;
                     }
                 }
                 else
