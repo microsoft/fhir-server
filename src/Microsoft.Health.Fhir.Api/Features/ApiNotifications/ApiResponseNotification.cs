@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
     /// This gets emitted by the ApiNotificationMiddleware when a response is returned by the server.
     /// Consume these using Mediatr to collect stats about API responses.
     /// </summary>
-    public class ApiResponseMetricNotification : IMetricsNotification
+    public class ApiResponseNotification : IMetricsNotification
     {
         /// <summary>
         /// The FHIR operation being performed.

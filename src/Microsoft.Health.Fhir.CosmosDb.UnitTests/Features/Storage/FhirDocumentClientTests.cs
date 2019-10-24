@@ -54,9 +54,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             _cosmosExceptionProcessor = Substitute.For<ICosmosExceptionProcessor>();
 
-            ////var cosmosStorageMetrics = new CosmosStorageRequestMetricsNotification("test operation", "test resource");
-            ////_fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics.Returns(cosmosStorageMetrics);
-
             _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null, _cosmosMetricProcessor, _cosmosExceptionProcessor);
         }
 
@@ -72,8 +69,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.CreateDocumentAsync("coll", (1, 2));
 
-            Assert.True(_responseHeaders.TryGetValue(CosmosDbHeaders.SessionToken, out var values));
-            Assert.Equal("2", values.ToString());
+            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
         }
 
         [Fact]
@@ -82,6 +78,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _innerClient.CreateDocumentAsync("coll", (1, 2)).Returns(CreateResourceResponse(new Document(), HttpStatusCode.OK, new NameValueCollection()));
             await _fhirClient.CreateDocumentAsync("coll", (1, 2));
             await _innerClient.Received().CreateDocumentAsync("coll", (1, 2));
+
+            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
         }
 
         [Fact]
@@ -91,6 +89,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _innerClient.CreateDocumentAsync("coll", (1, 2)).Returns(CreateResourceResponse(new Document(), HttpStatusCode.OK, new NameValueCollection()));
             await _fhirClient.CreateDocumentAsync("coll", (1, 2));
             await _innerClient.Received().CreateDocumentAsync("coll", (1, 2));
+
+            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
         }
 
         [Fact]
@@ -105,8 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.ReadDatabaseFeedAsync();
 
-            Assert.True(_responseHeaders.TryGetValue(CosmosDbHeaders.SessionToken, out var values));
-            Assert.Equal("2", values.ToString());
+            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
         }
 
         [Fact]
@@ -116,6 +115,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 .ReturnsForAnyArgs(CreateFeedResponse(Enumerable.Empty<Database>(), new NameValueCollection()));
             await _fhirClient.ReadDatabaseFeedAsync();
             await _innerClient.Received().ReadDatabaseFeedAsync();
+
+            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
         }
 
         [Fact]
@@ -124,6 +125,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _requestHeaders.Add(CosmosDbHeaders.ConsistencyLevel, "CatsAndDogs");
 
             await Assert.ThrowsAsync<BadRequestException>(() => _fhirClient.ReadDatabaseFeedAsync());
+
+            _cosmosExceptionProcessor.Received(1).ProcessException(Arg.Any<BadRequestException>());
         }
 
         [Fact]
@@ -138,8 +141,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.ExecuteStoredProcedureAsync<int>("link");
 
-            Assert.True(_responseHeaders.TryGetValue(CosmosDbHeaders.SessionToken, out var values));
-            Assert.Equal("2", values.ToString());
+            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<StoredProcedureResponse<int>>());
         }
 
         [Fact]
@@ -154,8 +156,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.ExecuteStoredProcedureAsync<int>(default(Uri));
 
-            Assert.True(_responseHeaders.TryGetValue(CosmosDbHeaders.SessionToken, out var values));
-            Assert.Equal("2", values.ToString());
+            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<StoredProcedureResponse<int>>());
         }
 
         [InlineData(ConsistencyLevel.Eventual, ConsistencyLevel.Strong)]
@@ -170,6 +171,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _requestHeaders.Add(CosmosDbHeaders.ConsistencyLevel, requestedConsistencyLevel.ToString());
 
             await Assert.ThrowsAsync<BadRequestException>(() => _fhirClient.ReadDatabaseFeedAsync());
+
+            _cosmosExceptionProcessor.Received(1).ProcessException(Arg.Any<BadRequestException>());
         }
 
         [Fact]
@@ -182,6 +185,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 .Returns(CreateFeedResponse(Enumerable.Empty<Database>(), new NameValueCollection()));
 
             await client.ReadDatabaseFeedAsync();
+
+            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
         }
 
         [Fact]
@@ -193,8 +198,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.ReadDatabaseFeedAsync();
             await _fhirClient.ReadDatabaseFeedAsync();
-            Assert.True(_responseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out var values));
-            Assert.Equal("20", values.ToString());
+
+            _cosmosMetricProcessor.Received(2).ProcessResponse(Arg.Any<FeedResponse<Database>>());
         }
 
         [Fact]
@@ -204,10 +209,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 .ReadDatabaseFeedAsync(Arg.Any<FeedOptions>())
                 .Throws(CreateDocumentClientException("error", new NameValueCollection { { CosmosDbHeaders.RequestCharge, "10" } }, (HttpStatusCode?)429));
 
-            await Assert.ThrowsAsync<RequestRateExceededException>(() => _fhirClient.ReadDatabaseFeedAsync());
+            await Assert.ThrowsAsync<DocumentClientException>(() => _fhirClient.ReadDatabaseFeedAsync());
 
-            Assert.True(_responseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out var values));
-            Assert.Equal("10", values.ToString());
+            _cosmosExceptionProcessor.Received(1).ProcessException(Arg.Any<DocumentClientException>());
         }
 
 #pragma warning disable SA1124 // Do not use regions

@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
-using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -44,7 +43,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// <summary>
     /// FHIR Rest API
     /// </summary>
-    [ServiceFilter(typeof(ApiResponseMetricFilterAttribute))]
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]

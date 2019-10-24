@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -38,22 +37,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         [Fact]
         public async Task GivenAResource_WhenCreated_ThenCorrectNumberOfMetricNotificationsShouldBeEmitted()
         {
+            _metricHandler.ResetCount();
+
             await ExecuteAndValidate(
                 () => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco()),
-                (type: typeof(ApiResponseMetricNotification), count: 1),
+                (type: typeof(ApiResponseNotification), count: 1),
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 1));
-
-            _metricHandler.ResetCount();
         }
 
         [Fact]
         public async Task GivenHealthCheckPath_WhenInvoked_MetricNotificationsNotEmitted()
         {
+            _metricHandler.ResetCount();
+
             await ExecuteAndValidate(
                 () => _client.HttpClient.GetAsync(FhirServerApplicationBuilderExtensions.HealthCheckPath),
+                (type: typeof(ApiResponseNotification), count: 0),
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 2));
-
-            _metricHandler.ResetCount();
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count)[] expectedNotifications)
@@ -68,6 +68,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             foreach ((Type type, int count) expectedNotification in expectedNotifications)
             {
+                if (expectedNotification.count == 0)
+                {
+                    Assert.False(_metricHandler.HandleCountDictionary.TryGetValue(expectedNotification.type, out var count));
+                    continue;
+                }
+
                 Assert.Equal(expectedNotification.count, _metricHandler.HandleCountDictionary[expectedNotification.type]);
             }
         }

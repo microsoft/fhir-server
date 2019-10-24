@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Audit;
-using Microsoft.Health.Fhir.Api.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -17,10 +16,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
-
-            services.Add<ApiResponseMetricFilterAttribute>()
-                .Singleton()
-                .AsSelf();
 
             services.Add<AuditLoggingFilterAttribute>()
                 .Singleton()
