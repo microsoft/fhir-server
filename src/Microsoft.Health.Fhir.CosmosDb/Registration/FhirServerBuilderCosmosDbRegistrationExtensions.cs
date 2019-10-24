@@ -112,12 +112,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();
 
-            services.Add<MetricProcessor>()
+            services.Add<CosmosMetricProcessor>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<ExceptionProcessor>()
+            services.Add<CosmosExceptionProcessor>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

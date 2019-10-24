@@ -42,10 +42,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             var documentClientTestProvider = Substitute.For<IDocumentClientTestProvider>();
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            var metricProcessor = Substitute.For<IMetricProcessor>();
-            var exceptionProcessor = Substitute.For<IExceptionProcessor>();
+            var metricProcessor = Substitute.For<ICosmosMetricProcessor>();
+            var exceptionProcessor = Substitute.For<ICosmosExceptionProcessor>();
 
-            _documentClientInitializer = new FhirDocumentClientInitializer(documentClientTestProvider, fhirRequestContextAccessor, NullLogger<FhirDocumentClientInitializer>.Instance, metricProcessor, exceptionProcessor);
+            _documentClientInitializer = new FhirDocumentClientInitializer(documentClientTestProvider, fhirRequestContextAccessor, metricProcessor, exceptionProcessor, NullLogger<FhirDocumentClientInitializer>.Instance);
 
             _collectionInitializers = new List<ICollectionInitializer> { _collectionInitializer1, _collectionInitializer2 };
             _documentClient.CreateDatabaseIfNotExistsAsync(Arg.Any<Database>(), Arg.Any<RequestOptions>()).Returns(Substitute.For<ResourceResponse<Database>>());

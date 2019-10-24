@@ -17,23 +17,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class FhirCosmosDocumentQueryFactory : ICosmosDocumentQueryFactory
     {
         private readonly IFhirDocumentQueryLogger _logger;
-        private readonly IMetricProcessor _metricProcessor;
-        private readonly IExceptionProcessor _exceptionProcessor;
+        private readonly ICosmosMetricProcessor _cosmosMetricProcessor;
+        private readonly ICosmosExceptionProcessor _cosmosExceptionProcessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirCosmosDocumentQueryFactory"/> class.
         /// </summary>
-        /// <param name="metricProcessor">The metric processor</param>
-        /// <param name="exceptionProcessor">The exception processor</param>
+        /// <param name="cosmosMetricProcessor">The metric processor</param>
+        /// <param name="cosmosExceptionProcessor">The exception processor</param>
         /// <param name="logger">The logger.</param>
-        public FhirCosmosDocumentQueryFactory(IMetricProcessor metricProcessor, IExceptionProcessor exceptionProcessor, IFhirDocumentQueryLogger logger)
+        public FhirCosmosDocumentQueryFactory(ICosmosMetricProcessor cosmosMetricProcessor, ICosmosExceptionProcessor cosmosExceptionProcessor, IFhirDocumentQueryLogger logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(metricProcessor, nameof(metricProcessor));
-            EnsureArg.IsNotNull(exceptionProcessor, nameof(exceptionProcessor));
+            EnsureArg.IsNotNull(cosmosMetricProcessor, nameof(cosmosMetricProcessor));
+            EnsureArg.IsNotNull(cosmosExceptionProcessor, nameof(cosmosExceptionProcessor));
 
-            _metricProcessor = metricProcessor;
-            _exceptionProcessor = exceptionProcessor;
+            _cosmosMetricProcessor = cosmosMetricProcessor;
+            _cosmosExceptionProcessor = cosmosExceptionProcessor;
             _logger = logger;
         }
 
@@ -52,8 +52,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return new FhirDocumentQuery<T>(
                 context,
                 documentQuery,
-                _metricProcessor,
-                _exceptionProcessor,
+                _cosmosMetricProcessor,
+                _cosmosExceptionProcessor,
                 _logger);
         }
     }

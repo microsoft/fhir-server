@@ -13,18 +13,18 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public class ExceptionProcessor : IExceptionProcessor
+    public class CosmosExceptionProcessor : ICosmosExceptionProcessor
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly MetricProcessor _metricProcessor;
+        private readonly ICosmosMetricProcessor _cosmosMetricProcessor;
 
-        public ExceptionProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, MetricProcessor metricProcessor)
+        public CosmosExceptionProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, ICosmosMetricProcessor cosmosMetricProcessor)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(metricProcessor, nameof(metricProcessor));
+            EnsureArg.IsNotNull(cosmosMetricProcessor, nameof(cosmosMetricProcessor));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _metricProcessor = metricProcessor;
+            _cosmosMetricProcessor = cosmosMetricProcessor;
         }
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (ex is DocumentClientException dce)
             {
-                _metricProcessor.UpdateFhirRequestContext(null, dce.RequestCharge, null, dce.StatusCode);
+                _cosmosMetricProcessor.ProcessResponse(null, dce.RequestCharge, null, dce.StatusCode);
 
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {

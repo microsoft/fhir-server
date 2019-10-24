@@ -25,22 +25,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ILogger<FhirDocumentClientInitializer> _logger;
-        private readonly IMetricProcessor _metricProcessor;
-        private readonly IExceptionProcessor _exceptionProcessor;
+        private readonly ICosmosMetricProcessor _cosmosMetricProcessor;
+        private readonly ICosmosExceptionProcessor _cosmosExceptionProcessor;
 
-        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ILogger<FhirDocumentClientInitializer> logger, IMetricProcessor metricProcessor, IExceptionProcessor exceptionProcessor)
+        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ICosmosMetricProcessor cosmosMetricProcessor, ICosmosExceptionProcessor cosmosExceptionProcessor, ILogger<FhirDocumentClientInitializer> logger)
         {
-            EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
-            EnsureArg.IsNotNull(metricProcessor, nameof(metricProcessor));
-            EnsureArg.IsNotNull(exceptionProcessor, nameof(exceptionProcessor));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(cosmosMetricProcessor, nameof(cosmosMetricProcessor));
+            EnsureArg.IsNotNull(cosmosExceptionProcessor, nameof(cosmosExceptionProcessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _testProvider = testProvider;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _cosmosMetricProcessor = cosmosMetricProcessor;
+            _cosmosExceptionProcessor = cosmosExceptionProcessor;
             _logger = logger;
-            _metricProcessor = metricProcessor;
-            _exceptionProcessor = exceptionProcessor;
         }
 
         /// <inheritdoc />
@@ -94,8 +94,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
                 _fhirRequestContextAccessor,
                 configuration.ContinuationTokenSizeLimitInKb,
-                _metricProcessor,
-                _exceptionProcessor);
+                _cosmosMetricProcessor,
+                _cosmosExceptionProcessor);
         }
 
         /// <inheritdoc />

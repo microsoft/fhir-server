@@ -7,7 +7,7 @@ using System;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public interface IExceptionProcessor
+    public interface ICosmosExceptionProcessor
     {
         void ProcessException(Exception ex);
     }

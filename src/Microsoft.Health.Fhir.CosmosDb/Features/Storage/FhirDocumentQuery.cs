@@ -23,8 +23,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         private readonly ICosmosQueryContext _queryContext;
         private IDocumentQuery<T> _documentQuery;
-        private readonly IMetricProcessor _metricProcessor;
-        private readonly IExceptionProcessor _exceptionProcessor;
+        private readonly ICosmosMetricProcessor _cosmosMetricProcessor;
+        private readonly ICosmosExceptionProcessor _cosmosExceptionProcessor;
         private readonly IFhirDocumentQueryLogger _logger;
 
         private string _continuationToken;
@@ -34,26 +34,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </summary>
         /// <param name="queryContext">The query context.</param>
         /// <param name="documentQuery">The document query to execute.</param>
-        /// <param name="metricProcessor">The metric processor.</param>
-        /// <param name="exceptionProcessor">The exceptionProcessor.</param>
+        /// <param name="cosmosMetricProcessor">The metric processor.</param>
+        /// <param name="cosmosExceptionProcessor">The cosmosExceptionProcessor.</param>
         /// <param name="logger">The logger.</param>
         public FhirDocumentQuery(
             ICosmosQueryContext queryContext,
             IDocumentQuery<T> documentQuery,
-            IMetricProcessor metricProcessor,
-            IExceptionProcessor exceptionProcessor,
+            ICosmosMetricProcessor cosmosMetricProcessor,
+            ICosmosExceptionProcessor cosmosExceptionProcessor,
             IFhirDocumentQueryLogger logger)
         {
             EnsureArg.IsNotNull(queryContext, nameof(queryContext));
             EnsureArg.IsNotNull(documentQuery, nameof(documentQuery));
-            EnsureArg.IsNotNull(metricProcessor, nameof(metricProcessor));
-            EnsureArg.IsNotNull(exceptionProcessor, nameof(exceptionProcessor));
+            EnsureArg.IsNotNull(cosmosMetricProcessor, nameof(cosmosMetricProcessor));
+            EnsureArg.IsNotNull(cosmosExceptionProcessor, nameof(cosmosExceptionProcessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queryContext = queryContext;
             _documentQuery = documentQuery;
-            _metricProcessor = metricProcessor;
-            _exceptionProcessor = exceptionProcessor;
+            _cosmosMetricProcessor = cosmosMetricProcessor;
+            _cosmosExceptionProcessor = cosmosExceptionProcessor;
             _logger = logger;
 
             _continuationToken = _queryContext.FeedOptions?.RequestContinuation;
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 FeedResponse<TResult> response = await _documentQuery.ExecuteNextAsync<TResult>(token);
 
-                _metricProcessor.UpdateFhirRequestContext(response);
+                _cosmosMetricProcessor.ProcessResponse(response);
 
                 _continuationToken = response.ResponseContinuation;
 
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     0,
                     ex);
 
-                _exceptionProcessor.ProcessException(ex);
+                _cosmosExceptionProcessor.ProcessException(ex);
 
                 throw;
             }

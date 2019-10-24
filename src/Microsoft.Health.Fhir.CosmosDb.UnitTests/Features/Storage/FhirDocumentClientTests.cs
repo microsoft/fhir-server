@@ -40,8 +40,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly Dictionary<string, StringValues> _responseHeaders = new Dictionary<string, StringValues>();
         private readonly IDocumentClient _fhirClient;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly IMetricProcessor _metricProcessor;
-        private readonly IExceptionProcessor _exceptionProcessor;
+        private readonly ICosmosMetricProcessor _cosmosMetricProcessor;
+        private readonly ICosmosExceptionProcessor _cosmosExceptionProcessor;
 
         public FhirDocumentClientTests()
         {
@@ -50,14 +50,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders.Returns(_requestHeaders);
             _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Returns(_responseHeaders);
 
-            _metricProcessor = Substitute.For<IMetricProcessor>();
+            _cosmosMetricProcessor = Substitute.For<ICosmosMetricProcessor>();
 
-            _exceptionProcessor = Substitute.For<IExceptionProcessor>();
+            _cosmosExceptionProcessor = Substitute.For<ICosmosExceptionProcessor>();
 
             ////var cosmosStorageMetrics = new CosmosStorageRequestMetricsNotification("test operation", "test resource");
             ////_fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics.Returns(cosmosStorageMetrics);
 
-            _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null, _metricProcessor, _exceptionProcessor);
+            _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null, _cosmosMetricProcessor, _cosmosExceptionProcessor);
         }
 
         [Fact]
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [Fact]
         public async Task GivenAFeedRequest_WhenMaxContinuationSizeIsSet_ThenFeedRequestIsUpdated()
         {
-            IDocumentClient client = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, 5, _metricProcessor, _exceptionProcessor);
+            IDocumentClient client = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, 5, _cosmosMetricProcessor, _cosmosExceptionProcessor);
 
             _innerClient
                 .ReadDatabaseFeedAsync(Arg.Is<FeedOptions>(o => o.ResponseContinuationTokenLimitInKb == 5))

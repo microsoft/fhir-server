@@ -17,13 +17,13 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
 {
-    public class MetricProcessor : IMetricProcessor
+    public class CosmosMetricProcessor : ICosmosMetricProcessor
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
-        private readonly ILogger<MetricProcessor> _logger;
+        private readonly ILogger<CosmosMetricProcessor> _logger;
 
-        public MetricProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, IMediator mediator, ILogger<MetricProcessor> logger)
+        public CosmosMetricProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, IMediator mediator, ILogger<CosmosMetricProcessor> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -34,20 +34,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
             _logger = logger;
         }
 
-        public void UpdateFhirRequestContext<T>(T resourceResponseBase)
+        public void ProcessResponse<T>(T resourceResponseBase)
             where T : ResourceResponseBase
         {
-            UpdateFhirRequestContext(resourceResponseBase.SessionToken, resourceResponseBase.RequestCharge, resourceResponseBase.CollectionSizeUsage, resourceResponseBase.StatusCode);
+            ProcessResponse(resourceResponseBase.SessionToken, resourceResponseBase.RequestCharge, resourceResponseBase.CollectionSizeUsage, resourceResponseBase.StatusCode);
         }
 
-        public void UpdateFhirRequestContext<T>(FeedResponse<T> feedResponse)
+        public void ProcessResponse<T>(FeedResponse<T> feedResponse)
         {
-            UpdateFhirRequestContext(feedResponse.SessionToken, feedResponse.RequestCharge, feedResponse.CollectionSizeUsage, statusCode: null);
+            ProcessResponse(feedResponse.SessionToken, feedResponse.RequestCharge, feedResponse.CollectionSizeUsage, statusCode: null);
         }
 
-        public void UpdateFhirRequestContext<T>(StoredProcedureResponse<T> storedProcedureResponse)
+        public void ProcessResponse<T>(StoredProcedureResponse<T> storedProcedureResponse)
         {
-            UpdateFhirRequestContext(storedProcedureResponse.SessionToken, storedProcedureResponse.RequestCharge, collectionSizeUsageKilobytes: null, statusCode: storedProcedureResponse.StatusCode);
+            ProcessResponse(storedProcedureResponse.SessionToken, storedProcedureResponse.RequestCharge, collectionSizeUsageKilobytes: null, statusCode: storedProcedureResponse.StatusCode);
         }
 
         /// <summary>
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
         /// <param name="responseRequestCharge">The request charge.</param>
         /// <param name="collectionSizeUsageKilobytes">The size usage of the Cosmos collection in kilobytes.</param>
         /// <param name="statusCode">The HTTP status code.</param>
-        public void UpdateFhirRequestContext(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode)
+        public void ProcessResponse(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode)
         {
             if (_fhirRequestContextAccessor.FhirRequestContext == null)
             {

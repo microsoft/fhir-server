@@ -84,10 +84,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             IDocumentClientTestProvider testProvider = new DocumentClientReadWriteTestProvider();
 
             var fhirRequestContextAccessor = new FhirRequestContextAccessor();
-            var metricProcessor = Substitute.For<IMetricProcessor>();
-            var exceptionProcessor = Substitute.For<IExceptionProcessor>();
+            var metricProcessor = Substitute.For<ICosmosMetricProcessor>();
+            var exceptionProcessor = Substitute.For<ICosmosExceptionProcessor>();
 
-            var documentClientInitializer = new FhirDocumentClientInitializer(testProvider, fhirRequestContextAccessor, NullLogger<FhirDocumentClientInitializer>.Instance, metricProcessor, exceptionProcessor);
+            var documentClientInitializer = new FhirDocumentClientInitializer(testProvider, fhirRequestContextAccessor, metricProcessor, exceptionProcessor, NullLogger<FhirDocumentClientInitializer>.Instance);
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
             var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
 

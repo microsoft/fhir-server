@@ -8,15 +8,15 @@ using Microsoft.Azure.Documents.Client;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
 {
-    public interface IMetricProcessor
+    public interface ICosmosMetricProcessor
     {
-        void UpdateFhirRequestContext<T>(T resourceResponseBase)
+        void ProcessResponse<T>(T resourceResponseBase)
             where T : ResourceResponseBase;
 
-        void UpdateFhirRequestContext<T>(FeedResponse<T> feedResponse);
+        void ProcessResponse<T>(FeedResponse<T> feedResponse);
 
-        void UpdateFhirRequestContext<T>(StoredProcedureResponse<T> storedProcedureResponse);
+        void ProcessResponse<T>(StoredProcedureResponse<T> storedProcedureResponse);
 
-        void UpdateFhirRequestContext(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode);
+        void ProcessResponse(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode);
     }
 }

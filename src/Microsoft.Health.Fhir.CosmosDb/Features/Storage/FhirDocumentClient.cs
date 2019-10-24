@@ -29,20 +29,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static readonly string ValidConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly int? _continuationTokenSizeLimitInKb;
-        private readonly IMetricProcessor _metricProcessor;
-        private readonly IExceptionProcessor _exceptionProcessor;
+        private readonly ICosmosMetricProcessor _cosmosMetricProcessor;
+        private readonly ICosmosExceptionProcessor _cosmosExceptionProcessor;
 
-        public FhirDocumentClient(IDocumentClient inner, IFhirRequestContextAccessor fhirRequestContextAccessor, int? continuationTokenSizeLimitInKb, IMetricProcessor metricProcessor, IExceptionProcessor exceptionProcessor)
+        public FhirDocumentClient(IDocumentClient inner, IFhirRequestContextAccessor fhirRequestContextAccessor, int? continuationTokenSizeLimitInKb, ICosmosMetricProcessor cosmosMetricProcessor, ICosmosExceptionProcessor cosmosExceptionProcessor)
             : this(inner)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(metricProcessor, nameof(metricProcessor));
-            EnsureArg.IsNotNull(exceptionProcessor, nameof(exceptionProcessor));
+            EnsureArg.IsNotNull(cosmosMetricProcessor, nameof(cosmosMetricProcessor));
+            EnsureArg.IsNotNull(cosmosExceptionProcessor, nameof(cosmosExceptionProcessor));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _continuationTokenSizeLimitInKb = continuationTokenSizeLimitInKb;
-            _metricProcessor = metricProcessor;
-            _exceptionProcessor = exceptionProcessor;
+            _cosmosMetricProcessor = cosmosMetricProcessor;
+            _cosmosExceptionProcessor = cosmosExceptionProcessor;
         }
 
         private RequestOptions UpdateOptions(RequestOptions options)
@@ -164,25 +164,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private T ProcessResponse<T>(T response)
             where T : ResourceResponseBase
         {
-            _metricProcessor.UpdateFhirRequestContext(response);
+            _cosmosMetricProcessor.ProcessResponse(response);
             return response;
         }
 
         private FeedResponse<T> ProcessResponse<T>(FeedResponse<T> response)
         {
-            _metricProcessor.UpdateFhirRequestContext(response);
+            _cosmosMetricProcessor.ProcessResponse(response);
             return response;
         }
 
         private StoredProcedureResponse<T> ProcessResponse<T>(StoredProcedureResponse<T> response)
         {
-            _metricProcessor.UpdateFhirRequestContext(response);
+            _cosmosMetricProcessor.ProcessResponse(response);
             return response;
         }
 
         private void ProcessException(Exception ex)
         {
-            _exceptionProcessor.ProcessException(ex);
+            _cosmosExceptionProcessor.ProcessException(ex);
         }
 
         Task<StoredProcedureResponse<TValue>> IDocumentClient.ExecuteStoredProcedureAsync<TValue>(string storedProcedureLink, params object[] procedureParams)
