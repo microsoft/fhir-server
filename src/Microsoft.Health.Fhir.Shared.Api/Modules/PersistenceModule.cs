@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IRawResourceFactory, RawResourceFactory>();
             services.AddSingleton<IResourceWrapperFactory, ResourceWrapperFactory>();
+            services.AddScoped<ITransactionHandler, TransactionHandler>();
 
             services.AddFactory<IScoped<ISearchService>>();
             services.AddFactory<IScoped<IFhirDataStore>>();

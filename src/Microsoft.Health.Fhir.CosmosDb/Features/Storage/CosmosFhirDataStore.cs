@@ -269,5 +269,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 statement.TryAddRestInteraction(SystemRestfulInteraction.Batch);
             }
         }
+
+        public void BeginTransactionScope()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void CompleteTransactionScope()
+        {
+            throw new NotImplementedException();
+        }
     }
 }
