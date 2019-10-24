@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Core.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -64,7 +63,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public IDictionary<string, StringValues> ResponseHeaders { get; }
 
         public string ResourceType { get; }
-
-        public IMetricsNotification StorageRequestMetrics { get; set; }
     }
 }

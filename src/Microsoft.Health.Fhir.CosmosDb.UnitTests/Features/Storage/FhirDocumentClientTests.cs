@@ -11,14 +11,18 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Newtonsoft.Json;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -36,6 +40,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly Dictionary<string, StringValues> _responseHeaders = new Dictionary<string, StringValues>();
         private readonly IDocumentClient _fhirClient;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly IMetricProcessor _metricProcessor;
+        private readonly IExceptionProcessor _exceptionProcessor;
 
         public FhirDocumentClientTests()
         {
@@ -44,10 +50,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders.Returns(_requestHeaders);
             _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Returns(_responseHeaders);
 
-            var cosmosStorageMetrics = new CosmosStorageRequestMetricsNotification("test operation", "test resource");
-            _fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics.Returns(cosmosStorageMetrics);
+            _metricProcessor = Substitute.For<IMetricProcessor>();
 
-            _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null);
+            _exceptionProcessor = Substitute.For<IExceptionProcessor>();
+
+            ////var cosmosStorageMetrics = new CosmosStorageRequestMetricsNotification("test operation", "test resource");
+            ////_fhirRequestContextAccessor.FhirRequestContext.StorageRequestMetrics.Returns(cosmosStorageMetrics);
+
+            _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null, _metricProcessor, _exceptionProcessor);
         }
 
         [Fact]
@@ -165,7 +175,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [Fact]
         public async Task GivenAFeedRequest_WhenMaxContinuationSizeIsSet_ThenFeedRequestIsUpdated()
         {
-            IDocumentClient client = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, 5);
+            IDocumentClient client = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, 5, _metricProcessor, _exceptionProcessor);
 
             _innerClient
                 .ReadDatabaseFeedAsync(Arg.Is<FeedOptions>(o => o.ResponseContinuationTokenLimitInKb == 5))

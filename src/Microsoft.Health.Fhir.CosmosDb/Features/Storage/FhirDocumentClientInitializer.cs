@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -24,16 +25,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ILogger<FhirDocumentClientInitializer> _logger;
+        private readonly IMetricProcessor _metricProcessor;
+        private readonly IExceptionProcessor _exceptionProcessor;
 
-        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ILogger<FhirDocumentClientInitializer> logger)
+        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ILogger<FhirDocumentClientInitializer> logger, IMetricProcessor metricProcessor, IExceptionProcessor exceptionProcessor)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
+            EnsureArg.IsNotNull(metricProcessor, nameof(metricProcessor));
+            EnsureArg.IsNotNull(exceptionProcessor, nameof(exceptionProcessor));
 
             _testProvider = testProvider;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _logger = logger;
+            _metricProcessor = metricProcessor;
+            _exceptionProcessor = exceptionProcessor;
         }
 
         /// <inheritdoc />
@@ -86,7 +93,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return new FhirDocumentClient(
                 new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
                 _fhirRequestContextAccessor,
-                configuration.ContinuationTokenSizeLimitInKb);
+                configuration.ContinuationTokenSizeLimitInKb,
+                _metricProcessor,
+                _exceptionProcessor);
         }
 
         /// <inheritdoc />

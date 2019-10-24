@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric
 
             services.Add<MetricHandler>()
                 .Singleton()
-                .AsService<INotificationHandler<ApiResponseNotification>>()
+                .AsService<INotificationHandler<ApiResponseMetricNotification>>()
                 .AsService<INotificationHandler<CosmosStorageRequestMetricsNotification>>();
         }
     }

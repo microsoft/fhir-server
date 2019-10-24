@@ -6,7 +6,10 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Metrics;
+using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -37,7 +40,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         {
             await ExecuteAndValidate(
                 () => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco()),
-                2);
+                (type: typeof(ApiResponseMetricNotification), count: 1),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1));
 
             _metricHandler.ResetCount();
         }
@@ -47,12 +51,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         {
             await ExecuteAndValidate(
                 () => _client.HttpClient.GetAsync(FhirServerApplicationBuilderExtensions.HealthCheckPath),
-                0);
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 2));
 
             _metricHandler.ResetCount();
         }
 
-        private async Task ExecuteAndValidate<T>(Func<Task<T>> action, int expectedNotifications)
+        private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count)[] expectedNotifications)
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -62,7 +66,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             await action();
 
-            Assert.Equal(expectedNotifications, _metricHandler.HandleCount);
+            foreach ((Type type, int count) expectedNotification in expectedNotifications)
+            {
+                Assert.Equal(expectedNotification.count, _metricHandler.HandleCountDictionary[expectedNotification.type]);
+            }
         }
     }
 }

@@ -7,7 +7,7 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -17,20 +17,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class FhirCosmosDocumentQueryFactory : ICosmosDocumentQueryFactory
     {
         private readonly IFhirDocumentQueryLogger _logger;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly IMetricProcessor _metricProcessor;
+        private readonly IExceptionProcessor _exceptionProcessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirCosmosDocumentQueryFactory"/> class.
         /// </summary>
-        /// <param name="fhirRequestContextAccessor">The request context accessor</param>
+        /// <param name="metricProcessor">The metric processor</param>
+        /// <param name="exceptionProcessor">The exception processor</param>
         /// <param name="logger">The logger.</param>
-        public FhirCosmosDocumentQueryFactory(IFhirRequestContextAccessor fhirRequestContextAccessor, IFhirDocumentQueryLogger logger)
+        public FhirCosmosDocumentQueryFactory(IMetricProcessor metricProcessor, IExceptionProcessor exceptionProcessor, IFhirDocumentQueryLogger logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(metricProcessor, nameof(metricProcessor));
+            EnsureArg.IsNotNull(exceptionProcessor, nameof(exceptionProcessor));
 
+            _metricProcessor = metricProcessor;
+            _exceptionProcessor = exceptionProcessor;
             _logger = logger;
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         /// <inheritdoc />
@@ -48,7 +52,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return new FhirDocumentQuery<T>(
                 context,
                 documentQuery,
-                _fhirRequestContextAccessor,
+                _metricProcessor,
+                _exceptionProcessor,
                 _logger);
         }
     }

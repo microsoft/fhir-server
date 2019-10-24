@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.Add<MetricFilterAttribute>()
+            services.Add<ApiResponseMetricFilterAttribute>()
                 .Singleton()
                 .AsSelf();
 

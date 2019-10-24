@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
@@ -82,8 +84,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             IDocumentClientTestProvider testProvider = new DocumentClientReadWriteTestProvider();
 
             var fhirRequestContextAccessor = new FhirRequestContextAccessor();
+            var metricProcessor = Substitute.For<IMetricProcessor>();
+            var exceptionProcessor = Substitute.For<IExceptionProcessor>();
 
-            var documentClientInitializer = new FhirDocumentClientInitializer(testProvider, fhirRequestContextAccessor, NullLogger<FhirDocumentClientInitializer>.Instance);
+            var documentClientInitializer = new FhirDocumentClientInitializer(testProvider, fhirRequestContextAccessor, NullLogger<FhirDocumentClientInitializer>.Instance, metricProcessor, exceptionProcessor);
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
             var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
 
@@ -100,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 CollectionInitializationSemaphore.Release();
             }
 
-            var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
+            var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(metricProcessor, exceptionProcessor, NullFhirDocumentQueryLogger.Instance);
 
             var documentClient = new NonDisposingScope(_documentClient);
 

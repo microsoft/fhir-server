@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -16,16 +18,25 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric
         {
         }
 
-        public int HandleCount { get; private set; }
+        public Dictionary<Type, int> HandleCountDictionary { get; } = new Dictionary<Type, int>();
 
         public void ResetCount()
         {
-            HandleCount = 0;
+            HandleCountDictionary.Clear();
         }
 
         public Task Handle(IMetricsNotification notification, CancellationToken cancellationToken)
         {
-            HandleCount++;
+            Type notificationType = notification.GetType();
+            if (HandleCountDictionary.ContainsKey(notificationType))
+            {
+                HandleCountDictionary[notificationType]++;
+            }
+            else
+            {
+                HandleCountDictionary.Add(notificationType, 1);
+            }
+
             return Task.CompletedTask;
         }
     }

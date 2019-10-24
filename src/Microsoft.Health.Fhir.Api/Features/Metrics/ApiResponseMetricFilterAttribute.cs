@@ -17,13 +17,13 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.Metrics
 {
-    internal class MetricFilterAttribute : IAsyncActionFilter
+    internal class ApiResponseMetricFilterAttribute : IAsyncActionFilter
     {
         private readonly IMediator _mediator;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly ILogger<MetricFilterAttribute> _logger;
+        private readonly ILogger<ApiResponseMetricFilterAttribute> _logger;
 
-        public MetricFilterAttribute(IMediator mediator, IFhirRequestContextAccessor fhirRequestContextAccessor, ILogger<MetricFilterAttribute> logger)
+        public ApiResponseMetricFilterAttribute(IMediator mediator, IFhirRequestContextAccessor fhirRequestContextAccessor, ILogger<ApiResponseMetricFilterAttribute> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
                 }
                 finally
                 {
-                    var apiNotification = new ApiResponseNotification
+                    var apiNotification = new ApiResponseMetricNotification
                     {
                         Latency = timer.GetElapsedTime(),
                     };
@@ -63,11 +63,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Metrics
                             apiNotification.StatusCode = (HttpStatusCode)context.HttpContext.Response.StatusCode;
 
                             await _mediator.Publish(apiNotification, CancellationToken.None);
-
-                            if (fhirRequestContext.StorageRequestMetrics != null)
-                            {
-                                await _mediator.Publish(fhirRequestContext.StorageRequestMetrics, CancellationToken.None);
-                            }
                         }
                     }
                     catch (Exception e)
