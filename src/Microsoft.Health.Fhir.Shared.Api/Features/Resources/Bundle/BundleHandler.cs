@@ -151,11 +151,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     HttpContext httpContext = request.HttpContext;
 
-                    var fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                    var originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
                     request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
-                    var newFhirRequestContext = new FhirRequestContext(httpContext.Request.Method, httpContext.Request.GetDisplayUrl(), fhirRequestContext.BaseUri.OriginalString, fhirRequestContext.CorrelationId, httpContext.Request.Headers, httpContext.Response.Headers, resourceType?.ToString());
-                    newFhirRequestContext.Principal = fhirRequestContext.Principal;
+                    var newFhirRequestContext = new FhirRequestContext(httpContext.Request.Method, httpContext.Request.GetDisplayUrl(), originalFhirRequestContext.BaseUri.OriginalString, originalFhirRequestContext.CorrelationId, httpContext.Request.Headers, httpContext.Response.Headers, resourceType?.ToString());
+                    newFhirRequestContext.Principal = originalFhirRequestContext.Principal;
                     _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
 
                     await request.Handler.Invoke(httpContext);
