@@ -35,17 +35,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
         }
 
         public void ProcessResponse<T>(T resourceResponseBase)
-            where T : ResourceResponseBase
+            where T : IResourceResponseBase
         {
             ProcessResponse(resourceResponseBase.SessionToken, resourceResponseBase.RequestCharge, resourceResponseBase.CollectionSizeUsage, resourceResponseBase.StatusCode);
         }
 
-        public void ProcessResponse<T>(FeedResponse<T> feedResponse)
+        public void ProcessResponse<T>(IFeedResponse<T> feedResponse)
         {
             ProcessResponse(feedResponse.SessionToken, feedResponse.RequestCharge, feedResponse.CollectionSizeUsage, statusCode: null);
         }
 
-        public void ProcessResponse<T>(StoredProcedureResponse<T> storedProcedureResponse)
+        public void ProcessResponse<T>(IStoredProcedureResponse<T> storedProcedureResponse)
         {
             ProcessResponse(storedProcedureResponse.SessionToken, storedProcedureResponse.RequestCharge, collectionSizeUsageKilobytes: null, statusCode: storedProcedureResponse.StatusCode);
         }
@@ -74,15 +74,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
 
         private void AddRequestChargeToFhirRequestContext(double responseRequestCharge, long? collectionSizeUsage, HttpStatusCode? statusCode)
         {
-            // If there has already been a request to the database for this request, then there will already by a request charge.
-            // We want to update it to the new total.
-            // Instead of parsing the header value, we could store the double value on the IFhirRequestContext in addition to storing the header value.
-            // The problem with that approach is that the request charge is a Cosmos DB-specific concept and the IFhirRequestContext is independent of data store.
-            // Also, at the time of writing, we do not typically issue more than one request to the database per request anyway, so the performance impact should
-            // not be felt.
-
             IFhirRequestContext requestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
+            // If there has already been a request to the database for this request, then we want to append a second charge header.
             if (requestContext.ResponseHeaders.ContainsKey(CosmosDbHeaders.RequestCharge))
             {
                 requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge].Append(responseRequestCharge.ToString(CultureInfo.InvariantCulture));

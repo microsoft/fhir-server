@@ -11,11 +11,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
     public interface ICosmosMetricProcessor
     {
         void ProcessResponse<T>(T resourceResponseBase)
-            where T : ResourceResponseBase;
+            where T : IResourceResponseBase;
 
-        void ProcessResponse<T>(FeedResponse<T> feedResponse);
+        void ProcessResponse<T>(IFeedResponse<T> feedResponse);
 
-        void ProcessResponse<T>(StoredProcedureResponse<T> storedProcedureResponse);
+        void ProcessResponse<T>(IStoredProcedureResponse<T> storedProcedureResponse);
 
         void ProcessResponse(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode);
     }
