@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
-        private readonly ITransactionHandler _transaction;
+        private readonly ITransactionHandler _transactionHandler;
         private readonly ILogger<BundleHandler> _logger;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transaction, ILogger<BundleHandler> logger)
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
-            _transaction = transaction;
+            _transactionHandler = transaction;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -93,34 +93,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     Type = Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse,
                 };
 
-                await ExecuteTransactionForAllRequests(responseBundle);
-                return new BundleResponse(responseBundle.ToResourceElement());
+                return await ExecuteTransactionForAllRequests(responseBundle);
             }
 
             throw new MethodNotAllowedException(Microsoft.Health.Fhir.Api.Resources.UnsupportedOperation);
         }
 
-        private async Task ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
+        private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
         {
+            BundleProcessingStatus bundleProcessingStatus = BundleProcessingStatus.SUCCEEDED;
+
             try
             {
                 try
                 {
-                    _transaction.BeginTransactionScope();
+                    _transactionHandler.BeginTransactionScope();
 
                     await ExecuteAllRequests(responseBundle);
 
-                    _transaction.CompleteTransactionScope();
+                    _transactionHandler.CompleteTransactionScope();
                 }
                 finally
                 {
-                    _transaction.Dispose();
+                    _transactionHandler.Dispose();
                 }
             }
             catch (TransactionAbortedException ex)
             {
+                bundleProcessingStatus = BundleProcessingStatus.FAILED;
                 _logger.LogError(ex, "Transaction processing of Bundle is rolled back ");
             }
+
+            return new BundleResponse(responseBundle.ToResourceElement(), bundleProcessingStatus);
         }
 
         private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
@@ -216,6 +220,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
                     {
                         entryComponent.Response.Outcome = entryComponentResource;
+
+                        if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                        {
+                            // Bundle Transaction Response only contains operationoutcome in case of failure.
+                            responseBundle.Entry.Clear();
+                            responseBundle.Entry.Add(entryComponent);
+                            return;
+                        }
                     }
                     else
                     {

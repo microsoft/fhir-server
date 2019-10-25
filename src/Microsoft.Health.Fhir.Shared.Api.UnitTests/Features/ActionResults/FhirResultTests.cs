@@ -4,9 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Hl7.Fhir.ElementModel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
@@ -57,6 +61,40 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
 
             Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.NotFound, result.StatusCode.GetValueOrDefault());
+        }
+
+        [Fact]
+        public void GivenASuccessfulBundleProcessingStatus_WhenReturningAResult_ThenBadRequestIsReturned()
+        {
+            var bundleResponse = new BundleResponse(Substitute.For<ResourceElement>(Substitute.For<ITypedElement>()), Core.Features.Persistence.BundleProcessingStatus.SUCCEEDED);
+
+            var result = FhirResult.Create(bundleResponse);
+
+            var context = new ActionContext
+            {
+                HttpContext = new DefaultHttpContext(),
+            };
+
+            result.ExecuteResult(context);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode.GetValueOrDefault());
+        }
+
+        [Fact]
+        public void GivenAFailedBundleProcessingStatus_WhenReturningAResult_ThenBadRequestIsReturned()
+        {
+            var bundleResponse = new BundleResponse(Substitute.For<ResourceElement>(Substitute.For<ITypedElement>()), Core.Features.Persistence.BundleProcessingStatus.FAILED);
+
+            var result = FhirResult.Create(bundleResponse);
+
+            var context = new ActionContext
+            {
+                HttpContext = new DefaultHttpContext(),
+            };
+
+            result.ExecuteResult(context);
+
+            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode.GetValueOrDefault());
         }
     }
 }
