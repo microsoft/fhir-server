@@ -154,8 +154,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // If we are sending multiple search queries in one transaction
                 if (transaction != null)
                 {
-                    // We must assign both the transaction and connection objects to the Command object for a pending local transaction.
-                    sqlCommand.Connection = connection;
                     sqlCommand.Transaction = transaction;
                 }
 
