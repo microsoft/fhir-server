@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             const string grantType = "authorization_code";
             const string clientId = "1234";
-            const string clientSecret = "XYZ";
+            const string clientStringPlaceHolder = "XYZ";
             const string compoundCode = "eyAiY29kZSIgOiAiZm9vIiB9";
             Uri redirectUri = new Uri("https://localhost");
 
@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Content = new StringContent(content.ToString(Formatting.None)),
             };
 
-            var result = _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret).Result as ContentResult;
+            var result = _controller.Token(grantType, compoundCode, redirectUri, clientId, clientStringPlaceHolder).Result as ContentResult;
             Assert.NotNull(result);
 
             var resultJson = JObject.Parse(result.Content);
