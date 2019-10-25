@@ -40,23 +40,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            SearchResult searchResult = await ExecuteSearchAsync(
+            // The _total parameter is not yet supported for Cosmos DB.
+            if (searchOptions.IncludeTotal == TotalType.Accurate || searchOptions.IncludeTotal == TotalType.Estimate)
+            {
+                throw new SearchOperationNotSupportedException(Core.Resources.UnsupportedTotalParameter);
+            }
+
+            return await ExecuteSearchAsync(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions),
                 searchOptions,
                 cancellationToken);
-
-            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
-            {
-                searchOptions.AsCountOnly(true);
-                var totalSearchResult = await ExecuteSearchAsync(
-                    _queryBuilder.BuildSqlQuerySpec(searchOptions),
-                    searchOptions,
-                    cancellationToken);
-
-                searchResult.TotalCount = totalSearchResult.TotalCount;
-            }
-
-            return searchResult;
         }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(

@@ -94,7 +94,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
                     {
+                        // Estimate is not yet supported.
+                        if (totalType == TotalType.Estimate)
+                        {
+                            throw new SearchOperationNotSupportedException(Core.Resources.UnsupportedTotalParameter);
+                        }
+
                         searchOptions.IncludeTotal = totalType;
+                    }
+                    else
+                    {
+                        throw new BadRequestException(Core.Resources.UnsupportedTotalParameter);
                     }
                 }
                 else
