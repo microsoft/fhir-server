@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -195,21 +196,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("user_impersonation test.scope", "user_impersonation test.scope")]
         [InlineData("patient$Observation.read", "patient/Observation.read")]
         [InlineData("patient$Observation.read patient$Encounter.read", "patient/Observation.read patient/Encounter.read")]
-        public void GivenScopesInTokenResponse_WhenTokenRequestAction_ThenCorrectScopesReturned(string inScopes, string outScopes)
+        public async Task GivenScopesInTokenResponse_WhenTokenRequestAction_ThenCorrectScopesReturned(string tokenScopes, string expectedScopes)
         {
-            const string grantType = "authorization_code";
-            const string clientId = "1234";
-            const string clientStringPlaceHolder = "XYZ";
-            const string compoundCode = "eyAiY29kZSIgOiAiZm9vIiB9";
+            string grantType = "authorization_code";
+            string clientId = "1234";
+            string clientStringPlaceHolder = "XYZ";
+            string compoundCode = "eyAiY29kZSIgOiAiZm9vIiB9";
             Uri redirectUri = new Uri("https://localhost");
 
             _urlResolver.ResolveRouteNameUrl(Arg.Any<string>(), Arg.Any<IDictionary<string, object>>()).Returns(redirectUri);
 
-            JObject content = JObject.Parse("{}");
+            JObject content = new JObject();
             content["access_token"] = "xyz";
-            if (inScopes != null)
+            if (tokenScopes != null)
             {
-                content["scope"] = inScopes;
+                content["scope"] = tokenScopes;
             }
 
             _httpMessageHandler.Response = new HttpResponseMessage()
@@ -218,12 +219,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Content = new StringContent(content.ToString(Formatting.None)),
             };
 
-            var result = _controller.Token(grantType, compoundCode, redirectUri, clientId, clientStringPlaceHolder).Result as ContentResult;
+            var result = await _controller.Token(grantType, compoundCode, redirectUri, clientId, clientStringPlaceHolder) as ContentResult;
             Assert.NotNull(result);
 
             var resultJson = JObject.Parse(result.Content);
 
-            Assert.Equal(outScopes, resultJson["scope"]?.ToString());
+            Assert.Equal(expectedScopes, resultJson["scope"]?.ToString());
         }
     }
 }
