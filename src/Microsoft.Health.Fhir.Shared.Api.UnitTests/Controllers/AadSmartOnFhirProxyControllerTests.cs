@@ -18,6 +18,8 @@ using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -186,6 +188,42 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             Assert.ThrowsAsync<AadSmartOnFhirProxyBadRequestException>(() => _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret)).Wait();
+        }
+
+        [Theory]
+        [InlineData(null, null)]
+        [InlineData("user_impersonation test.scope", "user_impersonation test.scope")]
+        [InlineData("patient$Observation.read", "patient/Observation.read")]
+        [InlineData("patient$Observation.read patient$Encounter.read", "patient/Observation.read patient/Encounter.read")]
+        public void GivenScopesInTokenResponse_WhenTokenRequestAction_ThenCorrectScopesReturned(string inScopes, string outScopes)
+        {
+            const string grantType = "authorization_code";
+            const string clientId = "1234";
+            const string clientSecret = "XYZ";
+            const string compoundCode = "eyAiY29kZSIgOiAiZm9vIiB9";
+            Uri redirectUri = new Uri("https://localhost");
+
+            _urlResolver.ResolveRouteNameUrl(Arg.Any<string>(), Arg.Any<IDictionary<string, object>>()).Returns(redirectUri);
+
+            JObject content = JObject.Parse("{}");
+            content["access_token"] = "xyz";
+            if (inScopes != null)
+            {
+                content["scope"] = inScopes;
+            }
+
+            _httpMessageHandler.Response = new HttpResponseMessage()
+            {
+                StatusCode = System.Net.HttpStatusCode.OK,
+                Content = new StringContent(content.ToString(Formatting.None)),
+            };
+
+            var result = _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret).Result as ContentResult;
+            Assert.NotNull(result);
+
+            var resultJson = JObject.Parse(result.Content);
+
+            Assert.Equal(outScopes, resultJson["scope"]?.ToString());
         }
     }
 }
