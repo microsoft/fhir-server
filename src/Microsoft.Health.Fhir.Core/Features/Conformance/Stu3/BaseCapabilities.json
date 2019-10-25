@@ -5,10 +5,14 @@
     "status": [ "draft", "active", "retired" ],
     "experimental": true,
     "publisher": "Microsoft",
-    "telecom": [
+    "contact": [
         {
-            "system": "url",
-            "value": "http://www.microsoft.com"
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "https://www.microsoft.com"
+                }
+            ]
         }
     ],
     "kind": [ "capability" ],
@@ -16,6 +20,7 @@
     "format": [
         "json"
     ],
+    "acceptUnknown": "both",
     "rest": [
         {
             "mode": "server",

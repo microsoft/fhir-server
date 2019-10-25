@@ -100,7 +100,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 string.IsNullOrEmpty(searchParam.Url) ? null : new Uri(searchParam.Url),
                 searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri(), x.Expression)).ToArray(),
                 searchParam.Expression,
-                searchParam.Target?.Select(x => x?.ToString()).ToArray());
+                searchParam.Target?.Select(x => x?.ToString()).ToArray(),
+                searchParam.Description?.Value);
         }
 
         public static ValueSets.SearchParamType ToValueSet(this SearchParamType searchParam)

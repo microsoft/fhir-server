@@ -3,14 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
+using System.Collections.Generic;
+using Hl7.Fhir.Model.Primitives;
+
+namespace Microsoft.Health.Fhir.Core.Models
 {
-    public class ListedContactPoint
+    public class CodableConceptInfo
     {
-        public string System { get; set; }
+        public CodableConceptInfo()
+        {
+            Coding = new List<Coding>();
+        }
 
-        public string Use { get; set; }
-
-        public string Value { get; set; }
+        public ICollection<Coding> Coding { get; }
     }
 }

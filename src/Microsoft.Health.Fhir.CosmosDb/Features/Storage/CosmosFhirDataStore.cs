@@ -251,28 +251,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
-            {
-                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.Create);
-                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.Read);
-                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.Vread);
-                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.Update);
-                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.Delete);
-
-                builder.UpdateRestResourceComponent(resource, component =>
-                {
-                    component.Versioning.Add(ResourceVersionPolicy.NoVersion);
-                    component.Versioning.Add(ResourceVersionPolicy.Versioned);
-                    component.Versioning.Add(ResourceVersionPolicy.VersionedUpdate);
-
-                    component.ReadHistory = true;
-                    component.UpdateCreate = true;
-                });
-            }
+            builder.AddDefaultResourceInteractions()
+                .AddDefaultSearchParameters();
 
             if (_coreFeatures.SupportsBatch)
             {
-                statement.TryAddRestInteraction(SystemRestfulInteraction.Batch);
+                builder.TryAddRestInteraction(SystemRestfulInteraction.Batch);
             }
         }
     }

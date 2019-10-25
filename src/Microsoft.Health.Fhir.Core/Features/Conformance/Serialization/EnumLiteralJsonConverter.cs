@@ -6,15 +6,19 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using EnsureThat;
 using Hl7.Fhir.Utility;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 {
-    public class EnumLiteralJsonConverter : JsonConverter
+    internal class EnumLiteralJsonConverter : JsonConverter
     {
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
+            EnsureArg.IsNotNull(writer, nameof(writer));
+            EnsureArg.IsNotNull(serializer, nameof(serializer));
+
             if (value is Enum obj)
             {
                 FieldInfo field = obj.GetType().GetField(obj.ToString());
@@ -31,6 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 
         public override bool CanConvert(Type objectType)
         {
+            EnsureArg.IsNotNull(objectType, nameof(objectType));
+
             return objectType.IsEnum;
         }
     }

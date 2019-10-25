@@ -11,7 +11,7 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
+namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public class GetOperationVersionsHandler : IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>
     {

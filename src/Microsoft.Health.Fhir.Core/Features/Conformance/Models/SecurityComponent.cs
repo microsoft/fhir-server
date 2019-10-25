@@ -4,21 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.Fhir.Model.Primitives;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
     public class SecurityComponent
     {
         public SecurityComponent()
         {
-            Service = new List<Coding>();
+            Extension = new List<JObject>();
+            Service = new List<CodableConceptInfo>();
         }
 
-        public JObject Extension { get; set; }
+        public ICollection<JObject> Extension { get; }
 
-        public ICollection<Coding> Service { get; set; }
+        public ICollection<CodableConceptInfo> Service { get; }
     }
 }

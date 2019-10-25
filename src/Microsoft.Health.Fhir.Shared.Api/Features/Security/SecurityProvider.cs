@@ -63,33 +63,35 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             EnsureArg.IsNotNullOrWhiteSpace(authorizeRouteName, nameof(authorizeRouteName));
             EnsureArg.IsNotNullOrWhiteSpace(tokenRouteName, nameof(tokenRouteName));
 
-            var restComponent = statement.Rest.Server();
-            var security = restComponent.Security ?? new SecurityComponent();
+            ListedRestComponent restComponent = statement.Rest.Server();
+            SecurityComponent security = restComponent.Security ?? new SecurityComponent();
 
-            security.Service.Add(Constants.RestfulSecurityServiceOAuth.ToCoding());
+            var codableConceptInfo = new Core.Models.CodableConceptInfo();
+            security.Service.Add(codableConceptInfo);
+            codableConceptInfo.Coding.Add(Constants.RestfulSecurityServiceOAuth.ToCoding());
 
-            var tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
-            var authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
+            Uri tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
+            Uri authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
 
             var smartExtension = new
             {
-                Url = Constants.SmartOAuthUriExtension,
-                Extension = new[]
+                url = Constants.SmartOAuthUriExtension,
+                extension = new[]
                 {
                     new
                     {
-                        Url = Constants.SmartOAuthUriExtensionToken,
-                        Value = tokenEndpoint,
+                        url = Constants.SmartOAuthUriExtensionToken,
+                        valueUri = tokenEndpoint,
                     },
                     new
                     {
-                        Url = Constants.SmartOAuthUriExtensionAuthorize,
-                        Value = authorizationEndpoint,
+                        url = Constants.SmartOAuthUriExtensionAuthorize,
+                        valueUri = authorizationEndpoint,
                     },
                 },
             };
 
-            security.Extension.Add(smartExtension);
+            security.Extension.Add(JObject.FromObject(smartExtension));
             restComponent.Security = security;
         }
 
@@ -99,15 +101,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             EnsureArg.IsNotNull(authority, nameof(authority));
             EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
 
-            var restComponent = statement.Rest.Server();
-            var security = restComponent.Security ?? new SecurityComponent();
+            ListedRestComponent restComponent = statement.Rest.Server();
+            SecurityComponent security = restComponent.Security ?? new SecurityComponent();
 
-            security.Service.Add(Constants.RestfulSecurityServiceOAuth.ToCoding());
+            var codableConceptInfo = new Core.Models.CodableConceptInfo();
+            security.Service.Add(codableConceptInfo);
+            codableConceptInfo.Coding.Add(Constants.RestfulSecurityServiceOAuth.ToCoding());
 
             var openIdConfigurationUrl = $"{authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;
-            using (var httpClient = httpClientFactory.CreateClient())
+            using (HttpClient httpClient = httpClientFactory.CreateClient())
             {
                 try
                 {
@@ -122,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 
             if (openIdConfigurationResponse.IsSuccessStatusCode)
             {
-                var openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                JObject openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
 
                 string tokenEndpoint, authorizationEndpoint;
 
@@ -139,23 +143,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 
                 var smartExtension = new
                 {
-                    Url = Constants.SmartOAuthUriExtension,
-                    Extension = new[]
+                    url = Constants.SmartOAuthUriExtension,
+                    extension = new[]
                     {
                         new
                         {
-                            Url = Constants.SmartOAuthUriExtensionToken,
-                            Value = tokenEndpoint,
+                            url = Constants.SmartOAuthUriExtensionToken,
+                            valueUri = tokenEndpoint,
                         },
                         new
                         {
-                            Url = Constants.SmartOAuthUriExtensionAuthorize,
-                            Value = authorizationEndpoint,
+                            url = Constants.SmartOAuthUriExtensionAuthorize,
+                            valueUri = authorizationEndpoint,
                         },
                     },
                 };
 
-                security.Extension.Add(smartExtension);
+                security.Extension.Add(JObject.FromObject(smartExtension));
             }
             else
             {

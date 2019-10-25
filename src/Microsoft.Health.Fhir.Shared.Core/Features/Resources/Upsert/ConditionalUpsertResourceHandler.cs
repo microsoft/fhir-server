@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 {
@@ -24,32 +23,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     /// Handles Conditional Update logic as defined in the spec https://www.hl7.org/fhir/http.html#cond-update
     /// </summary>
     public class ConditionalUpsertResourceHandler
-        : BaseResourceHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>, IProvideCapability
+        : BaseResourceHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
     {
         private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
-        private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly bool _featureEnabled;
 
         public ConditionalUpsertResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
-            IMediator mediator,
-            IsEnabled featureEnabled,
-            IModelInfoProvider modelInfoProvider)
+            IMediator mediator)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(featureEnabled, nameof(featureEnabled));
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchService = searchService;
             _mediator = mediator;
-            _modelInfoProvider = modelInfoProvider;
-            _featureEnabled = featureEnabled();
         }
 
         public delegate bool IsEnabled();
@@ -97,17 +88,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
                 throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
-            }
-        }
-
-        public void Build(ICapabilityStatementBuilder builder)
-        {
-            if (_featureEnabled)
-            {
-                foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
-                {
-                    builder.UpdateRestResourceComponent(resource, c => c.ConditionalUpdate = true);
-                }
             }
         }
     }

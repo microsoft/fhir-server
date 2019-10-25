@@ -22,6 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         ICapabilityStatementBuilder Update(Action<ListedCapabilityStatement> action);
 
+        ICapabilityStatementBuilder AddDefaultResourceInteractions();
+
+        ICapabilityStatementBuilder AddDefaultSearchParameters();
+
         ITypedElement Build();
     }
 }

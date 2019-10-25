@@ -7,7 +7,6 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
     public class ListedRestComponent
     {
         public ListedRestComponent()
@@ -22,14 +21,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Mode { get; set; }
 
-        public ICollection<ListedResourceComponent> Resource { get; set; }
+        public ICollection<ListedResourceComponent> Resource { get; }
 
         public SecurityComponent Security { get; set; }
 
-        public ICollection<ResourceInteractionComponent> Interaction { get; set; }
+        public ICollection<ResourceInteractionComponent> Interaction { get; }
 
-        public ICollection<SearchParamComponent> SearchParam { get; set; }
+        public ICollection<SearchParamComponent> SearchParam { get; }
 
-        public ICollection<OperationComponent> Operation { get; set; }
+        public ICollection<OperationComponent> Operation { get; }
     }
 }

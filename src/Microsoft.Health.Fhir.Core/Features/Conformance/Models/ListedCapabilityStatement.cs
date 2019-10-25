@@ -10,7 +10,6 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO-style class")]
     public class ListedCapabilityStatement
     {
         internal const string ServerMode = "server";
@@ -22,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             Kind = new DefaultOptionHashSet<string>("capability");
             Rest = new HashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));
             Format = new HashSet<string>();
+            AdditionalData = new Dictionary<string, JToken>();
         }
 
         public string ResourceType { get; } = CapabilityStatement;
@@ -34,23 +34,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Name { get; set; }
 
-        public ICollection<string> Status { get; protected set; }
+        public ICollection<string> Status { get; }
 
         public bool Experimental { get; set; }
 
         public string Publisher { get; set; }
 
-        public ICollection<string> Kind { get; protected set; }
+        public ICollection<string> Kind { get; }
 
         public SoftwareComponent Software { get; set; }
 
         public string FhirVersion { get; set; }
 
-        public ICollection<string> Format { get; protected set; }
+        public ICollection<string> Format { get; }
 
-        public ICollection<ListedRestComponent> Rest { get; protected set; }
+        public ICollection<ListedRestComponent> Rest { get; }
 
         [JsonExtensionData]
-        public IDictionary<string, JToken> AdditionalData { get; set; }
+        public IDictionary<string, JToken> AdditionalData { get; }
     }
 }

@@ -5,7 +5,9 @@
 
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
@@ -17,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         {
             string httpMicrosoftCom = "http://microsoft.com";
 
-            var builder = CapabilityStatementBuilder.Create(FhirSpecification.R4);
+            var builder = CapabilityStatementBuilder.Create(ModelInfoProvider.Instance, Substitute.For<ISearchParameterDefinitionManager>());
             builder.Update(x => x.Url = new System.Uri(httpMicrosoftCom));
 
             var statement = builder.Build();

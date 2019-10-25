@@ -12,25 +12,32 @@ using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
-    public sealed class NewSystemConformanceProvider
+    public sealed class SystemConformanceProvider
         : ConformanceProviderBase, IConfiguredConformanceProvider, IDisposable
     {
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
         private ResourceElement _listedCapabilityStatement;
         private SemaphoreSlim _sem = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
 
-        public NewSystemConformanceProvider(IModelInfoProvider modelInfoProvider, Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders)
+        public SystemConformanceProvider(
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(capabilityProviders, nameof(capabilityProviders));
 
             _modelInfoProvider = modelInfoProvider;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _capabilityProviders = capabilityProviders;
         }
 
@@ -44,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        ICapabilityStatementBuilder builder = CapabilityStatementBuilder.Create(_modelInfoProvider.Version)
+                        ICapabilityStatementBuilder builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager)
                             .Update(x =>
                             {
                                 x.FhirVersion = _modelInfoProvider.SupportedVersion.ToString();

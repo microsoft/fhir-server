@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core
 
         public string[] GetResourceTypeNames()
         {
-            return Enum.GetNames(typeof(ResourceType));
+            return ModelInfo.SupportedResources.ToArray();
         }
 
         public string[] GetCompartmentTypeNames()

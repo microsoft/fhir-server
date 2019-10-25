@@ -11,17 +11,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     /// <summary>
     /// Provides the base implementation of the <see cref="ISearchService"/>.
     /// </summary>
-    public abstract class SearchService : ISearchService, IProvideCapability
+    public abstract class SearchService : ISearchService
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
@@ -195,16 +193,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         protected abstract Task<SearchResult> SearchHistoryInternalAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
-
-        public virtual void Build(ICapabilityStatementBuilder builder)
-        {
-            foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
-            {
-                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryType);
-                builder.TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryInstance);
-            }
-
-            builder.TryAddRestInteraction(SystemRestfulInteraction.HistorySystem);
-        }
     }
 }
