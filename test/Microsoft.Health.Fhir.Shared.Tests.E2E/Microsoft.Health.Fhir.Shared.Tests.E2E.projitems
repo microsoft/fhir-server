@@ -34,6 +34,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\InProcTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MetadataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\OperationVersionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\PatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />

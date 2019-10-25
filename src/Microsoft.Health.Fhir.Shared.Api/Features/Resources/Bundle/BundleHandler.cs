@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -17,6 +18,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features.Authentication;
+using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -164,12 +166,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 await _router.RouteAsync(routeContext);
 
-                // PATCH does not resolve a handler so it current no-ops. This needs to be updated to always return a 404.
-                if (routeContext.Handler == null)
-                {
-                    continue;
-                }
-
                 httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature()
                 {
                     RouteData = routeContext.RouteData,
@@ -191,48 +187,50 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             foreach (RouteContext request in _requests[httpVerb])
             {
-                HttpContext httpContext = request.HttpContext;
-                await request.Handler.Invoke(httpContext);
+                var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
 
-                httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-                string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
-
-                var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent
+                if (request.Handler != null)
                 {
-                    Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                    HttpContext httpContext = request.HttpContext;
+                    await request.Handler.Invoke(httpContext);
+
+                    httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+                    string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
+
+                    ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
+                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
                     {
                         Status = httpContext.Response.StatusCode.ToString(),
-                        Location = httpContext.Response.Headers["Location"],
-                        Etag = httpContext.Response.Headers["ETag"],
-                    },
-                };
+                        Location = responseHeaders.Location?.OriginalString,
+                        Etag = responseHeaders.ETag?.ToString(),
+                        LastModified = responseHeaders.LastModified,
+                    };
 
-                string lastModifiedHeader = httpContext.Response.Headers["Last-Modified"];
-                if (!string.IsNullOrWhiteSpace(lastModifiedHeader))
-                {
-                    entryComponent.Response.LastModified = DateTimeOffset.Parse(lastModifiedHeader);
-                }
-
-                if (!string.IsNullOrWhiteSpace(bodyContent))
-                {
-                    var entryComponentResource = _fhirJsonParser.Parse<Resource>(bodyContent);
-
-                    if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
+                    if (!string.IsNullOrWhiteSpace(bodyContent))
                     {
-                        entryComponent.Response.Outcome = entryComponentResource;
+                        var entryComponentResource = _fhirJsonParser.Parse<Resource>(bodyContent);
 
-                        if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                        if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
                         {
-                            // Bundle Transaction Response only contains operationoutcome in case of failure.
-                            responseBundle.Entry.Clear();
-                            responseBundle.Entry.Add(entryComponent);
-                            return;
+                            entryComponent.Response.Outcome = entryComponentResource;
+
+                            if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                            {
+                                // Bundle Transaction Response only contains operationoutcome in case of failure.
+                                responseBundle.Entry.Clear();
+                                responseBundle.Entry.Add(entryComponent);
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            entryComponent.Resource = entryComponentResource;
                         }
                     }
-                    else
-                    {
-                        entryComponent.Resource = entryComponentResource;
-                    }
+                }
+                else
+                {
+                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent { Status = ((int)HttpStatusCode.NotFound).ToString() };
                 }
 
                 responseBundle.Entry.Add(entryComponent);

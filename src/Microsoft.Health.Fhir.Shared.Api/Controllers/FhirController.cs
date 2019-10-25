@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -388,6 +389,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
+        }
+
+        /// <summary>
+        /// Patches the specified resource
+        /// </summary>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        [HttpPatch]
+        [Route(KnownRoutes.ResourceTypeById)]
+        [AuditEventType(AuditEventSubType.Patch)]
+        [Authorize(PolicyNames.WritePolicy)]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Controller methods won't be called if static.")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "Need the parameters for routing to work.")]
+        public Task<IActionResult> Patch(string typeParameter, string idParameter)
+        {
+            throw new MethodNotAllowedException(Resources.PatchNotSupported);
         }
 
         /// <summary>

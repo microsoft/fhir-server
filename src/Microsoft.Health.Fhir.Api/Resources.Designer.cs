@@ -169,6 +169,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Only bundles of the type batch are supported..
+        /// </summary>
+        public static string OnlyCertainBundleTypesSupported {
+            get {
+                return ResourceManager.GetString("OnlyCertainBundleTypesSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
         /// </summary>
         public static string OperationFailed {
@@ -192,6 +201,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string PageTitle {
             get {
                 return ResourceManager.GetString("PageTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to PATCH is not currently supported..
+        /// </summary>
+        public static string PatchNotSupported {
+            get {
+                return ResourceManager.GetString("PatchNotSupported", resourceCulture);
             }
         }
         
