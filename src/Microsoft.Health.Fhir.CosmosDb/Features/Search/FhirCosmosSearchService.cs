@@ -40,16 +40,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            // The _total parameter is not yet supported for Cosmos DB.
-            if (searchOptions.IncludeTotal == TotalType.Accurate || searchOptions.IncludeTotal == TotalType.Estimate)
-            {
-                throw new SearchOperationNotSupportedException(Core.Resources.UnsupportedTotalParameter);
-            }
-
-            return await ExecuteSearchAsync(
+            SearchResult searchResult = await ExecuteSearchAsync(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions),
                 searchOptions,
                 cancellationToken);
+
+            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+            {
+                var totalSearchResult = await ExecuteSearchAsync(
+                    _queryBuilder.BuildSqlQuerySpec(searchOptions, true),
+                    searchOptions,
+                    cancellationToken,
+                    true);
+
+                searchResult.TotalCount = totalSearchResult.TotalCount;
+            }
+
+            return searchResult;
         }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(
@@ -65,7 +72,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private async Task<SearchResult> ExecuteSearchAsync(
             SqlQuerySpec sqlQuerySpec,
             SearchOptions searchOptions,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool calculateTotalCount = false)
         {
             var feedOptions = new FeedOptions
             {
@@ -74,7 +82,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 RequestContinuation = searchOptions.ContinuationToken,
             };
 
-            if (searchOptions.CountOnly)
+            if (searchOptions.CountOnly || calculateTotalCount)
             {
                 return new SearchResult(
                     (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, cancellationToken)).Single(),
