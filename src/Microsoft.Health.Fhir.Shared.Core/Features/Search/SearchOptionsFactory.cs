@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             // Check to see if only the count should be returned
-            searchOptions.AsCountOnly(searchParams.Summary == SummaryType.Count);
+            searchOptions.CountOnly = searchParams.Summary == SummaryType.Count;
 
             // If the resource type is not specified, then the common
             // search parameters should be used.

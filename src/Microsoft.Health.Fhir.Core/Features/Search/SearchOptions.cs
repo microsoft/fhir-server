@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets a value indicating whether to only return the record count
         /// </summary>
-        public bool CountOnly { get; private set; }
+        public bool CountOnly { get; internal set; }
 
         /// <summary>
         /// Indicates if the total number of resources that match the search parameters should be calculated.
@@ -75,14 +75,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the list of sorting parameters.
         /// </summary>
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
-
-        /// <summary>
-        /// Sets true if only the record count should be returned, false otherwise.
-        /// </summary>
-        /// <param name="isCountOnly">Indicates whether to only return the record count.</param>
-        public void AsCountOnly(bool isCountOnly)
-        {
-            CountOnly = isCountOnly;
-        }
     }
 }
