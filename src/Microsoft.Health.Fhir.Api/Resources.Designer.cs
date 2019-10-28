@@ -268,15 +268,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Transactions are not currently supported..
-        /// </summary>
-        public static string TransactionsNotSupported {
-            get {
-                return ResourceManager.GetString("TransactionsNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Unable to obtain OpenID configuration..
         /// </summary>
         public static string UnableToObtainOpenIdConfiguration {

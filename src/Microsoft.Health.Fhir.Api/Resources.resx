@@ -194,9 +194,6 @@
     <value>The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}.</value>
     <comment>PH0 is a constant defining the max number of custom headers.  PH1 is the count of custom headers sent in the request.  Example: The maximum number of custom audit headers allowed is 10. The number of custom audit headers supplied is 12.</comment>
   </data>
-  <data name="TransactionsNotSupported" xml:space="preserve">
-    <value>Transactions are not currently supported.</value>
-  </data>
   <data name="UnableToObtainOpenIdConfiguration" xml:space="preserve">
     <value>Unable to obtain OpenID configuration.</value>
   </data>

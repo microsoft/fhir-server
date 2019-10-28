@@ -48,19 +48,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly ITransactionHandler _transactionHandler;
         private readonly ILogger<BundleHandler> _logger;
 
-        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transaction, ILogger<BundleHandler> logger)
+        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, ILogger<BundleHandler> logger)
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
-            EnsureArg.IsNotNull(transaction, nameof(transaction));
+            EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
-            _transactionHandler = transaction;
+            _transactionHandler = transactionHandler;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                             if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
                             {
-                                // Bundle Transaction Response only contains operationoutcome in case of failure.
+                                // transaction responsebundle only contains operationoutcome in case of failure.
                                 responseBundle.Entry.Clear();
                                 responseBundle.Entry.Add(entryComponent);
                                 return;
