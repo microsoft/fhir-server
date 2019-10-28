@@ -39,7 +39,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
@@ -49,7 +48,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerDataStoreConfiguration configuration,
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            IModelInfoProvider modelInfoProvider,
             V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
             ILogger<SqlServerFhirDataStore> logger,
             IOptions<CoreFeatureConfiguration> coreFeatures)
@@ -57,7 +55,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
@@ -65,7 +62,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _configuration = configuration;
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
-            _modelInfoProvider = modelInfoProvider;
             _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
             _logger = logger;
             _memoryStreamManager = new RecyclableMemoryStreamManager();

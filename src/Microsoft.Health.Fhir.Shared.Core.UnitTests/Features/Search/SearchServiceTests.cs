@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
                 .Returns(x => new SearchOptions());
 
-            _searchService = new TestSearchService(_searchOptionsFactory, _fhirDataStore, ModelInfoProvider.Instance);
+            _searchService = new TestSearchService(_searchOptionsFactory, _fhirDataStore);
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
         }
 
@@ -125,8 +125,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private class TestSearchService : SearchService
         {
-            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
-                : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
+            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
+                : base(searchOptionsFactory, fhirDataStore)
             {
                 SearchImplementation = options => null;
             }

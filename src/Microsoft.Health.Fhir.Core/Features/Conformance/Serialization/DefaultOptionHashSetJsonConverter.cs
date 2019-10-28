@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Newtonsoft.Json;
@@ -18,7 +19,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
             EnsureArg.IsNotNull(value, nameof(value));
             EnsureArg.IsNotNull(serializer, nameof(serializer));
 
-            serializer.Serialize(writer, ((dynamic)value).DefaultOption);
+            dynamic defaultOption = ((dynamic)value).DefaultOption;
+
+            if (value is IEnumerable enumerable)
+            {
+                var exists = false;
+                object first = null;
+
+                foreach (object item in enumerable)
+                {
+                    if (first == null)
+                    {
+                        first = item;
+                    }
+
+                    if (defaultOption == item)
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists)
+                {
+                    defaultOption = first;
+                }
+            }
+
+            serializer.Serialize(writer, defaultOption);
         }
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)

@@ -23,7 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
-        private readonly IModelInfoProvider _modelInfoProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
@@ -31,14 +30,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="searchOptionsFactory">The search options factory.</param>
         /// <param name="fhirDataStore">The data store</param>
         /// <param name="modelInfoProvider">The model info provider</param>
-        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
+        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
 
             _searchOptionsFactory = searchOptionsFactory;
             _fhirDataStore = fhirDataStore;
-            _modelInfoProvider = modelInfoProvider;
         }
 
         /// <inheritdoc />

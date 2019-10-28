@@ -45,14 +45,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             IFhirDataStore fhirDataStore,
-            IModelInfoProvider modelInfoProvider,
             SqlServerFhirModel model,
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
             SqlServerDataStoreConfiguration configuration,
             ILogger<SqlServerSearchService> logger)
-            : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
+            : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
