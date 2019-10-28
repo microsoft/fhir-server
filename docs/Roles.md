@@ -84,9 +84,9 @@ $flattenedRoles = .\release\scripts\PowerShell\ConvertTo-FlattenedConfigurationH
 To pass the array of roles in when deploying the FHIR server (see [Deployment Instructions](DefaultDeployment.md) for details):
 
 ```PowerShell
-$rg = New-AzureRmResourceGroup -Name "RG-NAME" -Location westus2
+$rg = New-AzResourceGroup -Name "RG-NAME" -Location westus2
 
-New-AzureRmResourceGroupDeployment `
+New-AzResourceGroupDeployment `
 -TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
 -ResourceGroupName $rg.ResourceGroupName ` 
 -serviceName $fhirServiceName ` 
