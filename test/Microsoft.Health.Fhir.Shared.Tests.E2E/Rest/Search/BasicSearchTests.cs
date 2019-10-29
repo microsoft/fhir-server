@@ -326,7 +326,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [InlineData("_total", "count")]
         [InlineData("_total", "xyz")]
-        [InlineData("total", "accurate")]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
