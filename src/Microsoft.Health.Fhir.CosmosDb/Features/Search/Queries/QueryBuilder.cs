@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     public class QueryBuilder : IQueryBuilder
     {
-        public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
+        public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions, bool calculateTotalCount = false)
         {
-            return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
+            return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions, calculateTotalCount);
         }
 
         public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
@@ -38,11 +38,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryHelper = new QueryHelper(_queryBuilder, _queryParameterManager, SearchValueConstants.RootAliasName);
             }
 
-            public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
+            public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions, bool calculateTotalCount = false)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
-                if (searchOptions.CountOnly)
+                if (searchOptions.CountOnly || calculateTotalCount)
                 {
                     AppendSelectFromRoot("VALUE COUNT(1)");
                 }

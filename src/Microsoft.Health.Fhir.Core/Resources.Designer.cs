@@ -826,6 +826,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;_total&quot; parameter is not supported..
+        /// </summary>
+        internal static string UnsupportedTotalParameter {
+            get {
+                return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource id is required for updates..
         /// </summary>
         internal static string UpdateRequestsRequireId {
