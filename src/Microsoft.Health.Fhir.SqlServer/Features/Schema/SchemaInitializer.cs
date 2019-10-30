@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 throw new InvalidOperationException("The initial catalog in the connection string cannot be a system database");
             }
 
-            if (_sqlServerDataStoreConfiguration.EnsureDatabase)
+            if (_sqlServerDataStoreConfiguration.AllowDatabaseCreation)
             {
                 // connect to master database to evaluate if the requested database exists
                 var masterConnectionBuilder = new SqlConnectionStringBuilder(_sqlServerDataStoreConfiguration.ConnectionString) { InitialCatalog = string.Empty };

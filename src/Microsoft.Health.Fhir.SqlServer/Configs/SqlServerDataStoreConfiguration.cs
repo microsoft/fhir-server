@@ -23,6 +23,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Configs
         /// <summary>
         /// Allows the experimental schema initializer to attempt to create the database if not present.
         /// </summary>
-        public bool EnsureDatabase { get; set; }
+        public bool AllowDatabaseCreation { get; set; }
     }
 }
