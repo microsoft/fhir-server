@@ -246,13 +246,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (_coreFeatures.SupportsBatch)
             {
                 // Batch supported added in listedCapability
-                builder.TryAddRestInteraction(SystemRestfulInteraction.Batch);
+                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
             }
 
             if (_coreFeatures.SupportsTransaction)
             {
                 // Transaction supported added in listedCapability
-                builder.TryAddRestInteraction(SystemRestfulInteraction.Transaction);
+                builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
         }
     }

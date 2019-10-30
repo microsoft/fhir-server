@@ -8,7 +8,7 @@ using System.Collections.Generic;
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Should be consistent with base type.")]
-    internal class DefaultOptionHashSet<T> : HashSet<T>
+    internal class DefaultOptionHashSet<T> : HashSet<T>, IDefaultOption
     {
         public DefaultOptionHashSet(T defaultOption)
         {
@@ -22,5 +22,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         }
 
         public T DefaultOption { get; }
+
+        object IDefaultOption.DefaultOption
+        {
+            get
+            {
+                return DefaultOption;
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Newtonsoft.Json;
@@ -25,9 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAOptionHashSet_WhenConvertingToJsonWithInvalidOption_ThenFirstOptionIsSerializedInsteadOfAList()
         {
-            var json = GetJson("D");
-
-            Assert.Equal("{\"prop1\":\"A\"}", json);
+            Assert.Throws<UnsupportedConfigurationException>(() => GetJson("D"));
         }
 
         private string GetJson(string defaultOption)

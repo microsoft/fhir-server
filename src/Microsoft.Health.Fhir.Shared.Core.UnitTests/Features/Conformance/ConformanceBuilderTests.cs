@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingAnUnknownResource_ThenAnArgumentExceptionIsThrown()
         {
-            Assert.Throws<ArgumentException>(() => _builder.TryAddRestInteraction("foo", TypeRestfulInteraction.Create));
+            Assert.Throws<ArgumentException>(() => _builder.AddRestInteraction("foo", TypeRestfulInteraction.Create));
         }
 
         [Fact]
@@ -79,6 +79,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.True(hasCreate);
             Assert.False(noUpdate);
             Assert.False(noDelete);
+        }
+
+        [Fact]
+        public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenParameterTypeIsNotAdded()
+        {
+            _builder.AddDefaultResourceInteractions();
+
+            ITypedElement statement = _builder.Build();
+
+            bool noParameters = (bool)statement.Scalar($"{ResourceQuery(KnownResourceTypes.Parameters)}.exists()");
+
+            Assert.False(noParameters);
         }
 
         private static string ResourceQuery(string resource)

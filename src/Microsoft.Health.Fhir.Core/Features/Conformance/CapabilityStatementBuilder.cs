@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder TryAddRestInteraction(string resourceType, string interaction)
+        public ICapabilityStatementBuilder AddRestInteraction(string resourceType, string interaction)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNullOrEmpty(interaction, nameof(interaction));
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder TryAddRestInteraction(string systemInteraction)
+        public ICapabilityStatementBuilder AddRestInteraction(string systemInteraction)
         {
             EnsureArg.IsNotNullOrEmpty(systemInteraction, nameof(systemInteraction));
 
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder TryAddSearchParams(string resourceType, IEnumerable<SearchParamComponent> searchParameters)
+        public ICapabilityStatementBuilder AddSearchParams(string resourceType, IEnumerable<SearchParamComponent> searchParameters)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
@@ -131,25 +131,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public ICapabilityStatementBuilder AddDefaultResourceInteractions()
         {
-            foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
+            foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
+                // Parameters is a non-persisted resource used to pass information into and back from an operation.
                 if (string.Equals(resource, KnownResourceTypes.Parameters, StringComparison.Ordinal))
                 {
                     continue;
                 }
 
-                TryAddRestInteraction(resource, TypeRestfulInteraction.Create);
-                TryAddRestInteraction(resource, TypeRestfulInteraction.Read);
+                AddRestInteraction(resource, TypeRestfulInteraction.Create);
+                AddRestInteraction(resource, TypeRestfulInteraction.Read);
+                AddRestInteraction(resource, TypeRestfulInteraction.Vread);
+                AddRestInteraction(resource, TypeRestfulInteraction.HistoryType);
+                AddRestInteraction(resource, TypeRestfulInteraction.HistoryInstance);
 
+                // AuditEvents should not allow Update or Delete
                 if (!string.Equals(resource, KnownResourceTypes.AuditEvent, StringComparison.Ordinal))
                 {
-                    if (!string.Equals(resource, KnownResourceTypes.Binary, StringComparison.Ordinal))
-                    {
-                        TryAddRestInteraction(resource, TypeRestfulInteraction.Vread);
-                    }
-
-                    TryAddRestInteraction(resource, TypeRestfulInteraction.Update);
-                    TryAddRestInteraction(resource, TypeRestfulInteraction.Delete);
+                    AddRestInteraction(resource, TypeRestfulInteraction.Update);
+                    AddRestInteraction(resource, TypeRestfulInteraction.Delete);
                 }
 
                 UpdateRestResourceComponent(resource, component =>
@@ -163,13 +163,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 });
             }
 
+            AddRestInteraction(SystemRestfulInteraction.HistorySystem);
+
             return this;
         }
 
         public ICapabilityStatementBuilder AddDefaultSearchParameters()
         {
-            foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
+            foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
+                // Parameters is a non-persisted resource used to pass information into and back from an operation
                 if (string.Equals(resource, KnownResourceTypes.Parameters, StringComparison.Ordinal))
                 {
                     continue;
@@ -179,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                 if (searchParams.Any())
                 {
-                    TryAddSearchParams(resource, searchParams.Select(x => new SearchParamComponent
+                    AddSearchParams(resource, searchParams.Select(x => new SearchParamComponent
                     {
                         Name = x.Name,
                         Type = x.Type,
@@ -187,14 +190,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Documentation = x.Description,
                     }));
 
-                    TryAddRestInteraction(resource, TypeRestfulInteraction.SearchType);
+                    AddRestInteraction(resource, TypeRestfulInteraction.SearchType);
                 }
-
-                TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryType);
-                TryAddRestInteraction(resource, TypeRestfulInteraction.HistoryInstance);
             }
-
-            TryAddRestInteraction(SystemRestfulInteraction.HistorySystem);
 
             return this;
         }
@@ -219,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             // Using a version specific StructureDefinitionSummaryProvider ensures the metadata to be
             // compatible with the current FhirSerializer/output formatter.
-            return jsonStatement.ToTypedElement(_modelInfoProvider.GetStructureDefinitionSummaryProvider());
+            return jsonStatement.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
         }
 
         private EnsureOptions GenerateTypeErrorMessage(EnsureOptions options, string resourceType)

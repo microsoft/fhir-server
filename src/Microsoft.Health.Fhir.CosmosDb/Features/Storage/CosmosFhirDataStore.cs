@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (_coreFeatures.SupportsBatch)
             {
-                builder.TryAddRestInteraction(SystemRestfulInteraction.Batch);
+                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
             }
         }
     }

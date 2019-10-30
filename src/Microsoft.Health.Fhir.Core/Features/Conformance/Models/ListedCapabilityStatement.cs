@@ -13,18 +13,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
     public class ListedCapabilityStatement
     {
         internal const string ServerMode = "server";
-        internal const string CapabilityStatement = "CapabilityStatement";
 
         public ListedCapabilityStatement()
         {
-            Status = new DefaultOptionHashSet<string>("draft");
-            Kind = new DefaultOptionHashSet<string>("capability");
+            Status = new DefaultOptionHashSet<string>("draft", StringComparer.Ordinal);
+            Kind = new DefaultOptionHashSet<string>("capability", StringComparer.Ordinal);
             Rest = new HashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));
-            Format = new HashSet<string>();
+            Format = new HashSet<string>(StringComparer.Ordinal);
             AdditionalData = new Dictionary<string, JToken>();
         }
 
-        public string ResourceType { get; } = CapabilityStatement;
+        public string ResourceType { get; } = "CapabilityStatement";
 
         public Uri Url { get; set; }
 

@@ -16,13 +16,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
     /// <typeparam name="T">Type to compare</typeparam>
     internal class PropertyEqualityComparer<T> : IEqualityComparer<T>
     {
+        private readonly StringComparison _stringComparison;
         private readonly Func<T, string>[] _propertiesToCompare;
 
-        public PropertyEqualityComparer(params Func<T, string>[] propertiesToCompare)
+        public PropertyEqualityComparer(StringComparison stringComparison, params Func<T, string>[] propertiesToCompare)
         {
             EnsureArg.IsNotNull(propertiesToCompare, nameof(propertiesToCompare));
 
+            _stringComparison = stringComparison;
             _propertiesToCompare = propertiesToCompare;
+        }
+
+        public PropertyEqualityComparer(params Func<T, string>[] propertiesToCompare)
+            : this(StringComparison.Ordinal, propertiesToCompare)
+        {
         }
 
         public bool Equals(T x, T y)
@@ -32,11 +39,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
                 return false;
             }
 
-            return _propertiesToCompare.All(property => ReferenceEquals(property(x), property(y)) || property(x) == property(y));
+            return _propertiesToCompare.All(property => string.Equals(property(x), property(y), _stringComparison));
         }
 
         public int GetHashCode(T obj)
         {
+            EnsureArg.IsNotNull<object>(obj, nameof(obj));
+
             var hash = default(HashCode);
 
             foreach (Func<T, string> prop in _propertiesToCompare)

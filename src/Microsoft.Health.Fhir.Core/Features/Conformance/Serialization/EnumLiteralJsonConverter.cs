@@ -4,8 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
-using System.Reflection;
 using EnsureThat;
 using Hl7.Fhir.Utility;
 using Newtonsoft.Json;
@@ -14,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 {
     internal class EnumLiteralJsonConverter : JsonConverter
     {
+        public override bool CanRead => false;
+
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             EnsureArg.IsNotNull(writer, nameof(writer));
@@ -21,10 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 
             if (value is Enum obj)
             {
-                FieldInfo field = obj.GetType().GetField(obj.ToString());
-                EnumLiteralAttribute attr = field.GetCustomAttributes().OfType<EnumLiteralAttribute>().FirstOrDefault();
-
-                serializer.Serialize(writer, attr?.Literal ?? obj?.ToString());
+                serializer.Serialize(writer, obj.GetLiteral());
             }
         }
 

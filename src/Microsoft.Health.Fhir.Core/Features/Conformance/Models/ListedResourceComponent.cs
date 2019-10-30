@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
@@ -13,15 +14,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         {
             Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
             SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
-            Versioning = new DefaultOptionHashSet<string>("versioned");
-            SearchRevInclude = new HashSet<string>();
-            SearchInclude = new HashSet<string>();
-            ReferencePolicy = new HashSet<string>();
+            Versioning = new DefaultOptionHashSet<string>("versioned", StringComparer.Ordinal);
+            SearchRevInclude = new HashSet<string>(StringComparer.Ordinal);
+            SearchInclude = new HashSet<string>(StringComparer.Ordinal);
+            ReferencePolicy = new HashSet<string>(StringComparer.Ordinal);
 
             ConditionalUpdate = false;
             ConditionalCreate = false;
-            ConditionalDelete = new HashSet<string>();
-            ConditionalRead = new HashSet<string>();
+            ConditionalDelete = new HashSet<string>(StringComparer.Ordinal);
+            ConditionalRead = new HashSet<string>(StringComparer.Ordinal);
         }
 
         public bool? UpdateCreate { get; set; }

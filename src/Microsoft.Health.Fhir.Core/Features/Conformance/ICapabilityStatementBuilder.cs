@@ -12,11 +12,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public interface ICapabilityStatementBuilder
     {
-        ICapabilityStatementBuilder TryAddRestInteraction(string resourceType, string interaction);
+        ICapabilityStatementBuilder AddRestInteraction(string resourceType, string interaction);
 
-        ICapabilityStatementBuilder TryAddRestInteraction(string systemInteraction);
+        ICapabilityStatementBuilder AddRestInteraction(string systemInteraction);
 
-        ICapabilityStatementBuilder TryAddSearchParams(string resourceType, IEnumerable<SearchParamComponent> searchParameters);
+        ICapabilityStatementBuilder AddSearchParams(string resourceType, IEnumerable<SearchParamComponent> searchParameters);
 
         ICapabilityStatementBuilder UpdateRestResourceComponent(string resourceType, Action<ListedResourceComponent> action);
 

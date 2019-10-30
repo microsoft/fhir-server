@@ -5,7 +5,10 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Newtonsoft.Json;
 
@@ -13,36 +16,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 {
     internal class DefaultOptionHashSetJsonConverter : JsonConverter
     {
+        public override bool CanRead => false;
+
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             EnsureArg.IsNotNull(writer, nameof(writer));
             EnsureArg.IsNotNull(value, nameof(value));
             EnsureArg.IsNotNull(serializer, nameof(serializer));
 
-            dynamic defaultOption = ((dynamic)value).DefaultOption;
+            object defaultOption = null;
 
-            if (value is IEnumerable enumerable)
+            if (value is IDefaultOption hasDefaultOption)
             {
-                var exists = false;
-                object first = null;
+                defaultOption = hasDefaultOption.DefaultOption;
 
-                foreach (object item in enumerable)
+                if (value is IEnumerable enumerable)
                 {
-                    if (first == null)
-                    {
-                        first = item;
-                    }
+                    IEnumerable<object> objects = enumerable.Cast<object>();
 
-                    if (defaultOption == item)
+                    // When a list is specified, check that the default is an option
+                    if (objects.Any() && !objects.Any(x => Equals(defaultOption, x)))
                     {
-                        exists = true;
-                        break;
+                        throw new UnsupportedConfigurationException(string.Format(Resources.InvalidConfigSetting, defaultOption, string.Join(", ", objects.ToArray())));
                     }
-                }
-
-                if (!exists)
-                {
-                    defaultOption = first;
                 }
             }
 
