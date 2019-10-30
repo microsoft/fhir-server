@@ -8,10 +8,12 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using AngleSharp.Common;
 using EnsureThat;
 using MediatR;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
@@ -79,7 +81,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
             // If there has already been a request to the database for this request, then we want to append a second charge header.
             if (requestContext.ResponseHeaders.ContainsKey(CosmosDbHeaders.RequestCharge))
             {
-                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge].Append(responseRequestCharge.ToString(CultureInfo.InvariantCulture));
+                var newHeaderValue = new StringValues(requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge].Append(responseRequestCharge.ToString(CultureInfo.InvariantCulture)).ToArray());
+                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = newHeaderValue;
             }
             else
             {

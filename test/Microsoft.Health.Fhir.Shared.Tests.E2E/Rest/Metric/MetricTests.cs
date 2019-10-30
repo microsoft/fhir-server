@@ -4,8 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
@@ -64,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                 return;
             }
 
-            await action();
+            var result = await action() as HttpResponseMessage;
 
             foreach ((Type type, int count) expectedNotification in expectedNotifications)
             {
@@ -75,6 +79,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                 }
 
                 Assert.Equal(expectedNotification.count, _metricHandler.HandleCountDictionary[expectedNotification.type]);
+
+                if (result != null && expectedNotification.type == typeof(CosmosStorageRequestMetricsNotification))
+                {
+                    result.Headers.TryGetValues(CosmosDbHeaders.RequestCharge, out IEnumerable<string> values);
+
+                    Assert.NotNull(values);
+                    Assert.Equal(expectedNotification.count, values.Count());
+                }
             }
         }
     }
