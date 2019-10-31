@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public interface IFhirDataStore
+    public interface IFhirDataStore : ITransactionHandler
     {
         Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
@@ -20,11 +20,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken);
 
         Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken);
-
-        void BeginTransactionScope();
-
-        void CompleteTransactionScope();
-
-        void Dispose();
     }
 }

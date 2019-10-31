@@ -4,24 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 {
     public class BundleResponse
     {
-        public BundleResponse(ResourceElement bundle, BundleProcessingStatus processingStatus = BundleProcessingStatus.SUCCEEDED)
+        public BundleResponse(ResourceElement bundle)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
             Bundle = bundle;
-
-            BundleProcessingStatus = processingStatus;
         }
 
         public ResourceElement Bundle { get; }
-
-        public BundleProcessingStatus BundleProcessingStatus { get; }
     }
 }

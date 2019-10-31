@@ -6,8 +6,6 @@
 using System.Net;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
@@ -49,28 +47,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         }
 
         /// <summary>
-        /// Creates a FHIR result with the specified parameters
-        /// </summary>
-        /// <param name="bundleResponse">The resonse bundle.</param>
-        public static FhirResult Create(BundleResponse bundleResponse)
-        {
-            EnsureArg.IsNotNull(bundleResponse, nameof(bundleResponse));
-
-            if (bundleResponse.BundleProcessingStatus == BundleProcessingStatus.FAILED)
-            {
-                return new FhirResult(bundleResponse.Bundle)
-                {
-                    StatusCode = HttpStatusCode.BadRequest,
-                };
-            }
-
-            return new FhirResult(bundleResponse.Bundle)
-            {
-                StatusCode = HttpStatusCode.OK,
-            };
-        }
-
-        /// <summary>
         /// Creates a Gone response
         /// </summary>
         public static FhirResult Gone()
@@ -100,6 +76,17 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             return new FhirResult
             {
                 StatusCode = HttpStatusCode.BadRequest,
+            };
+        }
+
+        /// <summary>
+        /// Returns a PreConditionFailed response
+        /// </summary>
+        public static FhirResult PreConditionFailed()
+        {
+            return new FhirResult
+            {
+                StatusCode = HttpStatusCode.PreconditionFailed,
             };
         }
 

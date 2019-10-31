@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public enum BundleProcessingStatus
     {
-        SUCCEEDED,
-        FAILED,
+        Succeeded,
+        Failed,
     }
 }

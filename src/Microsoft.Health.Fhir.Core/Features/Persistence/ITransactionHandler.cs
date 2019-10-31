@@ -3,14 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Transactions;
+
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public interface ITransactionHandler
+    public interface ITransactionHandler : IDisposable
     {
-        void BeginTransactionScope();
-
-        void CompleteTransactionScope();
-
-        void Dispose();
+        TransactionScope BeginTransaction();
     }
 }

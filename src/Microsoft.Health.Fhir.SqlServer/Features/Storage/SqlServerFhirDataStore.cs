@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// A SQL Server-backed <see cref="IFhirDataStore"/>.
     /// </summary>
-    internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability, IDisposable
+    internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
         internal static readonly Encoding ResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
 
@@ -269,19 +269,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public TransactionScope BeginTransaction()
+        {
+            _transactionScope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+            return _transactionScope;
+        }
+
         public void Dispose()
         {
             _transactionScope?.Dispose();
-        }
-
-        public void BeginTransactionScope()
-        {
-            _transactionScope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
-        }
-
-        public void CompleteTransactionScope()
-        {
-            _transactionScope.Complete();
         }
     }
 }

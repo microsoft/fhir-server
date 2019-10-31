@@ -32,7 +32,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -555,7 +554,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Batch)] // TODO: Our current auditing implementation only allows one audit event type attribute even though this action handles two.
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
-            BundleResponse bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
+            ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
 
             return FhirResult.Create(bundleResponse);
         }

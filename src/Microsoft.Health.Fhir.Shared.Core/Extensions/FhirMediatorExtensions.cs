@@ -131,12 +131,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return new VersionsResult(response.SupportedVersions, response.DefaultVersion);
         }
 
-        public static async Task<BundleResponse> PostBundle(this IMediator mediator, ResourceElement bundle, CancellationToken cancellationToken = default)
+        public static async Task<ResourceElement> PostBundle(this IMediator mediator, ResourceElement bundle, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
-            return await mediator.Send<BundleResponse>(new BundleRequest(bundle), cancellationToken);
+            BundleResponse result = await mediator.Send<BundleResponse>(new BundleRequest(bundle), cancellationToken);
+            return result.Bundle;
         }
     }
 }

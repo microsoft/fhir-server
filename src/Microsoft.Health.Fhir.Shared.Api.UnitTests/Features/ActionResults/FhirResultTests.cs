@@ -64,11 +64,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
         }
 
         [Fact]
-        public void GivenASuccessfulBundleProcessingStatus_WhenReturningAResult_ThenBadRequestIsReturned()
+        public void GivenABadRequestStatus_WhenReturningAResult_ThenStatusIsSetCorrectly()
         {
-            var bundleResponse = new BundleResponse(Substitute.For<ResourceElement>(Substitute.For<ITypedElement>()), Core.Features.Persistence.BundleProcessingStatus.SUCCEEDED);
-
-            var result = FhirResult.Create(bundleResponse);
+            var result = FhirResult.BadRequest();
 
             var context = new ActionContext
             {
@@ -77,15 +75,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
 
             result.ExecuteResult(context);
 
-            Assert.Equal(HttpStatusCode.OK, result.StatusCode.GetValueOrDefault());
+            Assert.Null(result.Result);
+            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode.GetValueOrDefault());
         }
 
         [Fact]
-        public void GivenAFailedBundleProcessingStatus_WhenReturningAResult_ThenBadRequestIsReturned()
+        public void GivenAPreconditionFailedStatus_WhenReturningAResult_ThenStatusIsSetCorrectly()
         {
-            var bundleResponse = new BundleResponse(Substitute.For<ResourceElement>(Substitute.For<ITypedElement>()), Core.Features.Persistence.BundleProcessingStatus.FAILED);
-
-            var result = FhirResult.Create(bundleResponse);
+            var result = FhirResult.PreConditionFailed();
 
             var context = new ActionContext
             {
@@ -94,7 +91,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
 
             result.ExecuteResult(context);
 
-            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode.GetValueOrDefault());
+            Assert.Null(result.Result);
+            Assert.Equal(HttpStatusCode.PreconditionFailed, result.StatusCode.GetValueOrDefault());
         }
     }
 }
