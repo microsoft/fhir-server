@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 EnableCrossPartitionQuery = true,
                 MaxItemCount = searchOptions.MaxItemCount,
-                RequestContinuation = searchOptions.ContinuationToken,
+                RequestContinuation = calculateTotalCount ? null : searchOptions.ContinuationToken,
             };
 
             if (searchOptions.CountOnly || calculateTotalCount)
