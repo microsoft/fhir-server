@@ -14,7 +14,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 

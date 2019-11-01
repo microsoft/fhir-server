@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 FeedResponse<TResult> response = await _documentQuery.ExecuteNextAsync<TResult>(token);
 
-                _cosmosResponseProcessor.ProcessResponse(response);
+                await _cosmosResponseProcessor.ProcessResponse(response);
 
                 _continuationToken = response.ResponseContinuation;
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     0,
                     ex);
 
-                _cosmosResponseProcessor.ProcessException(ex);
+                await _cosmosResponseProcessor.ProcessException(ex);
 
                 throw;
             }

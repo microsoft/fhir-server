@@ -5,21 +5,22 @@
 
 using System;
 using System.Net;
+using System.Threading.Tasks;
 using Microsoft.Azure.Documents.Client;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public interface ICosmosResponseProcessor
     {
-        void ProcessException(Exception ex);
+        Task ProcessException(Exception ex);
 
-        void ProcessResponse<T>(T resourceResponseBase)
+        Task ProcessResponse<T>(T resourceResponseBase)
             where T : IResourceResponseBase;
 
-        void ProcessResponse<T>(IFeedResponse<T> feedResponse);
+        Task ProcessResponse<T>(IFeedResponse<T> feedResponse);
 
-        void ProcessResponse<T>(IStoredProcedureResponse<T> storedProcedureResponse);
+        Task ProcessResponse<T>(IStoredProcedureResponse<T> storedProcedureResponse);
 
-        void ProcessResponse(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode);
+        Task ProcessResponse(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode);
     }
 }

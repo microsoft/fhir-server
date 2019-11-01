@@ -13,7 +13,6 @@ using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -158,28 +157,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private T ProcessResponse<T>(T response)
+        private async Task<T> ProcessResponse<T>(T response)
             where T : ResourceResponseBase
         {
-            _cosmosResponseProcessor.ProcessResponse(response);
+            await _cosmosResponseProcessor.ProcessResponse(response);
             return response;
         }
 
-        private FeedResponse<T> ProcessResponse<T>(FeedResponse<T> response)
+        private async Task<FeedResponse<T>> ProcessResponse<T>(FeedResponse<T> response)
         {
-            _cosmosResponseProcessor.ProcessResponse(response);
+            await _cosmosResponseProcessor.ProcessResponse(response);
             return response;
         }
 
-        private StoredProcedureResponse<T> ProcessResponse<T>(StoredProcedureResponse<T> response)
+        private async Task<StoredProcedureResponse<T>> ProcessResponse<T>(StoredProcedureResponse<T> response)
         {
-            _cosmosResponseProcessor.ProcessResponse(response);
+            await _cosmosResponseProcessor.ProcessResponse(response);
             return response;
         }
 
-        private void ProcessException(Exception ex)
+        private async Task ProcessException(Exception ex)
         {
-            _cosmosResponseProcessor.ProcessException(ex);
+            await _cosmosResponseProcessor.ProcessException(ex);
         }
 
         Task<StoredProcedureResponse<TValue>> IDocumentClient.ExecuteStoredProcedureAsync<TValue>(string storedProcedureLink, params object[] procedureParams)

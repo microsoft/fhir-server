@@ -35,13 +35,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         {
             _fixture = fixture;
             _client = fixture.FhirClient;
-            _metricHandler = _fixture.MetricHandler;
+            _metricHandler = _fixture?.MetricHandler;
         }
 
         [Fact]
         public async Task GivenAResource_WhenCreated_ThenCorrectNumberOfMetricNotificationsShouldBeEmitted()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             await ExecuteAndValidate(
                 () => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco()),
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         [Fact]
         public async Task GivenHealthCheckPath_WhenInvoked_MetricNotificationsNotEmitted()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             await ExecuteAndValidate(
                 () => _client.HttpClient.GetAsync(FhirServerApplicationBuilderExtensions.HealthCheckPath),

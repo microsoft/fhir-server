@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
