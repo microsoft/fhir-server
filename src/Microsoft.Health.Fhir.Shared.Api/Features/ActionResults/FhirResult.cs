@@ -69,28 +69,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         }
 
         /// <summary>
-        /// Returns a BadRequest response
-        /// </summary>
-        public static FhirResult BadRequest()
-        {
-            return new FhirResult
-            {
-                StatusCode = HttpStatusCode.BadRequest,
-            };
-        }
-
-        /// <summary>
-        /// Returns a PreConditionFailed response
-        /// </summary>
-        public static FhirResult PreConditionFailed()
-        {
-            return new FhirResult
-            {
-                StatusCode = HttpStatusCode.PreconditionFailed,
-            };
-        }
-
-        /// <summary>
         /// Returns a NoContent response
         /// </summary>
         public static FhirResult NoContent()

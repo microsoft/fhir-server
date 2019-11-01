@@ -9,7 +9,6 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Transactions;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
@@ -271,7 +270,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public TransactionScope BeginTransaction()
+        ITransactionScope ITransactionHandler.BeginTransaction()
         {
             throw new NotImplementedException();
         }

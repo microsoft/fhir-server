@@ -4,13 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
-using Hl7.Fhir.ElementModel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Core.Messages.Bundle;
-using Microsoft.Health.Fhir.Core.Models;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
@@ -66,7 +62,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
         [Fact]
         public void GivenABadRequestStatus_WhenReturningAResult_ThenStatusIsSetCorrectly()
         {
-            var result = FhirResult.BadRequest();
+            var result = new FhirResult
+            {
+                StatusCode = HttpStatusCode.BadRequest,
+            };
 
             var context = new ActionContext
             {
@@ -82,7 +81,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
         [Fact]
         public void GivenAPreconditionFailedStatus_WhenReturningAResult_ThenStatusIsSetCorrectly()
         {
-            var result = FhirResult.PreConditionFailed();
+            var result = new FhirResult
+            {
+                StatusCode = HttpStatusCode.PreconditionFailed,
+            };
 
             var context = new ActionContext
             {

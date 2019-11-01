@@ -48,7 +48,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
         private readonly ILogger<BundleHandler> _logger;
-        private BundleProcessingStatus _bundleProcessingStatus;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, ILogger<BundleHandler> logger)
         {
@@ -71,7 +70,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
-            _bundleProcessingStatus = BundleProcessingStatus.Succeeded;
         }
 
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
@@ -105,18 +103,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
         {
-            _bundleProcessingStatus = BundleProcessingStatus.Succeeded;
-
             try
             {
                 using (var transaction = _transactionHandler.BeginTransaction())
                 {
                     await ExecuteAllRequests(responseBundle);
-
-                    if (_bundleProcessingStatus == BundleProcessingStatus.Failed)
-                    {
-                        ThrowTransactionException(responseBundle);
-                    }
 
                     transaction.Complete();
                 }
@@ -126,21 +117,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _logger.LogError("Failed to commit a transaction. Throwing BadRequest as a default exception.");
                 throw new BadRequestException("Transaction aborted while processing request");
             }
-            catch (Exception)
-            {
-                _logger.LogError("Error while parsing transaction exception. Throwing BadRequest as a default exception.");
-                throw new BadRequestException("Transaction aborted while processing request");
-            }
 
             return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private static void ThrowTransactionException(Hl7.Fhir.Model.Bundle responseBundle)
+        private static void ThrowTransactionException(EntryComponent responseBundle)
         {
-            EntryComponent responseBundleEntryComponent = responseBundle.Entry?.First();
-
-            int responseStatus = int.Parse(responseBundleEntryComponent?.Response?.Status);
-            string errorMessage = $"Transaction aborted while processing request url: '{responseBundleEntryComponent?.FullUrl}'. {responseBundleEntryComponent?.Response?.Outcome}";
+            int responseStatus = int.Parse(responseBundle?.Response?.Status);
+            string errorMessage = $"Transaction aborted while processing request url: '{responseBundle?.FullUrl}'. {responseBundle?.Response?.Outcome}";
 
             switch (responseStatus)
             {
@@ -213,11 +197,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
 
-                if (_bundleProcessingStatus == BundleProcessingStatus.Failed)
-                {
-                    return;
-                }
-
                 if (request.Handler != null)
                 {
                     HttpContext httpContext = request.HttpContext;
@@ -245,14 +224,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                             if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
                             {
-                                _bundleProcessingStatus = BundleProcessingStatus.Failed;
-                                entryComponent.FullUrl = request.HttpContext.Request.Path;
-
-                               // transaction responsebundle only contains operationoutcome in case of failure.
-                                responseBundle.Entry.Clear();
-                                responseBundle.Entry.Add(entryComponent);
-
-                                return;
+                                ThrowTransactionException(entryComponent);
                             }
                         }
                         else

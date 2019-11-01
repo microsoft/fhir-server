@@ -13,7 +13,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Transactions;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -44,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly CoreFeatureConfiguration _coreFeatures;
-        private TransactionScope _transactionScope;
+        private ITransactionScope _transactionScope;
 
         public SqlServerFhirDataStore(
             SqlServerDataStoreConfiguration configuration,
@@ -269,9 +268,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public TransactionScope BeginTransaction()
+        public ITransactionScope BeginTransaction()
         {
-            _transactionScope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+            _transactionScope = new DefaultTransactionScope();
             return _transactionScope;
         }
 

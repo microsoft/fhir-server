@@ -3,11 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public enum BundleProcessingStatus
+    public interface ITransactionScope : IDisposable
     {
-        Succeeded,
-        Failed,
+        void Complete();
     }
 }

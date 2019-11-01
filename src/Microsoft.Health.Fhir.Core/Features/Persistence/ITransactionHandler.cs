@@ -4,12 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Transactions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface ITransactionHandler : IDisposable
     {
-        TransactionScope BeginTransaction();
+        ITransactionScope BeginTransaction();
     }
 }
