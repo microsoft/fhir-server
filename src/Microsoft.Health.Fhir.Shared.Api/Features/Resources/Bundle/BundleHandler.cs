@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -42,17 +43,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
+        private readonly BundleHttpContextAccessor _bundleHttpContextAccessor;
 
-        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser)
+        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, BundleHttpContextAccessor bundleHttpContextAccessor)
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
+            EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
+            _bundleHttpContextAccessor = bundleHttpContextAccessor;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = GenerateRequestDictionary();
@@ -145,7 +149,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (request.Handler != null)
                 {
-                    HttpContext httpContext = request.HttpContext;
+                    var httpContext = request.HttpContext;
+
+                    _bundleHttpContextAccessor.HttpContext = httpContext;
+
                     await request.Handler.Invoke(httpContext);
 
                     httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
@@ -177,6 +184,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else
                 {
                     entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent { Status = ((int)HttpStatusCode.NotFound).ToString() };
+                    entryComponent.Response.Outcome = new OperationOutcome
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Issue = new List<OperationOutcome.IssueComponent>
+                        {
+                            new OperationOutcome.IssueComponent
+                            {
+                                Severity = OperationOutcome.IssueSeverity.Error,
+                                Code = OperationOutcome.IssueType.NotFound,
+                                Diagnostics = $"Could not find route for '{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}'",
+                            },
+                        },
+                    };
                 }
 
                 responseBundle.Entry.Add(entryComponent);
