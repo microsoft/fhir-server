@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Hl7.Fhir.Model.Primitives;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -21,5 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Models
         public string System { get; set; }
 
         public string Code { get; set; }
+
+        public Coding ToCoding()
+        {
+            return new Coding(System, Code);
+        }
     }
 }

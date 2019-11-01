@@ -11,7 +11,6 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -25,9 +24,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
-            IQueryBuilder queryBuilder,
-            IModelInfoProvider modelInfoProvider)
-            : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
+            IQueryBuilder queryBuilder)
+            : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));

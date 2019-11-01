@@ -22,28 +22,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     /// <summary>
     /// Handles Conditional Update logic as defined in the spec https://www.hl7.org/fhir/http.html#cond-update
     /// </summary>
-    public class ConditionalUpsertResourceHandler : BaseResourceHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
+    public class ConditionalUpsertResourceHandler
+        : BaseResourceHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
     {
         private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
-        private readonly bool _featureEnabled;
 
         public ConditionalUpsertResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
-            IMediator mediator,
-            IsEnabled featureEnabled)
+            IMediator mediator)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(featureEnabled, nameof(featureEnabled));
 
             _searchService = searchService;
             _mediator = mediator;
-            _featureEnabled = featureEnabled();
         }
 
         public delegate bool IsEnabled();
@@ -91,14 +88,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
                 throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
-            }
-        }
-
-        protected override void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
-        {
-            if (_featureEnabled)
-            {
-                statement.BuildRestResourceComponent(resourceType, x => x.ConditionalUpdate = true);
             }
         }
     }

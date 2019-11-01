@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -15,15 +17,17 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         Version SupportedVersion { get; }
 
+        IStructureDefinitionSummaryProvider StructureDefinitionSummaryProvider { get; }
+
         string GetFhirTypeNameForType(Type type);
 
         bool IsKnownResource(string name);
 
         bool IsKnownCompartmentType(string compartmentType);
 
-        string[] GetResourceTypeNames();
+        IReadOnlyCollection<string> GetResourceTypeNames();
 
-        string[] GetCompartmentTypeNames();
+        IReadOnlyCollection<string> GetCompartmentTypeNames();
 
         Type GetTypeForFhirType(string resourceType);
 
