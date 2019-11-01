@@ -270,7 +270,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        ITransactionScope ITransactionHandler.BeginTransaction()
+        public ITransactionScope BeginTransaction()
         {
             throw new NotSupportedException();
         }
