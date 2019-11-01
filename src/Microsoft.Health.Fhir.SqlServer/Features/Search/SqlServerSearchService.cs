@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             Expression searchExpression = searchOptions.Expression;
 
             // AND in the continuation token
-            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken))
+            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !calculateTotalCount)
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
