@@ -17,8 +17,9 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class CosmosResponseProcessor : ICosmosResponseProcessor
     {
@@ -109,10 +110,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
             IFhirRequestContext requestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
             // If there has already been a request to the database for this request, then we want to append a second charge header.
-            if (requestContext.ResponseHeaders.ContainsKey(CosmosDbHeaders.RequestCharge))
+            if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingHeaderValue))
             {
-                var newHeaderValue = new StringValues(requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge].Append(responseRequestCharge.ToString(CultureInfo.InvariantCulture)).ToArray());
-                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = newHeaderValue;
+                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = StringValues.Concat(existingHeaderValue, responseRequestCharge.ToString(CultureInfo.InvariantCulture));
             }
             else
             {
