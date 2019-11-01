@@ -25,21 +25,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ILogger<FhirDocumentClientInitializer> _logger;
-        private readonly ICosmosMetricProcessor _cosmosMetricProcessor;
-        private readonly ICosmosExceptionProcessor _cosmosExceptionProcessor;
+        private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
-        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ICosmosMetricProcessor cosmosMetricProcessor, ICosmosExceptionProcessor cosmosExceptionProcessor, ILogger<FhirDocumentClientInitializer> logger)
+        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ICosmosResponseProcessor cosmosResponseProcessor, ILogger<FhirDocumentClientInitializer> logger)
         {
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(cosmosMetricProcessor, nameof(cosmosMetricProcessor));
-            EnsureArg.IsNotNull(cosmosExceptionProcessor, nameof(cosmosExceptionProcessor));
+            EnsureArg.IsNotNull(cosmosResponseProcessor, nameof(cosmosResponseProcessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _testProvider = testProvider;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _cosmosMetricProcessor = cosmosMetricProcessor;
-            _cosmosExceptionProcessor = cosmosExceptionProcessor;
+            _cosmosResponseProcessor = cosmosResponseProcessor;
             _logger = logger;
         }
 
@@ -94,8 +91,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
                 _fhirRequestContextAccessor,
                 configuration.ContinuationTokenSizeLimitInKb,
-                _cosmosMetricProcessor,
-                _cosmosExceptionProcessor);
+                _cosmosResponseProcessor);
         }
 
         /// <inheritdoc />

@@ -4,14 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using MediatR;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using NSubstitute;
 using Xunit;
@@ -42,10 +40,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             var documentClientTestProvider = Substitute.For<IDocumentClientTestProvider>();
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            var metricProcessor = Substitute.For<ICosmosMetricProcessor>();
-            var exceptionProcessor = Substitute.For<ICosmosExceptionProcessor>();
+            var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
-            _documentClientInitializer = new FhirDocumentClientInitializer(documentClientTestProvider, fhirRequestContextAccessor, metricProcessor, exceptionProcessor, NullLogger<FhirDocumentClientInitializer>.Instance);
+            _documentClientInitializer = new FhirDocumentClientInitializer(documentClientTestProvider, fhirRequestContextAccessor, cosmosResponseProcessor, NullLogger<FhirDocumentClientInitializer>.Instance);
 
             _collectionInitializers = new List<ICollectionInitializer> { _collectionInitializer1, _collectionInitializer2 };
             _documentClient.CreateDatabaseIfNotExistsAsync(Arg.Any<Database>(), Arg.Any<RequestOptions>()).Returns(Substitute.For<ResourceResponse<Database>>());

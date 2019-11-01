@@ -32,8 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly Dictionary<string, StringValues> _responseHeaders = new Dictionary<string, StringValues>();
         private readonly IDocumentClient _fhirClient;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly ICosmosMetricProcessor _cosmosMetricProcessor;
-        private readonly ICosmosExceptionProcessor _cosmosExceptionProcessor;
+        private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
         public FhirDocumentClientTests()
         {
@@ -42,10 +41,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders.Returns(_requestHeaders);
             _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Returns(_responseHeaders);
 
-            _cosmosMetricProcessor = Substitute.For<ICosmosMetricProcessor>();
-            _cosmosExceptionProcessor = Substitute.For<ICosmosExceptionProcessor>();
+            _cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
-            _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null, _cosmosMetricProcessor, _cosmosExceptionProcessor);
+            _fhirClient = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, null, _cosmosResponseProcessor);
         }
 
         [Fact]
@@ -60,7 +58,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.CreateDocumentAsync("coll", (1, 2));
 
-            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
+            _cosmosResponseProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
         }
 
         [Fact]
@@ -70,7 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             await _fhirClient.CreateDocumentAsync("coll", (1, 2));
             await _innerClient.Received().CreateDocumentAsync("coll", (1, 2));
 
-            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
+            _cosmosResponseProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
         }
 
         [Fact]
@@ -81,7 +79,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             await _fhirClient.CreateDocumentAsync("coll", (1, 2));
             await _innerClient.Received().CreateDocumentAsync("coll", (1, 2));
 
-            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
+            _cosmosResponseProcessor.Received(1).ProcessResponse(Arg.Any<ResourceResponseBase>());
         }
 
         [Fact]
@@ -96,7 +94,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.ReadDatabaseFeedAsync();
 
-            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
+            _cosmosResponseProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
         }
 
         [Fact]
@@ -107,7 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             await _fhirClient.ReadDatabaseFeedAsync();
             await _innerClient.Received().ReadDatabaseFeedAsync();
 
-            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
+            _cosmosResponseProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
         }
 
         [Fact]
@@ -117,7 +115,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await Assert.ThrowsAsync<BadRequestException>(() => _fhirClient.ReadDatabaseFeedAsync());
 
-            _cosmosExceptionProcessor.Received(1).ProcessException(Arg.Any<BadRequestException>());
+            _cosmosResponseProcessor.Received(1).ProcessException(Arg.Any<BadRequestException>());
         }
 
         [Fact]
@@ -132,7 +130,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.ExecuteStoredProcedureAsync<int>("link");
 
-            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<StoredProcedureResponse<int>>());
+            _cosmosResponseProcessor.Received(1).ProcessResponse(Arg.Any<StoredProcedureResponse<int>>());
         }
 
         [Fact]
@@ -147,7 +145,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _fhirClient.ExecuteStoredProcedureAsync<int>(default(Uri));
 
-            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<StoredProcedureResponse<int>>());
+            _cosmosResponseProcessor.Received(1).ProcessResponse(Arg.Any<StoredProcedureResponse<int>>());
         }
 
         [InlineData(ConsistencyLevel.Eventual, ConsistencyLevel.Strong)]
@@ -163,13 +161,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await Assert.ThrowsAsync<BadRequestException>(() => _fhirClient.ReadDatabaseFeedAsync());
 
-            _cosmosExceptionProcessor.Received(1).ProcessException(Arg.Any<BadRequestException>());
+            _cosmosResponseProcessor.Received(1).ProcessException(Arg.Any<BadRequestException>());
         }
 
         [Fact]
         public async Task GivenAFeedRequest_WhenMaxContinuationSizeIsSet_ThenFeedRequestIsUpdated()
         {
-            IDocumentClient client = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, 5, _cosmosMetricProcessor, _cosmosExceptionProcessor);
+            IDocumentClient client = new FhirDocumentClient(_innerClient, _fhirRequestContextAccessor, 5, _cosmosResponseProcessor);
 
             _innerClient
                 .ReadDatabaseFeedAsync(Arg.Is<FeedOptions>(o => o.ResponseContinuationTokenLimitInKb == 5))
@@ -177,7 +175,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await client.ReadDatabaseFeedAsync();
 
-            _cosmosMetricProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
+            _cosmosResponseProcessor.Received(1).ProcessResponse(Arg.Any<FeedResponse<Database>>());
         }
 
         [Fact]
@@ -190,7 +188,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             await _fhirClient.ReadDatabaseFeedAsync();
             await _fhirClient.ReadDatabaseFeedAsync();
 
-            _cosmosMetricProcessor.Received(2).ProcessResponse(Arg.Any<FeedResponse<Database>>());
+            _cosmosResponseProcessor.Received(2).ProcessResponse(Arg.Any<FeedResponse<Database>>());
         }
 
         [Fact]
@@ -202,7 +200,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await Assert.ThrowsAsync<DocumentClientException>(() => _fhirClient.ReadDatabaseFeedAsync());
 
-            _cosmosExceptionProcessor.Received(1).ProcessException(Arg.Any<DocumentClientException>());
+            _cosmosResponseProcessor.Received(1).ProcessException(Arg.Any<DocumentClientException>());
         }
     }
 }

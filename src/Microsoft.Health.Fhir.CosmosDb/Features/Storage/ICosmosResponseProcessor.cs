@@ -3,13 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using Microsoft.Azure.Documents.Client;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public interface ICosmosMetricProcessor
+    public interface ICosmosResponseProcessor
     {
+        void ProcessException(Exception ex);
+
         void ProcessResponse<T>(T resourceResponseBase)
             where T : IResourceResponseBase;
 

@@ -8,24 +8,25 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
-using AngleSharp.Common;
 using EnsureThat;
 using MediatR;
+using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
 {
-    public class CosmosMetricProcessor : ICosmosMetricProcessor
+    public class CosmosResponseProcessor : ICosmosResponseProcessor
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
-        private readonly ILogger<CosmosMetricProcessor> _logger;
+        private readonly ILogger<CosmosResponseProcessor> _logger;
 
-        public CosmosMetricProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, IMediator mediator, ILogger<CosmosMetricProcessor> logger)
+        public CosmosResponseProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, IMediator mediator, ILogger<CosmosResponseProcessor> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -34,6 +35,35 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _mediator = mediator;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// Adds request charge to the response headers and throws a <see cref="RequestRateExceededException"/>
+        /// if the status code is 429.
+        /// </summary>
+        /// <param name="ex">The exception</param>
+        public void ProcessException(Exception ex)
+        {
+            if (_fhirRequestContextAccessor.FhirRequestContext == null)
+            {
+                return;
+            }
+
+            EnsureArg.IsNotNull(ex, nameof(ex));
+
+            if (ex is DocumentClientException dce)
+            {
+                ProcessResponse(null, dce.RequestCharge, null, dce.StatusCode);
+
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+                else if (dce.Message.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
+                }
+            }
         }
 
         public void ProcessResponse<T>(T resourceResponseBase)
