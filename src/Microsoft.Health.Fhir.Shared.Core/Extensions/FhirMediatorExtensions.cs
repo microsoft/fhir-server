@@ -135,7 +135,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(bundle, nameof(bundle));
-
             BundleResponse result = await mediator.Send<BundleResponse>(new BundleRequest(bundle), cancellationToken);
             return result.Bundle;
         }

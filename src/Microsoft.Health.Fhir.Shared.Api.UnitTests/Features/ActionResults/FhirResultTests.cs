@@ -58,43 +58,5 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.NotFound, result.StatusCode.GetValueOrDefault());
         }
-
-        [Fact]
-        public void GivenABadRequestStatus_WhenReturningAResult_ThenStatusIsSetCorrectly()
-        {
-            var result = new FhirResult
-            {
-                StatusCode = HttpStatusCode.BadRequest,
-            };
-
-            var context = new ActionContext
-            {
-                HttpContext = new DefaultHttpContext(),
-            };
-
-            result.ExecuteResult(context);
-
-            Assert.Null(result.Result);
-            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode.GetValueOrDefault());
-        }
-
-        [Fact]
-        public void GivenAPreconditionFailedStatus_WhenReturningAResult_ThenStatusIsSetCorrectly()
-        {
-            var result = new FhirResult
-            {
-                StatusCode = HttpStatusCode.PreconditionFailed,
-            };
-
-            var context = new ActionContext
-            {
-                HttpContext = new DefaultHttpContext(),
-            };
-
-            result.ExecuteResult(context);
-
-            Assert.Null(result.Result);
-            Assert.Equal(HttpStatusCode.PreconditionFailed, result.StatusCode.GetValueOrDefault());
-        }
     }
 }
