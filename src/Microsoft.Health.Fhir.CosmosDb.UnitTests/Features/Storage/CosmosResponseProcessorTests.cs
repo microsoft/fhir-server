@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _cosmosResponseProcessor.ProcessResponse(resourceResponse);
 
-            ValidateExecution("2", 37.37, 0, 1234L);
+            ValidateExecution("2", 37.37, false);
         }
 
         [Fact]
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _cosmosResponseProcessor.ProcessResponse(resourceResponse);
 
-            ValidateExecution("2", 37.37, 1, 1234L);
+            ValidateExecution("2", 37.37, true);
         }
 
         [Fact]
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _cosmosResponseProcessor.ProcessResponse(feedResponse);
 
-            ValidateExecution("2", 37.37, 0, 1234L);
+            ValidateExecution("2", 37.37, false);
         }
 
         [Fact]
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _cosmosResponseProcessor.ProcessResponse(storedProcedureResponse);
 
-            ValidateExecution("2", 37.37, 0, null);
+            ValidateExecution("2", 37.37, false);
         }
 
         [Fact]
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _cosmosResponseProcessor.ProcessException(documentClientException);
 
-            ValidateExecution(null, 12.4, 0, null);
+            ValidateExecution(expectedSessionToken: null, 12.4, false);
         }
 
         [Fact]
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
 
-            ValidateExecution(null, 12.4, 1, null);
+            ValidateExecution(expectedSessionToken: null, 12.4, true);
         }
 
         [Fact]
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
 
-            ValidateExecution(null, 12.4, 0, null);
+            ValidateExecution(expectedSessionToken: null, 12.4, false);
         }
 
         [Fact]
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             return documentClientException;
         }
 
-        private void ValidateExecution(string expectedSessionToken, double expectedRequestCharge, int expectedThrottledCount, long? expectedCollectionSizeUsageKilobytes)
+        private void ValidateExecution(string expectedSessionToken, double expectedRequestCharge, bool expectedThrottled)
         {
             if (expectedSessionToken != null)
             {
@@ -184,11 +184,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Equal(expectedRequestCharge.ToString(CultureInfo.InvariantCulture), requestCharge.ToString());
 
             _mediator.Received(1).Publish(Arg.Is<CosmosStorageRequestMetricsNotification>(c => c.TotalRequestCharge.Equals(expectedRequestCharge)
-                                                                                               && c.RequestCount.Equals(1)
-                                                                                               && c.ThrottledCount.Equals(expectedThrottledCount)
+                                                                                               && c.IsThrottled.Equals(expectedThrottled)
                                                                                                && c.ResourceType.Equals("resource", StringComparison.InvariantCultureIgnoreCase)
-                                                                                               && c.FhirOperation.Equals("operation", StringComparison.InvariantCultureIgnoreCase)
-                                                                                               && c.CollectionSizeUsageKilobytes.Equals(expectedCollectionSizeUsageKilobytes)));
+                                                                                               && c.FhirOperation.Equals("operation", StringComparison.InvariantCultureIgnoreCase)));
         }
     }
 }

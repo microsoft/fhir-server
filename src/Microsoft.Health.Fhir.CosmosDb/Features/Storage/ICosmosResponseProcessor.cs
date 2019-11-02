@@ -21,6 +21,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         Task ProcessResponse<T>(IStoredProcedureResponse<T> storedProcedureResponse);
 
-        Task ProcessResponse(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode);
+        Task ProcessResponse(string sessionToken, double responseRequestCharge, HttpStatusCode? statusCode);
     }
 }

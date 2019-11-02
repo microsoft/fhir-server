@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (ex is DocumentClientException dce)
             {
-                await ProcessResponse(null, dce.RequestCharge, null, dce.StatusCode);
+                await ProcessResponse(sessionToken: null, dce.RequestCharge, dce.StatusCode);
 
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -70,17 +70,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public async Task ProcessResponse<T>(T resourceResponseBase)
             where T : IResourceResponseBase
         {
-            await ProcessResponse(resourceResponseBase.SessionToken, resourceResponseBase.RequestCharge, resourceResponseBase.CollectionSizeUsage, resourceResponseBase.StatusCode);
+            await ProcessResponse(resourceResponseBase.SessionToken, resourceResponseBase.RequestCharge, resourceResponseBase.StatusCode);
         }
 
         public async Task ProcessResponse<T>(IFeedResponse<T> feedResponse)
         {
-            await ProcessResponse(feedResponse.SessionToken, feedResponse.RequestCharge, feedResponse.CollectionSizeUsage, statusCode: null);
+            await ProcessResponse(feedResponse.SessionToken, feedResponse.RequestCharge, statusCode: null);
         }
 
         public async Task ProcessResponse<T>(IStoredProcedureResponse<T> storedProcedureResponse)
         {
-            await ProcessResponse(storedProcedureResponse.SessionToken, storedProcedureResponse.RequestCharge, collectionSizeUsageKilobytes: null, statusCode: storedProcedureResponse.StatusCode);
+            await ProcessResponse(storedProcedureResponse.SessionToken, storedProcedureResponse.RequestCharge, storedProcedureResponse.StatusCode);
         }
 
         /// <summary>
@@ -88,9 +88,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </summary>
         /// <param name="sessionToken">THe session token</param>
         /// <param name="responseRequestCharge">The request charge.</param>
-        /// <param name="collectionSizeUsageKilobytes">The size usage of the Cosmos collection in kilobytes.</param>
         /// <param name="statusCode">The HTTP status code.</param>
-        public async Task ProcessResponse(string sessionToken, double responseRequestCharge, long? collectionSizeUsageKilobytes, HttpStatusCode? statusCode)
+        public async Task ProcessResponse(string sessionToken, double responseRequestCharge, HttpStatusCode? statusCode)
         {
             if (_fhirRequestContextAccessor.FhirRequestContext == null)
             {
@@ -102,10 +101,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
             }
 
-            await AddRequestChargeToFhirRequestContext(responseRequestCharge, collectionSizeUsageKilobytes, statusCode);
+            await AddRequestChargeToFhirRequestContext(responseRequestCharge, statusCode);
         }
 
-        private async Task AddRequestChargeToFhirRequestContext(double responseRequestCharge, long? collectionSizeUsage, HttpStatusCode? statusCode)
+        private async Task AddRequestChargeToFhirRequestContext(double responseRequestCharge, HttpStatusCode? statusCode)
         {
             IFhirRequestContext requestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
@@ -124,17 +123,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 TotalRequestCharge = responseRequestCharge,
             };
 
-            if (collectionSizeUsage.HasValue)
-            {
-                cosmosMetrics.CollectionSizeUsageKilobytes = collectionSizeUsage;
-            }
-
             if (statusCode.HasValue && statusCode == HttpStatusCode.TooManyRequests)
             {
-                cosmosMetrics.ThrottledCount = 1;
+                cosmosMetrics.IsThrottled = true;
             }
-
-            cosmosMetrics.RequestCount = 1;
 
             try
             {

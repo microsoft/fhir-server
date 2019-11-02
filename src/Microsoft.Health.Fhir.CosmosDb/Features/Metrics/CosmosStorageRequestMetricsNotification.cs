@@ -24,28 +24,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
         public double TotalRequestCharge { get; set; }
 
         /// <summary>
-        /// The size of the backing Cosmos DB collection, in kilobytes.
+        /// If Cosmos DB responded to with an HTTP status code of 429.
         /// </summary>
-        public long? CollectionSizeUsageKilobytes { get; set; }
-
-        /// <summary>
-        /// The number of requests that Cosmos DB responded to with an HTTP status code of 429.
-        /// </summary>
-        public int ThrottledCount { get; set; }
-
-        /// <summary>
-        /// The number of requests made to Cosmos DB in this context.
-        /// </summary>
-        public int RequestCount { get; set; }
+        public bool IsThrottled { get; set; }
 
         /// <summary>
         /// The FHIR operation being performed.
         /// </summary>
-        public string FhirOperation { get; private set; }
+        public string FhirOperation { get; }
 
         /// <summary>
         /// The type of FHIR resource associated with this context.
         /// </summary>
-        public string ResourceType { get; private set; }
+        public string ResourceType { get; }
     }
 }
