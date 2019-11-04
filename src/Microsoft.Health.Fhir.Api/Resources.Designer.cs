@@ -106,6 +106,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Transaction was aborted while processing the request..
+        /// </summary>
+        public static string GeneralTransactionAbortedError {
+            get {
+                return ResourceManager.GetString("GeneralTransactionAbortedError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported.
+        /// </summary>
+        public static string InvalidBundleTypeError {
+            get {
+                return ResourceManager.GetString("InvalidBundleTypeError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid compound authorization code..
         /// </summary>
         public static string InvalidCompoundCode {
@@ -264,6 +282,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TooManyCustomAuditHeaders {
             get {
                 return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Transaction aborted on &apos;{0}&apos; for the requested url &apos;{1}&apos;..
+        /// </summary>
+        public static string TransactionAbortedError {
+            get {
+                return ResourceManager.GetString("TransactionAbortedError", resourceCulture);
             }
         }
         

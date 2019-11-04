@@ -29,7 +29,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
-using static Hl7.Fhir.Model.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return await ExecuteTransactionForAllRequests(responseBundle);
             }
 
-            throw new MethodNotAllowedException(Microsoft.Health.Fhir.Api.Resources.OnlyCertainBundleTypesSupported);
+            throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleTypeError, bundleResource.Type));
         }
 
         private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -115,26 +115,40 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (TransactionAbortedException)
             {
                 _logger.LogError("Failed to commit a transaction. Throwing BadRequest as a default exception.");
-                throw new BadRequestException("Transaction aborted while processing request");
+                throw new BadRequestException(Api.Resources.GeneralTransactionAbortedError);
             }
 
             return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private static void ThrowTransactionException(EntryComponent responseBundle)
+        private static void ThrowTransactionException(HttpContext httpContext, Resource responseOperationOutcome)
         {
-            int responseStatus = int.Parse(responseBundle?.Response?.Status);
-            string errorMessage = $"Transaction aborted while processing request url: '{responseBundle?.FullUrl}'. {responseBundle?.Response?.Outcome}";
+            var operationOutcomeIssues = GetOperationOutcomeIssues(((OperationOutcome)responseOperationOutcome).Issue);
 
-            switch (responseStatus)
+            var errorMessage = string.Format(Api.Resources.TransactionAbortedError, httpContext.Request.Method, httpContext.Request.Path);
+
+            switch (httpContext.Response.StatusCode)
             {
                 case (int)HttpStatusCode.PreconditionFailed:
-                    throw new PreconditionFailedException(errorMessage);
+                    throw new PreconditionFailedException(errorMessage, operationOutcomeIssues);
                 case (int)HttpStatusCode.NotFound:
-                    throw new ResourceNotFoundException(errorMessage);
+                    throw new ResourceNotFoundException(errorMessage, operationOutcomeIssues);
                 default:
-                    throw new BadRequestException(errorMessage);
+                    throw new BadRequestException(errorMessage, operationOutcomeIssues);
             }
+        }
+
+        private static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
+        {
+            var issues = new List<OperationOutcomeIssue>();
+
+            operationoutcomeIssueList.ForEach(x =>
+                issues.Add(new OperationOutcomeIssue(
+                    x.Severity.ToString(),
+                    x.Code.ToString(),
+                    x.Diagnostics)));
+
+            return issues;
         }
 
         private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
@@ -224,7 +238,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                             if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
                             {
-                                ThrowTransactionException(entryComponent);
+                                ThrowTransactionException(httpContext, entryComponentResource);
                             }
                         }
                         else
