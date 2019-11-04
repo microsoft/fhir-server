@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // Also, at the time of writing, we do not typically issue more than one request to the database per request anyway, so the performance impact should
             // not be felt.
 
-            requestContext.StorageRequestMetrics = requestContext.StorageRequestMetrics ?? new CosmosStorageRequestMetrics(requestContext.AuditEventType, requestContext.ResourceType);
+            requestContext.StorageRequestMetrics = requestContext.StorageRequestMetrics ?? new CosmosStorageRequestMetrics(requestContext.AuditEventType, requestContext.GetResourceType());
 
             var cosmosMetrics = requestContext.StorageRequestMetrics as CosmosStorageRequestMetrics;
 

@@ -30,8 +30,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         IDictionary<string, StringValues> ResponseHeaders { get; }
 
-        string ResourceType { get; set; }
-
         IStorageRequestMetrics StorageRequestMetrics { get; set; }
+
+        string GetResourceType();
+
+        void SetResourceType(string resourceType);
     }
 }

@@ -15,7 +15,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
     {
         private readonly string _uriString;
         private readonly string _baseUriString;
-
+        private string _resourceType = null;
+        private bool _resourceTypeSet = false;
         private Uri _uri;
         private Uri _baseUri;
 
@@ -41,7 +42,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             CorrelationId = correlationId;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
-            ResourceType = resourceType;
+            _resourceType = resourceType;
+
+            if (!string.IsNullOrEmpty(resourceType))
+            {
+                _resourceTypeSet = true;
+            }
         }
 
         public string Method { get; }
@@ -62,8 +68,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public IDictionary<string, StringValues> ResponseHeaders { get; }
 
-        public string ResourceType { get; set; }
-
         public IStorageRequestMetrics StorageRequestMetrics { get; set; }
+
+        public string GetResourceType()
+        {
+            if (!_resourceTypeSet)
+            {
+                throw new Exception("ResourceType was not initialized yet.");
+            }
+
+            return _resourceType;
+        }
+
+        public void SetResourceType(string resourceType)
+        {
+            _resourceType = resourceType;
+            _resourceTypeSet = true;
+        }
     }
 }
