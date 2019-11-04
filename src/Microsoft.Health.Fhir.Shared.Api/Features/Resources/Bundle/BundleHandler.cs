@@ -183,17 +183,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else
                 {
-                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent { Status = ((int)HttpStatusCode.NotFound).ToString() };
-                    entryComponent.Response.Outcome = new OperationOutcome
+                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
                     {
-                        Id = Guid.NewGuid().ToString(),
-                        Issue = new List<OperationOutcome.IssueComponent>
+                        Status = ((int)HttpStatusCode.NotFound).ToString(),
+                        Outcome = new OperationOutcome
                         {
-                            new OperationOutcome.IssueComponent
+                            Id = Guid.NewGuid().ToString(),
+                            Issue = new List<OperationOutcome.IssueComponent>
                             {
-                                Severity = OperationOutcome.IssueSeverity.Error,
-                                Code = OperationOutcome.IssueType.NotFound,
-                                Diagnostics = $"Could not find route for '{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}'",
+                                new OperationOutcome.IssueComponent
+                                {
+                                    Severity = OperationOutcome.IssueSeverity.Error,
+                                    Code = OperationOutcome.IssueType.NotFound,
+                                    Diagnostics = string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}"),
+                                },
                             },
                         },
                     };

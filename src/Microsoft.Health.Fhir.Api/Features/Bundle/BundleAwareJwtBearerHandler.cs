@@ -27,10 +27,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
         }
 
         /// <summary>
-        /// Override to check if the forbidden request is part of a transaction. If it is, then set the status code of the internal request.
+        /// Override to check if the forbidden request is part of a bundle (batch/transaction). If it is, then set the status code of the internal request.
         /// </summary>
         /// <param name="properties">The authentication properties</param>
-        /// <returns>Returns completed task</returns>
+        /// <returns>Returns internal HandleForbiddenAsync Task.</returns>
         protected override async Task HandleForbiddenAsync(AuthenticationProperties properties)
         {
             if (_bundleHttpContextAccessor.HttpContext != null)
