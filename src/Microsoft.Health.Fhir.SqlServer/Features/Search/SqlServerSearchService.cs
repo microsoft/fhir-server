@@ -83,8 +83,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
+                        // TODO: Clone search options instead of mutating it.
+                        searchOptions.CountOnly = true;
+
                         // Perform a second read to get the count.
-                        var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction, true);
+                        var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
 
@@ -110,14 +113,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, SqlConnection connection, CancellationToken cancellationToken, SqlTransaction transaction = null, bool calculateTotalCount = false)
+        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, SqlConnection connection, CancellationToken cancellationToken, SqlTransaction transaction = null)
         {
             await _model.EnsureInitialized();
 
             Expression searchExpression = searchOptions.Expression;
 
             // AND in the continuation token
-            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !calculateTotalCount)
+            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
@@ -160,7 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 EnableTimeAndIoMessageLogging(stringBuilder, connection);
 
-                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch, calculateTotalCount);
+                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch);
 
                 expression.AcceptVisitor(queryGenerator, searchOptions);
 
@@ -170,7 +173,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    if (searchOptions.CountOnly || calculateTotalCount)
+                    if (searchOptions.CountOnly)
                     {
                         await reader.ReadAsync(cancellationToken);
                         return new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
