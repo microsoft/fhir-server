@@ -180,6 +180,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             entryComponent.Resource = entryComponentResource;
                         }
                     }
+                    else
+                    {
+                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
+                        {
+                            entryComponent.Response.Outcome = new OperationOutcome
+                            {
+                                Issue = new List<OperationOutcome.IssueComponent>
+                                {
+                                    new OperationOutcome.IssueComponent
+                                    {
+                                        Severity = OperationOutcome.IssueSeverity.Error,
+                                        Code = OperationOutcome.IssueType.Forbidden,
+                                        Diagnostics = Api.Resources.Forbidden,
+                                    },
+                                },
+                            };
+                        }
+                    }
                 }
                 else
                 {
@@ -188,7 +206,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Status = ((int)HttpStatusCode.NotFound).ToString(),
                         Outcome = new OperationOutcome
                         {
-                            Id = Guid.NewGuid().ToString(),
                             Issue = new List<OperationOutcome.IssueComponent>
                             {
                                 new OperationOutcome.IssueComponent
