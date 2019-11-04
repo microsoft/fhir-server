@@ -142,6 +142,9 @@ namespace Microsoft.Extensions.DependencyInjection
                     // Now that we've authenticated the user, update the context with any post-authentication info.
                     app.UseFhirRequestContextAfterAuthentication();
 
+                    // Update FhirRequestContext with resource type
+                    app.UseFhirRequestContextAfterMvcMiddleware();
+
                     next(app);
                 };
             }
