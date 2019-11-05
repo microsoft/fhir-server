@@ -45,11 +45,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
+                // TODO: Clone search options instead of mutating it (see User Story #720).
+                searchOptions.CountOnly = true;
+
                 var totalSearchResult = await ExecuteSearchAsync(
-                    _queryBuilder.BuildSqlQuerySpec(searchOptions, true),
+                    _queryBuilder.BuildSqlQuerySpec(searchOptions),
                     searchOptions,
-                    cancellationToken,
-                    true);
+                    cancellationToken);
 
                 searchResult.TotalCount = totalSearchResult.TotalCount;
             }
@@ -70,17 +72,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private async Task<SearchResult> ExecuteSearchAsync(
             SqlQuerySpec sqlQuerySpec,
             SearchOptions searchOptions,
-            CancellationToken cancellationToken,
-            bool calculateTotalCount = false)
+            CancellationToken cancellationToken)
         {
             var feedOptions = new FeedOptions
             {
                 EnableCrossPartitionQuery = true,
                 MaxItemCount = searchOptions.MaxItemCount,
-                RequestContinuation = searchOptions.ContinuationToken,
+                RequestContinuation = searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
             };
 
-            if (searchOptions.CountOnly || calculateTotalCount)
+            if (searchOptions.CountOnly)
             {
                 return new SearchResult(
                     (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, cancellationToken)).Single(),
