@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
-                        // TODO: Clone search options instead of mutating it.
+                        // TODO: Clone search options instead of mutating it (see User Story #720).
                         searchOptions.CountOnly = true;
 
                         // Perform a second read to get the count.

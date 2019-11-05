@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                // TODO: Clone search options instead of mutating it.
+                // TODO: Clone search options instead of mutating it (see User Story #720).
                 searchOptions.CountOnly = true;
 
                 var totalSearchResult = await ExecuteSearchAsync(
