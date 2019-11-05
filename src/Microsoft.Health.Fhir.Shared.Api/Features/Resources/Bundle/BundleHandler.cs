@@ -184,18 +184,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
                         {
-                            entryComponent.Response.Outcome = new OperationOutcome
-                            {
-                                Issue = new List<OperationOutcome.IssueComponent>
-                                {
-                                    new OperationOutcome.IssueComponent
-                                    {
-                                        Severity = OperationOutcome.IssueSeverity.Error,
-                                        Code = OperationOutcome.IssueType.Forbidden,
-                                        Diagnostics = Api.Resources.Forbidden,
-                                    },
-                                },
-                            };
+                            entryComponent.Response.Outcome = CreateOperationOutcome(
+                                OperationOutcome.IssueSeverity.Error,
+                                OperationOutcome.IssueType.Forbidden,
+                                Api.Resources.Forbidden);
                         }
                     }
                 }
@@ -204,23 +196,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
                     {
                         Status = ((int)HttpStatusCode.NotFound).ToString(),
-                        Outcome = new OperationOutcome
-                        {
-                            Issue = new List<OperationOutcome.IssueComponent>
-                            {
-                                new OperationOutcome.IssueComponent
-                                {
-                                    Severity = OperationOutcome.IssueSeverity.Error,
-                                    Code = OperationOutcome.IssueType.NotFound,
-                                    Diagnostics = string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}"),
-                                },
-                            },
-                        },
+                        Outcome = CreateOperationOutcome(
+                            OperationOutcome.IssueSeverity.Error,
+                            OperationOutcome.IssueType.NotFound,
+                            string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
                     };
                 }
 
                 responseBundle.Entry.Add(entryComponent);
             }
+        }
+
+        private static OperationOutcome CreateOperationOutcome(OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, string diagnostics)
+        {
+            return new OperationOutcome
+            {
+                Issue = new List<OperationOutcome.IssueComponent>
+                {
+                    new OperationOutcome.IssueComponent
+                    {
+                        Severity = issueSeverity,
+                        Code = issueType,
+                        Diagnostics = diagnostics,
+                    },
+                },
+            };
         }
     }
 }
