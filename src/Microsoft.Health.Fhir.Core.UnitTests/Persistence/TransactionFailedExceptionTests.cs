@@ -18,7 +18,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         public void GivenAListOfOperationOutComeIssues_WhenInitialized_ThenCorrectOperationOutcomeIssuesShouldBeAdded()
         {
             string message = "message";
-
             HttpStatusCode statusCode = HttpStatusCode.Processing;
             var operationOutComeIssues = GetOperationOutcomeIssues(message);
 
@@ -27,19 +26,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.NotNull(exception.Issues);
             Assert.Equal(3, exception.Issues.Count);
 
+            var firtIssue = exception.Issues.First();
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, firtIssue.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Processing, firtIssue.Code);
+            Assert.Equal(message, firtIssue.Diagnostics);
+
+            var secondIssue = exception.Issues.Skip(1).First();
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, secondIssue.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.NotFound, secondIssue.Code);
+            Assert.Equal(message, secondIssue.Diagnostics);
+
+            var thirdIssue = exception.Issues.Last();
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, thirdIssue.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Invalid, thirdIssue.Code);
+            Assert.Equal(message, thirdIssue.Diagnostics);
+        }
+
+        [Fact]
+        public void GivenAnEmptyListOfOperationOutComeIssues_WhenInitialized_ThenOneOperationOutcomeIssueShouldBeAdded()
+        {
+            string message = "message";
+            HttpStatusCode statusCode = HttpStatusCode.Processing;
+
+            var exception = new TransactionFailedException(message, statusCode, new List<OperationOutcomeIssue>());
+
+            Assert.NotNull(exception.Issues);
+            Assert.Equal(1, exception.Issues.Count);
+
             var issue = exception.Issues.First();
             Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, issue.Severity);
             Assert.Equal(OperationOutcomeConstants.IssueType.Processing, issue.Code);
-            Assert.Equal(message, issue.Diagnostics);
-
-            issue = exception.Issues.Skip(1).First();
-            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, issue.Severity);
-            Assert.Equal(OperationOutcomeConstants.IssueType.NotFound, issue.Code);
-            Assert.Equal(message, issue.Diagnostics);
-
-            issue = exception.Issues.Last();
-            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, issue.Severity);
-            Assert.Equal(OperationOutcomeConstants.IssueType.Invalid, issue.Code);
             Assert.Equal(message, issue.Diagnostics);
         }
 
