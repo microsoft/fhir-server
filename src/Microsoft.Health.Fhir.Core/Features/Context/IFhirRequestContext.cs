@@ -32,8 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         IStorageRequestMetrics StorageRequestMetrics { get; set; }
 
-        string GetResourceType();
-
-        void SetResourceType(string resourceType);
+        string ResourceType { get; set; }
     }
 }

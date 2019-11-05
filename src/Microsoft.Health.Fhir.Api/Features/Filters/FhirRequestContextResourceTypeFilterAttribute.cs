@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out resourceType);
             }
 
-            _fhirRequestContextAccessor.FhirRequestContext.SetResourceType(resourceType?.ToString());
+            _fhirRequestContextAccessor.FhirRequestContext.ResourceType = resourceType?.ToString();
         }
     }
 }

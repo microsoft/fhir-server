@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                             apiNotification.Authentication = fhirRequestContext.Principal?.Identity.AuthenticationType;
                             apiNotification.FhirOperation = fhirRequestContext.AuditEventType;
                             apiNotification.Protocol = context.Request.Scheme;
-                            apiNotification.ResourceType = fhirRequestContext.GetResourceType();
+                            apiNotification.ResourceType = fhirRequestContext.ResourceType;
                             apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
 
                             await _mediator.Publish(apiNotification, CancellationToken.None);
