@@ -106,20 +106,20 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Transaction was aborted while processing the request..
+        ///   Looks up a localized string similar to Transaction was failed while processing the request..
         /// </summary>
-        public static string GeneralTransactionAbortedError {
+        public static string GeneralTransactionFailedError {
             get {
-                return ResourceManager.GetString("GeneralTransactionAbortedError", resourceCulture);
+                return ResourceManager.GetString("GeneralTransactionFailedError", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported.
         /// </summary>
-        public static string InvalidBundleTypeError {
+        public static string InvalidBundleType {
             get {
-                return ResourceManager.GetString("InvalidBundleTypeError", resourceCulture);
+                return ResourceManager.GetString("InvalidBundleType", resourceCulture);
             }
         }
         
@@ -183,15 +183,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string NotFoundException {
             get {
                 return ResourceManager.GetString("NotFoundException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Only bundles of the type batch are supported..
-        /// </summary>
-        public static string OnlyCertainBundleTypesSupported {
-            get {
-                return ResourceManager.GetString("OnlyCertainBundleTypesSupported", resourceCulture);
             }
         }
         
@@ -286,11 +277,11 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Transaction aborted on &apos;{0}&apos; for the requested url &apos;{1}&apos;..
+        ///   Looks up a localized string similar to Transaction failed on &apos;{0}&apos; for the requested url &apos;{1}&apos;..
         /// </summary>
-        public static string TransactionAbortedError {
+        public static string TransactionFailed {
             get {
-                return ResourceManager.GetString("TransactionAbortedError", resourceCulture);
+                return ResourceManager.GetString("TransactionFailed", resourceCulture);
             }
         }
         

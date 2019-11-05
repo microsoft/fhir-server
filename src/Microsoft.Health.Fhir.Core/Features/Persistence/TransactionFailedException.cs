@@ -3,22 +3,32 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Exceptions
+namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class ResourceNotFoundException : FhirException
+    public class TransactionFailedException : FhirException
     {
-        public ResourceNotFoundException(string message)
+        public TransactionFailedException(string message, HttpStatusCode httpStatusCode, List<OperationOutcomeIssue> operationOutcomeIssues)
             : base(message)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
+            Debug.Assert(operationOutcomeIssues != null, "OperationOutcomeIssues should not be null");
+
+            ResponseStatusCode = httpStatusCode;
 
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.NotFound,
+                    OperationOutcomeConstants.IssueType.Processing,
                     message));
+
+            operationOutcomeIssues.ForEach(x => Issues.Add(x));
         }
+
+        public HttpStatusCode ResponseStatusCode { get; }
     }
 }

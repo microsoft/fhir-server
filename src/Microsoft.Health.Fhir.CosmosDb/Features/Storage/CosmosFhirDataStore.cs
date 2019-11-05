@@ -274,9 +274,5 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             throw new NotSupportedException();
         }
-
-        public void Dispose()
-        {
-        }
     }
 }

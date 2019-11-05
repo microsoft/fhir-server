@@ -43,7 +43,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly CoreFeatureConfiguration _coreFeatures;
-        private ITransactionScope _transactionScope;
 
         public SqlServerFhirDataStore(
             SqlServerDataStoreConfiguration configuration,
@@ -270,13 +269,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public ITransactionScope BeginTransaction()
         {
-            _transactionScope = new DefaultTransactionScope();
-            return _transactionScope;
-        }
-
-        public void Dispose()
-        {
-            _transactionScope?.Dispose();
+            return new DefaultTransactionScope();
         }
     }
 }
