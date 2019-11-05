@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = GenerateRequestDictionary();
 
-            _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
+            _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
         }

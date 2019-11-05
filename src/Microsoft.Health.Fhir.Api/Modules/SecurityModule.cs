@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddSingleton<IAuthorizationPolicyProvider, AuthorizationPolicyProvider>();
-            services.AddScoped<BundleHttpContextAccessor>();
+            services.AddScoped<IBundleHttpContextAccessor, BundleHttpContextAccessor>();
 
             // Set the token handler to not do auto inbound mapping. (e.g. "roles" -> "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
             JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();

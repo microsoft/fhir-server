@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Notifications
+namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
 {
     public class ApiNotificationMiddlewareTests
     {

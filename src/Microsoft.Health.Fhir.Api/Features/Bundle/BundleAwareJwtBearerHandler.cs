@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
 {
     public class BundleAwareJwtBearerHandler : JwtBearerHandler
     {
-        private readonly BundleHttpContextAccessor _bundleHttpContextAccessor;
+        private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
 
-        public BundleAwareJwtBearerHandler(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder, IDataProtectionProvider dataProtection, ISystemClock clock, BundleHttpContextAccessor bundleHttpContextAccessor)
+        public BundleAwareJwtBearerHandler(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder, IDataProtectionProvider dataProtection, ISystemClock clock, IBundleHttpContextAccessor bundleHttpContextAccessor)
             : base(options, logger, encoder, dataProtection, clock)
         {
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
