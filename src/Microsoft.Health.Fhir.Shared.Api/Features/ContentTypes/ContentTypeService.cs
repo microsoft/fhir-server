@@ -82,6 +82,13 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                     }
                 }
             }
+
+            string prettyParameterValue = GetPrettyFromQueryString(httpContext);
+
+            if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out bool isPretty))
+            {
+                throw new NotAcceptableException(Api.Resources.UnsupportedPrettyParameter);
+            }
         }
 
         private static string GetFormatFromQueryString(HttpContext context)
@@ -138,6 +145,28 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                         return false;
                 }
             });
+        }
+
+        private static string GetPrettyFromQueryString(HttpContext context)
+        {
+            EnsureArg.IsNotNull(context, nameof(context));
+
+            // If executing in a rethrown error context, ensure we carry the specified pretty value.
+            var previous = context.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalQueryString;
+            var previousQuery = QueryHelpers.ParseNullableQuery(previous);
+
+            if (previousQuery?.TryGetValue(KnownQueryParameterNames.Pretty, out var originPrettyValues) == true)
+            {
+                return originPrettyValues.FirstOrDefault();
+            }
+
+            // Check the current query string.
+            if (context.Request.Query.TryGetValue(KnownQueryParameterNames.Pretty, out var queryValues))
+            {
+                return queryValues.FirstOrDefault();
+            }
+
+            return null;
         }
     }
 }
