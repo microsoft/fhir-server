@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -300,7 +301,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             catch (Exception ex) when (ex is ArgumentException)
             {
                 // The input value was parsed correctly but one of the value provided were out of range.
-                throw new FormatException("Input string was not in a correct format. At least one portion of a date was invalid or out of range.", ex);
+                throw new RequestNotValidException("Input string was not in a correct format. At least one portion of a date was invalid or out of range: " + ex.Message);
             }
 
             int? ParseDateTimePart(string name)

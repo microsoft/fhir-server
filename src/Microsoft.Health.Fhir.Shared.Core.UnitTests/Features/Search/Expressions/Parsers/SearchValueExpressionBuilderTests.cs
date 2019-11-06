@@ -19,7 +19,7 @@ using NSubstitute;
 using Xunit;
 using static Hl7.Fhir.Model.SearchParameter;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
-using Expression=Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
 {
@@ -370,20 +370,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [InlineData("ap2016", "2015-11-25T12:00:00.0000000+00:00", "2017-02-06T11:59:59.9999999+00:00")]
         [InlineData("ap2016-02", "2015-11-25T21:36:00.0000000+00:00", "2016-05-07T02:23:59.9999999+00:00")]
         [InlineData("ap2016-02-01", "2015-11-23T02:24:00.0000000+00:00", "2016-04-11T21:35:59.9999999+00:00")]
-        [InlineData("ap2016-02-01T10:00:00", "2015-11-23T11:00:06.0000000+00:00", "2016-04-11T09:00:53.9999999+00:00")]
-        [InlineData("ap2016-02-01T10:00:00-07:00", "2015-11-23T18:42:06.0000000+00:00", "2016-04-11T15:18:53.9999999+00:00")]
+        [InlineData("ap2016-02-01T10:00:00", "2015-11-23T11:00:00.1000000+00:00", "2016-04-11T09:00:00.8999999+00:00")]
+        [InlineData("ap2016-02-01T10:00:00-07:00", "2015-11-23T18:42:00.1000000+00:00", "2016-04-11T15:18:00.8999999+00:00")]
         [InlineData("ap2220", "2240-04-19T09:35:59.9999999+00:00", "2200-09-13T14:24:00.0000000+00:00")]
         [InlineData("ap2220-02", "2240-04-19T19:11:59.9999999+00:00", "2199-12-12T04:48:00.0000000+00:00")]
         [InlineData("ap2220-02-01", "2240-04-16T23:59:59.9999999+00:00", "2199-11-17T00:00:00.0000000+00:00")]
-        [InlineData("ap2220-02-01T10:00:00", "2240-04-17T08:36:05.9999999+00:00", "2199-11-16T11:24:54.0000000+00:00")]
-        [InlineData("ap2220-02-01T10:00:00-07:00", "2240-04-17T16:18:05.9999999+00:00", "2199-11-16T17:42:54.0000000+00:00")]
+        [InlineData("ap2220-02-01T10:00:00", "2240-04-17T08:36:00.0999999+00:00", "2199-11-16T11:24:00.9000000+00:00")]
+        [InlineData("ap2220-02-01T10:00:00-07:00", "2240-04-17T16:18:00.0999999+00:00", "2199-11-16T17:42:00.9000000+00:00")]
         public void GivenADateWithApComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string input, string expectedStartValue, string expectedEndValue)
         {
             using (Mock.Property(() => Clock.UtcNowFunc, () => DateTimeOffset.Parse("2018-01-01T00:00Z")))
             {
-                var partialDateTime = PartialDateTime.Parse(input);
-                var dateTimeSearchValue = new DateTimeSearchValue(partialDateTime);
-
                 Validate(
                     CreateSearchParameter(SearchParamType.Date),
                     null,
