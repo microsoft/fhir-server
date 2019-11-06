@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
@@ -84,24 +85,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
                 (TimeSpan?)null :
                 TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
 
-            Exception ex = Assert.Throws<ArgumentException>(paramName, () => _builder.ToPartialDateTime());
+            Exception ex = Assert.Throws<RequestNotValidException>(() => _builder.ToPartialDateTime());
 
-            string expectedMessage = $"The {paramName} portion of a date cannot be specified if the {firstNullParamName} portion is not specified.{Environment.NewLine}Parameter name: {paramName}";
+            string expectedMessage = $"The {paramName} portion of a date cannot be specified if the {firstNullParamName} portion is not specified.";
 
             Assert.Equal(expectedMessage, ex.Message);
         }
 
         public static IEnumerable<object[]> GetParameterInvalidData()
         {
-            yield return new object[] { ParamNameMinute, 10, 30, 23, null, null, null, 60 }; // Minute must be specified if Hour is specified.
-            yield return new object[] { ParamNameSecond, 10, 20, 25, 40, null, null, 60 }; // Second must be specified if Hour and Minute are specified.
-            yield return new object[] { ParamNameUtcOffset, 3, 5, 17, 30, 15, 0.400123m, null }; // UtcOffset must be specified if Hour and Minutes are specified.
+            yield return new object[] { $"The '{ParamNameMinute}' portion of a date must be specified if '{ParamNameHour}' is specified.", 10, 30, 23, null, null, null, 60 }; // Minute must be specified if Hour is specified.
+            yield return new object[] { $"The '{ParamNameSecond}' portion of a date must be specified if '{ParamNameHour}' and '{ParamNameMinute}' are specified.", 10, 20, 25, 40, null, null, 60 }; // Second must be specified if Hour and Minute are specified.
+            yield return new object[] { $"The '{ParamNameUtcOffset}' portion of a date must be specified if '{ParamNameHour}' and '{ParamNameMinute}' are specified.", 3, 5, 17, 30, 15, 0.400123m, null }; // UtcOffset must be specified if Hour and Minutes are specified.
         }
 
         [Theory]
         [MemberData(nameof(GetParameterInvalidData))]
         public void GivenAnInvalidParameter_WhenInitializing_ThenExceptionShouldBeThrown(
-            string paramName,
+            string expectedMessage,
             int? month,
             int? day,
             int? hour,
@@ -120,7 +121,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
                 (TimeSpan?)null :
                 TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
 
-            Assert.Throws<ArgumentException>(paramName, () => _builder.ToPartialDateTime());
+            Exception ex = Assert.Throws<RequestNotValidException>(() => _builder.ToPartialDateTime());
+
+            Assert.Equal(expectedMessage, ex.Message);
         }
 
         public static IEnumerable<object[]> GetParameterOutOfRangeData()
@@ -265,7 +268,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [Fact]
         public void GivenAnInvalidFormatString_WhenParsing_ThenExceptionShouldBeThrown()
         {
-            Assert.Throws<FormatException>(() => PartialDateTime.Parse("abc"));
+            Assert.Throws<RequestNotValidException>(() => PartialDateTime.Parse("abc"));
         }
 
         public static IEnumerable<object[]> GetParseData()

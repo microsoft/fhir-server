@@ -84,9 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                     if (!previousParamHasValue)
                     {
                         // The current parameter has value but previous one doesn't. This is an invalid state.
-                        throw new ArgumentException(
-                            $"The {currentParameter.Name} portion of a date cannot be specified if the {firstParamWithNullValue} portion is not specified.",
-                            currentParameter.Name);
+                        throw new RequestNotValidException($"The {currentParameter.Name} portion of a date cannot be specified if the {firstParamWithNullValue} portion is not specified.");
                     }
                 }
 
@@ -103,17 +101,13 @@ namespace Microsoft.Health.Fhir.Core.Models
                 if (minute == null)
                 {
                     // If hour is specified, then minutes must be specified.
-                    throw new ArgumentException(
-                        $"The '{nameof(minute)}' portion of a date must be specified if '{nameof(hour)}' is specified.",
-                        nameof(minute));
+                    throw new RequestNotValidException($"The '{nameof(minute)}' portion of a date must be specified if '{nameof(hour)}' is specified.");
                 }
 
                 if (second == null)
                 {
                     // If hour and minute are specified, then seconds must be specified.
-                    throw new ArgumentException(
-                        $"The '{nameof(second)}' portion of a date must be specified if '{nameof(hour)}' and '{nameof(minute)}' are specified.",
-                        nameof(second));
+                    throw new RequestNotValidException($"The '{nameof(second)}' portion of a date must be specified if '{nameof(hour)}' and '{nameof(minute)}' are specified.");
                 }
 
                 if (utcOffset == null)
@@ -122,9 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                     // per spec (http://hl7.org/fhir/datatypes.html#dateTime).
                     // However, in search queries, the time zone information is optional (http://hl7.org/fhir/search.html#date).
                     // The parsing logic will default to UTC time zone if the time zone information is not specified in the search query.
-                    throw new ArgumentException(
-                        $"The '{nameof(utcOffset)}' portion of a date must be specified if '{nameof(hour)}' and '{nameof(minute)}' are specified.",
-                        nameof(utcOffset));
+                    throw new RequestNotValidException($"The '{nameof(utcOffset)}' portion of a date must be specified if '{nameof(hour)}' and '{nameof(minute)}' are specified.");
                 }
             }
 
@@ -253,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             if (!match.Success)
             {
                 // The input value cannot be parsed correctly.
-                throw new FormatException("Input string was not in a correct format.");
+                throw new RequestNotValidException("Input string was not in a correct format.");
             }
 
             int year = int.Parse(match.Groups[YearCapture].Value);
@@ -294,15 +286,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                 utcOffset = TimeSpan.FromMinutes(0);
             }
 
-            try
-            {
-                return new PartialDateTime(year, month, day, hour, minute, second, fraction, utcOffset);
-            }
-            catch (ArgumentException ex)
-            {
-                // The input value was parsed correctly but one of the value provided were out of range.
-                throw new RequestNotValidException("Input string was not in a correct format. At least one portion of a date was invalid or out of range: " + ex.Message);
-            }
+            return new PartialDateTime(year, month, day, hour, minute, second, fraction, utcOffset);
 
             int? ParseDateTimePart(string name)
             {
