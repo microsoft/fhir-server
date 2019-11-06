@@ -106,6 +106,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Transaction was failed while processing the request..
+        /// </summary>
+        public static string GeneralTransactionFailedError {
+            get {
+                return ResourceManager.GetString("GeneralTransactionFailedError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported..
+        /// </summary>
+        public static string InvalidBundleType {
+            get {
+                return ResourceManager.GetString("InvalidBundleType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid compound authorization code..
         /// </summary>
         public static string InvalidCompoundCode {
@@ -165,15 +183,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string NotFoundException {
             get {
                 return ResourceManager.GetString("NotFoundException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Only bundles of the type batch are supported..
-        /// </summary>
-        public static string OnlyCertainBundleTypesSupported {
-            get {
-                return ResourceManager.GetString("OnlyCertainBundleTypesSupported", resourceCulture);
             }
         }
         
@@ -264,6 +273,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TooManyCustomAuditHeaders {
             get {
                 return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Transaction failed on &apos;{0}&apos; for the requested url &apos;{1}&apos;..
+        /// </summary>
+        public static string TransactionFailed {
+            get {
+                return ResourceManager.GetString("TransactionFailed", resourceCulture);
             }
         }
         
