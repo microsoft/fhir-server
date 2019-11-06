@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 
             if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out bool isPretty))
             {
-                throw new NotAcceptableException(Api.Resources.UnsupportedPrettyParameter);
+                throw new BadRequestException(Api.Resources.UnsupportedPrettyParameter);
             }
         }
 
