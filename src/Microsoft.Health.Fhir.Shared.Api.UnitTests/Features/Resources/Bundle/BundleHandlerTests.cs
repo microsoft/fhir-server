@@ -13,10 +13,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using NSubstitute;
 using NSubstitute.Core;
@@ -41,6 +43,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var fhirRequestContext = Substitute.For<IFhirRequestContext>();
             fhirRequestContext.BaseUri.Returns(new Uri("https://localhost/"));
+            fhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _fhirRequestContextAccessor.FhirRequestContext.Returns(fhirRequestContext);
 
@@ -63,7 +67,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
             _httpContextAccessor.HttpContext.Returns(httpContext);
 
-            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, _bundleHttpContextAccessor);
+            var transactionHandler = Substitute.For<ITransactionHandler>();
+
+            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, NullLogger<BundleHandler>.Instance);
         }
 
         [Fact]
