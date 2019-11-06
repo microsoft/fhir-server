@@ -10,23 +10,29 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 using AngleSharp.Io;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -43,20 +49,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
-        private readonly BundleHttpContextAccessor _bundleHttpContextAccessor;
+        private readonly ITransactionHandler _transactionHandler;
+        private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
+        private readonly ILogger<BundleHandler> _logger;
 
-        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, BundleHttpContextAccessor bundleHttpContextAccessor)
+        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ILogger<BundleHandler> logger)
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
+            EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
+            _transactionHandler = transactionHandler;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
+            _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = GenerateRequestDictionary();
@@ -70,21 +82,71 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            if (bundleResource.Type != Hl7.Fhir.Model.Bundle.BundleType.Batch)
-            {
-                throw new MethodNotAllowedException(Microsoft.Health.Fhir.Api.Resources.OnlyCertainBundleTypesSupported);
-            }
-
             await FillRequestLists(bundleResource.Entry);
 
-            var responseBundle = new Hl7.Fhir.Model.Bundle
+            if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Batch)
             {
-                Type = Hl7.Fhir.Model.Bundle.BundleType.BatchResponse,
-            };
+                var responseBundle = new Hl7.Fhir.Model.Bundle
+                {
+                    Type = Hl7.Fhir.Model.Bundle.BundleType.BatchResponse,
+                };
 
-            await ExecuteAllRequests(responseBundle);
+                await ExecuteAllRequests(responseBundle);
+                return new BundleResponse(responseBundle.ToResourceElement());
+            }
+            else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
+            {
+                var responseBundle = new Hl7.Fhir.Model.Bundle
+                {
+                    Type = Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse,
+                };
+
+                return await ExecuteTransactionForAllRequests(responseBundle);
+            }
+
+            throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, bundleResource.Type));
+        }
+
+        private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
+        {
+            try
+            {
+                using (var transaction = _transactionHandler.BeginTransaction())
+                {
+                    await ExecuteAllRequests(responseBundle);
+
+                    transaction.Complete();
+                }
+            }
+            catch (TransactionAbortedException)
+            {
+                _logger.LogError("Failed to commit a transaction. Throwing BadRequest as a default exception.");
+                throw new TransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
+            }
 
             return new BundleResponse(responseBundle.ToResourceElement());
+        }
+
+        private static void ThrowTransactionException(HttpContext httpContext, OperationOutcome operationOutcome)
+        {
+            var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
+
+            var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
+
+            throw new TransactionFailedException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, operationOutcomeIssues);
+        }
+
+        private static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
+        {
+            var issues = new List<OperationOutcomeIssue>();
+
+            operationoutcomeIssueList.ForEach(x =>
+                issues.Add(new OperationOutcomeIssue(
+                    x.Severity.ToString(),
+                    x.Code.ToString(),
+                    x.Diagnostics)));
+
+            return issues;
         }
 
         private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
@@ -101,6 +163,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Response.Body = new MemoryStream();
 
                 var requestUri = new Uri(_fhirRequestContextAccessor.FhirRequestContext.BaseUri, entry.Request.Url);
+                httpContext.Request.Scheme = requestUri.Scheme;
+                httpContext.Request.Host = new HostString(requestUri.Host, requestUri.Port);
                 httpContext.Request.Path = requestUri.LocalPath;
                 httpContext.Request.QueryString = new QueryString(requestUri.Query);
                 httpContext.Request.Method = entry.Request.Method.ToString();
@@ -149,7 +213,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (request.Handler != null)
                 {
-                    var httpContext = request.HttpContext;
+                    HttpContext httpContext = request.HttpContext;
+
+                    IFhirRequestContext originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+
+                    request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+                    var newFhirRequestContext = new FhirRequestContext(
+                        httpContext.Request.Method,
+                        httpContext.Request.GetDisplayUrl(),
+                        originalFhirRequestContext.BaseUri.OriginalString,
+                        originalFhirRequestContext.CorrelationId,
+                        httpContext.Request.Headers,
+                        httpContext.Response.Headers,
+                        resourceType?.ToString())
+                    {
+                        Principal = originalFhirRequestContext.Principal,
+                    };
+                    _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
 
                     _bundleHttpContextAccessor.HttpContext = httpContext;
 
@@ -174,6 +254,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
                         {
                             entryComponent.Response.Outcome = entryComponentResource;
+
+                            if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                            {
+                                ThrowTransactionException(httpContext, (OperationOutcome)entryComponentResource);
+                            }
                         }
                         else
                         {

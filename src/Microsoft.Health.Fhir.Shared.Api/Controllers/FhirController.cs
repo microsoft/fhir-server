@@ -521,13 +521,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Returns the Capability Statement of this server which is used to determine
         /// what FHIR features are supported by this implementation.
         /// </summary>
-        /// <param name="system">Specifies if all system capabilities should be returned or only configured (default).</param>
         [HttpGet]
         [AllowAnonymous]
         [Route(KnownRoutes.Metadata, Name = RouteNames.Metadata)]
-        public async Task<IActionResult> Metadata(bool system = false)
+        public async Task<IActionResult> Metadata()
         {
-            ResourceElement response = await _mediator.GetCapabilitiesAsync(system, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.GetCapabilitiesAsync(HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }

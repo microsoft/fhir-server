@@ -175,6 +175,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new OperationFailedException("Operation failed.", statusCode), statusCode);
         }
 
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.PreconditionFailed)]
+        [InlineData(HttpStatusCode.NotFound)]
+        public void GivenATransactionFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(HttpStatusCode statusCode)
+        {
+            ValidateOperationOutcome(new TransactionFailedException("Transaction failed.", statusCode, new List<OperationOutcomeIssue>()), statusCode);
+        }
+
         [Fact]
         public void GivenANotAcceptableException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {

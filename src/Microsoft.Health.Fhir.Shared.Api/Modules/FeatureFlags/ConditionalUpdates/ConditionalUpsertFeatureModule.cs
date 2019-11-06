@@ -7,8 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Configs;
-using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 
 namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalUpdates
 {
@@ -16,10 +14,6 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.ConditionalUpdates
     {
         public void Load(IServiceCollection services)
         {
-            services.Add<ConditionalUpsertResourceHandler.IsEnabled>(x => () => x.GetRequiredService<IOptions<FeatureConfiguration>>().Value.SupportsConditionalUpdate)
-                .Singleton()
-                .AsSelf();
-
             services.Add<ConditionalUpsertPostConfigureOptions>()
                 .Singleton()
                 .AsSelf()

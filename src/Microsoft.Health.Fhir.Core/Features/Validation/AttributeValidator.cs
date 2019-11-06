@@ -10,7 +10,6 @@ using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
-using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;

@@ -12,7 +12,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Get;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 {
@@ -67,12 +66,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             }
 
             return new GetResourceResponse(_deserializer.Deserialize(currentDoc));
-        }
-
-        protected override void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
-        {
-            statement.TryAddRestInteraction(resourceType, TypeRestfulInteraction.Read);
-            statement.TryAddRestInteraction(resourceType, TypeRestfulInteraction.Vread);
         }
     }
 }

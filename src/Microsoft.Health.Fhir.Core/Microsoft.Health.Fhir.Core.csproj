@@ -3,11 +3,27 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Features\Specification\**" />
+    <EmbeddedResource Remove="Features\Specification\**" />
+    <None Remove="Features\Specification\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Features\Conformance\R4\BaseCapabilities.json" />
+    <None Remove="Features\Conformance\Stu3\BaseCapabilities.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Features\Conformance\R4\BaseCapabilities.json" />
+    <EmbeddedResource Include="Features\Conformance\Stu3\BaseCapabilities.json" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.13.0" />
     <PackageReference Include="Ensure.That" Version="8.1.1" />
-    <PackageReference Include="FluentValidation" Version="8.5.0" />
+    <PackageReference Include="FluentValidation" Version="8.5.1" />
     <PackageReference Include="MediatR" Version="7.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.2.0" />
@@ -15,6 +31,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="2.2.0" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="1.3.0" />
     <PackageReference Include="Hl7.FhirPath" Version="1.3.0" />
+    <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.11" />
     <PackageReference Include="Polly" Version="7.1.1" />
     <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
