@@ -164,6 +164,14 @@ namespace Microsoft.Health.Fhir.SqlServer
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
+        public IndentedStringBuilder Append(System.ReadOnlyMemory<System.Char> value)
+        {
+            AppendIndent();
+            _inner.Append(value);
+            return this;
+        }
+
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
         public IndentedStringBuilder Append(System.ReadOnlySpan<System.Char> value)
         {
             AppendIndent();
@@ -414,6 +422,12 @@ namespace Microsoft.Health.Fhir.SqlServer
         public System.Boolean Equals(System.Text.StringBuilder sb)
         {
             return _inner.Equals(sb);
+        }
+
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]
+        public System.Text.StringBuilder.ChunkEnumerator GetChunks()
+        {
+            return _inner.GetChunks();
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute]

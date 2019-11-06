@@ -6,7 +6,6 @@
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -40,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Configure<RouteOptions>(options => options.ConstraintMap.Add(KnownRoutes.CompartmentResourceTypeRouteConstraint, typeof(CompartmentResourceTypesRouteConstraint)));
 
             // Adds provider to serve embedded razor views
-            services.Configure<RazorViewEngineOptions>(options =>
+            services.Configure<AspNetCore.Mvc.Razor.RuntimeCompilation.MvcRazorRuntimeCompilationOptions>(options =>
             {
                 options.FileProviders.Add(_embeddedFileProvider);
             });

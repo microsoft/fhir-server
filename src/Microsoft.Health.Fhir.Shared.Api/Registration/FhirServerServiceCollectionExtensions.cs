@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
@@ -42,6 +43,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddOptions();
             services.AddMvc(options =>
             {
+                options.EnableEndpointRouting = false;
                 options.RespectBrowserAcceptHeader = true;
             });
 
@@ -105,7 +107,7 @@ namespace Microsoft.Extensions.DependencyInjection
             {
                 return app =>
                 {
-                    IHostingEnvironment env = app.ApplicationServices.GetRequiredService<IHostingEnvironment>();
+                    IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
 
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();

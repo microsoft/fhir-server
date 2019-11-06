@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                         new IncludedPath
                         {
                             Path = "/*",
-                            Indexes = new Collection<Index>
+                            Indexes = new Collection<Azure.Documents.Index>
                             {
                                 new RangeIndex(DataType.Number, -1),
                                 new RangeIndex(DataType.String, -1),
