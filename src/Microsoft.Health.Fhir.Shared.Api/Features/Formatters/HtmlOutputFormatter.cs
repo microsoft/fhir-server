@@ -10,7 +10,6 @@ using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -68,11 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
-            var bodyControlFeature = context.HttpContext.Features.Get<IHttpBodyControlFeature>();
-            if (bodyControlFeature != null)
-            {
-                bodyControlFeature.AllowSynchronousIO = true;
-            }
+            context.HttpContext.AllowSynchronousIO();
 
             var engine = context.HttpContext.RequestServices.GetService<IRazorViewEngine>();
             var tempDataProvider = context.HttpContext.RequestServices.GetService<ITempDataProvider>();
