@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
         public async Task CheckRequestedContentTypeAsync(HttpContext httpContext)
         {
             var acceptHeaders = httpContext.Request.GetTypedHeaders().Accept;
-            string formatOverride = GetFormatFromQueryString(httpContext);
+            string formatOverride = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Format);
 
             // Check the _format first since it takes precedence over the accept header.
             if (!string.IsNullOrEmpty(formatOverride))
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                 }
             }
 
-            string prettyParameterValue = GetPrettyFromQueryString(httpContext);
+            string prettyParameterValue = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Pretty);
 
             if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out bool isPretty))
             {
@@ -92,21 +92,21 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             }
         }
 
-        private static string GetFormatFromQueryString(HttpContext context)
+        private static string GetParameterValueFromQueryString(HttpContext context, string parameterName)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            // If executing in a rethrown error context, ensure we carry the specified format
+            // If executing in a rethrown error context, ensure we carry the specified formatting.
             var previous = context.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalQueryString;
             var previousQuery = QueryHelpers.ParseNullableQuery(previous);
 
-            if (previousQuery?.TryGetValue(KnownQueryParameterNames.Format, out var originFormatValues) == true)
+            if (previousQuery?.TryGetValue(parameterName, out var originValues) == true)
             {
-                return originFormatValues.FirstOrDefault();
+                return originValues.FirstOrDefault();
             }
 
-            // Check the current query string
-            if (context.Request.Query.TryGetValue(KnownQueryParameterNames.Format, out var queryValues))
+            // Check the current query string.
+            if (context.Request.Query.TryGetValue(parameterName, out var queryValues))
             {
                 return queryValues.FirstOrDefault();
             }
@@ -146,28 +146,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                         return false;
                 }
             });
-        }
-
-        private static string GetPrettyFromQueryString(HttpContext context)
-        {
-            EnsureArg.IsNotNull(context, nameof(context));
-
-            // If executing in a rethrown error context, ensure we carry the specified pretty value.
-            var previous = context.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalQueryString;
-            var previousQuery = QueryHelpers.ParseNullableQuery(previous);
-
-            if (previousQuery?.TryGetValue(KnownQueryParameterNames.Pretty, out var originPrettyValues) == true)
-            {
-                return originPrettyValues.FirstOrDefault();
-            }
-
-            // Check the current query string.
-            if (context.Request.Query.TryGetValue(KnownQueryParameterNames.Pretty, out var queryValues))
-            {
-                return queryValues.FirstOrDefault();
-            }
-
-            return null;
         }
     }
 }
