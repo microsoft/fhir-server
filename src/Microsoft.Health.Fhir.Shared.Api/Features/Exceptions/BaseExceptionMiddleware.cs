@@ -69,16 +69,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 
                 context.Response.Clear();
 
-                var diagnostics = Resources.GeneralInternalError;
+                var diagnostics = Api.Resources.GeneralInternalError;
 
                 // If any of these exceptions are encountered, show a more specific diagnostic message
                 if (exception.Message.StartsWith("IDX10803: Unable to obtain configuration from:", StringComparison.OrdinalIgnoreCase))
                 {
-                    diagnostics = Resources.UnableToObtainOpenIdConfiguration;
+                    diagnostics = Api.Resources.UnableToObtainOpenIdConfiguration;
                 }
                 else if (exception.Message.StartsWith("The MetadataAddress or Authority must use HTTPS", StringComparison.OrdinalIgnoreCase))
                 {
-                    diagnostics = Resources.RequireHttpsMetadataError;
+                    diagnostics = Api.Resources.RequireHttpsMetadataError;
                 }
 
                 var operationOutcome = new OperationOutcome

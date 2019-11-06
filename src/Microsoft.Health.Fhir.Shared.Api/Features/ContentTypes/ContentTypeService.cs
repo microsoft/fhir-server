@@ -9,8 +9,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -18,9 +16,9 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
 
@@ -54,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                 ResourceFormat resourceFormat = ContentType.GetResourceFormatFromFormatParam(formatOverride);
                 if (!await IsFormatSupportedAsync(resourceFormat))
                 {
-                    throw new NotAcceptableException(Resources.UnsupportedFormatParameter);
+                    throw new NotAcceptableException(Api.Resources.UnsupportedFormatParameter);
                 }
 
                 string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), acceptHeaders?.Select(x => x.MediaType.Value));
@@ -80,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 
                     if (!isAcceptHeaderValid)
                     {
-                        throw new NotAcceptableException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
+                        throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, HeaderNames.Accept));
                     }
                 }
             }
@@ -122,18 +120,19 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                 return isSupported;
             }
 
-            var typedStatement = await _conformanceProvider.GetCapabilityStatementAsync();
-            CapabilityStatement statement = typedStatement.ToPoco<CapabilityStatement>();
+            ResourceElement typedStatement = await _conformanceProvider.GetCapabilityStatementAsync();
+
+            IEnumerable<string> formats = typedStatement.Select("CapabilityStatement.format").Select(x => (string)x.Value);
 
             return _supportedFormats.GetOrAdd(resourceFormat, format =>
             {
                 switch (resourceFormat)
                 {
                     case ResourceFormat.Json:
-                        return statement.Format.Any(f => f.Contains("json", StringComparison.Ordinal));
+                        return formats.Any(f => f.Contains("json", StringComparison.Ordinal));
 
                     case ResourceFormat.Xml:
-                        return statement.Format.Any(f => f.Contains("xml", StringComparison.Ordinal));
+                        return formats.Any(f => f.Contains("xml", StringComparison.Ordinal));
 
                     default:
                         return false;

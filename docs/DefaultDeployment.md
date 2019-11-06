@@ -65,9 +65,9 @@ To deploy the backend Cosmos DB, Azure Web App, and FHIR server code, use the bu
 The template can also be deployed using PowerShell. Here is an example of how the authorization details from above can be provided:
 
 ```PowerShell
-$rg = New-AzureRmResourceGroup -Name "RG-NAME" -Location westus2
+$rg = New-AzResourceGroup -Name "RG-NAME" -Location westus2
 
-New-AzureRmResourceGroupDeployment `
+New-AzResourceGroupDeployment `
 -TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
 -ResourceGroupName $rg.ResourceGroupName ` 
 -serviceName $fhirServiceName ` 
@@ -78,9 +78,9 @@ New-AzureRmResourceGroupDeployment `
 To deploy without Authentication/Authorization:
 
 ```PowerShell
-$rg = New-AzureRmResourceGroup -Name "RG-NAME" -Location westus2
+$rg = New-AzResourceGroup -Name "RG-NAME" -Location westus2
 
-New-AzureRmResourceGroupDeployment `
+New-AzResourceGroupDeployment `
 -TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
 -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
@@ -97,4 +97,3 @@ To remove the AAD Application registrations:
 Remove-FhirServerApplicationRegistration -AppId $clientAppReg.AppId
 Remove-FhirServerApplicationRegistration -AppId $apiAppReg.AppId
 ```
-

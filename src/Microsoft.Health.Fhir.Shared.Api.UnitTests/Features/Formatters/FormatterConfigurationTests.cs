@@ -12,9 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
@@ -39,7 +37,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
             _configuration = new FormatterConfiguration(
                 Options.Create(_featureConfiguration),
-                Substitute.For<IConfiguredConformanceProvider>(),
                 new TextInputFormatter[] { _fhirJsonInputFormatter, _fhirXmlInputFormatter },
                 new TextOutputFormatter[] { _htmlOutputFormatter, _fhirJsonOutputFormatter, _fhirXmlOutputFormatter });
 

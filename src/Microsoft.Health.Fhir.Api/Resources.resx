@@ -156,6 +156,9 @@
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
   </data>
+  <data name="OnlyCertainBundleTypesSupported" xml:space="preserve">
+    <value>Only bundles of the type batch are supported.</value>
+  </data>
   <data name="OperationFailed" xml:space="preserve">
     <value>{0} operation failed for reason: {1}</value>
     <comment>{0} is operation name, {1} is failure reason.</comment>
@@ -167,6 +170,10 @@
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
     <comment>{NumberedPlaceHolder=”FHIR”}</comment>
+  </data>
+  <data name="PatchNotSupported" xml:space="preserve">
+    <value>PATCH is not currently supported.</value>
+    <comment>{NumberedPlaceHolder="PATCH"}</comment>
   </data>
   <data name="RequireHttpsMetadataError" xml:space="preserve">
     <value>The security configuration requires the authority to be set to an https address.</value>

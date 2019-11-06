@@ -23,13 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             ModelInfoProvider.SetProvider(new VersionSpecificModelInfoProvider());
         }
 
-        public static CodeableConcept ToPoco(this CodingInfo model)
-        {
-            EnsureArg.IsNotNull(model, nameof(model));
-
-            return new CodeableConcept(model.System, model.Code);
-        }
-
         public static OperationOutcome.IssueComponent ToPoco(this OperationOutcomeIssue issue)
         {
             EnsureArg.IsNotNull(issue, nameof(issue));
@@ -100,7 +93,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 string.IsNullOrEmpty(searchParam.Url) ? null : new Uri(searchParam.Url),
                 searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri(), x.Expression)).ToArray(),
                 searchParam.Expression,
-                searchParam.Target?.Select(x => x?.ToString()).ToArray());
+                searchParam.Target?.Select(x => x?.ToString()).ToArray(),
+                searchParam.Description?.Value);
         }
 
         public static ValueSets.SearchParamType ToValueSet(this SearchParamType searchParam)

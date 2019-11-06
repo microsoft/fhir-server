@@ -77,8 +77,8 @@ function Set-FhirServerApiUsers {
         }
 
         $upnSecureString = ConvertTo-SecureString -string $userUpn -AsPlainText -Force
-        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--id" -SecretValue $upnSecureString | Out-Null
-        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--secret" -SecretValue $passwordSecureString | Out-Null
+        Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--id" -SecretValue $upnSecureString | Out-Null
+        Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--secret" -SecretValue $passwordSecureString | Out-Null
 
         $environmentUsers += @{
             upn           = $userUpn

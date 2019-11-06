@@ -4,9 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -17,13 +19,9 @@ namespace Microsoft.Health.Fhir.Core
     /// </summary>
     public partial class VersionSpecificModelInfoProvider : IModelInfoProvider
     {
-        public Version SupportedVersion
-        {
-            get
-            {
-                return new Version(ModelInfo.Version);
-            }
-        }
+        public Version SupportedVersion { get; } = new Version(ModelInfo.Version);
+
+        public IStructureDefinitionSummaryProvider StructureDefinitionSummaryProvider { get; } = new PocoStructureDefinitionSummaryProvider();
 
         public string GetFhirTypeNameForType(Type type)
         {
@@ -40,12 +38,12 @@ namespace Microsoft.Health.Fhir.Core
             return Enum.IsDefined(typeof(CompartmentType), compartmentType);
         }
 
-        public string[] GetResourceTypeNames()
+        public IReadOnlyCollection<string> GetResourceTypeNames()
         {
-            return Enum.GetNames(typeof(ResourceType));
+            return ModelInfo.SupportedResources;
         }
 
-        public string[] GetCompartmentTypeNames()
+        public IReadOnlyCollection<string> GetCompartmentTypeNames()
         {
             return Enum.GetNames(typeof(CompartmentType));
         }
