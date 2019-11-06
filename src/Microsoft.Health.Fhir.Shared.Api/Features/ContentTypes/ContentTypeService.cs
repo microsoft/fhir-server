@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 
             string prettyParameterValue = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Pretty);
 
-            if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out bool isPretty))
+            if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out _))
             {
                 throw new BadRequestException(Api.Resources.UnsupportedPrettyParameter);
             }
