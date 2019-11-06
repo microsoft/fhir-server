@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
     [NotImplementedExceptionFilter]
+    [NullArgumentExceptionFilter]
     [Route(KnownRoutes.SchemaRoot)]
     public class SchemaController : Controller
     {
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         {
             _logger.LogInformation($"Attempting to get script for schema version: {id}");
 
-            throw new NotImplementedException(Resources.ScriptNotImplemented);
+            return Content(SchemaUpgradeRunner.GetMigrationScript(id));
         }
 
         [HttpGet]

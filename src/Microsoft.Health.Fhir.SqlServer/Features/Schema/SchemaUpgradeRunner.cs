@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             _logger.LogInformation("Completed applying schema {version}", version);
         }
 
-        private static string GetMigrationScript(int version)
+        public static string GetMigrationScript(int version)
         {
             string resourceName = $"{typeof(SchemaUpgradeRunner).Namespace}.Migrations.{version}.sql";
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
