@@ -13,11 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class TransactionFailedException : FhirException
     {
-        public TransactionFailedException(string message, HttpStatusCode httpStatusCode, List<OperationOutcomeIssue> operationOutcomeIssues)
+        public TransactionFailedException(string message, HttpStatusCode httpStatusCode, List<OperationOutcomeIssue> operationOutcomeIssues = null)
             : base(message)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
-            Debug.Assert(operationOutcomeIssues != null, "OperationOutcomeIssues should not be null");
 
             ResponseStatusCode = httpStatusCode;
 
@@ -26,7 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     OperationOutcomeConstants.IssueType.Processing,
                     message));
 
-            operationOutcomeIssues.ForEach(x => Issues.Add(x));
+            if (operationOutcomeIssues != null)
+            {
+                operationOutcomeIssues.ForEach(x => Issues.Add(x));
+            }
         }
 
         public HttpStatusCode ResponseStatusCode { get; }

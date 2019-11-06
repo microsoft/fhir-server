@@ -26,20 +26,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.NotNull(exception.Issues);
             Assert.Equal(3, exception.Issues.Count);
 
-            var firtIssue = exception.Issues.First();
-            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, firtIssue.Severity);
-            Assert.Equal(OperationOutcomeConstants.IssueType.Processing, firtIssue.Code);
-            Assert.Equal(message, firtIssue.Diagnostics);
-
-            var secondIssue = exception.Issues.Skip(1).First();
-            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, secondIssue.Severity);
-            Assert.Equal(OperationOutcomeConstants.IssueType.NotFound, secondIssue.Code);
-            Assert.Equal(message, secondIssue.Diagnostics);
-
-            var thirdIssue = exception.Issues.Last();
-            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, thirdIssue.Severity);
-            Assert.Equal(OperationOutcomeConstants.IssueType.Invalid, thirdIssue.Code);
-            Assert.Equal(message, thirdIssue.Diagnostics);
+            AssertOperationOutcomeIssue(message, OperationOutcomeConstants.IssueType.Processing, exception.Issues.First());
+            AssertOperationOutcomeIssue(message, OperationOutcomeConstants.IssueType.NotFound, exception.Issues.Skip(1).First());
+            AssertOperationOutcomeIssue(message, OperationOutcomeConstants.IssueType.Invalid, exception.Issues.Last());
         }
 
         [Fact]
@@ -51,20 +40,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var exception = new TransactionFailedException(message, statusCode, new List<OperationOutcomeIssue>());
 
             Assert.NotNull(exception.Issues);
-            Assert.Equal(1, exception.Issues.Count);
+            Assert.Single(exception.Issues);
 
-            var issue = exception.Issues.First();
+            AssertOperationOutcomeIssue(message, OperationOutcomeConstants.IssueType.Processing, exception.Issues.First());
+        }
+
+        private static void AssertOperationOutcomeIssue(string message, string expectedStatusCode, OperationOutcomeIssue issue)
+        {
             Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, issue.Severity);
-            Assert.Equal(OperationOutcomeConstants.IssueType.Processing, issue.Code);
+            Assert.Equal(expectedStatusCode, issue.Code);
             Assert.Equal(message, issue.Diagnostics);
         }
 
         private static List<OperationOutcomeIssue> GetOperationOutcomeIssues(string message)
         {
-            var issues = new List<OperationOutcomeIssue>();
-            issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.NotFound, message));
-            issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, message));
-            return issues;
+            return new List<OperationOutcomeIssue>()
+            {
+            new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.NotFound, message),
+            new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, message),
+            };
         }
     }
 }

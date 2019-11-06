@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (TransactionAbortedException)
             {
                 _logger.LogError("Failed to commit a transaction. Throwing BadRequest as a default exception.");
-                throw new BadRequestException(Api.Resources.GeneralTransactionFailedError);
+                throw new TransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
             }
 
             return new BundleResponse(responseBundle.ToResourceElement());
