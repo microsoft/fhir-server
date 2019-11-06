@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
 
             if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out _))
             {
-                throw new BadRequestException(Api.Resources.UnsupportedPrettyParameter);
+                throw new BadRequestException(Api.Resources.InvalidPrettyParameter);
             }
         }
 
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            // If executing in a rethrown error context, ensure we carry the specified formatting.
+            // If executing in a rethrown error context, ensure we carry the specified query string value.
             var previous = context.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalQueryString;
             var previousQuery = QueryHelpers.ParseNullableQuery(previous);
 
