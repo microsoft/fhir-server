@@ -298,7 +298,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             {
                 return new PartialDateTime(year, month, day, hour, minute, second, fraction, utcOffset);
             }
-            catch (Exception ex) when (ex is ArgumentException)
+            catch (ArgumentException ex)
             {
                 // The input value was parsed correctly but one of the value provided were out of range.
                 throw new RequestNotValidException("Input string was not in a correct format. At least one portion of a date was invalid or out of range: " + ex.Message);
