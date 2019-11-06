@@ -139,6 +139,10 @@
   <data name="InvalidLaunchContext" xml:space="preserve">
     <value>Invalid launch context parameters.</value>
   </data>
+  <data name="InvalidPrettyParameter" xml:space="preserve">
+    <value>The requested "_pretty" parameter is invalid.</value>
+    <comment>{NumberedPlaceHolder="_pretty"}</comment>
+  </data>
   <data name="InvalidRedirectUri" xml:space="preserve">
     <value>Provided value for redirect Uri: {0} is not a valid Uri.</value>
     <comment>{0} is a parameter passed in for redirection.</comment>
@@ -218,9 +222,6 @@
   <data name="UnsupportedParameterValue" xml:space="preserve">
     <value>The supplied value for "{0}" paramter is invalid.</value>
     <comment>{0} is parameter name</comment>
-  </data>
-  <data name="UnsupportedPrettyParameter" xml:space="preserve">
-    <value>The requested "_pretty" parameter is not supported.</value>
   </data>
   <data name="UnsupportedResourceType" xml:space="preserve">
     <value>Requested operation does not support resource type: {0}.</value>

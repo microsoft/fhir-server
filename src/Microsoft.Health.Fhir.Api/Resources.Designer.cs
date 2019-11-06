@@ -124,6 +124,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;_pretty&quot; parameter is invalid..
+        /// </summary>
+        public static string InvalidPrettyParameter {
+            get {
+                return ResourceManager.GetString("InvalidPrettyParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Provided value for redirect Uri: {0} is not a valid Uri..
         /// </summary>
         public static string InvalidRedirectUri {
@@ -327,15 +336,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string UnsupportedParameterValue {
             get {
                 return ResourceManager.GetString("UnsupportedParameterValue", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;_pretty&quot; parameter is not supported..
-        /// </summary>
-        public static string UnsupportedPrettyParameter {
-            get {
-                return ResourceManager.GetString("UnsupportedPrettyParameter", resourceCulture);
             }
         }
         
