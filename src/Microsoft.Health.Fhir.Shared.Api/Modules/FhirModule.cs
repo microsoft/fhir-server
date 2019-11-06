@@ -116,17 +116,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
             // Add conformance provider for implementation metadata.
-            services.AddSingleton<IConfiguredConformanceProvider, DefaultConformanceProvider>();
-
-            services.Add<ConformanceProvider>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IConformanceProvider>();
-
             services.Add<SystemConformanceProvider>()
                 .Singleton()
                 .AsSelf()
-                .AsService<ISystemConformanceProvider>();
+                .AsImplementedInterfaces();
 
             services.Add<SecurityProvider>()
                 .Singleton()

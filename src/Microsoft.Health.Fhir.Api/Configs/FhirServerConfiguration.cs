@@ -11,8 +11,6 @@ namespace Microsoft.Health.Fhir.Api.Configs
     {
         public FeatureConfiguration Features { get; } = new FeatureConfiguration();
 
-        public ConformanceConfiguration Conformance { get; } = new ConformanceConfiguration();
-
         public SecurityConfiguration Security { get; } = new SecurityConfiguration();
 
         public virtual CorsConfiguration Cors { get; } = new CorsConfiguration();

@@ -18,11 +18,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCtes;
         private readonly bool _isHistorySearch;
-        private readonly bool _calculateTotalCount;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
 
-        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch, bool calculateTotalCount)
+        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -32,7 +31,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             Parameters = parameters;
             Model = model;
             _isHistorySearch = isHistorySearch;
-            _calculateTotalCount = calculateTotalCount;
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -71,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             string resourceTableAlias = "r";
 
-            if (searchOptions.CountOnly || _calculateTotalCount)
+            if (searchOptions.CountOnly)
             {
                 StringBuilder.AppendLine("SELECT COUNT(DISTINCT ").Append(V1.Resource.ResourceSurrogateId, resourceTableAlias).Append(")");
             }
@@ -120,7 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            if (!searchOptions.CountOnly && !_calculateTotalCount)
+            if (!searchOptions.CountOnly)
             {
                 StringBuilder.Append("ORDER BY ").Append(V1.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC");
             }

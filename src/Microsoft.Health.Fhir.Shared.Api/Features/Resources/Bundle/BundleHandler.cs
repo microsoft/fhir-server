@@ -17,6 +17,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Routing;
@@ -24,6 +25,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -157,6 +159,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Response.Body = new MemoryStream();
 
                 var requestUri = new Uri(_fhirRequestContextAccessor.FhirRequestContext.BaseUri, entry.Request.Url);
+                httpContext.Request.Scheme = requestUri.Scheme;
+                httpContext.Request.Host = new HostString(requestUri.Host, requestUri.Port);
                 httpContext.Request.Path = requestUri.LocalPath;
                 httpContext.Request.QueryString = new QueryString(requestUri.Query);
                 httpContext.Request.Method = entry.Request.Method.ToString();
@@ -206,6 +210,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (request.Handler != null)
                 {
                     HttpContext httpContext = request.HttpContext;
+
+                    IFhirRequestContext originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+
+                    request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+                    var newFhirRequestContext = new FhirRequestContext(
+                        httpContext.Request.Method,
+                        httpContext.Request.GetDisplayUrl(),
+                        originalFhirRequestContext.BaseUri.OriginalString,
+                        originalFhirRequestContext.CorrelationId,
+                        httpContext.Request.Headers,
+                        httpContext.Response.Headers,
+                        resourceType?.ToString())
+                    {
+                        Principal = originalFhirRequestContext.Principal,
+                    };
+                    _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
+
                     await request.Handler.Invoke(httpContext);
 
                     httpContext.Response.Body.Seek(0, SeekOrigin.Begin);

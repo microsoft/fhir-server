@@ -11,20 +11,16 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     internal class FormatterConfiguration : IPostConfigureOptions<MvcOptions>
     {
-        private readonly FeatureConfiguration _featureConfiguration;
-        private readonly IConfiguredConformanceProvider _configuredConformanceProvider;
         private readonly TextInputFormatter[] _inputFormatters;
         private readonly TextOutputFormatter[] _outputFormatters;
 
         public FormatterConfiguration(
             IOptions<FeatureConfiguration> featureConfiguration,
-            IConfiguredConformanceProvider configuredConformanceProvider,
             IEnumerable<TextInputFormatter> inputFormatters,
             IEnumerable<TextOutputFormatter> outputFormatters)
         {
@@ -33,8 +29,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(inputFormatters, nameof(inputFormatters));
             EnsureArg.IsNotNull(outputFormatters, nameof(outputFormatters));
 
-            _featureConfiguration = featureConfiguration.Value;
-            _configuredConformanceProvider = configuredConformanceProvider;
             _inputFormatters = inputFormatters.ToArray();
             _outputFormatters = outputFormatters.ToArray();
         }
