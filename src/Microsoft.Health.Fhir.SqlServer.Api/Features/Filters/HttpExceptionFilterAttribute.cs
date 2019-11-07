@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
 {
-    public class NotImplementedExceptionFilterAttribute : ActionFilterAttribute
+    public class HttpExceptionFilterAttribute : ActionFilterAttribute
     {
         public override void OnActionExecuted(ActionExecutedContext context)
         {

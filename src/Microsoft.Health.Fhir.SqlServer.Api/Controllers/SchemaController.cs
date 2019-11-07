@@ -18,7 +18,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
-    [NotImplementedExceptionFilter]
+    [HttpExceptionFilter]
     [Route(KnownRoutes.SchemaRoot)]
     public class SchemaController : Controller
     {
