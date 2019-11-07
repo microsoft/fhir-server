@@ -80,15 +80,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // Begin a transaction so we can perform two atomic reads.
                     using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
                     {
-                        searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
+                        try
+                        {
+                            searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
-                        // TODO: Clone search options instead of mutating it (see User Story #720).
-                        searchOptions.CountOnly = true;
+                            searchOptions.CountOnly = true;
 
-                        // Perform a second read to get the count.
-                        var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
-
-                        searchResult.TotalCount = countOnlySearchResult.TotalCount;
+                            // Perform a second read to get the count.
+                            var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
+                            
+                            searchResult.TotalCount = countOnlySearchResult.TotalCount;
+                        }
+                        finally
+                        {
+                            // Reset search options to its original state.
+                            searchOptions.CountOnly = false;
+                        }
 
                         transaction.Commit();
                     }
