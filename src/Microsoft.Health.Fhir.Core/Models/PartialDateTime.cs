@@ -255,7 +255,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             try
             {
-EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
+                EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
             }
             catch (ArgumentException)
             {
