@@ -250,6 +250,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resources within a transaction must be unique..
+        /// </summary>
+        public static string ResourcesMustBeUnique {
+            get {
+                return ResourceManager.GetString("ResourcesMustBeUnique", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource type in the URL must match resourceType in the resource..
         /// </summary>
         public static string ResourceTypeMismatch {

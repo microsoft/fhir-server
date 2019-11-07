@@ -92,6 +92,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
             {
+                if (!BundleValidator.ValidateTransactionBundle(bundleResource))
+                {
+                    throw new RequestNotValidException(Api.Resources.ResourcesMustBeUnique);
+                }
+
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse,

@@ -188,6 +188,9 @@
   <data name="ResourceIdRequired" xml:space="preserve">
     <value>Id must be specified in the resource.</value>
   </data>
+  <data name="ResourcesMustBeUnique" xml:space="preserve">
+    <value>Resources within a transaction must be unique.</value>
+  </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
     <value>Resource type in the URL must match resourceType in the resource.</value>
   </data>
