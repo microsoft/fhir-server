@@ -136,7 +136,14 @@ namespace Microsoft.Health.Fhir.Core.Models
 
             if (fraction != null)
             {
-                EnsureArg.IsInRange(fraction.Value, 0, 0.9999999m, nameof(fraction));
+                try
+                {
+                    EnsureArg.IsInRange(fraction.Value, 0, 0.9999999m, nameof(fraction));
+                }
+                catch (ArgumentException)
+                {
+                    throw new RequestNotValidException($"The fraction of a second must be a value between 0 and 0.9999999");
+                }
             }
 
             Year = year;
