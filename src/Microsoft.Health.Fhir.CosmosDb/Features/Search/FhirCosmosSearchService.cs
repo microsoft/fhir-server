@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         _queryBuilder.BuildSqlQuerySpec(searchOptions),
                         searchOptions,
                         cancellationToken);
-                    
+
                     searchResult.TotalCount = totalSearchResult.TotalCount;
                 }
                 finally
