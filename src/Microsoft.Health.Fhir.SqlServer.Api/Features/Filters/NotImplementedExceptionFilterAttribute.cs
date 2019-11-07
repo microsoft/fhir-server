@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.IO;
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -15,11 +16,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
     {
         public override void OnActionExecuted(ActionExecutedContext context)
         {
-            if (context.Exception is NotImplementedException && !context.ExceptionHandled)
+            if (!context.ExceptionHandled)
             {
-                var resultJson = new JObject { ["error"] = context.Exception.Message };
-                context.Result = new JsonResult(resultJson) { StatusCode = (int)HttpStatusCode.NotImplemented };
-                context.ExceptionHandled = true;
+                var resultJson = new JObject();
+                if (context.Exception != null)
+                {
+                    resultJson = new JObject { ["error"] = context.Exception.Message };
+                }
+
+                switch (context.Exception)
+                {
+                    case NotImplementedException _:
+                        context.Result = new JsonResult(resultJson) { StatusCode = (int)HttpStatusCode.NotImplemented };
+                        context.ExceptionHandled = true;
+                        break;
+
+                    case FileNotFoundException _:
+                        context.Result = new JsonResult(resultJson) { StatusCode = (int)HttpStatusCode.NotFound };
+                        context.ExceptionHandled = true;
+                        break;
+                }
             }
         }
     }

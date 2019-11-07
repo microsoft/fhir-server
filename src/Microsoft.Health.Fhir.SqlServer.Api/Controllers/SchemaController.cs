@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,7 +19,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
     [NotImplementedExceptionFilter]
-    [NullArgumentExceptionFilter]
     [Route(KnownRoutes.SchemaRoot)]
     public class SchemaController : Controller
     {
@@ -69,11 +69,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         [HttpGet]
         [AllowAnonymous]
         [Route(KnownRoutes.Script, Name = RouteNames.Script)]
-        public ActionResult SqlScript(int id)
+        public FileContentResult SqlScript(int id)
         {
             _logger.LogInformation($"Attempting to get script for schema version: {id}");
-
-            return Content(SchemaUpgradeRunner.GetMigrationScript(id));
+            string fileName = $"{id}.sql";
+            return File(Encoding.ASCII.GetBytes(ScriptProvider.GetMigrationScript(id)), "application/json", fileName);
         }
 
         [HttpGet]
