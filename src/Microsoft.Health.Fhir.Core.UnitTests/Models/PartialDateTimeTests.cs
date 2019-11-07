@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         private const string ParamNameSecond = "second";
         private const string ParamNameFraction = "fraction";
         private const string ParamNameUtcOffset = "utcOffset";
-        private const string ParamNameS = "s";
+        private const string ParamNameExtra = "characters";
 
         private const int DefaultYear = 2017;
         private const int DefaultMonth = 7;
@@ -255,7 +256,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [Fact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
-            Assert.Throws<ArgumentNullException>(ParamNameS, () => PartialDateTime.Parse(null));
+            Assert.Throws<RequestNotValidException>(() => PartialDateTime.Parse(null));
         }
 
         [Theory]
@@ -263,13 +264,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
         {
-            Assert.Throws<ArgumentException>(ParamNameS, () => PartialDateTime.Parse(s));
+            Assert.Throws<RequestNotValidException>(() => PartialDateTime.Parse(s));
         }
 
-        [Fact]
-        public void GivenAnInvalidFormatString_WhenParsing_ThenExceptionShouldBeThrown()
+        [Theory]
+        [InlineData("abc", ParamNameYear)]
+        [InlineData("2010ers", ParamNameYear)]
+        [InlineData("2010-24asd", ParamNameMonth)]
+        [InlineData("2010-12-04se", ParamNameDay)]
+        [InlineData("2014-06-17Teams", ParamNameHour)]
+        [InlineData("2013-11-21T10hjk", ParamNameHour)]
+        [InlineData("2014-02-21T10:2sdfs", ParamNameMinute)]
+        [InlineData("2012-03-04T11:21:10lsdkfj", ParamNameSecond)]
+        [InlineData("2011-11-09T02:23:05.5242sdfds", ParamNameFraction)]
+        [InlineData("2019-03-02T04:22:11.1223Zsdfr", ParamNameExtra)]
+        [InlineData("2019-03-02T04:22:11.5432+11:00sdkjfa", ParamNameExtra)]
+        [InlineData("2019-03-xxT04:22:11.5432+11:00", ParamNameDay)]
+        public void GivenAnInvalidFormatString_WhenParsing_ThenExceptionShouldBeThrown(string s, string fieldName)
         {
-            Assert.Throws<RequestNotValidException>(() => PartialDateTime.Parse("abc"));
+            Exception ex = Assert.Throws<RequestNotValidException>(() => PartialDateTime.Parse(s));
+            Assert.Contains(fieldName, ex.Message);
         }
 
         public static IEnumerable<object[]> GetParseData()

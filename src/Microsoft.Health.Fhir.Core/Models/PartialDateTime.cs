@@ -253,7 +253,14 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// <returns>An instance of <see cref="PartialDateTime"/>.</returns>
         public static PartialDateTime Parse(string s)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
+            try
+            {
+EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
+            }
+            catch (ArgumentException)
+            {
+                throw new RequestNotValidException("Input must not be null or white space.");
+            }
 
             Match match = DateTimeRegex.Match(s);
 

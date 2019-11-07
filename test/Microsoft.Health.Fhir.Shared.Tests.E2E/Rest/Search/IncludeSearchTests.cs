@@ -88,6 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             });
 
             string query = $"_include=Location:organization:Organization&_lastUpdated=lt{locationResponse2.Resource.Meta.LastUpdated:o}";
+            query = query.Replace("+", "%2B");
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
 
@@ -192,6 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
 
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000&_lastUpdated=lt{Fixture.PatientGroup.Meta.LastUpdated.Value:o}";
+            query = query.Replace("+", "%2B");
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
