@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         private const string SecondCapture = "second";
         private const string FractionCapture = "fraction";
         private const string TimeZoneCapture = "timeZone";
+        private const string ExtraCharacterCapture = "extra";
 
         // There is a difference between how the date should be parsed for storing and how the date should be parsed for searching.
         // For date that should be stored, the time zone information must be present if time is specified.
@@ -36,8 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Models
         // From spec: http://hl7.org/fhir/STU3/search.html#date, "the minutes SHALL be present if an hour is present, and you SHOULD provide a time zone if the time part is present."
         // This regular expression allows the time zone to be optional.
         private static readonly Regex DateTimeRegex = new Regex(
-            $@"-?(?<{YearCapture}>[0-9]{{4}})(-(?<{MonthCapture}>0[1-9]|1[0-2])(-(?<{DayCapture}>0[0-9]|[1-2][0-9]|3[0-1])(T(?<{HourCapture}>[01][0-9]|2[0-3]):(?<{MinuteCapture}>[0-5][0-9])(:((?<{SecondCapture}>[0-5][0-9])(?<{FractionCapture}>\.[0-9]+)?))?(?<{TimeZoneCapture}>Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))?)?)?)?",
-            RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
+           $@"-?([a-zA-Z]{{2}})?(?<{YearCapture}>[^-]+)(-(?<{MonthCapture}>[^-]+)(-(?<{DayCapture}>[^T]+)(T(?<{HourCapture}>[^:]+)(:(?<{MinuteCapture}>[^:Z+-]+)(:((?<{SecondCapture}>[^.Z+-]+)(?<{FractionCapture}>\.[^Z+-]+)?))?(?<{TimeZoneCapture}>Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))?)?)?)?)?(?<{ExtraCharacterCapture}>.*)",
+           RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PartialDateTime"/> class.
@@ -151,7 +152,14 @@ namespace Microsoft.Health.Fhir.Core.Models
             {
                 if (value != null)
                 {
-                    EnsureArg.IsInRange(value.Value, min, max, paramName);
+                    try
+                    {
+                        EnsureArg.IsInRange(value.Value, min, max, paramName);
+                    }
+                    catch (ArgumentException)
+                    {
+                        throw new RequestNotValidException($"The {paramName} must be a value between {min} and {max}");
+                    }
                 }
             }
         }
@@ -248,7 +256,18 @@ namespace Microsoft.Health.Fhir.Core.Models
                 throw new RequestNotValidException("Input string was not in a correct format.");
             }
 
-            int year = int.Parse(match.Groups[YearCapture].Value);
+            int year;
+            int? nullableYear = ParseDateTimePart(YearCapture);
+
+            if (nullableYear == null)
+            {
+                throw new RequestNotValidException("Dates must contain at least a year.");
+            }
+            else
+            {
+                year = (int)nullableYear;
+            }
+
             int? month = ParseDateTimePart(MonthCapture);
             int? day = ParseDateTimePart(DayCapture);
             int? hour = ParseDateTimePart(HourCapture);
@@ -261,7 +280,14 @@ namespace Microsoft.Health.Fhir.Core.Models
 
             if (!string.IsNullOrEmpty(fractionInString))
             {
-                fraction = decimal.Parse(fractionInString, CultureInfo.InvariantCulture);
+                try
+                {
+                    fraction = decimal.Parse(fractionInString, CultureInfo.InvariantCulture);
+                }
+                catch (Exception ex) when (ex is FormatException || ex is OverflowException)
+                {
+                    throw new RequestNotValidException($"The value of {fractionInString} for fractions of a second could not be parsed.");
+                }
             }
 
             TimeSpan? utcOffset = null;
@@ -274,7 +300,20 @@ namespace Microsoft.Health.Fhir.Core.Models
             }
             else if (!string.IsNullOrEmpty(timeZone))
             {
-                utcOffset = DateTimeOffset.ParseExact(timeZone, "zzz", CultureInfo.InvariantCulture).Offset;
+                try
+                {
+                    utcOffset = DateTimeOffset.ParseExact(timeZone, "zzz", CultureInfo.InvariantCulture).Offset;
+                }
+                catch (Exception ex) when (ex is FormatException || ex is ArgumentException)
+                {
+                    throw new RequestNotValidException($"The value of {timeZone} for the UTC offset could not be parsed.");
+                }
+            }
+
+            string extraCharacters = match.Groups[ExtraCharacterCapture]?.Value;
+            if (!string.IsNullOrEmpty(extraCharacters))
+            {
+                throw new RequestNotValidException($"The characters {extraCharacters} could not be parsed as part of an instant. Should use ISO8601 YYYY-MM-DDThh:mm:ss+TZ notation.");
             }
 
             // In search queries, the time zone information is optional (http://hl7.org/fhir/search.html#date).
@@ -290,9 +329,15 @@ namespace Microsoft.Health.Fhir.Core.Models
 
             int? ParseDateTimePart(string name)
             {
-                return (match.Groups[name]?.Value is var stringValue && string.IsNullOrEmpty(stringValue)) ?
-                    (int?)null :
-                    int.Parse(stringValue);
+                var stringValue = match.Groups[name]?.Value;
+                try
+                {
+                    return string.IsNullOrEmpty(stringValue) ? (int?)null : int.Parse(stringValue);
+                }
+                catch (Exception ex) when (ex is FormatException || ex is OverflowException)
+                {
+                    throw new RequestNotValidException($"The value of {stringValue} for {name} could not be parsed.");
+                }
             }
         }
 

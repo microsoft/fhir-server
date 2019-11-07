@@ -168,7 +168,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             _builder.Fraction = fraction;
             _builder.UtcOffset = TimeSpan.FromMinutes(utcOffsetInMinutes);
 
-            Assert.Throws<ArgumentOutOfRangeException>(paramName, () => _builder.ToPartialDateTime());
+            Exception ex = Assert.Throws<RequestNotValidException>(() => _builder.ToPartialDateTime());
+            Assert.Contains(paramName, ex.Message);
         }
 
         public static IEnumerable<object[]> GetParameterNullData()
