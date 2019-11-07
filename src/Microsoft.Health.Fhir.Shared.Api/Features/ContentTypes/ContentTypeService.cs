@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
         public async Task CheckRequestedContentTypeAsync(HttpContext httpContext)
         {
             var acceptHeaders = httpContext.Request.GetTypedHeaders().Accept;
-            string formatOverride = GetFormatFromQueryString(httpContext);
+            string formatOverride = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Format);
 
             // Check the _format first since it takes precedence over the accept header.
             if (!string.IsNullOrEmpty(formatOverride))
@@ -82,23 +83,30 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                     }
                 }
             }
+
+            string prettyParameterValue = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Pretty);
+
+            if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out _))
+            {
+                throw new BadRequestException(Api.Resources.InvalidPrettyParameter);
+            }
         }
 
-        private static string GetFormatFromQueryString(HttpContext context)
+        private static string GetParameterValueFromQueryString(HttpContext context, string parameterName)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            // If executing in a rethrown error context, ensure we carry the specified format
+            // If executing in a rethrown error context, ensure we carry the specified query string value.
             var previous = context.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalQueryString;
             var previousQuery = QueryHelpers.ParseNullableQuery(previous);
 
-            if (previousQuery?.TryGetValue(KnownQueryParameterNames.Format, out var originFormatValues) == true)
+            if (previousQuery?.TryGetValue(parameterName, out var originValues) == true)
             {
-                return originFormatValues.FirstOrDefault();
+                return originValues.FirstOrDefault();
             }
 
-            // Check the current query string
-            if (context.Request.Query.TryGetValue(KnownQueryParameterNames.Format, out var queryValues))
+            // Check the current query string.
+            if (context.Request.Query.TryGetValue(parameterName, out var queryValues))
             {
                 return queryValues.FirstOrDefault();
             }
