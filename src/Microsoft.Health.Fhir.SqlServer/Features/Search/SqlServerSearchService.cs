@@ -88,16 +88,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             // Perform a second read to get the count.
                             var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
-                            
+
                             searchResult.TotalCount = countOnlySearchResult.TotalCount;
+
+                            transaction.Commit();
                         }
                         finally
                         {
                             // Reset search options to its original state.
                             searchOptions.CountOnly = false;
                         }
-
-                        transaction.Commit();
                     }
                 }
                 else
