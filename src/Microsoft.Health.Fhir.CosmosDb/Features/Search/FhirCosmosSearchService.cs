@@ -43,23 +43,34 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 searchOptions,
                 cancellationToken);
 
-            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly && searchOptions.ContinuationToken == null)
             {
-                try
+                // If all the results fit on one page
+                if (searchResult.ContinuationToken == null)
                 {
-                    searchOptions.CountOnly = true;
-
-                    var totalSearchResult = await ExecuteSearchAsync(
-                        _queryBuilder.BuildSqlQuerySpec(searchOptions),
-                        searchOptions,
-                        cancellationToken);
-
-                    searchResult.TotalCount = totalSearchResult.TotalCount;
+                    // Count the results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count();
                 }
-                finally
+                else
                 {
-                    // Reset search options to its original state.
-                    searchOptions.CountOnly = false;
+                    try
+                    {
+                        // Otherwise, indicate that we'd like to get the count
+                        searchOptions.CountOnly = true;
+
+                        // And perform a second read.
+                        var totalSearchResult = await ExecuteSearchAsync(
+                            _queryBuilder.BuildSqlQuerySpec(searchOptions),
+                            searchOptions,
+                            cancellationToken);
+
+                        searchResult.TotalCount = totalSearchResult.TotalCount;
+                    }
+                    finally
+                    {
+                        // Reset search options to its original state.
+                        searchOptions.CountOnly = false;
+                    }
                 }
             }
 
