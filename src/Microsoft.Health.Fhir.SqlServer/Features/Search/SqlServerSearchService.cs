@@ -80,32 +80,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // Begin a transaction so we can perform two atomic reads.
                     using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
                     {
-                        try
+                        searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
+
+                        // If all results fit on one page
+                        if (searchResult.ContinuationToken == null)
                         {
-                            searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
-
-                            // If all results fit on one page
-                            if (searchResult.ContinuationToken == null)
-                            {
-                                // Count the results on the page.
-                                searchResult.TotalCount = searchResult.Results.Count();
-                            }
-                            else
-                            {
-                                searchOptions.CountOnly = true;
-
-                                // Perform a second read to get the count.
-                                var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
-
-                                searchResult.TotalCount = countOnlySearchResult.TotalCount;
-                            }
+                            // Count the results on the page.
+                            searchResult.TotalCount = searchResult.Results.Count();
 
                             transaction.Commit();
                         }
-                        finally
+                        else
                         {
-                            // Ensure search options is set to its original state.
-                            searchOptions.CountOnly = false;
+                            try
+                            {
+                                // Otherwise, indicate that we'd like to get the count
+                                searchOptions.CountOnly = true;
+
+                                // And perform a second read.
+                                var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
+
+                                searchResult.TotalCount = countOnlySearchResult.TotalCount;
+
+                                transaction.Commit();
+                            }
+                            finally
+                            {
+                                // Ensure search options is set to its original state.
+                                searchOptions.CountOnly = false;
+                            }
                         }
                     }
                 }
