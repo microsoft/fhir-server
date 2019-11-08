@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 SearchResult searchResult;
 
                 // If we should include the total count of matching search results
-                if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+                if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly && searchOptions.ContinuationToken == null)
                 {
                     // Begin a transaction so we can perform two atomic reads.
                     using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
@@ -84,18 +84,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
-                            searchOptions.CountOnly = true;
+                            // If all results fit on one page
+                            if (searchResult.ContinuationToken == null)
+                            {
+                                // Count the results on the page.
+                                searchResult.TotalCount = searchResult.Results.Count();
+                            }
+                            else
+                            {
+                                searchOptions.CountOnly = true;
 
-                            // Perform a second read to get the count.
-                            var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
+                                // Perform a second read to get the count.
+                                var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
-                            searchResult.TotalCount = countOnlySearchResult.TotalCount;
+                                searchResult.TotalCount = countOnlySearchResult.TotalCount;
+                            }
 
                             transaction.Commit();
                         }
                         finally
                         {
-                            // Reset search options to its original state.
+                            // Ensure search options is set to its original state.
                             searchOptions.CountOnly = false;
                         }
                     }
