@@ -45,15 +45,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                // TODO: Clone search options instead of mutating it (see User Story #720).
-                searchOptions.CountOnly = true;
+                try
+                {
+                    searchOptions.CountOnly = true;
 
-                var totalSearchResult = await ExecuteSearchAsync(
-                    _queryBuilder.BuildSqlQuerySpec(searchOptions),
-                    searchOptions,
-                    cancellationToken);
+                    var totalSearchResult = await ExecuteSearchAsync(
+                        _queryBuilder.BuildSqlQuerySpec(searchOptions),
+                        searchOptions,
+                        cancellationToken);
 
-                searchResult.TotalCount = totalSearchResult.TotalCount;
+                    searchResult.TotalCount = totalSearchResult.TotalCount;
+                }
+                finally
+                {
+                    // Reset search options to its original state.
+                    searchOptions.CountOnly = false;
+                }
             }
 
             return searchResult;
