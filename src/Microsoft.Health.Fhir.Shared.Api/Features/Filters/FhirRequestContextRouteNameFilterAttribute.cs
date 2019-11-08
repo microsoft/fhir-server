@@ -5,10 +5,13 @@
 
 using System;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -35,13 +38,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             fhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
 
-            var controllerActionDescriptor = context.ActionDescriptor as ControllerActionDescriptor;
-
-            if (controllerActionDescriptor != null)
+            if (context.ActionDescriptor is ControllerActionDescriptor controllerActionDescriptor)
             {
                 fhirRequestContext.AuditEventType = _auditEventTypeMapping.GetAuditEventType(
                     controllerActionDescriptor.ControllerName,
                     controllerActionDescriptor.ActionName);
+
+                // If this is a request from the batch and transaction route, we need to examine the payload to set the AuditEventType
+                if (fhirRequestContext.AuditEventType == AuditEventSubType.BundlePost)
+                {
+                    if (context.ActionArguments.TryGetValue(KnownActionParameterNames.Bundle, out object value))
+                    {
+                        if (!(value is Bundle bundle))
+                        {
+                            return;
+                        }
+
+                        switch (bundle.Type)
+                        {
+                            case Bundle.BundleType.Batch:
+                                fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
+                                break;
+                            case Bundle.BundleType.Transaction:
+                                fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
+                                break;
+                        }
+                    }
+                }
             }
         }
     }

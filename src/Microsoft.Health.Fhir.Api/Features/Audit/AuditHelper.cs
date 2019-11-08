@@ -62,13 +62,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
         private void Log(AuditAction auditAction, string controllerName, string actionName, HttpStatusCode? statusCode, string resourceType, HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
-            string auditEventType = _auditEventTypeMapping.GetAuditEventType(controllerName, actionName);
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+
+            string auditEventType = string.IsNullOrWhiteSpace(fhirRequestContext?.AuditEventType) ? _auditEventTypeMapping.GetAuditEventType(controllerName, actionName) : fhirRequestContext.AuditEventType;
 
             // Audit the call if an audit event type is associated with the action.
-            if (auditEventType != null)
+            if (auditEventType != null && fhirRequestContext != null)
             {
-                IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
-
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
