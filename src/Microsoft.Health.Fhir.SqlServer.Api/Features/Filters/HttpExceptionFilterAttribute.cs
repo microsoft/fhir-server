@@ -6,17 +6,25 @@
 using System;
 using System.IO;
 using System.Net;
+using EnsureThat;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
 {
-    public class HttpExceptionFilterAttribute : ActionFilterAttribute
+    internal class HttpExceptionFilterAttribute : ActionFilterAttribute
     {
         public override void OnActionExecuted(ActionExecutedContext context)
         {
-            if (!context.ExceptionHandled)
+        EnsureArg.IsNotNull(context, nameof(context));
+
+        if (context?.Exception == null)
+        {
+            return;
+        }
+
+        if (!context.ExceptionHandled)
             {
                 var resultJson = new JObject();
                 if (context.Exception != null)
