@@ -26,5 +26,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 }
             }
         }
+
+        public static byte[] GetMigrationScriptAsBytes(int version)
+        {
+            string resourceName = $"{typeof(ScriptProvider).Namespace}.Migrations.{version}.sql";
+            using (Stream filestream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+            {
+                if (filestream == null)
+                {
+                    throw new FileNotFoundException(Resources.ScriptNotFound);
+                }
+
+                byte[] scriptBytes = new byte[filestream.Length];
+                filestream.Read(scriptBytes, 0, scriptBytes.Length);
+                return scriptBytes;
+            }
+        }
     }
 }

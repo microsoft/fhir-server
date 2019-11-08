@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -73,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         {
             _logger.LogInformation($"Attempting to get script for schema version: {id}");
             string fileName = $"{id}.sql";
-            return File(Encoding.ASCII.GetBytes(ScriptProvider.GetMigrationScript(id)), "application/json", fileName);
+            return File(ScriptProvider.GetMigrationScriptAsBytes(id), "application/json", fileName);
         }
 
         [HttpGet]

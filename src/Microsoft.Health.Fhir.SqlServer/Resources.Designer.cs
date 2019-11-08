@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The provided version is unknown.
+        ///   Looks up a localized string similar to The provided version is unknown..
         /// </summary>
         internal static string ScriptNotFound {
             get {

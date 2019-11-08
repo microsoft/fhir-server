@@ -123,6 +123,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
             Assert.NotEmpty(script);
         }
 
+        [Fact]
+        public async Task WhenRequestingScript_GivenSchemaIdNotFound_TheServerShouldReturnNotFoundException()
+        {
+            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/0/script", HttpStatusCode.NotFound);
+        }
+
         private async Task SendAndVerifyStatusCode(HttpMethod httpMethod, string path, HttpStatusCode httpStatusCode)
         {
             var request = new HttpRequestMessage
