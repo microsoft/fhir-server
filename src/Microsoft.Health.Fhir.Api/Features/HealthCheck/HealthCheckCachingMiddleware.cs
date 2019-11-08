@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Features.HealthCheck
 
         private async Task<bool> WriteCachedResult(Stream originalBodyStream, bool forceWrite = false)
         {
-            if (forceWrite || (_lastResultBuffer != null && _lastCheckTime >= Clock.UtcNow.Add(-_cacheDuration)))
+            if (_lastResultBuffer != null && (forceWrite || _lastCheckTime >= Clock.UtcNow.Add(-_cacheDuration)))
             {
                 if (!forceWrite)
                 {
