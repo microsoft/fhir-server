@@ -43,10 +43,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 searchOptions,
                 cancellationToken);
 
-            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly && searchOptions.ContinuationToken == null)
+            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                // If all the results fit on one page
-                if (searchResult.ContinuationToken == null)
+                // If this is the first page and there aren't any more pages
+                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
                     // Count the results on the page.
                     searchResult.TotalCount = searchResult.Results.Count();
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     }
                     finally
                     {
-                        // Reset search options to its original state.
+                        // Ensure search options is set to its original state.
                         searchOptions.CountOnly = false;
                     }
                 }

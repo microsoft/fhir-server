@@ -96,7 +96,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     bundle.NextLink = _urlResolver.ResolveRouteUrl(
                         result.UnsupportedSearchParameters,
                         result.UnsupportedSortingParameters,
-                        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)));
+                        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
+                        true);
                 }
             }
 

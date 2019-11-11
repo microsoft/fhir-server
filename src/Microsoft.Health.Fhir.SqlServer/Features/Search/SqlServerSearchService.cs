@@ -75,15 +75,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 SearchResult searchResult;
 
                 // If we should include the total count of matching search results
-                if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly && searchOptions.ContinuationToken == null)
+                if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
                 {
                     // Begin a transaction so we can perform two atomic reads.
                     using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
                     {
                         searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
-                        // If all results fit on one page
-                        if (searchResult.ContinuationToken == null)
+                        // If this is the first page and there aren't any more pages
+                        if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                         {
                             // Count the results on the page.
                             searchResult.TotalCount = searchResult.Results.Count();
