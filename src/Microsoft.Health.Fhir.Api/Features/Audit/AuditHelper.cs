@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-            string auditEventType = string.IsNullOrWhiteSpace(fhirRequestContext?.AuditEventType) ? _auditEventTypeMapping.GetAuditEventType(controllerName, actionName) : fhirRequestContext.AuditEventType;
+            string auditEventType = string.IsNullOrWhiteSpace(fhirRequestContext.AuditEventType) ? _auditEventTypeMapping.GetAuditEventType(controllerName, actionName) : fhirRequestContext.AuditEventType;
 
             // Audit the call if an audit event type is associated with the action.
             if (auditEventType != null)
@@ -73,9 +73,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     auditAction,
                     operation: auditEventType,
                     resourceType: resourceType,
-                    requestUri: fhirRequestContext?.Uri,
+                    requestUri: fhirRequestContext.Uri,
                     statusCode: statusCode,
-                    correlationId: fhirRequestContext?.CorrelationId,
+                    correlationId: fhirRequestContext.CorrelationId,
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext));
