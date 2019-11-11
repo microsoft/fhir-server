@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
@@ -17,15 +18,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             var requestBundle = Samples.GetDefaultTransaction();
 
-            Assert.True(BundleValidator.ValidateTransactionBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()));
+            BundleValidator.ValidateTransactionBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>());
         }
 
         [Fact]
-        public void GivenABundleWithUniqueResources_BundleValidatorSHouldReturnFalse()
+        public void GivenABundleWithDupliateResourceIds_BundleValidatorShouldReturnFalse()
         {
-            var requestBundle = Samples.GetDefaultTransaction();
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithDuplicateResources");
 
-            Assert.True(BundleValidator.ValidateTransactionBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()));
+            Assert.Throws<RequestNotValidException>(() => BundleValidator.ValidateTransactionBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()));
         }
     }
 }
