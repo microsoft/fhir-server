@@ -63,76 +63,47 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenNormalRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(NormalAuditEventType);
-
-            var filter = new FhirRequestContextRouteNameFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
-
-            filter.OnActionExecuting(_context);
-
-            Assert.NotNull(_fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(NormalAuditEventType, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(RouteName, _fhirRequestContextAccessor.FhirRequestContext.RouteName);
+            ExecuteAndValidateFilter(NormalAuditEventType, NormalAuditEventType);
         }
 
         [Fact]
         public void GivenNormalBatchRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(AuditEventSubType.BundlePost);
-
             _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultBatch().ToPoco<Bundle>());
-
-            var filter = new FhirRequestContextRouteNameFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
-
-            filter.OnActionExecuting(_context);
-
-            Assert.NotNull(_fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(AuditEventSubType.Batch, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(RouteName, _fhirRequestContextAccessor.FhirRequestContext.RouteName);
+            ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.Batch);
         }
 
         [Fact]
         public void GivenNormalTransactionRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(AuditEventSubType.BundlePost);
-
             _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultTransaction().ToPoco<Bundle>());
-
-            var filter = new FhirRequestContextRouteNameFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
-
-            filter.OnActionExecuting(_context);
-
-            Assert.NotNull(_fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(AuditEventSubType.Transaction, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(RouteName, _fhirRequestContextAccessor.FhirRequestContext.RouteName);
+            ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.Transaction);
         }
 
         [Fact]
         public void GivenABundleRequestWithNoArgumentRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(AuditEventSubType.BundlePost);
-
-            var filter = new FhirRequestContextRouteNameFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
-
-            filter.OnActionExecuting(_context);
-
-            Assert.NotNull(_fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(AuditEventSubType.BundlePost, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(RouteName, _fhirRequestContextAccessor.FhirRequestContext.RouteName);
+            ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.BundlePost);
         }
 
         [Fact]
         public void GivenABundleRequestWithANonBundleResourceRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(AuditEventSubType.BundlePost);
-
             _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultObservation().ToPoco<Observation>());
+
+            ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.BundlePost);
+        }
+
+        private void ExecuteAndValidateFilter(string auditEventTypeFromMapping, string expectedAuditEventType)
+        {
+            _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(auditEventTypeFromMapping);
 
             var filter = new FhirRequestContextRouteNameFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
 
             filter.OnActionExecuting(_context);
 
             Assert.NotNull(_fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(AuditEventSubType.BundlePost, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
+            Assert.Equal(expectedAuditEventType, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
             Assert.Equal(RouteName, _fhirRequestContextAccessor.FhirRequestContext.RouteName);
         }
     }
