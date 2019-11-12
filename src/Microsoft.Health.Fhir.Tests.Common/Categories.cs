@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
     {
         public const string Authorization = "Authorization";
 
+        public const string Batch = "Batch";
+
         public const string ConditionalCreate = "ConditionalCreate";
 
         public const string ConditionalUpdate = "ConditionalUpdate";
@@ -16,6 +18,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Cors = "Cors";
 
         public const string Crucible = "Crucible";
+
+        public const string Transaction = "Transaction";
 
         public const string Xml = "Xml";
     }

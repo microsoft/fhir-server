@@ -5,9 +5,9 @@
 
 using MediatR;
 
-namespace Microsoft.Health.Fhir.Core.Features.Context
+namespace Microsoft.Health.Fhir.Core.Features.Metrics
 {
-    public interface IStorageRequestMetrics : INotification
+    public interface IMetricsNotification : INotification
     {
         string FhirOperation { get; }
 
