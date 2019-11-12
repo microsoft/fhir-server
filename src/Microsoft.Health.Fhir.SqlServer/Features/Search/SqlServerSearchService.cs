@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 sqlCommand.CommandText = stringBuilder.ToString();
 
-                LogSqlComand(sqlCommand);
+                LogSqlCommand(sqlCommand);
 
                 using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Logs the parameter declarations and command text of a SQL command
         /// </summary>
         [Conditional("DEBUG")]
-        private void LogSqlComand(SqlCommand sqlCommand)
+        private void LogSqlCommand(SqlCommand sqlCommand)
         {
             var sb = new StringBuilder();
             foreach (SqlParameter p in sqlCommand.Parameters)
