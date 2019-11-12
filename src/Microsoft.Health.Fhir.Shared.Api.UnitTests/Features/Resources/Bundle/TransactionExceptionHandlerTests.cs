@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     public class TransactionExceptionHandlerTests
     {
         [Fact]
-        public void GivenAOperationOutCome_WhenExecuted_ThenACorrectExceptionIsThrown()
+        public void GivenAnOperationOutCome_WhenExecuted_ThenACorrectExceptionIsThrown()
         {
             string message = "Error Message";
             HttpStatusCode statusCode = HttpStatusCode.Processing;
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public void GivenAOperationOutCome_WhenParsed_ThenACorrectListOfOPerationOutComeIssuesIsReturned()
+        public void GivenAnOperationOutCome_WhenParsed_ThenACorrectListOfOPerationOutComeIssuesIsReturned()
         {
             var operationOutcomeIssues = GetOperationOutcomeList().Issue;
             var parsedOperationOutcomeIssueList = TransactionExceptionHandler.GetOperationOutcomeIssues(operationOutcomeIssues);

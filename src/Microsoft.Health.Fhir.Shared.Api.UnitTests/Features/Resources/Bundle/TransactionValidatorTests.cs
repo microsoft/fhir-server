@@ -22,9 +22,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public void GivenABundleWithDupliateResourceIds_BundleValidatorShouldThrowException()
+        public void GivenATransactionBundle_IfContainsMultipleResourcesWithSameFullUrl_BundleValidatorShouldThrowException()
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithDuplicateResources");
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithMultipleResourcesWithSameFullUrl");
+
+            ValidateIfBundleEntryIsUnique(requestBundle);
+        }
+
+        [Fact]
+        public void GivenATransactionBundle_IfContainsMultipleEntriesModifyingSameResource_BundleValidatorShouldThrowException()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithMultipleEntriesModifyingSameResource");
 
             ValidateIfBundleEntryIsUnique(requestBundle);
         }

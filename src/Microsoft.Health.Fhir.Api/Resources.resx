@@ -189,8 +189,8 @@
     <value>Id must be specified in the resource.</value>
   </data>
   <data name="ResourcesMustBeUnique" xml:space="preserve">
-    <value>Bundle contains multiple resources with the same request url '{0}' </value>
-    <comment>'{0}' is the request url</comment>
+    <value>Bundle contains multiple resources with the same request url '{0}'.</value>
+    <comment>'{0}' is the request url.</comment>
   </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
     <value>Resource type in the URL must match resourceType in the resource.</value>
