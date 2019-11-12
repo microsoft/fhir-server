@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            await FillRequestLists(bundleResource.Entry);
+            await FillRequestLists(bundleResource.Type, bundleResource.Entry);
 
             if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Batch)
             {
@@ -91,8 +91,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
             {
-                TransactionProcessor.PreProcessBundleTransaction(bundleResource);
-
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse,
@@ -124,13 +122,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
+        private async Task FillRequestLists(Hl7.Fhir.Model.Bundle.BundleType? bundleType, List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
         {
+            var resourceUrlList = new HashSet<string>();
+
             foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
             {
                 if (entry.Request.Method == null)
                 {
                     continue;
+                }
+
+                if (bundleType == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
+                {
+                    TransactionValidator.ValidateTransaction(resourceUrlList, entry);
                 }
 
                 HttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
@@ -227,7 +232,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
                         {
                             entryComponent.Response.Outcome = entryComponentResource;
-                            TransactionProcessor.ThrowTransactionException(responseBundle.Type, httpContext, (OperationOutcome)entryComponentResource);
+
+                            if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                            {
+                                var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
+
+                                TransactionExceptionHandler.ThrowTransactionException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, (OperationOutcome)entryComponentResource);
+                            }
                         }
                         else
                         {

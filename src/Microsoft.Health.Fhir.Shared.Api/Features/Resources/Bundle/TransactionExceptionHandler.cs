@@ -6,31 +6,18 @@
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public static class TransactionProcessor
+    public static class TransactionExceptionHandler
     {
-        public static void PreProcessBundleTransaction(Hl7.Fhir.Model.Bundle bundleResource)
+        public static void ThrowTransactionException(string errorMessage, HttpStatusCode statusCode, OperationOutcome operationOutcome)
         {
-            BundleValidator.ValidateTransactionBundle(bundleResource);
-        }
-
-        public static void ThrowTransactionException(Hl7.Fhir.Model.Bundle.BundleType? bundleType, HttpContext httpContext, OperationOutcome operationOutcome)
-        {
-            if (bundleType != Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
-            {
-                return;
-            }
-
             var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
 
-            var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
-
-            throw new TransactionFailedException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, operationOutcomeIssues);
+            throw new TransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }
 
         public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
