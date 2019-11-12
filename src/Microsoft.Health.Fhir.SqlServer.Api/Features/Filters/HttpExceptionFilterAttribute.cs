@@ -17,20 +17,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
     {
         public override void OnActionExecuted(ActionExecutedContext context)
         {
-        EnsureArg.IsNotNull(context, nameof(context));
+            EnsureArg.IsNotNull(context, nameof(context));
 
-        if (context?.Exception == null)
-        {
-            return;
-        }
-
-        if (!context.ExceptionHandled)
+            if (context.Exception == null)
             {
-                var resultJson = new JObject();
-                if (context.Exception != null)
-                {
-                    resultJson = new JObject { ["error"] = context.Exception.Message };
-                }
+                return;
+            }
+
+            if (!context.ExceptionHandled)
+            {
+                var resultJson = new JObject { ["error"] = context.Exception.Message };
 
                 switch (context.Exception)
                 {
