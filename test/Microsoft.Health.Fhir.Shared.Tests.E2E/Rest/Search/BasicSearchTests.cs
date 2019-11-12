@@ -326,6 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotNull(bundle);
             Assert.NotEmpty(bundle.Entry);
             Assert.Equal(numberOfResources, bundle.Total);
+            Assert.DoesNotContain("_total", bundle.NextLink.ToString(), StringComparison.OrdinalIgnoreCase);
 
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
