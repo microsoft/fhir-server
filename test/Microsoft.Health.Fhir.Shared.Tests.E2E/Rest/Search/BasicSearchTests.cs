@@ -305,7 +305,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldBeIncludedInReturnedBundleForSubsequentPages()
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldNotBeIncludedInReturnedBundleForSubsequentPages()
         {
             const int numberOfResources = 5;
 
@@ -331,7 +331,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Assert.NotNull(bundle);
             Assert.NotEmpty(bundle.Entry);
-            Assert.Equal(numberOfResources, bundle.Total);
+            Assert.Null(bundle.Total);
         }
 
         [Fact]
