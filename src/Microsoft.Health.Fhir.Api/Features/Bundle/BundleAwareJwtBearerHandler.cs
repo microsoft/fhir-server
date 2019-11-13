@@ -14,6 +14,11 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.Health.Fhir.Api.Features.Bundle
 {
+    /// <summary>
+    /// This class extends the standard JwtBearerHandler to handle cases when batches and transactions are processed.
+    /// Because the pipeline is only setup once, the context used in portions of the pipeline is set to the POST on / for batches/transactions and not the sub-calls.
+    /// To counteract this behavior in the case of sub-calls we check to see if the BundleHttpContextAccessor has an HttpContext and set its response status code.
+    /// </summary>
     public class BundleAwareJwtBearerHandler : JwtBearerHandler
     {
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
