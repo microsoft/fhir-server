@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Diagnostics;
 using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
@@ -64,6 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
+            // fhirRequestContext.AuditEventType will not be set in the case of an unauthorized call because the filter that sets it will not be executed
             string auditEventType = string.IsNullOrWhiteSpace(fhirRequestContext.AuditEventType) ? _auditEventTypeMapping.GetAuditEventType(controllerName, actionName) : fhirRequestContext.AuditEventType;
 
             // Audit the call if an audit event type is associated with the action.
