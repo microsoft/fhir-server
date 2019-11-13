@@ -129,36 +129,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 throw new InvalidOperationException("The initial catalog in the connection string cannot be a system database");
             }
 
-            // connect to master database to evaluate if the requested database exists
-            var masterConnectionBuilder = new SqlConnectionStringBuilder(_sqlServerDataStoreConfiguration.ConnectionString) { InitialCatalog = string.Empty };
-            using (var connection = new SqlConnection(masterConnectionBuilder.ToString()))
+            if (_sqlServerDataStoreConfiguration.AllowDatabaseCreation)
             {
-                connection.Open();
-
-                using (var checkDatabaseExistsCommand = connection.CreateCommand())
+                // connect to master database to evaluate if the requested database exists
+                var masterConnectionBuilder = new SqlConnectionStringBuilder(_sqlServerDataStoreConfiguration.ConnectionString) { InitialCatalog = string.Empty };
+                using (var connection = new SqlConnection(masterConnectionBuilder.ToString()))
                 {
-                    checkDatabaseExistsCommand.CommandText = "SELECT 1 FROM sys.databases where name = @databaseName";
-                    checkDatabaseExistsCommand.Parameters.AddWithValue("@databaseName", databaseName);
-                    bool exists = (int?)checkDatabaseExistsCommand.ExecuteScalar() == 1;
+                    connection.Open();
 
-                    if (!exists)
+                    using (var checkDatabaseExistsCommand = connection.CreateCommand())
                     {
-                        _logger.LogInformation("Database does not exist");
+                        checkDatabaseExistsCommand.CommandText = "SELECT 1 FROM sys.databases where name = @databaseName";
+                        checkDatabaseExistsCommand.Parameters.AddWithValue("@databaseName", databaseName);
+                        bool exists = (int?)checkDatabaseExistsCommand.ExecuteScalar() == 1;
 
-                        using (var canCreateDatabaseCommand = new SqlCommand("SELECT count(*) FROM fn_my_permissions (NULL, 'DATABASE') WHERE permission_name = 'CREATE DATABASE'", connection))
+                        if (!exists)
                         {
-                            if ((int)canCreateDatabaseCommand.ExecuteScalar() > 0)
+                            _logger.LogInformation("Database does not exist");
+
+                            using (var canCreateDatabaseCommand = new SqlCommand("SELECT count(*) FROM fn_my_permissions (NULL, 'DATABASE') WHERE permission_name = 'CREATE DATABASE'", connection))
                             {
-                                using (var createDatabaseCommand = new SqlCommand($"CREATE DATABASE {databaseName}", connection))
+                                if ((int)canCreateDatabaseCommand.ExecuteScalar() > 0)
                                 {
-                                    createDatabaseCommand.ExecuteNonQuery();
-                                    _logger.LogInformation("Created database");
+                                    using (var createDatabaseCommand = new SqlCommand($"CREATE DATABASE {databaseName}", connection))
+                                    {
+                                        createDatabaseCommand.ExecuteNonQuery();
+                                        _logger.LogInformation("Created database");
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                _logger.LogWarning("Insufficient permissions to create the database");
-                                return false;
+                                else
+                                {
+                                    _logger.LogWarning("Insufficient permissions to create the database");
+                                    return false;
+                                }
                             }
                         }
                     }

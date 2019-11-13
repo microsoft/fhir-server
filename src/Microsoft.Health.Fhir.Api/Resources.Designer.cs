@@ -106,6 +106,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Transaction was failed while processing the request..
+        /// </summary>
+        public static string GeneralTransactionFailedError {
+            get {
+                return ResourceManager.GetString("GeneralTransactionFailedError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported..
+        /// </summary>
+        public static string InvalidBundleType {
+            get {
+                return ResourceManager.GetString("InvalidBundleType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid compound authorization code..
         /// </summary>
         public static string InvalidCompoundCode {
@@ -120,6 +138,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InvalidLaunchContext {
             get {
                 return ResourceManager.GetString("InvalidLaunchContext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;_pretty&quot; parameter is invalid..
+        /// </summary>
+        public static string InvalidPrettyParameter {
+            get {
+                return ResourceManager.GetString("InvalidPrettyParameter", resourceCulture);
             }
         }
         
@@ -196,6 +223,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to PATCH is not currently supported..
+        /// </summary>
+        public static string PatchNotSupported {
+            get {
+                return ResourceManager.GetString("PatchNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The security configuration requires the authority to be set to an https address..
         /// </summary>
         public static string RequireHttpsMetadataError {
@@ -246,6 +282,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TooManyCustomAuditHeaders {
             get {
                 return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Transaction failed on &apos;{0}&apos; for the requested url &apos;{1}&apos;..
+        /// </summary>
+        public static string TransactionFailed {
+            get {
+                return ResourceManager.GetString("TransactionFailed", resourceCulture);
             }
         }
         

@@ -18,9 +18,6 @@
     <ExcludeFolder>GeoPol.xml</ExcludeFolder>
     <ExcludeFolder>THIRDPARTYNOTICES.md</ExcludeFolder>
     <ExcludeFolder>src\Microsoft.Health.Fhir.Stu3.Core\Features\Definition\search-parameters.json</ExcludeFolder>
-    <ExcludeFolder>src\Microsoft.Health.Fhir.Stu3.Core\Features\Conformance\AllCapabilities.json</ExcludeFolder>
     <ExcludeFolder>src\Microsoft.Health.Fhir.R4.Core\Features\Definition\search-parameters.json</ExcludeFolder>
-    <ExcludeFolder>src\Microsoft.Health.Fhir.R4.Core\Features\Conformance\AllCapabilities.json</ExcludeFolder>
-    <ExcludeFolder>src\Microsoft.Health.Fhir.R4.Core\Features\Conformance\DefaultCapabilities.json</ExcludeFolder>
   </Component>
 </GeoPol_Folders>

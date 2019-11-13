@@ -38,7 +38,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<IStartable>()
-                .AsService<IProvideCapability>()
                 .AsService<ISearchParameterDefinitionManager>();
 
             services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()

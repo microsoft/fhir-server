@@ -5,7 +5,7 @@
 
 using System;
 using System.Net;
-using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
     /// This gets emitted by the ApiNotificationMiddleware when a response is returned by the server.
     /// Consume these using Mediatr to collect stats about API responses.
     /// </summary>
-    public class ApiResponseNotification : INotification
+    public class ApiResponseNotification : IMetricsNotification
     {
         /// <summary>
         /// The FHIR operation being performed.

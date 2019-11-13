@@ -255,6 +255,122 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldBeIncludedInReturnedBundle()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_total=accurate");
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+            Assert.Equal(numberOfResources, bundle.Total);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeNone_ThenTotalCountShouldBeIncludedInReturnedBundle()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_total=none");
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+            Assert.Null(bundle.Total);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldBeIncludedInReturnedBundleForSubsequentPages()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_total=accurate&_count=2");
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+            Assert.Equal(numberOfResources, bundle.Total);
+
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+            Assert.Equal(numberOfResources, bundle.Total);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeEstimate_ThenExceptionShouldBeThrown()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total=estimate"));
+
+            Assert.Equal(HttpStatusCode.Forbidden, ex.StatusCode);
+        }
+
+        [InlineData("_total", "count")]
+        [InlineData("_total", "xyz")]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourceWithTypeValue_WhenSearchedWithTypeParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             var code = Guid.NewGuid().ToString();

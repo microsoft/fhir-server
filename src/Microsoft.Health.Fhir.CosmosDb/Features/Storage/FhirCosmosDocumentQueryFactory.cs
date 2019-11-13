@@ -7,7 +7,6 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Linq;
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -17,20 +16,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class FhirCosmosDocumentQueryFactory : ICosmosDocumentQueryFactory
     {
         private readonly IFhirDocumentQueryLogger _logger;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirCosmosDocumentQueryFactory"/> class.
         /// </summary>
-        /// <param name="fhirRequestContextAccessor">The request context accessor</param>
+        /// <param name="cosmosResponseProcessor">The cosmos response processor</param>
         /// <param name="logger">The logger.</param>
-        public FhirCosmosDocumentQueryFactory(IFhirRequestContextAccessor fhirRequestContextAccessor, IFhirDocumentQueryLogger logger)
+        public FhirCosmosDocumentQueryFactory(ICosmosResponseProcessor cosmosResponseProcessor, IFhirDocumentQueryLogger logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(cosmosResponseProcessor, nameof(cosmosResponseProcessor));
 
+            _cosmosResponseProcessor = cosmosResponseProcessor;
             _logger = logger;
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         /// <inheritdoc />
@@ -48,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return new FhirDocumentQuery<T>(
                 context,
                 documentQuery,
-                _fhirRequestContextAccessor,
+                _cosmosResponseProcessor,
                 _logger);
         }
     }

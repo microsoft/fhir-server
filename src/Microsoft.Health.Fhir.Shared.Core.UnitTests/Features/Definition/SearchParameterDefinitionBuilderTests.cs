@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             _builderWithValidEntries.Build();
 
             Assert.Equal(
-                ModelInfoProvider.GetResourceTypeNames().OrderBy(x => x),
+                ModelInfoProvider.GetResourceTypeNames().Concat(new[] { "Resource", "DomainResource" }).OrderBy(x => x).ToArray(),
                 _builderWithValidEntries.ResourceTypeDictionary.Select(x => x.Key).OrderBy(x => x).ToArray());
         }
 

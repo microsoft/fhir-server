@@ -217,6 +217,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true");
         }
 
+        public async Task<FhirResponse> PatchAsync(string uri, string content)
+        {
+            var message = new HttpRequestMessage(HttpMethod.Patch, uri)
+            {
+                Content = new StringContent(content),
+            };
+            message.Headers.Accept.Add(_mediaType);
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return new FhirResponse(response);
+        }
+
         public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null)
         {
             StringBuilder sb = new StringBuilder();
