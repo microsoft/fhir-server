@@ -134,7 +134,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     if (string.Equals(searchParam.Key, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase) && removeTotalParameter)
                     {
                         // Don't add the _total parameter to the route values.
-                        // TODO: Check how this impacts multiple parameters with the same name?
                         continue;
                     }
 
