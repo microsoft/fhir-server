@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -38,10 +39,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<RouteContext>> _requests;
+        private readonly Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, Dictionary<RouteContext, int>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
+        private int entrySize;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser)
         {
@@ -85,6 +87,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
         {
+            int order = 0;
+            entrySize = bundleEntries.Count;
             foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
             {
                 if (entry.Request.Method == null)
@@ -125,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     RouteData = routeContext.RouteData,
                 };
 
-                _requests[entry.Request.Method.Value].Add(routeContext);
+                _requests[entry.Request.Method.Value].Add(routeContext, order++);
             }
         }
 
@@ -139,8 +143,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb)
         {
-            foreach (RouteContext request in _requests[httpVerb])
+            foreach (KeyValuePair<RouteContext, int> entry in _requests[httpVerb])
             {
+                RouteContext request = entry.Key;
                 var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
 
                 if (request.Handler != null)
@@ -179,7 +184,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent { Status = ((int)HttpStatusCode.NotFound).ToString() };
                 }
 
-                responseBundle.Entry.Add(entryComponent);
+                if (responseBundle.Entry?.Any() != true)
+                {
+                    List<EntryComponent> entryComponents = new EntryComponent[entrySize].ToList();
+                    entryComponents[entry.Value] = entryComponent;
+                    responseBundle.Entry = entryComponents;
+                }
+                else
+                {
+                    responseBundle.Entry[entry.Value] = entryComponent;
+                }
             }
         }
     }

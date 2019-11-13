@@ -14,16 +14,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler
     {
-        private Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<RouteContext>> GenerateRequestDictionary()
+        private Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, Dictionary<RouteContext, int>> GenerateRequestDictionary()
         {
-            return new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<RouteContext>>
+            return new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, Dictionary<RouteContext, int>>
             {
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.HEAD, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.PATCH, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<RouteContext>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<RouteContext>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new Dictionary<RouteContext, int>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new Dictionary<RouteContext, int>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.HEAD, new Dictionary<RouteContext, int>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.PATCH, new Dictionary<RouteContext, int>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new Dictionary<RouteContext, int>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new Dictionary<RouteContext, int>() },
             };
         }
 
