@@ -62,6 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public IDictionary<string, StringValues> ResponseHeaders { get; }
 
-        public string ResourceType { get; }
+        public string ResourceType { get; set; }
     }
 }

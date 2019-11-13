@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -45,7 +44,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _metricHandler?.ResetCount();
 
             await ExecuteAndValidate(
-                () => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco()),
+                async () =>
+                {
+                    var result = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco());
+                    return result.Response;
+                },
                 (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().ResourceType.ToString()),
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().ResourceType.ToString()));
         }
