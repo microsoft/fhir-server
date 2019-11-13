@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 {
                     // Remove the parameter if:
                     // 1. It is the _total parameter, since we only want to count for the first page of results.
-                    if (string.Equals(searchParam.Key, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase) && removeTotalParameter)
+                    if (removeTotalParameter && string.Equals(searchParam.Key, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase))
                     {
                         // Don't add the _total parameter to the route values.
                         continue;
