@@ -53,7 +53,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly ILogger<BundleHandler> _logger;
 
-        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ILogger<BundleHandler> logger)
+        public BundleHandler(
+            IHttpContextAccessor httpContextAccessor,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            FhirJsonSerializer fhirJsonSerializer,
+            FhirJsonParser fhirJsonParser,
+            ITransactionHandler transactionHandler,
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            ILogger<BundleHandler> logger)
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));

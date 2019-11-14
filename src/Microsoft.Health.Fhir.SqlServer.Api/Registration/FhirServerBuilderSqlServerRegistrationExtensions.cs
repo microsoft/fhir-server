@@ -63,6 +63,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlTransactionHandler>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<SqlServerFhirOperationDataStore>()
                 .Scoped()
                 .AsSelf()
