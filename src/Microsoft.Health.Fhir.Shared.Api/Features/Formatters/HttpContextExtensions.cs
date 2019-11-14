@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 if (!bool.TryParse(query, out bool isPretty))
                 {
-                    // Assume no pretty formatting if parameter can't be parsed.
+                    // ContentTypeService validates the _pretty parameter. This is reached if other errors are encountered when parsing the query string.
                     isPretty = default;
                 }
 

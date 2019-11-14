@@ -112,6 +112,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case NotAcceptableException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.NotAcceptable;
                         break;
+                    case TransactionFailedException tfe:
+                        operationOutcomeResult.StatusCode = tfe.ResponseStatusCode;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;

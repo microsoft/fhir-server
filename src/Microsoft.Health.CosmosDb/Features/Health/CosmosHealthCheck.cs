@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -11,6 +12,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -65,6 +67,10 @@ namespace Microsoft.Health.CosmosDb.Features.Health
                 await _testProvider.PerformTest(_documentClient.Value, _configuration, _cosmosCollectionConfiguration);
 
                 return HealthCheckResult.Healthy("Successfully connected to the data store.");
+            }
+            catch (RequestRateExceededException)
+            {
+                return HealthCheckResult.Healthy("Connection to the data store was successful, however, the rate limit has been exceeded.");
             }
             catch (Exception ex)
             {

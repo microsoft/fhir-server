@@ -464,6 +464,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "resourcetest_clinicalimpression/X020_ClinicalImpression",
             "resourcetest_clinicalimpression/X030_ClinicalImpression",
             "resourcetest_careplan/X010_CarePlan",
+            "resourcetest_careplan/X030_CarePlan",
             "resourcetest_immunizationevaluation/X030_ImmunizationEvaluation",
             "resourcetest_immunizationevaluation/X020_ImmunizationEvaluation",
             "resourcetest_immunizationevaluation/X010_ImmunizationEvaluation",

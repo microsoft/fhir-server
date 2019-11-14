@@ -45,14 +45,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             IFhirDataStore fhirDataStore,
-            IModelInfoProvider modelInfoProvider,
             SqlServerFhirModel model,
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
             SqlServerDataStoreConfiguration configuration,
             ILogger<SqlServerSearchService> logger)
-            : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
+            : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
@@ -81,14 +80,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // Begin a transaction so we can perform two atomic reads.
                     using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
                     {
-                        searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
+                        try
+                        {
+                            searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
-                        // Perform a second read to get the count.
-                        var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction, true);
+                            searchOptions.CountOnly = true;
 
-                        searchResult.TotalCount = countOnlySearchResult.TotalCount;
+                            // Perform a second read to get the count.
+                            var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
 
-                        transaction.Commit();
+                            searchResult.TotalCount = countOnlySearchResult.TotalCount;
+
+                            transaction.Commit();
+                        }
+                        finally
+                        {
+                            // Reset search options to its original state.
+                            searchOptions.CountOnly = false;
+                        }
                     }
                 }
                 else
@@ -110,14 +119,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, SqlConnection connection, CancellationToken cancellationToken, SqlTransaction transaction = null, bool calculateTotalCount = false)
+        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, SqlConnection connection, CancellationToken cancellationToken, SqlTransaction transaction = null)
         {
             await _model.EnsureInitialized();
 
             Expression searchExpression = searchOptions.Expression;
 
             // AND in the continuation token
-            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken))
+            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
@@ -160,17 +169,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 EnableTimeAndIoMessageLogging(stringBuilder, connection);
 
-                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch, calculateTotalCount);
+                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch);
 
                 expression.AcceptVisitor(queryGenerator, searchOptions);
 
                 sqlCommand.CommandText = stringBuilder.ToString();
 
-                LogSqlComand(sqlCommand);
+                LogSqlCommand(sqlCommand);
 
                 using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    if (searchOptions.CountOnly || calculateTotalCount)
+                    if (searchOptions.CountOnly)
                     {
                         await reader.ReadAsync(cancellationToken);
                         return new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
@@ -264,7 +273,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Logs the parameter declarations and command text of a SQL command
         /// </summary>
         [Conditional("DEBUG")]
-        private void LogSqlComand(SqlCommand sqlCommand)
+        private void LogSqlCommand(SqlCommand sqlCommand)
         {
             var sb = new StringBuilder();
             foreach (SqlParameter p in sqlCommand.Parameters)

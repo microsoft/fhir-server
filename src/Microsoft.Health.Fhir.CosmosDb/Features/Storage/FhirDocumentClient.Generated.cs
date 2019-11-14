@@ -89,11 +89,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateAttachmentAsync(attachmentsLink, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
+                return await ProcessResponse(await _inner.CreateAttachmentAsync(attachmentsLink, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -103,11 +103,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateAttachmentAsync(documentLink, attachment, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.CreateAttachmentAsync(documentLink, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -117,11 +117,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateAttachmentAsync(documentUri, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
+                return await ProcessResponse(await _inner.CreateAttachmentAsync(documentUri, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -131,11 +131,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateAttachmentAsync(documentUri, attachment, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.CreateAttachmentAsync(documentUri, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -247,7 +247,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -303,7 +303,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -317,7 +317,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -331,7 +331,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -345,7 +345,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -359,7 +359,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -373,7 +373,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -387,7 +387,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -397,11 +397,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateDatabaseAsync(database, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateDatabaseAsync(database, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -411,11 +411,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateDatabaseIfNotExistsAsync(database, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateDatabaseIfNotExistsAsync(database, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -429,7 +429,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -443,7 +443,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -467,11 +467,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateDocumentAsync(collectionLink, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
+                return await ProcessResponse(await _inner.CreateDocumentAsync(collectionLink, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -481,11 +481,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateDocumentAsync(documentCollectionUri, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
+                return await ProcessResponse(await _inner.CreateDocumentAsync(documentCollectionUri, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -499,7 +499,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -513,7 +513,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -523,11 +523,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateDocumentCollectionAsync(databaseLink, documentCollection, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateDocumentCollectionAsync(databaseLink, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -537,11 +537,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateDocumentCollectionAsync(databaseUri, documentCollection, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateDocumentCollectionAsync(databaseUri, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -551,11 +551,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseLink, documentCollection, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseLink, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -565,11 +565,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseUri, documentCollection, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateDocumentCollectionIfNotExistsAsync(databaseUri, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -583,7 +583,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -597,7 +597,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -611,7 +611,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -625,7 +625,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -639,7 +639,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -653,7 +653,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -667,7 +667,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -681,7 +681,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -695,7 +695,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -709,7 +709,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -723,7 +723,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -737,7 +737,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -751,7 +751,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -765,7 +765,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -779,7 +779,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -793,7 +793,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -807,7 +807,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -821,7 +821,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -835,7 +835,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -849,7 +849,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -863,7 +863,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -873,11 +873,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreatePermissionAsync(userLink, permission, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreatePermissionAsync(userLink, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -887,11 +887,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreatePermissionAsync(userUri, permission, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreatePermissionAsync(userUri, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -905,7 +905,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -919,7 +919,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -933,7 +933,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -947,7 +947,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -961,7 +961,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -975,7 +975,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -985,11 +985,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateStoredProcedureAsync(collectionLink, storedProcedure, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateStoredProcedureAsync(collectionLink, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -999,11 +999,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateStoredProcedureAsync(documentCollectionUri, storedProcedure, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateStoredProcedureAsync(documentCollectionUri, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1017,7 +1017,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1031,7 +1031,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1045,7 +1045,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1059,7 +1059,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1073,7 +1073,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1087,7 +1087,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1097,11 +1097,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateTriggerAsync(collectionLink, trigger, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateTriggerAsync(collectionLink, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1111,11 +1111,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateTriggerAsync(documentCollectionUri, trigger, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateTriggerAsync(documentCollectionUri, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1129,7 +1129,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1143,7 +1143,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1157,7 +1157,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1171,7 +1171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1185,7 +1185,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1199,7 +1199,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1209,11 +1209,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateUserAsync(databaseLink, user, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateUserAsync(databaseLink, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1223,11 +1223,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateUserAsync(databaseUri, user, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateUserAsync(databaseUri, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1237,11 +1237,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateUserDefinedFunctionAsync(collectionLink, function, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateUserDefinedFunctionAsync(collectionLink, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1251,11 +1251,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.CreateUserDefinedFunctionAsync(documentCollectionUri, function, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.CreateUserDefinedFunctionAsync(documentCollectionUri, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1269,7 +1269,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1283,7 +1283,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1297,7 +1297,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1311,7 +1311,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1325,7 +1325,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1339,7 +1339,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1353,7 +1353,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1367,7 +1367,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1381,7 +1381,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1395,7 +1395,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1409,7 +1409,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1423,7 +1423,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }
@@ -1433,11 +1433,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteAttachmentAsync(attachmentLink, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.DeleteAttachmentAsync(attachmentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1447,11 +1447,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteAttachmentAsync(attachmentUri, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.DeleteAttachmentAsync(attachmentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1461,11 +1461,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteConflictAsync(conflictLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteConflictAsync(conflictLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1475,11 +1475,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteConflictAsync(conflictUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteConflictAsync(conflictUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1489,11 +1489,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteDatabaseAsync(databaseLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteDatabaseAsync(databaseLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1503,11 +1503,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteDatabaseAsync(databaseUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteDatabaseAsync(databaseUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1517,11 +1517,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteDocumentAsync(documentLink, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.DeleteDocumentAsync(documentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1531,11 +1531,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteDocumentAsync(documentUri, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.DeleteDocumentAsync(documentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1545,11 +1545,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteDocumentCollectionAsync(documentCollectionLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteDocumentCollectionAsync(documentCollectionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1559,11 +1559,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteDocumentCollectionAsync(documentCollectionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteDocumentCollectionAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1573,11 +1573,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeletePermissionAsync(permissionLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeletePermissionAsync(permissionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1587,11 +1587,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeletePermissionAsync(permissionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeletePermissionAsync(permissionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1601,11 +1601,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteStoredProcedureAsync(storedProcedureLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteStoredProcedureAsync(storedProcedureLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1615,11 +1615,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteStoredProcedureAsync(storedProcedureUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteStoredProcedureAsync(storedProcedureUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1629,11 +1629,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteTriggerAsync(triggerLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteTriggerAsync(triggerLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1643,11 +1643,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteTriggerAsync(triggerUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteTriggerAsync(triggerUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1657,11 +1657,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteUserAsync(userLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteUserAsync(userLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1671,11 +1671,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteUserAsync(userUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteUserAsync(userUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1685,11 +1685,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteUserDefinedFunctionAsync(functionLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteUserDefinedFunctionAsync(functionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1699,11 +1699,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.DeleteUserDefinedFunctionAsync(functionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.DeleteUserDefinedFunctionAsync(functionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1713,11 +1713,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, UpdateOptions(options), procedureParams));
+                return await ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, UpdateOptions(options), procedureParams));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1727,11 +1727,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, UpdateOptions(options), cancellationToken, procedureParams));
+                return await ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureLink, UpdateOptions(options), cancellationToken, procedureParams));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1741,11 +1741,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, UpdateOptions(options), procedureParams));
+                return await ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, UpdateOptions(options), procedureParams));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1755,11 +1755,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, UpdateOptions(options), cancellationToken, procedureParams));
+                return await ProcessResponse(await _inner.ExecuteStoredProcedureAsync<TValue>(storedProcedureUri, UpdateOptions(options), cancellationToken, procedureParams));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1773,7 +1773,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1783,11 +1783,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadAttachmentAsync(attachmentLink, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadAttachmentAsync(attachmentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1797,11 +1797,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadAttachmentAsync(attachmentUri, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadAttachmentAsync(attachmentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1811,11 +1811,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadAttachmentFeedAsync(attachmentsLink, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadAttachmentFeedAsync(attachmentsLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1825,11 +1825,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadAttachmentFeedAsync(documentUri, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadAttachmentFeedAsync(documentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1839,11 +1839,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadConflictAsync(conflictLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadConflictAsync(conflictLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1853,11 +1853,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadConflictAsync(conflictUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadConflictAsync(conflictUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1867,11 +1867,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadConflictFeedAsync(conflictsLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadConflictFeedAsync(conflictsLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1881,11 +1881,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadConflictFeedAsync(documentCollectionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadConflictFeedAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1895,11 +1895,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDatabaseAsync(databaseLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadDatabaseAsync(databaseLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1909,11 +1909,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDatabaseAsync(databaseUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadDatabaseAsync(databaseUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1923,11 +1923,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDatabaseFeedAsync(UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadDatabaseFeedAsync(UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1937,11 +1937,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentAsync(documentLink, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadDocumentAsync(documentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1951,11 +1951,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentAsync<T>(documentLink, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadDocumentAsync<T>(documentLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1965,11 +1965,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentAsync(documentUri, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadDocumentAsync(documentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1979,11 +1979,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentAsync<T>(documentUri, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadDocumentAsync<T>(documentUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -1993,11 +1993,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentCollectionAsync(documentCollectionLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadDocumentCollectionAsync(documentCollectionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2007,11 +2007,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentCollectionAsync(documentCollectionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadDocumentCollectionAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2021,11 +2021,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentCollectionFeedAsync(collectionsLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadDocumentCollectionFeedAsync(collectionsLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2035,11 +2035,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentCollectionFeedAsync(databaseUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadDocumentCollectionFeedAsync(databaseUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2049,11 +2049,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentFeedAsync(documentsLink, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadDocumentFeedAsync(documentsLink, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2063,11 +2063,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadDocumentFeedAsync(documentCollectionUri, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReadDocumentFeedAsync(documentCollectionUri, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2081,7 +2081,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2095,7 +2095,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2105,11 +2105,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadOfferAsync(offerLink));
+                return await ProcessResponse(await _inner.ReadOfferAsync(offerLink));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2119,11 +2119,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadOffersFeedAsync(UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadOffersFeedAsync(UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2133,11 +2133,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2147,11 +2147,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadPartitionKeyRangeFeedAsync(partitionKeyRangesOrCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2161,11 +2161,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadPermissionAsync(permissionLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadPermissionAsync(permissionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2175,11 +2175,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadPermissionAsync(permissionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadPermissionAsync(permissionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2189,11 +2189,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadPermissionFeedAsync(permissionsLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadPermissionFeedAsync(permissionsLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2203,11 +2203,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadPermissionFeedAsync(userUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadPermissionFeedAsync(userUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2217,11 +2217,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadStoredProcedureAsync(storedProcedureLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadStoredProcedureAsync(storedProcedureLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2231,11 +2231,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadStoredProcedureAsync(storedProcedureUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadStoredProcedureAsync(storedProcedureUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2245,11 +2245,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadStoredProcedureFeedAsync(storedProceduresLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadStoredProcedureFeedAsync(storedProceduresLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2259,11 +2259,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadStoredProcedureFeedAsync(documentCollectionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadStoredProcedureFeedAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2273,11 +2273,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadTriggerAsync(triggerLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadTriggerAsync(triggerLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2287,11 +2287,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadTriggerAsync(triggerUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadTriggerAsync(triggerUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2301,11 +2301,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadTriggerFeedAsync(triggersLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadTriggerFeedAsync(triggersLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2315,11 +2315,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadTriggerFeedAsync(documentCollectionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadTriggerFeedAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2329,11 +2329,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadUserAsync(userLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadUserAsync(userLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2343,11 +2343,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadUserAsync(userUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadUserAsync(userUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2357,11 +2357,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadUserDefinedFunctionAsync(functionLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadUserDefinedFunctionAsync(functionLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2371,11 +2371,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadUserDefinedFunctionAsync(functionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadUserDefinedFunctionAsync(functionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2385,11 +2385,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadUserDefinedFunctionFeedAsync(userDefinedFunctionsLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadUserDefinedFunctionFeedAsync(userDefinedFunctionsLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2399,11 +2399,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadUserDefinedFunctionFeedAsync(documentCollectionUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadUserDefinedFunctionFeedAsync(documentCollectionUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2413,11 +2413,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadUserFeedAsync(usersLink, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadUserFeedAsync(usersLink, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2427,11 +2427,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReadUserFeedAsync(databaseUri, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReadUserFeedAsync(databaseUri, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2441,11 +2441,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceAttachmentAsync(attachment, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReplaceAttachmentAsync(attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2455,11 +2455,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceAttachmentAsync(attachmentUri, attachment, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReplaceAttachmentAsync(attachmentUri, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2469,11 +2469,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceDocumentAsync(document, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReplaceDocumentAsync(document, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2483,11 +2483,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceDocumentAsync(documentLink, document, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReplaceDocumentAsync(documentLink, document, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2497,11 +2497,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceDocumentAsync(documentUri, document, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.ReplaceDocumentAsync(documentUri, document, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2511,11 +2511,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceDocumentCollectionAsync(documentCollection, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceDocumentCollectionAsync(documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2525,11 +2525,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceDocumentCollectionAsync(documentCollectionUri, documentCollection, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceDocumentCollectionAsync(documentCollectionUri, documentCollection, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2539,11 +2539,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceOfferAsync(offer));
+                return await ProcessResponse(await _inner.ReplaceOfferAsync(offer));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2553,11 +2553,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplacePermissionAsync(permission, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplacePermissionAsync(permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2567,11 +2567,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplacePermissionAsync(permissionUri, permission, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplacePermissionAsync(permissionUri, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2581,11 +2581,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceStoredProcedureAsync(storedProcedure, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceStoredProcedureAsync(storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2595,11 +2595,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceStoredProcedureAsync(storedProcedureUri, storedProcedure, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceStoredProcedureAsync(storedProcedureUri, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2609,11 +2609,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceTriggerAsync(trigger, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceTriggerAsync(trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2623,11 +2623,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceTriggerAsync(triggerUri, trigger, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceTriggerAsync(triggerUri, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2637,11 +2637,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceUserAsync(user, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceUserAsync(user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2651,11 +2651,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceUserAsync(userUri, user, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceUserAsync(userUri, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2665,11 +2665,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceUserDefinedFunctionAsync(function, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceUserDefinedFunctionAsync(function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2679,11 +2679,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.ReplaceUserDefinedFunctionAsync(userDefinedFunctionUri, function, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.ReplaceUserDefinedFunctionAsync(userDefinedFunctionUri, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2697,7 +2697,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2707,11 +2707,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertAttachmentAsync(attachmentsLink, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
+                return await ProcessResponse(await _inner.UpsertAttachmentAsync(attachmentsLink, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2721,11 +2721,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertAttachmentAsync(documentLink, attachment, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.UpsertAttachmentAsync(documentLink, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2735,11 +2735,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertAttachmentAsync(documentUri, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
+                return await ProcessResponse(await _inner.UpsertAttachmentAsync(documentUri, mediaStream, options, UpdateOptions(requestOptions), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2749,11 +2749,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertAttachmentAsync(documentUri, attachment, UpdateOptions(options), cancellationToken));
+                return await ProcessResponse(await _inner.UpsertAttachmentAsync(documentUri, attachment, UpdateOptions(options), cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2763,11 +2763,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertDocumentAsync(collectionLink, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
+                return await ProcessResponse(await _inner.UpsertDocumentAsync(collectionLink, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2777,11 +2777,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertDocumentAsync(documentCollectionUri, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
+                return await ProcessResponse(await _inner.UpsertDocumentAsync(documentCollectionUri, document, UpdateOptions(options), disableAutomaticIdGeneration, cancellationToken));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2791,11 +2791,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertPermissionAsync(userLink, permission, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertPermissionAsync(userLink, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2805,11 +2805,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertPermissionAsync(userUri, permission, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertPermissionAsync(userUri, permission, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2819,11 +2819,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertStoredProcedureAsync(collectionLink, storedProcedure, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertStoredProcedureAsync(collectionLink, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2833,11 +2833,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertStoredProcedureAsync(documentCollectionUri, storedProcedure, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertStoredProcedureAsync(documentCollectionUri, storedProcedure, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2847,11 +2847,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertTriggerAsync(collectionLink, trigger, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertTriggerAsync(collectionLink, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2861,11 +2861,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertTriggerAsync(documentCollectionUri, trigger, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertTriggerAsync(documentCollectionUri, trigger, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2875,11 +2875,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertUserAsync(databaseLink, user, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertUserAsync(databaseLink, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2889,11 +2889,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertUserAsync(databaseUri, user, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertUserAsync(databaseUri, user, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2903,11 +2903,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertUserDefinedFunctionAsync(collectionLink, function, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertUserDefinedFunctionAsync(collectionLink, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2917,11 +2917,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
-                return ProcessResponse(await _inner.UpsertUserDefinedFunctionAsync(documentCollectionUri, function, UpdateOptions(options)));
+                return await ProcessResponse(await _inner.UpsertUserDefinedFunctionAsync(documentCollectionUri, function, UpdateOptions(options)));
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                await ProcessException(ex);
                 throw;
             }
         }
@@ -2935,7 +2935,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (System.Exception ex)
             {
-                ProcessException(ex);
+                ProcessException(ex).GetAwaiter().GetResult();
                 throw;
             }
         }

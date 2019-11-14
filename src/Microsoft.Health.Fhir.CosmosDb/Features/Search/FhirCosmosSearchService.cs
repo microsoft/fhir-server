@@ -11,7 +11,6 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -25,9 +24,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
-            IQueryBuilder queryBuilder,
-            IModelInfoProvider modelInfoProvider)
-            : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
+            IQueryBuilder queryBuilder)
+            : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
@@ -47,13 +45,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                var totalSearchResult = await ExecuteSearchAsync(
-                    _queryBuilder.BuildSqlQuerySpec(searchOptions, true),
-                    searchOptions,
-                    cancellationToken,
-                    true);
+                try
+                {
+                    searchOptions.CountOnly = true;
 
-                searchResult.TotalCount = totalSearchResult.TotalCount;
+                    var totalSearchResult = await ExecuteSearchAsync(
+                        _queryBuilder.BuildSqlQuerySpec(searchOptions),
+                        searchOptions,
+                        cancellationToken);
+
+                    searchResult.TotalCount = totalSearchResult.TotalCount;
+                }
+                finally
+                {
+                    // Reset search options to its original state.
+                    searchOptions.CountOnly = false;
+                }
             }
 
             return searchResult;
@@ -72,17 +79,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private async Task<SearchResult> ExecuteSearchAsync(
             SqlQuerySpec sqlQuerySpec,
             SearchOptions searchOptions,
-            CancellationToken cancellationToken,
-            bool calculateTotalCount = false)
+            CancellationToken cancellationToken)
         {
             var feedOptions = new FeedOptions
             {
                 EnableCrossPartitionQuery = true,
                 MaxItemCount = searchOptions.MaxItemCount,
-                RequestContinuation = searchOptions.ContinuationToken,
+                RequestContinuation = searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
             };
 
-            if (searchOptions.CountOnly || calculateTotalCount)
+            if (searchOptions.CountOnly)
             {
                 return new SearchResult(
                     (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, cancellationToken)).Single(),

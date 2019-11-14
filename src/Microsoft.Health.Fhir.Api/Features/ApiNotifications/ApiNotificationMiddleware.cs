@@ -77,11 +77,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                             apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
 
                             await _mediator.Publish(apiNotification, CancellationToken.None);
-
-                            if (fhirRequestContext.StorageRequestMetrics != null)
-                            {
-                                await _mediator.Publish(fhirRequestContext.StorageRequestMetrics, CancellationToken.None);
-                            }
                         }
                     }
                     catch (Exception e)
