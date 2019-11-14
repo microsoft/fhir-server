@@ -14,14 +14,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler
     {
-        private Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, Dictionary<RouteContext, int>> GenerateRequestDictionary()
+        private Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(RouteContext, int)>> GenerateRequestDictionary()
         {
-            return new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, Dictionary<RouteContext, int>>
+            return new Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(RouteContext, int)>>
             {
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new Dictionary<RouteContext, int>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new Dictionary<RouteContext, int>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new Dictionary<RouteContext, int>() },
-                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new Dictionary<RouteContext, int>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE, new List<(RouteContext, int)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.GET, new List<(RouteContext, int)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.POST, new List<(RouteContext, int)>() },
+                { Hl7.Fhir.Model.Bundle.HTTPVerb.PUT, new List<(RouteContext, int)>() },
             };
         }
 

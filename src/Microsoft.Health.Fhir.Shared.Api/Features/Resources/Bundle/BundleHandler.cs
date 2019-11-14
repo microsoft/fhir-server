@@ -39,11 +39,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, Dictionary<RouteContext, int>> _requests;
+        private readonly Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(RouteContext, int)>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
-        private int entrySize;
+        private int _requestCount;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser)
         {
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
         {
             int order = 0;
-            entrySize = bundleEntries.Count;
+            _requestCount = bundleEntries.Count;
             foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
             {
                 if (entry.Request.Method == null)
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     RouteData = routeContext.RouteData,
                 };
 
-                _requests[entry.Request.Method.Value].Add(routeContext, order++);
+                _requests[entry.Request.Method.Value].Add((routeContext, order++));
             }
         }
 
@@ -143,9 +143,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb)
         {
-            foreach (KeyValuePair<RouteContext, int> entry in _requests[httpVerb])
+            foreach (var tuple in _requests[httpVerb])
             {
-                RouteContext request = entry.Key;
+                RouteContext request = tuple.Item1;
                 var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
 
                 if (request.Handler != null)
@@ -186,13 +186,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (responseBundle.Entry?.Any() != true)
                 {
-                    List<EntryComponent> entryComponents = new EntryComponent[entrySize].ToList();
-                    entryComponents[entry.Value] = entryComponent;
+                    List<EntryComponent> entryComponents = new EntryComponent[_requestCount].ToList();
+                    entryComponents[tuple.Item2] = entryComponent;
                     responseBundle.Entry = entryComponents;
                 }
                 else
                 {
-                    responseBundle.Entry[entry.Value] = entryComponent;
+                    responseBundle.Entry[tuple.Item2] = entryComponent;
                 }
             }
         }
