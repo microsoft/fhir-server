@@ -5,7 +5,6 @@
 
 using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.Audit;
@@ -49,17 +48,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (context.ActionArguments.TryGetValue(KnownActionParameterNames.Bundle, out object value))
                     {
-                        if (!(value is Bundle bundle))
+                        if (!(value is Hl7.Fhir.Model.Bundle bundle))
                         {
                             return;
                         }
 
                         switch (bundle.Type)
                         {
-                            case Bundle.BundleType.Batch:
+                            case Hl7.Fhir.Model.Bundle.BundleType.Batch:
                                 fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
                                 break;
-                            case Bundle.BundleType.Transaction:
+                            case Hl7.Fhir.Model.Bundle.BundleType.Transaction:
                                 fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
                                 break;
                         }
