@@ -69,14 +69,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenNormalBatchRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultBatch().ToPoco<Bundle>());
+            _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultBatch().ToPoco<Hl7.Fhir.Model.Bundle>());
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.Batch);
         }
 
         [Fact]
         public void GivenNormalTransactionRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultTransaction().ToPoco<Bundle>());
+            _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultTransaction().ToPoco<Hl7.Fhir.Model.Bundle>());
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.Transaction);
         }
 
