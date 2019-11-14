@@ -127,9 +127,6 @@
     <value>Only a bundle can be submitted for batch or transaction processing.</value>
     <comment>Bundle is a FHIR resource type.</comment>
   </data>
-  <data name="CapabilityStatementSingleRestItem" xml:space="preserve">
-    <value>CapabilityStatement must have only a single item in the 'Rest' collection.</value>
-  </data>
   <data name="ChainedParameterMustBeReferenceSearchParamType" xml:space="preserve">
     <value>The chained parameter must be a reference search parameter type.</value>
   </data>
@@ -222,17 +219,11 @@
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
+  <data name="InvalidConfigSetting" xml:space="preserve">
+    <value>Value '{0}' is not supported. Please select from the following list of supported capabilities: [{1}].</value>
+  </data>
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The continuation token is invalid.</value>
-  </data>
-  <data name="InvalidEnumConfigSetting" xml:space="preserve">
-    <value>Field '{0}' with value '{1}' is not supported. Please select from the following list of supported capabilities: [{2}].</value>
-  </data>
-  <data name="InvalidListConfigDuplicateItem" xml:space="preserve">
-    <value>A duplicate value was found for field '{0}'. Please check your configured options.</value>
-  </data>
-  <data name="InvalidListConfigSetting" xml:space="preserve">
-    <value>Unsupported values for field '{0}' were selected. Please check your configured options.</value>
   </data>
   <data name="InvalidSearchCountSpecified" xml:space="preserve">
     <value>The count must be greater than zero.</value>
