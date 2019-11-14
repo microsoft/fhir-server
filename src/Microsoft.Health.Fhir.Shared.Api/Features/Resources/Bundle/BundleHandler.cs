@@ -190,10 +190,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     entryComponents[tuple.Item2] = entryComponent;
                     responseBundle.Entry = entryComponents;
                 }
-                else
-                {
-                    responseBundle.Entry[tuple.Item2] = entryComponent;
-                }
+
+                responseBundle.Entry[tuple.Item2] = entryComponent;
             }
         }
     }
