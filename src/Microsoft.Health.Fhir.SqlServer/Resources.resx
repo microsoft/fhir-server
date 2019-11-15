@@ -120,4 +120,7 @@
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The provided continuation token is not valid.</value>
   </data>
+  <data name="ScriptNotFound" xml:space="preserve">
+    <value>The provided version is unknown.</value>
+  </data>
 </root>

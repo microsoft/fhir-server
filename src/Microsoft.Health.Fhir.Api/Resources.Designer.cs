@@ -70,6 +70,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The route for &quot;{0}&quot; was not found..
+        /// </summary>
+        public static string BundleNotFound {
+            get {
+                return ResourceManager.GetString("BundleNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header is required..
         /// </summary>
         public static string ContentTypeHeaderRequired {
