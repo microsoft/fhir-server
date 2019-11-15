@@ -45,21 +45,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                try
+                // If this is the first page and there aren't any more pages
+                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
-                    searchOptions.CountOnly = true;
-
-                    var totalSearchResult = await ExecuteSearchAsync(
-                        _queryBuilder.BuildSqlQuerySpec(searchOptions),
-                        searchOptions,
-                        cancellationToken);
-
-                    searchResult.TotalCount = totalSearchResult.TotalCount;
+                    // Count the results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count();
                 }
-                finally
+                else
                 {
-                    // Reset search options to its original state.
-                    searchOptions.CountOnly = false;
+                    try
+                    {
+                        // Otherwise, indicate that we'd like to get the count
+                        searchOptions.CountOnly = true;
+
+                        // And perform a second read.
+                        var totalSearchResult = await ExecuteSearchAsync(
+                            _queryBuilder.BuildSqlQuerySpec(searchOptions),
+                            searchOptions,
+                            cancellationToken);
+
+                        searchResult.TotalCount = totalSearchResult.TotalCount;
+                    }
+                    finally
+                    {
+                        // Ensure search options is set to its original state.
+                        searchOptions.CountOnly = false;
+                    }
                 }
             }
 
