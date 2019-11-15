@@ -12,15 +12,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlTransactionScope : ITransactionScope
     {
-        public SqlTransactionScope(SqlServerDataStoreConfiguration configuration)
+        private readonly SqlTransactionHandler _sqlTransactionHandler;
+        private bool _isDisposed;
+
+        public SqlTransactionScope(SqlServerDataStoreConfiguration configuration, SqlTransactionHandler sqlTransactionHandler)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(sqlTransactionHandler, nameof(sqlTransactionHandler));
 
             SqlConnection = new SqlConnection(configuration.ConnectionString);
-
             SqlConnection.Open();
 
             SqlTransaction = SqlConnection.BeginTransaction();
+
+            _sqlTransactionHandler = sqlTransactionHandler;
         }
 
         public SqlConnection SqlConnection { get; private set; }
@@ -34,11 +39,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public void Dispose()
         {
+            if (_isDisposed)
+            {
+                return;
+            }
+
             SqlConnection?.Dispose();
             SqlTransaction?.Dispose();
 
             SqlConnection = null;
             SqlTransaction = null;
+
+            _isDisposed = true;
+
+            _sqlTransactionHandler.Dispose();
         }
     }
 }

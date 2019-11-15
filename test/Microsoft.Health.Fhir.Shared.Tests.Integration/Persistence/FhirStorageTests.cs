@@ -485,6 +485,40 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenACompletedTransaction_WhenStartingASecondTransactionCommitted_ThenTheResourceShouldBeCreated()
+        {
+            string createdId1;
+            string createdId2;
+
+            using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
+            {
+                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                createdId1 = saveResult.Resource.Id;
+
+                Assert.NotEqual(string.Empty, createdId1);
+
+                transactionScope.Complete();
+            }
+
+            using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
+            {
+                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                createdId2 = saveResult.Resource.Id;
+
+                Assert.NotEqual(string.Empty, createdId2);
+
+                transactionScope.Complete();
+            }
+
+            ResourceElement getResult1 = await Mediator.GetResourceAsync(new ResourceKey<Observation>(createdId1));
+            Assert.Equal(createdId1, getResult1.Id);
+
+            ResourceElement getResult2 = await Mediator.GetResourceAsync(new ResourceKey<Observation>(createdId2));
+            Assert.Equal(createdId2, getResult2.Id);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenATransactionHandler_WhenATransactionIsNotCommitted_ThenNothingShouldBeCreated()
         {
             string createdId = string.Empty;
