@@ -17,7 +17,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
-    [NotImplementedExceptionFilter]
+    [HttpExceptionFilter]
     [Route(KnownRoutes.SchemaRoot)]
     public class SchemaController : Controller
     {
@@ -68,11 +68,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         [HttpGet]
         [AllowAnonymous]
         [Route(KnownRoutes.Script, Name = RouteNames.Script)]
-        public ActionResult SqlScript(int id)
+        public FileContentResult SqlScript(int id)
         {
             _logger.LogInformation($"Attempting to get script for schema version: {id}");
-
-            throw new NotImplementedException(Resources.ScriptNotImplemented);
+            string fileName = $"{id}.sql";
+            return File(ScriptProvider.GetMigrationScriptAsBytes(id), "application/json", fileName);
         }
 
         [HttpGet]
