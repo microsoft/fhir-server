@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -21,35 +20,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             ValidateIfBundleEntryIsUnique(Samples.GetDefaultTransaction());
         }
 
-        [Fact]
-        public void GivenATransactionBundle_IfContainsMultipleResourcesWithSameFullUrl_BundleValidatorShouldThrowException()
+        [Theory]
+        [InlineData("Bundle-TransactionWithMultipleResourcesWithSameFullUrl")]
+        [InlineData("Bundle-TransactionWithMultipleEntriesModifyingSameResource")]
+        public void GivenATransactionBundle_IfContainsMultipleEntriesWithTheSameResource_BundleValidatorShouldThrowException(string inputBundle)
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithMultipleResourcesWithSameFullUrl");
+            var requestBundle = Samples.GetJsonSample(inputBundle);
+            var expectedMessage = "Bundle contains multiple resources with the same request url 'Patient/123'.";
 
-            ValidateIfBundleEntryIsUnique(requestBundle);
-        }
-
-        [Fact]
-        public void GivenATransactionBundle_IfContainsMultipleEntriesModifyingSameResource_BundleValidatorShouldThrowException()
-        {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithMultipleEntriesModifyingSameResource");
-
-            ValidateIfBundleEntryIsUnique(requestBundle);
+            var exception = Assert.Throws<RequestNotValidException>(() => ValidateIfBundleEntryIsUnique(requestBundle));
+            Assert.Equal(expectedMessage, exception.Message);
         }
 
         private static void ValidateIfBundleEntryIsUnique(Core.Models.ResourceElement requestBundle)
         {
-            try
+            var resourceUrlList = new HashSet<string>();
+            foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry)
             {
-                var resourceUrlList = new HashSet<string>();
-                foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry)
-                {
-                    TransactionValidator.ValidateTransaction(resourceUrlList, entry);
-                }
-            }
-            catch (Exception ex)
-            {
-                Assert.True(ex is RequestNotValidException);
+                TransactionValidator.ValidateTransaction(resourceUrlList, entry);
             }
         }
     }

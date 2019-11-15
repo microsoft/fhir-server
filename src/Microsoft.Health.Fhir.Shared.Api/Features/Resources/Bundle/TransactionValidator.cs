@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -14,29 +15,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     {
         public static void ValidateTransaction(HashSet<string> resourceIdList, EntryComponent entry)
         {
-            if (entry.Request.Method != HTTPVerb.GET)
+            if (ValidateBundleEntry(entry))
             {
                 string resourceId = GetResourceUrl(entry);
 
-                if (resourceIdList.Contains(resourceId))
+                if (resourceId != null)
                 {
-                    throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, resourceId));
-                }
+                    if (resourceIdList.Contains(resourceId))
+                    {
+                        throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, entry.Request.Url));
+                    }
 
-                resourceIdList.Add(resourceId);
+                    resourceIdList.Add(resourceId);
+                }
             }
+        }
+
+        private static bool ValidateBundleEntry(EntryComponent entry)
+        {
+            string requestUrl = entry.Request.Url;
+
+            return !((entry.Request.Method == HTTPVerb.GET)
+                || requestUrl.Contains("$", StringComparison.InvariantCulture)
+                || requestUrl.Contains("_search", StringComparison.InvariantCulture)
+                || entry.Resource.ResourceType.ToString() == KnownResourceTypes.Bundle);
         }
 
         private static string GetResourceUrl(EntryComponent component)
         {
-            string fullUrl = component.FullUrl;
-
-            if (fullUrl != null)
+            if (component.Request.Method == HTTPVerb.POST)
             {
-                if (fullUrl.StartsWith("urn", StringComparison.OrdinalIgnoreCase) || component.Request.Method == HTTPVerb.POST)
-                {
-                    return fullUrl;
-                }
+                return component.FullUrl;
             }
 
             return component.Request.Url;

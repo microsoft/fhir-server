@@ -15,19 +15,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     public class TransactionExceptionHandlerTests
     {
         [Fact]
-        public void GivenAnOperationOutCome_WhenExecuted_ThenACorrectExceptionIsThrown()
+        public void GivenAnOperationOutcome_WhenExecuted_ThenACorrectExceptionIsThrown()
         {
             string message = "Error Message";
             HttpStatusCode statusCode = HttpStatusCode.Processing;
-            var operationOutcome = GetOperationOutcomeList();
+            var operationOutcome = GetOperationOutcome();
 
             Assert.Throws<TransactionFailedException>(() => TransactionExceptionHandler.ThrowTransactionException(message, statusCode, operationOutcome));
         }
 
         [Fact]
-        public void GivenAnOperationOutCome_WhenParsed_ThenACorrectListOfOPerationOutComeIssuesIsReturned()
+        public void GivenAnOperationOutcome_WhenParsed_ThenACorrectListOfOPerationOutComeIssuesIsReturned()
         {
-            var operationOutcomeIssues = GetOperationOutcomeList().Issue;
+            var operationOutcomeIssues = GetOperationOutcome().Issue;
             var parsedOperationOutcomeIssueList = TransactionExceptionHandler.GetOperationOutcomeIssues(operationOutcomeIssues);
 
             Assert.Equal(operationOutcomeIssues.Count, parsedOperationOutcomeIssueList.Count);
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
         }
 
-        private static OperationOutcome GetOperationOutcomeList()
+        private static OperationOutcome GetOperationOutcome()
         {
             var issueComponent1 = new OperationOutcome.IssueComponent
             {
