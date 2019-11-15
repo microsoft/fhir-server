@@ -48,8 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.PostConfigure<MvcOptions>(options =>
             {
                 options.ModelBinderProviders.Insert(0, new PartialDateTimeBinderProvider());
-                options.Filters.Add(typeof(FhirRequestContextRouteNameFilterAttribute));
-                options.Filters.Add(typeof(FhirRequestContextResourceTypeFilterAttribute));
+                options.Filters.Add(typeof(FhirRequestContextRouteDataPopulatingFilterAttribute));
             });
 
             services.AddHttpContextAccessor();
