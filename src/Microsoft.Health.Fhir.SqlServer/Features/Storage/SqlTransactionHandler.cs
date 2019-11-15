@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Configs;
@@ -11,7 +12,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlTransactionHandler : ITransactionHandler
     {
-        private SqlServerDataStoreConfiguration _configuration;
+        private readonly SqlServerDataStoreConfiguration _configuration;
+        private readonly AsyncLocal<SqlTransactionScope> _sqlTransactionScope = new AsyncLocal<SqlTransactionScope>();
 
         public SqlTransactionHandler(SqlServerDataStoreConfiguration configuration)
         {
@@ -20,18 +22,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _configuration = configuration;
         }
 
-        public SqlTransactionScope SqlTransactionScope { get; private set; }
+        public SqlTransactionScope SqlTransactionScope => _sqlTransactionScope.Value;
 
         public ITransactionScope BeginTransaction()
         {
-            SqlTransactionScope = new SqlTransactionScope(_configuration);
+            _sqlTransactionScope.Value = new SqlTransactionScope(_configuration);
 
-            return SqlTransactionScope;
+            return _sqlTransactionScope.Value;
         }
 
         public void Dispose()
         {
-            SqlTransactionScope?.Dispose();
+            _sqlTransactionScope.Value?.Dispose();
         }
     }
 }

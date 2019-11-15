@@ -34,7 +34,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
-        private SchemaInitializer _schemaInitializer;
+        private readonly SchemaInitializer _schemaInitializer;
+        private readonly SqlTransactionHandler _transactionHandler;
 
         public SqlServerFhirStorageTestsFixture()
         {
@@ -72,9 +73,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<V1.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(searchParameterDefinitionManager);
 
-            var sqlTransactionHandler = new SqlTransactionHandler(config);
+            _transactionHandler = new SqlTransactionHandler(config);
 
-            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), sqlTransactionHandler, NullLogger<SqlServerFhirDataStore>.Instance);
+            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), _transactionHandler, NullLogger<SqlServerFhirDataStore>.Instance);
             _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
         }
 
@@ -148,6 +149,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType.IsInstanceOfType(this))
             {
                 return this;
+            }
+
+            if (serviceType == typeof(ITransactionHandler))
+            {
+                return _transactionHandler;
             }
 
             return null;

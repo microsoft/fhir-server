@@ -23,9 +23,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlTransaction = SqlConnection.BeginTransaction();
         }
 
-        public SqlConnection SqlConnection { get; }
+        public SqlConnection SqlConnection { get; private set; }
 
-        public SqlTransaction SqlTransaction { get; }
+        public SqlTransaction SqlTransaction { get; private set; }
 
         public void Complete()
         {
@@ -36,6 +36,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             SqlConnection?.Dispose();
             SqlTransaction?.Dispose();
+
+            SqlConnection = null;
+            SqlTransaction = null;
         }
     }
 }
