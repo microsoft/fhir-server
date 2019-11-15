@@ -296,7 +296,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (responseBundle.Entry?.Any() != true)
                 {
                     List<EntryComponent> entryComponents = new EntryComponent[_requestCount].ToList();
-                    entryComponents[tuple.Item2] = entryComponent;
                     responseBundle.Entry = entryComponents;
                 }
 
