@@ -303,10 +303,5 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
         }
-
-        public ITransactionScope BeginTransaction()
-        {
-            return new DefaultTransactionScope();
-        }
     }
 }
