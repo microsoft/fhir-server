@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -19,7 +18,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 string resourceId = GetResourceUrl(entry);
 
-                if (resourceId != null)
+                if (!string.IsNullOrEmpty(resourceId))
                 {
                     if (resourceIdList.Contains(resourceId))
                     {
@@ -35,10 +34,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             string requestUrl = entry.Request.Url;
 
-            return !((entry.Request.Method == HTTPVerb.GET)
-                || requestUrl.Contains("$", StringComparison.InvariantCulture)
-                || requestUrl.Contains("_search", StringComparison.InvariantCulture)
-                || entry.Resource.ResourceType.ToString() == KnownResourceTypes.Bundle);
+            // Check for duplicate resources within a bundle entry is skipped if the entry is bundle or if the request within a entry is not modifying the resource.
+            return !(entry.Resource.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle
+                || entry.Request.Method == HTTPVerb.GET
+                || (entry.Request.Method == HTTPVerb.POST && requestUrl.Contains("_search", StringComparison.InvariantCulture))
+                || requestUrl.Contains("$", StringComparison.InvariantCulture));
         }
 
         private static string GetResourceUrl(EntryComponent component)
