@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  selector:
+    matchLabels:
+      app: api
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: marcusreg.azurecr.io/fhir-server-api
+        env:
+          - name: "ASPNETCORE_ENVIRONMENT"
+            value: "docker"
+        resources:
+          requests:
+            memory: "0.5Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        ports:
+        - containerPort: 80
+        imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  selector:
+    app: api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sql
+spec:
+  selector:
+    matchLabels:
+      app: sql
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sql
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: sql
+        image: mcr.microsoft.com/mssql/server:2017-latest
+        env:
+          - name: SA_PASSWORD
+            value: "m@rcussql1"
+          - name: ACCEPT_EULA
+            value: "Y"
+        ports:
+          - containerPort: 1433
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "20Gi"
+            cpu: "4"
+        volumeMounts:
+        - name: mssqldb
+          mountPath: /var/opt/mssql
+      volumes:
+      - name: mssqldb
+        persistentVolumeClaim:
+          claimName: mssql-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sql
+spec:
+  selector:
+    app: sql
+  ports:
+    - protocol: TCP
+      port: 1433
+      targetPort: 1433
+  type: ClusterIP
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mssql-data
+  annotations:
+    volume.beta.kubernetes.io/storage-class: managed-premium
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2047Gi

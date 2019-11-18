@@ -1,0 +1,18 @@
+version: "3"
+services:
+  fhir-api:
+    build: 
+      context: ./../../ #azure-fhir-api
+      dockerfile: ./samples/docker/Dockerfile
+    restart: on-failure
+    environment:
+      ASPNETCORE_ENVIRONMENT: "docker"
+    ports:     
+      - "80:80"
+    depends_on:
+      - sql
+  sql:
+    image: "mcr.microsoft.com/mssql/server"
+    environment:
+      SA_PASSWORD: "m@rcussql1"
+      ACCEPT_EULA: "Y"
