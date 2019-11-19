@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(auditEventTypeFromMapping);
 
-            var filter = new FhirRequestContextRouteNameFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
+            var filter = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
 
             filter.OnActionExecuting(_context);
 
