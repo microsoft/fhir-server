@@ -54,8 +54,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly ILogger<BundleHandler> _logger;
         private int _requestCount;
+        private readonly Hl7.Fhir.Model.Bundle.HTTPVerb[] _verbExecutionOrder;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ILogger<BundleHandler> logger)
+        : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -73,11 +75,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
-            _requests = GenerateRequestDictionary();
+            _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<(RouteContext, int)>());
 
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
+        }
+
+        private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
+        {
+            EntryComponent[] entryComponents = new EntryComponent[_requestCount];
+            responseBundle.Entry = entryComponents.ToList();
+
+            foreach (Hl7.Fhir.Model.Bundle.HTTPVerb verb in _verbExecutionOrder)
+            {
+                await ExecuteRequests(responseBundle, verb);
+            }
         }
 
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
@@ -290,12 +303,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             OperationOutcome.IssueType.NotFound,
                             string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
                     };
-                }
-
-                if (responseBundle.Entry?.Any() != true)
-                {
-                    List<EntryComponent> entryComponents = new EntryComponent[_requestCount].ToList();
-                    responseBundle.Entry = entryComponents;
                 }
 
                 responseBundle.Entry[entryIndex] = entryComponent;
