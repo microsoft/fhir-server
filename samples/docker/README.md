@@ -6,10 +6,10 @@ The following instructions detail how to build and run the FHIR Server in Docker
 
 ## Build and run with SQL Server using Docker Compose
 
-The quickest way to get the Azure FHIR Server up and running on Docker is to build and run the Azure FHIR Server with a SQL server container using docker compose. Run the following command from the root of the `microsoft/fhir-server` repository:
+The quickest way to get the Azure FHIR Server up and running on Docker is to build and run the Azure FHIR Server with a SQL server container using docker compose. Run the following command, replacing `<SA_PASSWORD>` with your chosen password, from the root of the `microsoft/fhir-server` repository:
 
 ```bash
-docker-compose -f samples/docker/docker-compose.yaml up -d
+env SAPASSWORD='<SA_PASSWORD>' docker-compose -f samples/docker/docker-compose.yaml up -d
 ```
 
 Given the FHIR API is likely to start before the SQL server is ready, you may need to restart the API container once the SQL server is healty. This can be done using `docker restart <container-name>`, i.e. docker restart `docker restart docker_fhir-api_1`.
