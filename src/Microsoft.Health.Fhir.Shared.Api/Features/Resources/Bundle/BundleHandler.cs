@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -48,27 +49,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
+        private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly ILogger<BundleHandler> _logger;
 
-        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, ILogger<BundleHandler> logger)
+        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ILogger<BundleHandler> logger)
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
+            EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _fhirJsonSerializer = fhirJsonSerializer;
             _fhirJsonParser = fhirJsonParser;
             _transactionHandler = transactionHandler;
+            _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = GenerateRequestDictionary();
 
-            _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.First(x => x.Key == typeof(IHttpAuthenticationFeature)).Value as IHttpAuthenticationFeature;
+            _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
         }
@@ -211,6 +215,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     };
                     _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
 
+                    _bundleHttpContextAccessor.HttpContext = httpContext;
+
                     await request.Handler.Invoke(httpContext);
 
                     httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
@@ -245,14 +251,47 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             entryComponent.Resource = entryComponentResource;
                         }
                     }
+                    else
+                    {
+                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
+                        {
+                            entryComponent.Response.Outcome = CreateOperationOutcome(
+                                OperationOutcome.IssueSeverity.Error,
+                                OperationOutcome.IssueType.Forbidden,
+                                Api.Resources.Forbidden);
+                        }
+                    }
                 }
                 else
                 {
-                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent { Status = ((int)HttpStatusCode.NotFound).ToString() };
+                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                    {
+                        Status = ((int)HttpStatusCode.NotFound).ToString(),
+                        Outcome = CreateOperationOutcome(
+                            OperationOutcome.IssueSeverity.Error,
+                            OperationOutcome.IssueType.NotFound,
+                            string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                    };
                 }
 
                 responseBundle.Entry.Add(entryComponent);
             }
+        }
+
+        private static OperationOutcome CreateOperationOutcome(OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, string diagnostics)
+        {
+            return new OperationOutcome
+            {
+                Issue = new List<OperationOutcome.IssueComponent>
+                {
+                    new OperationOutcome.IssueComponent
+                    {
+                        Severity = issueSeverity,
+                        Code = issueType,
+                        Diagnostics = diagnostics,
+                    },
+                },
+            };
         }
     }
 }

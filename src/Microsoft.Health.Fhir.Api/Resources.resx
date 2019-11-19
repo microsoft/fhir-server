@@ -120,6 +120,10 @@
   <data name="BackToTop" xml:space="preserve">
     <value>Back to top</value>
   </data>
+  <data name="BundleNotFound" xml:space="preserve">
+    <value>The route for "{0}" was not found.</value>
+    <comment>{0} is a relative URL.</comment>
+  </data>
   <data name="ContentTypeHeaderRequired" xml:space="preserve">
     <value>The "content-type" header is required.</value>
   </data>

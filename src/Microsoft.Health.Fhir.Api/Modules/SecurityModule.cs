@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddSingleton<IAuthorizationPolicyProvider, AuthorizationPolicyProvider>();
+            services.AddScoped<IBundleHttpContextAccessor, BundleHttpContextAccessor>();
 
             // Set the token handler to not do auto inbound mapping. (e.g. "roles" -> "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
             JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -45,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                         options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
                     })
-                    .AddJwtBearer(options =>
+                    .AddBundleAwareCustomJwtBearer(options =>
                     {
                         options.Authority = _securityConfiguration.Authentication.Authority;
                         options.Audience = _securityConfiguration.Authentication.Audience;

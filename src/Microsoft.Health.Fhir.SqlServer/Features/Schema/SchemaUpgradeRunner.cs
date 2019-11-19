@@ -5,8 +5,6 @@
 
 using System.Data;
 using System.Data.SqlClient;
-using System.IO;
-using System.Reflection;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Configs;
@@ -42,24 +40,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             {
                 connection.Open();
                 var server = new Server(new ServerConnection(connection));
-                server.ConnectionContext.ExecuteNonQuery(GetMigrationScript(version));
+                server.ConnectionContext.ExecuteNonQuery(ScriptProvider.GetMigrationScript(version));
             }
 
             CompleteSchemaVersion(version);
 
             _logger.LogInformation("Completed applying schema {version}", version);
-        }
-
-        private static string GetMigrationScript(int version)
-        {
-            string resourceName = $"{typeof(SchemaUpgradeRunner).Namespace}.Migrations.{version}.sql";
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
-            {
-                using (var reader = new StreamReader(stream))
-                {
-                    return reader.ReadToEnd();
-                }
-            }
         }
 
         private void InsertSchemaVersion(int schemaVersion)

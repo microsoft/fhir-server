@@ -68,58 +68,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            SearchResult searchResult;
+
+            // If we should include the total count of matching search results
+            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                connection.Open();
+                searchResult = await SearchImpl(searchOptions, false, cancellationToken);
 
-                SearchResult searchResult;
-
-                // If we should include the total count of matching search results
-                if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+                // If this is the first page and there aren't any more pages
+                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
-                    // Begin a transaction so we can perform two atomic reads.
-                    using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
-                    {
-                        try
-                        {
-                            searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
-
-                            searchOptions.CountOnly = true;
-
-                            // Perform a second read to get the count.
-                            var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
-
-                            searchResult.TotalCount = countOnlySearchResult.TotalCount;
-
-                            transaction.Commit();
-                        }
-                        finally
-                        {
-                            // Reset search options to its original state.
-                            searchOptions.CountOnly = false;
-                        }
-                    }
+                    // Count the results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count();
                 }
                 else
                 {
-                    searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken);
-                }
+                    try
+                    {
+                        // Otherwise, indicate that we'd like to get the count
+                        searchOptions.CountOnly = true;
 
-                return searchResult;
+                        // And perform a second read.
+                        var countOnlySearchResult = await SearchImpl(searchOptions, false, cancellationToken);
+
+                        searchResult.TotalCount = countOnlySearchResult.TotalCount;
+                    }
+                    finally
+                    {
+                        // Ensure search options is set to its original state.
+                        searchOptions.CountOnly = false;
+                    }
+                }
             }
+            else
+            {
+                searchResult = await SearchImpl(searchOptions, false, cancellationToken);
+            }
+
+            return searchResult;
         }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
-            {
-                connection.Open();
-
-                return await SearchImpl(searchOptions, true, connection, cancellationToken);
-            }
+            return await SearchImpl(searchOptions, true, cancellationToken);
         }
 
-        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, SqlConnection connection, CancellationToken cancellationToken, SqlTransaction transaction = null)
+        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, CancellationToken cancellationToken)
         {
             await _model.EnsureInitialized();
 
@@ -157,13 +151,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
+            using (var connection = new SqlConnection(_configuration.ConnectionString))
             using (SqlCommand sqlCommand = connection.CreateCommand())
             {
-                // If we are sending multiple search queries in one transaction
-                if (transaction != null)
-                {
-                    sqlCommand.Transaction = transaction;
-                }
+                connection.Open();
 
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
@@ -175,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 sqlCommand.CommandText = stringBuilder.ToString();
 
-                LogSqlComand(sqlCommand);
+                LogSqlCommand(sqlCommand);
 
                 using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
@@ -273,7 +264,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Logs the parameter declarations and command text of a SQL command
         /// </summary>
         [Conditional("DEBUG")]
-        private void LogSqlComand(SqlCommand sqlCommand)
+        private void LogSqlCommand(SqlCommand sqlCommand)
         {
             var sb = new StringBuilder();
             foreach (SqlParameter p in sqlCommand.Parameters)
