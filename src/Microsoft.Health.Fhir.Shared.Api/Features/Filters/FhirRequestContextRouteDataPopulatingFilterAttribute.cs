@@ -70,11 +70,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             // Set the resource type based on the route data
             RouteData routeData = context.RouteData;
 
-            object resourceType = null;
-
             if (routeData?.Values != null)
             {
-                if (routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out resourceType))
+                if (routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType))
                 {
                     fhirRequestContext.ResourceType = resourceType?.ToString();
                 }

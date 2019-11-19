@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             {
                 if (expectedNotification.count == 0)
                 {
-                    Assert.False(_metricHandler.NotificationMapping.TryGetValue(expectedNotification.type, out var items));
+                    Assert.False(_metricHandler.NotificationMapping.TryGetValue(expectedNotification.type, out var _));
                     continue;
                 }
 
