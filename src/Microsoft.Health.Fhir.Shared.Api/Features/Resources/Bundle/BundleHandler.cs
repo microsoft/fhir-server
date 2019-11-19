@@ -211,9 +211,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb)
         {
-            foreach (var tuple in _requests[httpVerb])
+            foreach ((RouteContext request, int entryIndex) in _requests[httpVerb])
             {
-                RouteContext request = tuple.Item1;
                 var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
 
                 if (request.Handler != null)
@@ -299,7 +298,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     responseBundle.Entry = entryComponents;
                 }
 
-                responseBundle.Entry[tuple.Item2] = entryComponent;
+                responseBundle.Entry[entryIndex] = entryComponent;
             }
         }
 
