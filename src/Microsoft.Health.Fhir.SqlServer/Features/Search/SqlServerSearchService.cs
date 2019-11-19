@@ -15,7 +15,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Common;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -38,9 +37,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly StringOverflowRewriter _stringOverflowRewriter;
-        private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
+        private readonly SqlConnectionFactory _sqlConnectionFactory;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -49,45 +48,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
-            SqlServerDataStoreConfiguration configuration,
+            SqlConnectionFactory sqlConnectionFactory,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
+            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _stringOverflowRewriter = stringOverflowRewriter;
-            _configuration = configuration;
+            _sqlConnectionFactory = sqlConnectionFactory;
             _logger = logger;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
             {
-                connection.Open();
-
                 SearchResult searchResult;
 
                 // If we should include the total count of matching search results
                 if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
                 {
                     // Begin a transaction so we can perform two atomic reads.
-                    using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
+                    using (var transaction = sqlConnectionWrapper.SqlConnection.BeginTransaction(IsolationLevel.ReadCommitted))
                     {
                         try
                         {
-                            searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
+                            searchResult = await SearchImpl(searchOptions, false, sqlConnectionWrapper, cancellationToken, transaction);
 
                             searchOptions.CountOnly = true;
 
                             // Perform a second read to get the count.
-                            var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
+                            var countOnlySearchResult = await SearchImpl(searchOptions, false, sqlConnectionWrapper, cancellationToken, transaction);
 
                             searchResult.TotalCount = countOnlySearchResult.TotalCount;
 
@@ -102,7 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
                 else
                 {
-                    searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken);
+                    searchResult = await SearchImpl(searchOptions, false, sqlConnectionWrapper, cancellationToken);
                 }
 
                 return searchResult;
@@ -111,15 +109,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
             {
-                connection.Open();
-
-                return await SearchImpl(searchOptions, true, connection, cancellationToken);
+                return await SearchImpl(searchOptions, true, sqlConnectionWrapper, cancellationToken);
             }
         }
 
-        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, SqlConnection connection, CancellationToken cancellationToken, SqlTransaction transaction = null)
+        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, SqlConnectionWrapper sqlConnectionWrapper, CancellationToken cancellationToken, SqlTransaction transaction = null)
         {
             await _model.EnsureInitialized();
 
@@ -157,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
-            using (SqlCommand sqlCommand = connection.CreateCommand())
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
                 // If we are sending multiple search queries in one transaction
                 if (transaction != null)
@@ -167,7 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
-                EnableTimeAndIoMessageLogging(stringBuilder, connection);
+                EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
                 var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch);
 
@@ -261,12 +257,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         [Conditional("DEBUG")]
-        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnection connection)
+        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnectionWrapper sqlConnectionWrapper)
         {
             stringBuilder.AppendLine("SET STATISTICS IO ON;");
             stringBuilder.AppendLine("SET STATISTICS TIME ON;");
             stringBuilder.AppendLine();
-            connection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
+            sqlConnectionWrapper.SqlConnection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
         }
 
         /// <summary>

@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
-        private readonly SqlTransactionHandler _sqlTransactionHandler;
+        private readonly SqlConnectionFactory _sqlConnectionFactory;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
 
         public SqlServerFhirDataStore(
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
             IOptions<CoreFeatureConfiguration> coreFeatures,
-            SqlTransactionHandler sqlTransactionHandler,
+            SqlConnectionFactory sqlConnectionFactory,
             ILogger<SqlServerFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
-            EnsureArg.IsNotNull(sqlTransactionHandler, nameof(sqlTransactionHandler));
+            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _configuration = configuration;
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _searchParameterTypeMap = searchParameterTypeMap;
             _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
             _coreFeatures = coreFeatures.Value;
-            _sqlTransactionHandler = sqlTransactionHandler;
+            _sqlConnectionFactory = sqlConnectionFactory;
             _logger = logger;
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
@@ -89,12 +89,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            SqlConnection connection = ObtainSqlConnection();
-            try
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
             {
-                await OpenSqlConnection(connection, cancellationToken);
-
-                using (var command = CreateCommand(connection))
+                using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
                 using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
                 using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
                 using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
@@ -152,49 +149,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
-            finally
-            {
-                CloseConnectionIfNeeded(connection);
-            }
-        }
-
-        private SqlCommand CreateCommand(SqlConnection connection)
-        {
-            SqlCommand command = connection.CreateCommand();
-            command.Transaction = _sqlTransactionHandler.SqlTransactionScope?.SqlTransaction;
-            return command;
-        }
-
-        private void CloseConnectionIfNeeded(SqlConnection connection)
-        {
-            if (_sqlTransactionHandler.SqlTransactionScope?.SqlConnection == null)
-            {
-                connection.Close();
-            }
-        }
-
-        private SqlConnection ObtainSqlConnection()
-        {
-            return _sqlTransactionHandler.SqlTransactionScope?.SqlConnection ?? new SqlConnection(_configuration.ConnectionString);
-        }
-
-        private static async Task OpenSqlConnection(SqlConnection connection, CancellationToken cancellationToken)
-        {
-            if (connection.State != ConnectionState.Open)
-            {
-                await connection.OpenAsync(cancellationToken);
-            }
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
             await _model.EnsureInitialized();
 
-            SqlConnection connection = ObtainSqlConnection();
-            try
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
             {
-                await OpenSqlConnection(connection, cancellationToken);
-
                 int? requestedVersion = null;
                 if (!string.IsNullOrEmpty(key.VersionId))
                 {
@@ -206,7 +168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestedVersion = parsedVersion;
                 }
 
-                using (SqlCommand command = CreateCommand(connection))
+                using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
                 {
                     V1.ReadResource.PopulateCommand(
                         command,
@@ -256,31 +218,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
-            finally
-            {
-                CloseConnectionIfNeeded(connection);
-            }
         }
 
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
         {
             await _model.EnsureInitialized();
 
-            SqlConnection connection = ObtainSqlConnection();
-            try
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
             {
-                await OpenSqlConnection(connection, cancellationToken);
-
-                using (var command = CreateCommand(connection))
+                using (var command = sqlConnectionWrapper.CreateSqlCommand())
                 {
                     V1.HardDeleteResource.PopulateCommand(command, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
                     await command.ExecuteNonQueryAsync(cancellationToken);
                 }
-            }
-            finally
-            {
-                CloseConnectionIfNeeded(connection);
             }
         }
 

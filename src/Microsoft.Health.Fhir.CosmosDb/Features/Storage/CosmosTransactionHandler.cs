@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         public ITransactionScope BeginTransaction()
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         public void Dispose()

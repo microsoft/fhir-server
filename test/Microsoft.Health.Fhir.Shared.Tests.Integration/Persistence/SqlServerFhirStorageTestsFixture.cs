@@ -35,7 +35,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirDataStore _fhirDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
-        private readonly SqlTransactionHandler _transactionHandler;
 
         public SqlServerFhirStorageTestsFixture()
         {
@@ -73,13 +72,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<V1.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(searchParameterDefinitionManager);
 
-            _transactionHandler = new SqlTransactionHandler(config);
+            SqlTransactionHandler = new SqlTransactionHandler();
+            SqlConnectionFactory = new SqlConnectionFactory(config, SqlTransactionHandler);
 
-            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), _transactionHandler, NullLogger<SqlServerFhirDataStore>.Instance);
+            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionFactory, NullLogger<SqlServerFhirDataStore>.Instance);
             _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
         }
 
         public string TestConnectionString { get; }
+
+        internal SqlTransactionHandler SqlTransactionHandler { get; }
+
+        internal SqlConnectionFactory SqlConnectionFactory { get; }
 
         public async Task InitializeAsync()
         {
@@ -153,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             if (serviceType == typeof(ITransactionHandler))
             {
-                return _transactionHandler;
+                return SqlTransactionHandler;
             }
 
             return null;

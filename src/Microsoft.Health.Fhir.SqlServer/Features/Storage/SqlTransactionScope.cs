@@ -6,35 +6,28 @@
 using System.Data.SqlClient;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.SqlServer.Configs;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlTransactionScope : ITransactionScope
     {
-        private readonly SqlTransactionHandler _sqlTransactionHandler;
         private bool _isDisposed;
+        private readonly SqlTransactionHandler _sqlTransactionHandler;
 
-        public SqlTransactionScope(SqlServerDataStoreConfiguration configuration, SqlTransactionHandler sqlTransactionHandler)
+        public SqlTransactionScope(SqlTransactionHandler sqlTransactionHandler)
         {
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
-            EnsureArg.IsNotNull(sqlTransactionHandler, nameof(sqlTransactionHandler));
-
-            SqlConnection = new SqlConnection(configuration.ConnectionString);
-            SqlConnection.Open();
-
-            SqlTransaction = SqlConnection.BeginTransaction();
+            EnsureArg.IsNotNull(sqlTransactionHandler, nameof(SqlTransactionHandler));
 
             _sqlTransactionHandler = sqlTransactionHandler;
         }
 
-        public SqlConnection SqlConnection { get; private set; }
+        public SqlConnection SqlConnection { get; set; }
 
-        public SqlTransaction SqlTransaction { get; private set; }
+        public SqlTransaction SqlTransaction { get; set; }
 
         public void Complete()
         {
-            SqlTransaction.Commit();
+            SqlTransaction?.Commit();
         }
 
         public void Dispose()
