@@ -23,6 +23,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 {
+    [Trait(Traits.Category, Categories.Batch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class MetricTests : IClassFixture<MetricTestFixture>
     {
@@ -58,6 +59,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                 () => _client.HttpClient.GetAsync(FhirServerApplicationBuilderExtensions.HealthCheckPath),
                 (type: typeof(ApiResponseNotification), count: 0),
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 2));
+        }
+
+        [Trait(Traits.Priority, Priority.One)]
+        [Fact]
+        public async Task GivenABatch_WhenInvoked_MetricNotifications()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                () => _client.CreateAsync(Samples.GetDefaultBatch().ToPoco()),
+                (type: typeof(ApiResponseNotification), count: 1),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1));
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count)[] expectedNotifications)

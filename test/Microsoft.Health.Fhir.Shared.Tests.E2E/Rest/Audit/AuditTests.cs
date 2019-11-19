@@ -21,6 +21,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
+    [Trait(Traits.Category, Categories.Batch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class AuditTests : IClassFixture<AuditTestFixture>
     {
@@ -362,6 +363,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 expectedAppId: TestApplications.NativeClient.ClientId);
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
+        {
+            var expectedActions = new List<string> { "batch", "delete", "delete", "create", "create", "create", "create", "update", "update", "update", "update", "update", "update", "search-type", "search-type", "read", "read", "batch" };
+            var expectedPathSegments = new List<string> { string.Empty, "Patient/234", "Patient/234", "Patient", "Patient", "Patient", "Patient", "Patient/123", "Patient/123", "Patient?identifier=http:/example.org/fhir/ids|456456", "Patient?identifier=http:/example.org/fhir/ids|456456", "Patient/123", "Patient/123", "Patient?name=peter", "Patient?name=peter", "Patient/12334", "Patient/12334", string.Empty };
+
+            // Only status codes at even, first and last positions are validated, since these are executed audit entries
+            var expectedStatusCodes = new List<HttpStatusCode> { HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.OK, HttpStatusCode.Created, HttpStatusCode.NoContent, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.PreconditionFailed, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.NotFound, HttpStatusCode.NotFound, HttpStatusCode.OK };
+            await ExecuteAndValidateBatch(
+               () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
+               expectedActions,
+               expectedPathSegments,
+               expectedStatusCodes);
+        }
+
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
             where T : Resource
         {
@@ -387,6 +404,48 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
                 ae => ValidateExecutingAuditEntry(ae, expectedAction, expectedUri, correlationId, expectedAppId, ExpectedClaimKey),
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
+        }
+
+        private async Task ExecuteAndValidateBatch<T>(Func<Task<FhirResponse<T>>> action, List<string> expectedActions, List<string> expectedPathSegments, List<HttpStatusCode> expectedStatusCodes)
+            where T : Resource
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline.
+                return;
+            }
+
+            FhirResponse<T> response = null;
+
+            response = await action();
+
+            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
+
+            Assert.NotNull(correlationId);
+
+            string expectedAppId = TestApplications.ServiceClient.ClientId;
+
+            IReadOnlyList<AuditEntry> auditList = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
+
+            Assert.Equal(18, auditList.Count);
+            for (int i = 0; i < 18; i++)
+            {
+                var expectedUri = new Uri($"http://localhost/{expectedPathSegments[i]}");
+                if (i == 0 || (i % 2 != 0 && i != 17))
+                {
+                    ValidateExecutingAuditEntry(auditList[i], expectedActions[i], expectedUri, correlationId, expectedAppId, ExpectedClaimKey);
+                }
+                else
+                {
+                    ResourceType? expectedResourceType = null;
+                    if (auditList[i].StatusCode.Equals(HttpStatusCode.Created) && expectedPathSegments[i].Equals("Patient"))
+                    {
+                        expectedResourceType = ResourceType.Patient;
+                    }
+
+                    ValidateExecutedAuditEntry(auditList[i], expectedActions[i], expectedResourceType, expectedUri, expectedStatusCodes[i], correlationId, expectedAppId, ExpectedClaimKey);
+                }
+            }
         }
 
         private async Task ExecuteAndValidate(Func<Task<HttpResponseMessage>> action, string expectedAction, string expectedPathSegment, HttpStatusCode expectedStatusCode, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
@@ -452,6 +511,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.NotNull(auditEntry);
             Assert.Equal(expectedAuditAction, auditEntry.AuditAction);
             Assert.Equal(expectedAction, auditEntry.Action);
+
             Assert.Equal(expectedResourceType?.ToString(), auditEntry.ResourceType);
             Assert.Equal(expectedUri, auditEntry.RequestUri);
             Assert.Equal(expectedStatusCode, auditEntry.StatusCode);
