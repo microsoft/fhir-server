@@ -5,7 +5,7 @@ ARG FHIR_VERSION=Stu3
 WORKDIR /build
 
 COPY ./*.* ./
-
+COPY ./samples/docker/global.json .
 COPY ./src/ ./src/
 COPY ./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/ ./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/
 
