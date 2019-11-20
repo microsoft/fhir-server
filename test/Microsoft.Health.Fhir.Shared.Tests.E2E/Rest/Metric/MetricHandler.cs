@@ -8,33 +8,32 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric
 {
-    public class MetricHandler : INotificationHandler<IMetricsNotification>
+    public class MetricHandler : INotificationHandler<INotification>
     {
         public MetricHandler()
         {
         }
 
-        public Dictionary<Type, int> HandleCountDictionary { get; } = new Dictionary<Type, int>();
+        public Dictionary<Type, List<INotification>> NotificationMapping { get; } = new Dictionary<Type, List<INotification>>();
 
         public void ResetCount()
         {
-            HandleCountDictionary.Clear();
+            NotificationMapping.Clear();
         }
 
-        public Task Handle(IMetricsNotification notification, CancellationToken cancellationToken)
+        public Task Handle(INotification notification, CancellationToken cancellationToken)
         {
             Type notificationType = notification.GetType();
-            if (HandleCountDictionary.ContainsKey(notificationType))
+            if (NotificationMapping.TryGetValue(notificationType, out List<INotification> foundNotifications))
             {
-                HandleCountDictionary[notificationType]++;
+                foundNotifications.Add(notification);
             }
             else
             {
-                HandleCountDictionary.Add(notificationType, 1);
+                NotificationMapping.Add(notificationType, new List<INotification> { notification });
             }
 
             return Task.CompletedTask;

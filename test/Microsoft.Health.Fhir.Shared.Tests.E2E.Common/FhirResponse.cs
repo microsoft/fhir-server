@@ -23,5 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public HttpResponseHeaders Headers => _response.Headers;
 
         public HttpContent Content => _response.Content;
+
+        public HttpResponseMessage Response => _response;
     }
 }

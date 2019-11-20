@@ -44,9 +44,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _metricHandler?.ResetCount();
 
             await ExecuteAndValidate(
-                () => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco()),
-                (type: typeof(ApiResponseNotification), count: 1),
-                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1));
+                async () =>
+                {
+                    var result = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco());
+                    return result.Response;
+                },
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().ResourceType.ToString()),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().ResourceType.ToString()));
         }
 
         [Fact]
@@ -56,11 +60,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             await ExecuteAndValidate(
                 () => _client.HttpClient.GetAsync(FhirServerApplicationBuilderExtensions.HealthCheckPath),
-                (type: typeof(ApiResponseNotification), count: 0),
-                (type: typeof(CosmosStorageRequestMetricsNotification), count: 2));
+                (type: typeof(ApiResponseNotification), count: 0, resourceType: (string)null),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: (string)null));
         }
 
-        private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count)[] expectedNotifications)
+        private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -70,15 +74,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             var result = await action() as HttpResponseMessage;
 
-            foreach ((Type type, int count) expectedNotification in expectedNotifications)
+            foreach ((Type type, int count, string resourceType) expectedNotification in expectedNotifications)
             {
                 if (expectedNotification.count == 0)
                 {
-                    Assert.False(_metricHandler.HandleCountDictionary.TryGetValue(expectedNotification.type, out var count));
+                    Assert.False(_metricHandler.NotificationMapping.TryGetValue(expectedNotification.type, out var _));
                     continue;
                 }
 
-                Assert.Equal(expectedNotification.count, _metricHandler.HandleCountDictionary[expectedNotification.type]);
+                Assert.Equal(expectedNotification.count, _metricHandler.NotificationMapping[expectedNotification.type].Count);
 
                 if (result != null && expectedNotification.type == typeof(CosmosStorageRequestMetricsNotification))
                 {
@@ -86,6 +90,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
                     Assert.NotNull(values);
                     Assert.Equal(expectedNotification.count, values.Count());
+
+                    foreach (var notification in _metricHandler.NotificationMapping[expectedNotification.type])
+                    {
+                        var casted = notification as CosmosStorageRequestMetricsNotification;
+                        Assert.Equal(expectedNotification.resourceType, casted.ResourceType);
+                    }
                 }
             }
         }

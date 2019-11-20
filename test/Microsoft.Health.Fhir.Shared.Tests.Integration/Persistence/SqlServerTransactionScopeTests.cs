@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     {
                         command.CommandText = @"
                             INSERT INTO Resource
-                            VALUES(97, @newId, 1, 0, 5095719085917680000, 0, null, CAST('test' AS VARBINARY(MAX)))";
+                            VALUES(97, @newId, 1, 0, 5095719085917680001, 0, null, CAST('test' AS VARBINARY(MAX)))";
 
                         command.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
 

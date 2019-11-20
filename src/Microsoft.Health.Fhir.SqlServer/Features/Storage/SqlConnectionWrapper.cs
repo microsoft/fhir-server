@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (SqlConnection.State != ConnectionState.Open)
             {
-                SqlConnection.OpenAsync();
+                SqlConnection.Open();
             }
 
             if (enlistInTransactionIfPresent && sqlTransactionHandler.SqlTransactionScope != null)

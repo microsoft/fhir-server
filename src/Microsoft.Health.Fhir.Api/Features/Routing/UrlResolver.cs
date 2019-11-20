@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
-        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters = null, string continuationToken = null)
+        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters = null, string continuationToken = null, bool removeTotalParameter = false)
         {
             string routeName = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
 
@@ -130,8 +130,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 foreach (KeyValuePair<string, StringValues> searchParam in Request.Query)
                 {
                     // Remove the parameter if:
-                    // 1. It is the _sort parameter and the parameter is not supported for sorting
-                    // 2. The parameter is not supported.
+                    // 1. It is the _total parameter, since we only want to count for the first page of results.
+                    if (removeTotalParameter && string.Equals(searchParam.Key, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Don't add the _total parameter to the route values.
+                        continue;
+                    }
+
+                    // 2. It is the _sort parameter and the parameter is not supported for sorting.
                     if (unsupportedSortingParameters?.Count > 0 && string.Equals(searchParam.Key, KnownQueryParameterNames.Sort, StringComparison.OrdinalIgnoreCase))
                     {
                         var filteredValues = new List<string>(searchParam.Value.Count);
@@ -169,6 +175,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     }
                     else
                     {
+                        // 3. The parameter is not supported.
                         IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
 
                         StringValues usedValues = removedValues.Any()
