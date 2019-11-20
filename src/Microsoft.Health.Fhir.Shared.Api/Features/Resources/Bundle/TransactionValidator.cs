@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     {
         public static void ValidateTransaction(HashSet<string> resourceIdList, EntryComponent entry)
         {
-            if (ValidateBundleEntry(entry))
+            if (ShouldValidateBundleEntry(entry))
             {
                 string resourceId = GetResourceUrl(entry);
 
@@ -30,14 +30,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static bool ValidateBundleEntry(EntryComponent entry)
+        private static bool ShouldValidateBundleEntry(EntryComponent entry)
         {
             string requestUrl = entry.Request.Url;
+            HTTPVerb? requestMethod = entry.Request.Method;
+
+            // Search operations using _search and POST endpoint is not supported for bundle.
+            if (requestMethod == HTTPVerb.POST && requestUrl.Contains("_search", StringComparison.InvariantCulture))
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url));
+            }
 
             // Check for duplicate resources within a bundle entry is skipped if the entry is bundle or if the request within a entry is not modifying the resource.
             return !(entry.Resource.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle
-                || entry.Request.Method == HTTPVerb.GET
-                || (entry.Request.Method == HTTPVerb.POST && requestUrl.Contains("_search", StringComparison.InvariantCulture))
+                || requestMethod == HTTPVerb.GET
                 || requestUrl.Contains("$", StringComparison.InvariantCulture));
         }
 

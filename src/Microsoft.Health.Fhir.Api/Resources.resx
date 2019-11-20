@@ -257,4 +257,7 @@
     <value>STU3 API &lt;small&gt;preview&lt;/small&gt;</value>
     <comment>{NumberedPlaceHolder=”STU3”}</comment>
   </data>
+  <data name="InvalidBundleEntry" xml:space="preserve">
+    <value>Requested operation does not support _search interation using POST.</value>
+  </data>
 </root>

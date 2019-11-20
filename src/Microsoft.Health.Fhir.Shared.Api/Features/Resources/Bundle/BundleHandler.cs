@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task FillRequestLists(Hl7.Fhir.Model.Bundle.BundleType? bundleType, List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
         {
-            var resourceUrlList = new HashSet<string>();
+            var resourceUrlList = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
             {
