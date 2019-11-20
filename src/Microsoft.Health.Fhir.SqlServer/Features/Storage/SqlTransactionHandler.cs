@@ -5,6 +5,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Net;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -16,6 +17,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public ITransactionScope BeginTransaction()
         {
             Debug.Assert(SqlTransactionScope == null, "The existing SQL transaction scope should be completed before starting a new transaction.");
+
+            if (SqlTransactionScope != null)
+            {
+                throw new TransactionFailedException(Resources.TransactionProcessingException, HttpStatusCode.InternalServerError);
+            }
 
             SqlTransactionScope = new SqlTransactionScope(this);
 
