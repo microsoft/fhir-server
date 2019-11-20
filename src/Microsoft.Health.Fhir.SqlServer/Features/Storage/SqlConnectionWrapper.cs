@@ -66,13 +66,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return sqlCommand;
         }
 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (!_enlistInTransactionIfPresent || _sqlTransactionHandler.SqlTransactionScope == null)
+                {
+                    SqlConnection?.Dispose();
+                    SqlTransaction?.Dispose();
+                }
+            }
+        }
+
         public void Dispose()
         {
-            if (!_enlistInTransactionIfPresent || _sqlTransactionHandler.SqlTransactionScope == null)
-            {
-                SqlConnection?.Dispose();
-                SqlTransaction?.Dispose();
-            }
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

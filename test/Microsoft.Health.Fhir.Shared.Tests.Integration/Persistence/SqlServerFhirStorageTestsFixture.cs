@@ -73,9 +73,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionFactory = new SqlConnectionFactory(config, SqlTransactionHandler);
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler);
 
-            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionFactory, NullLogger<SqlServerFhirDataStore>.Instance);
+            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
             _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
         }
 
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlTransactionHandler SqlTransactionHandler { get; }
 
-        internal SqlConnectionFactory SqlConnectionFactory { get; }
+        internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
         public async Task InitializeAsync()
         {

@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
-        private readonly SqlConnectionFactory _sqlConnectionFactory;
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -48,21 +48,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
-            SqlConnectionFactory sqlConnectionFactory,
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
-            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _stringOverflowRewriter = stringOverflowRewriter;
-            _sqlConnectionFactory = sqlConnectionFactory;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
         }
 
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());

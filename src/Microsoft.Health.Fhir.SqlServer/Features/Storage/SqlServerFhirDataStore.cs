@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
-        private readonly SqlConnectionFactory _sqlConnectionFactory;
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
 
         public SqlServerFhirDataStore(
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
             IOptions<CoreFeatureConfiguration> coreFeatures,
-            SqlConnectionFactory sqlConnectionFactory,
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
-            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _configuration = configuration;
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _searchParameterTypeMap = searchParameterTypeMap;
             _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
             _coreFeatures = coreFeatures.Value;
-            _sqlConnectionFactory = sqlConnectionFactory;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
                 using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
                 using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await _model.EnsureInitialized();
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
                 int? requestedVersion = null;
                 if (!string.IsNullOrEmpty(key.VersionId))
@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await _model.EnsureInitialized();
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionFactory.ObtainSqlConnectionAsync(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
                 using (var command = sqlConnectionWrapper.CreateSqlCommand())
                 {

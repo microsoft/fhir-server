@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
@@ -21,11 +22,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return SqlTransactionScope;
         }
 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                SqlTransactionScope?.Dispose();
+
+                SqlTransactionScope = null;
+            }
+        }
+
         public void Dispose()
         {
-            SqlTransactionScope?.Dispose();
-
-            SqlTransactionScope = null;
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

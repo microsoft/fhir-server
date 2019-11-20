@@ -68,7 +68,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlConnectionFactory>()
+            services.Add<SqlConnectionWrapperFactory>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();

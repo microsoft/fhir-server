@@ -8,12 +8,12 @@ using Microsoft.Health.Fhir.SqlServer.Configs;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    internal class SqlConnectionFactory
+    internal class SqlConnectionWrapperFactory
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlTransactionHandler _sqlTransactionHandler;
 
-        public SqlConnectionFactory(SqlServerDataStoreConfiguration configuration, SqlTransactionHandler sqlTransactionHandler)
+        public SqlConnectionWrapperFactory(SqlServerDataStoreConfiguration configuration, SqlTransactionHandler sqlTransactionHandler)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(sqlTransactionHandler, nameof(sqlTransactionHandler));
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _sqlTransactionHandler = sqlTransactionHandler;
         }
 
-        public SqlConnectionWrapper ObtainSqlConnectionAsync(bool enlistInTransaction = false)
+        public SqlConnectionWrapper ObtainSqlConnectionWrapper(bool enlistInTransaction = false)
         {
             return new SqlConnectionWrapper(_configuration, _sqlTransactionHandler, enlistInTransaction);
         }

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Data.SqlClient;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -30,22 +31,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlTransaction?.Commit();
         }
 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                SqlConnection?.Dispose();
+                SqlTransaction?.Dispose();
+
+                SqlConnection = null;
+                SqlTransaction = null;
+
+                _isDisposed = true;
+
+                _sqlTransactionHandler.Dispose();
+            }
+        }
+
         public void Dispose()
         {
-            if (_isDisposed)
-            {
-                return;
-            }
-
-            SqlConnection?.Dispose();
-            SqlTransaction?.Dispose();
-
-            SqlConnection = null;
-            SqlTransaction = null;
-
-            _isDisposed = true;
-
-            _sqlTransactionHandler.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

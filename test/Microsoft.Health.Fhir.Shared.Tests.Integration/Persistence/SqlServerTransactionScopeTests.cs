@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionFactory.ObtainSqlConnectionAsync(true))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
                 {
                     using (SqlCommand command = connectionWrapperWithTransaction.CreateSqlCommand())
                     {
@@ -47,32 +47,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
 
                 // Within the same transaction, the resource should be found
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionFactory.ObtainSqlConnectionAsync(true))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
                 {
                     await VerifyCommandResults(connectionWrapperWithTransaction, newId, true);
                 }
 
                 // Outside of the transaction, the resource should not be found
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionFactory.ObtainSqlConnectionAsync(false))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
                 {
                     await VerifyCommandResults(connectionWrapperWithTransaction, newId, false);
                 }
 
                 // Outside of the transaction, but with the readuncommitted hint, the resource should be found.
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionFactory.ObtainSqlConnectionAsync(false))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
                 {
                     await VerifyCommandResults(connectionWrapperWithTransaction, newId, true, "WITH (READUNCOMMITTED)");
                 }
             }
 
             // Outside of the transactionscope, the resource should not be found
-            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionFactory.ObtainSqlConnectionAsync(false))
+            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
             {
                 await VerifyCommandResults(connectionWrapperWithTransaction, newId, false);
             }
 
             // Outside of the transactionscope, but with the readuncommitted hint, the resource should not be found
-            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionFactory.ObtainSqlConnectionAsync(false))
+            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
             {
                 await VerifyCommandResults(connectionWrapperWithTransaction, newId, false, "WITH (READUNCOMMITTED)");
             }
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionFactory.ObtainSqlConnectionAsync(true))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
                 {
                     using (SqlCommand command = connectionWrapperWithTransaction.CreateSqlCommand())
                     {
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             // Outside of the transactionscope, the resource should not be found
-            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionFactory.ObtainSqlConnectionAsync(false))
+            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
             {
                 await VerifyCommandResults(connectionWrapperWithTransaction, newId, true);
             }
