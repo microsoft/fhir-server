@@ -86,6 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
         {
+            // List is not created initially since it doesn't create a list with _requestCount elements
             EntryComponent[] entryComponents = new EntryComponent[_requestCount];
             responseBundle.Entry = entryComponents.ToList();
             foreach (int emptyRequestOrder in emptyRequestsOrder)
