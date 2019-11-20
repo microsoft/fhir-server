@@ -111,33 +111,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private void ValidateResourceStatusCode(Bundle resource)
         {
             // POST: Patient
-            Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[0].Response.Status);
-
-            // POST: ifNoneExist is present
+            Assert.Equal(statusCodeMap[HttpStatusCode.Created], resource.Entry[0].Response.Status);
             Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[1].Response.Status);
-
-            // PUT: Success
-            Assert.Equal(statusCodeMap[HttpStatusCode.Created], resource.Entry[2].Response.Status);
-
-            // PUT: Success
+            Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[2].Response.Status);
             Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[3].Response.Status);
-
-            // PUT: ifMatch version
             Assert.Equal(statusCodeMap[HttpStatusCode.PreconditionFailed], resource.Entry[4].Response.Status);
-
-            // Delete: Success
             Assert.Equal(statusCodeMap[HttpStatusCode.NoContent], resource.Entry[5].Response.Status);
-
-            // Delete: ?identifier=
             Assert.Equal(statusCodeMap[HttpStatusCode.NotFound], resource.Entry[6].Response.Status);
-
-            // POST: $lookup
             Assert.Equal(statusCodeMap[HttpStatusCode.NotFound], resource.Entry[7].Response.Status);
-
-            // GET: Patient success
             Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[8].Response.Status);
-
-            // Get
             Assert.Equal(statusCodeMap[HttpStatusCode.NotFound], resource.Entry[9].Response.Status);
         }
     }
