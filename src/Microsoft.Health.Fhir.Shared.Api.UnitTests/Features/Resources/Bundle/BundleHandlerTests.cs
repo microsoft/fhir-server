@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
@@ -131,17 +132,83 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(OperationOutcome.IssueSeverity.Error, issueComponent.Severity);
             Assert.Equal(OperationOutcome.IssueType.Forbidden, issueComponent.Code);
             Assert.Equal("Authorization failed.", issueComponent.Diagnostics);
+        }
 
-            void RouteAsyncFunction(CallInfo callInfo)
+        [Fact]
+        public async Task GivenABundle_WhenMultipleRequests_ReturnsABundleResponseWithCorrectOrder()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
             {
-                var routeContext = callInfo.Arg<RouteContext>();
-                routeContext.Handler = context =>
+                Type = Hl7.Fhir.Model.Bundle.BundleType.Batch,
+                Entry = new List<Hl7.Fhir.Model.Bundle.EntryComponent>
                 {
-                    context.Response.StatusCode = 403;
+                    new Hl7.Fhir.Model.Bundle.EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.GET,
+                            Url = "/Patient",
+                        },
+                    },
+                    new Hl7.Fhir.Model.Bundle.EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "/Patient/789",
+                        },
+                        Resource = new Hl7.Fhir.Model.Patient
+                        {
+                        },
+                    },
+                    new Hl7.Fhir.Model.Bundle.EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.PUT,
+                            Url = "/Patient",
+                        },
+                        Resource = new Hl7.Fhir.Model.Patient
+                        {
+                        },
+                    },
+                },
+            };
 
-                    return Task.CompletedTask;
-                };
-            }
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Equal(Hl7.Fhir.Model.Bundle.BundleType.BatchResponse, bundleResource.Type);
+            Assert.Equal(3, bundleResource.Entry.Count);
+            Assert.Equal("403", bundleResource.Entry[0].Response.Status);
+            Assert.Equal("404", bundleResource.Entry[1].Response.Status);
+            Assert.Equal("200", bundleResource.Entry[2].Response.Status);
+        }
+
+        private void RouteAsyncFunction(CallInfo callInfo)
+        {
+            var routeContext = callInfo.Arg<RouteContext>();
+            routeContext.Handler = context =>
+            {
+                switch (context.Request.Method)
+                {
+                    case "GET":
+                        context.Response.StatusCode = 403;
+                        break;
+                    case "POST":
+                        context.Response.StatusCode = 404;
+                        break;
+                    default:
+                        context.Response.StatusCode = 200;
+                        break;
+                }
+
+                return Task.CompletedTask;
+            };
         }
 
         private IFeatureCollection CreateFeatureCollection()
