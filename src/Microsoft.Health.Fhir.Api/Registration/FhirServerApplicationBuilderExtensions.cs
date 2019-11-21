@@ -39,6 +39,7 @@ namespace Microsoft.AspNetCore.Builder
                             {
                                 name = entry.Key,
                                 status = Enum.GetName(typeof(HealthStatus), entry.Value.Status),
+                                description = entry.Value.Description,
                             }),
                         });
 
