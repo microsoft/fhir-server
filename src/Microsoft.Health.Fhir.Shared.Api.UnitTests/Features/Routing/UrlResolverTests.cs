@@ -299,11 +299,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             string inputQueryString = "?param1=value1&param2=value2";
             Tuple<string, string>[] unsupportedSearchParams = null;
             string continuationToken = "continue";
-            Dictionary<string, object> expectedRouteValues = new Dictionary<string, object>()
+            var expectedRouteValues = new Dictionary<string, object>()
             {
                 { "param3", new StringValues("value3") },
                 { "param4", new StringValues("value4") },
-                { "ct", new StringValues("continue") },
+                { ContinuationTokenQueryParamName, continuationToken },
             };
 
             var bundleHttpContext = new DefaultHttpContext();
