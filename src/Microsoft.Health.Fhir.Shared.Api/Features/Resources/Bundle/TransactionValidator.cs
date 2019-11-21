@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             // Check for duplicate resources within a bundle entry is skipped if the entry is bundle or if the request within a entry is not modifying the resource.
-            return !(entry.Resource.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle
+            return !(entry.Resource?.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle
                 || requestMethod == HTTPVerb.GET
                 || requestUrl.Contains("$", StringComparison.InvariantCulture));
         }

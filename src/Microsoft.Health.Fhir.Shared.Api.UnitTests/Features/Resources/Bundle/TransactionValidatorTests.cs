@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData("Bundle-TransactionWithMultipleEntriesModifyingSameResource")]
         public void GivenATransactionBundle_IfContainsMultipleEntriesWithTheSameResource_TransactionValidatorShouldThrowException(string inputBundle)
         {
-            var expectedMessage = "Bundle contains multiple resources with the same request url 'Patient/123'.";
+            var expectedMessage = "Bundle contains multiple resources with the same url value 'Patient/123'.";
 
             var requestBundle = Samples.GetJsonSample(inputBundle);
             var exception = Assert.Throws<RequestNotValidException>(() => ValidateIfBundleEntryIsUnique(requestBundle));
