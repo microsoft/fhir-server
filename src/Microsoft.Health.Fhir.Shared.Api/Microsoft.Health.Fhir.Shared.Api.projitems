@@ -19,7 +19,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\MvcModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddleware.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FhirRequestContextRouteNameFilterAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FhirRequestContextRouteDataPopulatingFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OperationOutcomeExceptionFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterAttribute.cs" />

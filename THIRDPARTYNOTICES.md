@@ -29,7 +29,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## Ensure.That 8.1.1
+## Ensure.That 8.1.2
 * Component Source:   https://github.com/danielwertheim/Ensure.That/
 * Component Copyright and License:
   > The MIT License (MIT)
