@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            await FillRequestLists(bundleResource.Type, bundleResource.Entry);
+            await FillRequestLists(bundleResource.Entry);
 
             if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Batch)
             {
@@ -95,6 +95,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
             {
+                TransactionValidator.ValidateTransactionBundle(bundleResource);
+
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse,
@@ -126,20 +128,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private async Task FillRequestLists(Hl7.Fhir.Model.Bundle.BundleType? bundleType, List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
+        private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
         {
-            var resourceUrlList = new HashSet<string>(StringComparer.Ordinal);
-
             foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
             {
                 if (entry.Request.Method == null)
                 {
                     continue;
-                }
-
-                if (bundleType == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
-                {
-                    TransactionValidator.ValidateTransaction(resourceUrlList, entry);
                 }
 
                 HttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };

@@ -12,20 +12,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public static class TransactionValidator
     {
-        public static void ValidateTransaction(HashSet<string> resourceIdList, EntryComponent entry)
+        // Validates if transaction bundle contains multiple entries that are modifying the same resource.
+        public static void ValidateTransactionBundle(Hl7.Fhir.Model.Bundle bundle)
         {
-            if (ShouldValidateBundleEntry(entry))
+            var resourceIdList = new HashSet<string>();
+
+            foreach (var entry in bundle.Entry)
             {
-                string resourceId = GetResourceUrl(entry);
-
-                if (!string.IsNullOrEmpty(resourceId))
+                if (ShouldValidateBundleEntry(entry))
                 {
-                    if (resourceIdList.Contains(resourceId))
-                    {
-                        throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, entry.Request.Url));
-                    }
+                    string resourceId = GetResourceUrl(entry);
 
-                    resourceIdList.Add(resourceId);
+                    if (!string.IsNullOrEmpty(resourceId))
+                    {
+                        if (resourceIdList.Contains(resourceId))
+                        {
+                            throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, resourceId));
+                        }
+
+                        resourceIdList.Add(resourceId);
+                    }
                 }
             }
         }
