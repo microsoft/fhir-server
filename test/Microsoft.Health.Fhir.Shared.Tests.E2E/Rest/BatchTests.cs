@@ -110,17 +110,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private void ValidateResourceStatusCode(Bundle resource)
         {
-            // POST: Patient
-            Assert.Equal(statusCodeMap[HttpStatusCode.Created], resource.Entry[0].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[1].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[2].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[3].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.PreconditionFailed], resource.Entry[4].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.NoContent], resource.Entry[5].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.NotFound], resource.Entry[6].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.NotFound], resource.Entry[7].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.OK], resource.Entry[8].Response.Status);
-            Assert.Equal(statusCodeMap[HttpStatusCode.NotFound], resource.Entry[9].Response.Status);
+            Assert.Equal("201", resource.Entry[0].Response.Status);
+            Assert.True("201".Equals(resource.Entry[1].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
+            Assert.Equal("200", resource.Entry[2].Response.Status);
+            Assert.True("201".Equals(resource.Entry[3].Response.Status) || "200".Equals(resource.Entry[3].Response.Status), "Update or Create");
+
+            // stu3 returns 404 and R4 returns 412 due to data issue in stu3. Since there is only one mismatch handled with OR but if we find
+            // more mismatch later we can create partial test classes for stu3 and R4
+            Assert.True("412".Equals(resource.Entry[4].Response.Status) || "404".Equals(resource.Entry[4].Response.Status), "Conditional Update");
+            Assert.Equal("204", resource.Entry[5].Response.Status);
+            Assert.Equal("404", resource.Entry[6].Response.Status);
+            Assert.Equal("404", resource.Entry[7].Response.Status);
+            Assert.Equal("200", resource.Entry[8].Response.Status);
+            Assert.Equal("404", resource.Entry[9].Response.Status);
         }
     }
 }
