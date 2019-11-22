@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         // Validates if transaction bundle contains multiple entries that are modifying the same resource.
         public static void ValidateTransactionBundle(Hl7.Fhir.Model.Bundle bundle)
         {
-            var resourceIdList = new HashSet<string>();
+            var resourceIdList = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var entry in bundle.Entry)
             {
@@ -49,8 +49,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Check for duplicate resources within a bundle entry is skipped if the entry is bundle or if the request within a entry is not modifying the resource.
             return !(entry.Resource?.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle
-                || requestMethod == HTTPVerb.GET
-                || requestUrl.Contains("$", StringComparison.InvariantCulture));
+                 || requestMethod == HTTPVerb.GET
+                 || requestUrl.Contains("$", StringComparison.InvariantCulture));
         }
 
         private static string GetResourceUrl(EntryComponent component)
