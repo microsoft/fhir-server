@@ -21,13 +21,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             FhirClient.DeleteAllResources(ResourceType.Patient).Wait();
 
             Patients = FhirClient.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "Seattle", "Smith"),
-                p => SetPatientInfo(p, "Portland", "Williams"),
-                p => SetPatientInfo(p, "Vancouver", "Anderson"),
-                p => SetPatientInfo(p, LongString, "Murphy"))
+                    p => SetPatientInfo(p, "Seattle", "Smith", given: "Bea"),
+                    p => SetPatientInfo(p, "Portland", "Williams"),
+                    p => SetPatientInfo(p, "Vancouver", "Anderson"),
+                    p => SetPatientInfo(p, LongString, "Murphy"))
                 .Result;
 
-            void SetPatientInfo(Patient patient, string city, string family)
+            void SetPatientInfo(Patient patient, string city, string family, string given = null)
             {
                 patient.Address = new List<Address>()
                 {
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 patient.Name = new List<HumanName>()
                 {
-                    new HumanName() { Family = family },
+                    new HumanName() { Family = family, Given = new[] { given } },
                 };
             }
         }
