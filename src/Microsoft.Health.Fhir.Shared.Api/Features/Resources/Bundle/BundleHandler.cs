@@ -132,6 +132,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
             {
+                TransactionValidator.ValidateTransactionBundle(bundleResource);
+
                 await FillConditionalReferenceList(bundleResource.Entry);
 
                 var responseBundle = new Hl7.Fhir.Model.Bundle
@@ -382,38 +384,40 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         entryComponent.Response.Outcome = entryComponentResource;
 
-                        if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                            if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                            {
+                                var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
+
+                                TransactionExceptionHandler.ThrowTransactionException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, (OperationOutcome)entryComponentResource);
+                            }
+                        }
+                        else
                         {
-                            ThrowTransactionException(httpContext, (OperationOutcome)entryComponentResource);
+                            entryComponent.Resource = entryComponentResource;
                         }
                     }
                     else
                     {
-                        entryComponent.Resource = entryComponentResource;
+                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
+                        {
+                            entryComponent.Response.Outcome = CreateOperationOutcome(
+                                OperationOutcome.IssueSeverity.Error,
+                                OperationOutcome.IssueType.Forbidden,
+                                Api.Resources.Forbidden);
+                        }
                     }
                 }
                 else
                 {
-                    if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
+                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
                     {
-                        entryComponent.Response.Outcome = CreateOperationOutcome(
+                        Status = ((int)HttpStatusCode.NotFound).ToString(),
+                        Outcome = CreateOperationOutcome(
                             OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.Forbidden,
-                            Api.Resources.Forbidden);
-                    }
+                            OperationOutcome.IssueType.NotFound,
+                            string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                    };
                 }
-            }
-            else
-            {
-                entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
-                {
-                    Status = ((int)HttpStatusCode.NotFound).ToString(),
-                    Outcome = CreateOperationOutcome(
-                        OperationOutcome.IssueSeverity.Error,
-                        OperationOutcome.IssueType.NotFound,
-                        string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
-                };
-            }
 
             return entryComponent;
         }

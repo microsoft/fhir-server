@@ -196,6 +196,10 @@
   <data name="ResourceIdRequired" xml:space="preserve">
     <value>Id must be specified in the resource.</value>
   </data>
+  <data name="ResourcesMustBeUnique" xml:space="preserve">
+    <value>Bundle contains multiple resources with the same url value '{0}'.</value>
+    <comment>'{0}' is the full url for POST and request url for PUT and DELETE.</comment>
+  </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
     <value>Resource type in the URL must match resourceType in the resource.</value>
   </data>
@@ -252,5 +256,8 @@
   <data name="WelcomeTitle" xml:space="preserve">
     <value>STU3 API &lt;small&gt;preview&lt;/small&gt;</value>
     <comment>{NumberedPlaceHolder=”STU3”}</comment>
+  </data>
+  <data name="InvalidBundleEntry" xml:space="preserve">
+    <value>Requested operation does not support _search interation using POST.</value>
   </data>
 </root>
