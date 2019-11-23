@@ -31,10 +31,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
-using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -58,9 +55,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private int _requestCount;
         private readonly Hl7.Fhir.Model.Bundle.HTTPVerb[] _verbExecutionOrder;
         private List<int> emptyRequestsOrder;
-        private readonly ISearchService _searchService;
+        private readonly TransactionValidator _transactionValidator;
 
-        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ISearchService searchService, ILogger<BundleHandler> logger)
+        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, TransactionValidator transactionValidator, ILogger<BundleHandler> logger)
         : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -69,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(transactionValidator, nameof(transactionValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -78,6 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _transactionHandler = transactionHandler;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _logger = logger;
+            _transactionValidator = transactionValidator;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<(RouteContext, int)>());
@@ -85,7 +83,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
-            _searchService = searchService;
             emptyRequestsOrder = new List<int>();
         }
 
@@ -132,9 +129,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
             {
-                TransactionValidator.ValidateTransactionBundle(bundleResource);
-
-                await FillConditionalReferenceList(bundleResource.Entry);
+                await _transactionValidator.ValidateTransactionBundle(bundleResource);
 
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
@@ -165,106 +160,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return new BundleResponse(responseBundle.ToResourceElement());
-        }
-
-        private static void ThrowTransactionException(HttpContext httpContext, OperationOutcome operationOutcome)
-        {
-            var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
-
-            var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
-
-            throw new TransactionFailedException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, operationOutcomeIssues);
-        }
-
-        private static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
-        {
-            var issues = new List<OperationOutcomeIssue>();
-
-            operationoutcomeIssueList.ForEach(x =>
-                issues.Add(new OperationOutcomeIssue(
-                    x.Severity.ToString(),
-                    x.Code.ToString(),
-                    x.Diagnostics)));
-
-            return issues;
-        }
-
-        private async Task FillConditionalReferenceList(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
-        {
-            var resourceIdList = new HashSet<string>();
-
-            foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
-            {
-                if (entry.Request.Method == null)
-                {
-                    continue;
-                }
-
-                if (entry.Request.IfNoneExist == null && !entry.Request.Url.Contains("?", StringComparison.InvariantCulture))
-                {
-                    if (entry.Request.Method == HTTPVerb.POST)
-                    {
-                        resourceIdList.Add(entry.FullUrl);
-                    }
-                    else
-                    {
-                        resourceIdList.Add(entry.Request.Url);
-                    }
-
-                    continue;
-                }
-
-                if (entry.Request.Method == HTTPVerb.PUT || entry.Request.Method == HTTPVerb.DELETE)
-                {
-                    string[] queries = entry.Request.Url.Split("?");
-                    var searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(queries[1]));
-
-                    SearchResult results = await _searchService.SearchAsync(searchResource.ResourceType, searchResource.Queries, CancellationToken.None);
-
-                    int count = results.Results.Count();
-
-                    string id = entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
-
-                    if (resourceIdList.Contains(id))
-                    {
-                        throw new Exception("Duplicates");
-                    }
-
-                    resourceIdList.Add(id);
-                }
-                else if (entry.Request.Method == HTTPVerb.POST)
-                {
-                    var searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(entry.Request.IfNoneExist));
-
-                    SearchResult results = await _searchService.SearchAsync(searchResource.ResourceType, searchResource.Queries, CancellationToken.None);
-
-                    int count = results.Results.Count();
-
-                    string id = entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
-
-                    if (resourceIdList.Contains(id))
-                    {
-                        throw new Exception("Duplicates");
-                    }
-
-                    resourceIdList.Add(id);
-                }
-            }
-        }
-
-        private static List<Tuple<string, string>> GetQueriesForSearch(string ifNoneExsts)
-        {
-            List<Tuple<string, string>> queries = new List<Tuple<string, string>>();
-
-            string[] queriess = ifNoneExsts.Split("&&");
-
-            foreach (string str in queriess)
-            {
-                string[] query = str.Split("=");
-                queries.Add(Tuple.Create(query[0], query[1]));
-            }
-
-            return queries;
         }
 
         private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
@@ -384,12 +279,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         entryComponent.Response.Outcome = entryComponentResource;
 
-                            if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
-                            {
-                                var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
+                        if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                        {
+                            var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
 
-                                TransactionExceptionHandler.ThrowTransactionException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, (OperationOutcome)entryComponentResource);
-                            }
+                            TransactionExceptionHandler.ThrowTransactionException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, (OperationOutcome)entryComponentResource);
+                        }
                         }
                         else
                         {
