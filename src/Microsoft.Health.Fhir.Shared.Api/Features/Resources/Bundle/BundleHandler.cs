@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly ILogger<BundleHandler> _logger;
         private int _requestCount;
         private readonly Hl7.Fhir.Model.Bundle.HTTPVerb[] _verbExecutionOrder;
+        private List<int> emptyRequestsOrder;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ILogger<BundleHandler> logger)
         : this()
@@ -80,6 +81,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
+            emptyRequestsOrder = new List<int>();
+        }
+
+        private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
+        {
+            // List is not created initially since it doesn't create a list with _requestCount elements
+            EntryComponent[] entryComponents = new EntryComponent[_requestCount];
+            responseBundle.Entry = entryComponents.ToList();
+            foreach (int emptyRequestOrder in emptyRequestsOrder)
+            {
+                var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
+                entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                {
+                    Status = ((int)HttpStatusCode.BadRequest).ToString(),
+                    Outcome = CreateOperationOutcome(
+                            OperationOutcome.IssueSeverity.Error,
+                            OperationOutcome.IssueType.Invalid,
+                            "Request is empty"),
+                };
+                responseBundle.Entry[emptyRequestOrder] = entryComponent;
+            }
+
+            foreach (Hl7.Fhir.Model.Bundle.HTTPVerb verb in _verbExecutionOrder)
+            {
+                await ExecuteRequests(responseBundle, verb);
+            }
         }
 
         private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -170,8 +197,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _requestCount = bundleEntries.Count;
             foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
             {
-                if (entry.Request.Method == null)
+                if (entry.Request == null || entry.Request.Method == null)
                 {
+                    emptyRequestsOrder.Add(order++);
                     continue;
                 }
 

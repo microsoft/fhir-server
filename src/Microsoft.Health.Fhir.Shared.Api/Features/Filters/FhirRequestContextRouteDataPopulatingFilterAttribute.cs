@@ -7,6 +7,7 @@ using System;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -15,12 +16,12 @@ using Microsoft.Health.Fhir.ValueSets;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
-    public class FhirRequestContextRouteNameFilterAttribute : ActionFilterAttribute
+    public class FhirRequestContextRouteDataPopulatingFilterAttribute : ActionFilterAttribute
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
 
-        public FhirRequestContextRouteNameFilterAttribute(
+        public FhirRequestContextRouteDataPopulatingFilterAttribute(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IAuditEventTypeMapping auditEventTypeMapping)
         {
@@ -63,6 +64,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                 break;
                         }
                     }
+                }
+            }
+
+            // Set the resource type based on the route data
+            RouteData routeData = context.RouteData;
+
+            if (routeData?.Values != null)
+            {
+                if (routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType))
+                {
+                    fhirRequestContext.ResourceType = resourceType?.ToString();
                 }
             }
         }

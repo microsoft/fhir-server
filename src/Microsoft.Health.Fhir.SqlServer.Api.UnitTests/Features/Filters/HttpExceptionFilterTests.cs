@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -20,11 +21,11 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features.Filters
 {
-    public class NotImplementedExceptionFilterTests
+    public class HttpExceptionFilterTests
     {
         private readonly ActionExecutedContext _context;
 
-        public NotImplementedExceptionFilterTests()
+        public HttpExceptionFilterTests()
         {
             _context = new ActionExecutedContext(
                 new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
@@ -33,9 +34,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenANotImplementedException_WhenExecutingAnAction_ThenTheResponseShouldBeAJsonResultWithStatusCode()
+        public void GivenANotImplementedException_WhenExecutingAnAction_ThenTheResponseShouldBeAJsonResultWithNotImplementedStatusCode()
         {
-            var filter = new NotImplementedExceptionFilterAttribute();
+            var filter = new HttpExceptionFilterAttribute();
 
             _context.Exception = Substitute.For<NotImplementedException>();
 
@@ -45,6 +46,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features.Filters
 
             Assert.NotNull(result);
             Assert.Equal((int)HttpStatusCode.NotImplemented, result.StatusCode);
+        }
+
+        [Fact]
+        public void GivenANotFoundException_WhenExecutingAnAction_ThenTheResponseShouldBeAJsonResultWithNotFoundStatusCode()
+        {
+            var filter = new HttpExceptionFilterAttribute();
+
+            _context.Exception = Substitute.For<FileNotFoundException>();
+
+            filter.OnActionExecuted(_context);
+
+            var result = _context.Result as JsonResult;
+
+            Assert.NotNull(result);
+            Assert.Equal((int)HttpStatusCode.NotFound, result.StatusCode);
         }
     }
 }
