@@ -150,7 +150,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
-            ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
+            bool persistId = HttpContext.Items.ContainsKey("persistId");
+
+            ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), persistId, HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()

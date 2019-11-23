@@ -34,8 +34,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             var resource = message.Resource.Instance.ToPoco<Resource>();
 
-            // If an Id is supplied on create it should be removed/ignored
-            resource.Id = null;
+            // Check to see if we want to persist the supplied Id
+            if (!message.PersistId)
+            {
+                resource.Id = null;
+            }
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
 

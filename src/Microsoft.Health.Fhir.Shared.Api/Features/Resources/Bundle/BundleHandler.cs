@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -29,6 +30,7 @@ using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -46,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly Dictionary<Hl7.Fhir.Model.Bundle.HTTPVerb, List<(RouteContext, int)>> _requests;
+        private readonly Dictionary<HTTPVerb, List<(RouteContext, int)>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
@@ -54,8 +56,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly ILogger<BundleHandler> _logger;
         private int _requestCount;
-        private readonly Hl7.Fhir.Model.Bundle.HTTPVerb[] _verbExecutionOrder;
-        private List<int> emptyRequestsOrder;
+        private readonly HTTPVerb[] _verbExecutionOrder;
+        private readonly List<int> _emptyRequestsOrder;
+        private BundleType? _bundleType;
 
         public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ILogger<BundleHandler> logger)
         : this()
@@ -81,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
-            emptyRequestsOrder = new List<int>();
+            _emptyRequestsOrder = new List<int>();
         }
 
         private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -89,10 +92,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // List is not created initially since it doesn't create a list with _requestCount elements
             EntryComponent[] entryComponents = new EntryComponent[_requestCount];
             responseBundle.Entry = entryComponents.ToList();
-            foreach (int emptyRequestOrder in emptyRequestsOrder)
+            foreach (int emptyRequestOrder in _emptyRequestsOrder)
             {
-                var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
-                entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                var entryComponent = new EntryComponent();
+                entryComponent.Response = new ResponseComponent
                 {
                     Status = ((int)HttpStatusCode.BadRequest).ToString(),
                     Outcome = CreateOperationOutcome(
@@ -103,7 +106,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 responseBundle.Entry[emptyRequestOrder] = entryComponent;
             }
 
-            foreach (Hl7.Fhir.Model.Bundle.HTTPVerb verb in _verbExecutionOrder)
+            foreach (HTTPVerb verb in _verbExecutionOrder)
             {
                 await ExecuteRequests(responseBundle, verb);
             }
@@ -112,30 +115,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
         {
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            _bundleType = bundleResource.Type;
 
             await FillRequestLists(bundleResource.Entry);
 
-            if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Batch)
+            if (_bundleType == BundleType.Batch)
             {
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
-                    Type = Hl7.Fhir.Model.Bundle.BundleType.BatchResponse,
+                    Type = BundleType.BatchResponse,
                 };
 
                 await ExecuteAllRequests(responseBundle);
                 return new BundleResponse(responseBundle.ToResourceElement());
             }
-            else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
+
+            if (_bundleType == BundleType.Transaction)
             {
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
-                    Type = Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse,
+                    Type = BundleType.TransactionResponse,
                 };
 
                 return await ExecuteTransactionForAllRequests(responseBundle);
             }
 
-            throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, bundleResource.Type));
+            throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
         }
 
         private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -180,19 +185,41 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return issues;
         }
 
-        private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
+        private async Task FillRequestLists(List<EntryComponent> bundleEntries)
         {
             int order = 0;
             _requestCount = bundleEntries.Count;
-            foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
+
+            var referenceIdDictionary = new Dictionary<string, string>();
+
+            // For a transaction, we need to resolve any references between resources.
+            // Loop through the entries and if we're POSTing with an ID in the fullUrl then set an ID for it and add it to our dictionary.
+            if (_bundleType == BundleType.Transaction)
             {
-                if (entry.Request == null || entry.Request.Method == null)
+                PopulateReferenceIdDictionary(bundleEntries, referenceIdDictionary);
+            }
+
+            foreach (EntryComponent entry in bundleEntries)
+            {
+                if (entry.Request?.Method == null)
                 {
-                    emptyRequestsOrder.Add(order++);
+                    _emptyRequestsOrder.Add(order++);
                     continue;
                 }
 
                 HttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
+
+                // For resources within a transaction, we need to resolve any intrabundle references and potentially persist any internally assigned ids
+                if (_bundleType == BundleType.Transaction && entry.Resource != null)
+                {
+                    ResolveIntraBundleReferences(entry, referenceIdDictionary);
+
+                    if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl) && referenceIdDictionary.ContainsKey(entry.FullUrl))
+                    {
+                        httpContext.Items.Add("persistId", null);
+                    }
+                }
+
                 httpContext.Features[typeof(IHttpAuthenticationFeature)] = _httpAuthenticationFeature;
                 httpContext.Response.Body = new MemoryStream();
 
@@ -208,8 +235,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(HeaderNames.IfNoneMatch, entry.Request.IfNoneMatch, httpContext);
                 AddHeaderIfNeeded(KnownFhirHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
-                if (entry.Request.Method == Hl7.Fhir.Model.Bundle.HTTPVerb.POST ||
-                   entry.Request.Method == Hl7.Fhir.Model.Bundle.HTTPVerb.PUT)
+                if (entry.Request.Method == HTTPVerb.POST ||
+                   entry.Request.Method == HTTPVerb.PUT)
                 {
                     httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
 
@@ -222,7 +249,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 await _router.RouteAsync(routeContext);
 
-                httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature()
+                httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
                 {
                     RouteData = routeContext.RouteData,
                 };
@@ -239,11 +266,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb)
+        private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb)
         {
             foreach ((RouteContext request, int entryIndex) in _requests[httpVerb])
             {
-                var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
+                var entryComponent = new EntryComponent();
 
                 if (request.Handler != null)
                 {
@@ -273,7 +300,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
 
                     ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
-                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                    entryComponent.Response = new ResponseComponent
                     {
                         Status = httpContext.Response.StatusCode.ToString(),
                         Location = responseHeaders.Location?.OriginalString,
@@ -289,7 +316,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         {
                             entryComponent.Response.Outcome = entryComponentResource;
 
-                            if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                            if (responseBundle.Type == BundleType.TransactionResponse)
                             {
                                 ThrowTransactionException(httpContext, (OperationOutcome)entryComponentResource);
                             }
@@ -312,7 +339,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else
                 {
-                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                    entryComponent.Response = new ResponseComponent
                     {
                         Status = ((int)HttpStatusCode.NotFound).ToString(),
                         Outcome = CreateOperationOutcome(
@@ -323,6 +350,42 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
 
                 responseBundle.Entry[entryIndex] = entryComponent;
+            }
+        }
+
+        private static void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, string> idDictionary)
+        {
+            foreach (EntryComponent entry in bundleEntries)
+            {
+                if (entry.Request.Method != HTTPVerb.POST)
+                {
+                    continue;
+                }
+
+                // We've already come across this ID
+                if (!idDictionary.TryGetValue(entry.FullUrl, out _))
+                {
+                    // This id is new to us
+                    var insertId = Guid.NewGuid().ToString();
+                    entry.Resource.Id = insertId";
+
+                    var referenceId = $"{entry.Resource.TypeName}/{insertId}";
+                    idDictionary.Add(entry.FullUrl, referenceId);
+                }
+            }
+        }
+
+        private static void ResolveIntraBundleReferences(EntryComponent entry, Dictionary<string, string> referenceIdDictionary)
+        {
+            IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+
+            foreach (ResourceReference reference in references)
+            {
+                // We've already come across this ID
+                if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceId))
+                {
+                    reference.Reference = referenceId;
+                }
             }
         }
 

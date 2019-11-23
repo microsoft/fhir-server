@@ -23,12 +23,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class FhirMediatorExtensions
     {
-        public static async Task<ResourceElement> CreateResourceAsync(this IMediator mediator, ResourceElement resource, CancellationToken cancellationToken = default)
+        public static async Task<ResourceElement> CreateResourceAsync(this IMediator mediator, ResourceElement resource, bool persistId = false, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(resource), cancellationToken);
+            UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(resource, persistId), cancellationToken);
 
             return result.Outcome.Resource;
         }
