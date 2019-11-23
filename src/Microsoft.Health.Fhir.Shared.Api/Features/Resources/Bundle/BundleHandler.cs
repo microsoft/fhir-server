@@ -31,7 +31,9 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -56,8 +58,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private int _requestCount;
         private readonly Hl7.Fhir.Model.Bundle.HTTPVerb[] _verbExecutionOrder;
         private List<int> emptyRequestsOrder;
+        private readonly ISearchService _searchService;
 
-        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ILogger<BundleHandler> logger)
+        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ISearchService searchService, ILogger<BundleHandler> logger)
         : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -66,6 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -81,6 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
+            _searchService = searchService;
             emptyRequestsOrder = new List<int>();
         }
 
@@ -127,6 +132,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
             {
+                await FillConditionalReferenceList(bundleResource.Entry);
+
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse,
@@ -178,6 +185,84 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     x.Diagnostics)));
 
             return issues;
+        }
+
+        private async Task FillConditionalReferenceList(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
+        {
+            var resourceIdList = new HashSet<string>();
+
+            foreach (Hl7.Fhir.Model.Bundle.EntryComponent entry in bundleEntries)
+            {
+                if (entry.Request.Method == null)
+                {
+                    continue;
+                }
+
+                if (entry.Request.IfNoneExist == null && !entry.Request.Url.Contains("?", StringComparison.InvariantCulture))
+                {
+                    if (entry.Request.Method == HTTPVerb.POST)
+                    {
+                        resourceIdList.Add(entry.FullUrl);
+                    }
+                    else
+                    {
+                        resourceIdList.Add(entry.Request.Url);
+                    }
+
+                    continue;
+                }
+
+                if (entry.Request.Method == HTTPVerb.PUT || entry.Request.Method == HTTPVerb.DELETE)
+                {
+                    string[] queries = entry.Request.Url.Split("?");
+                    var searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(queries[1]));
+
+                    SearchResult results = await _searchService.SearchAsync(searchResource.ResourceType, searchResource.Queries, CancellationToken.None);
+
+                    int count = results.Results.Count();
+
+                    string id = entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
+
+                    if (resourceIdList.Contains(id))
+                    {
+                        throw new Exception("Duplicates");
+                    }
+
+                    resourceIdList.Add(id);
+                }
+                else if (entry.Request.Method == HTTPVerb.POST)
+                {
+                    var searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(entry.Request.IfNoneExist));
+
+                    SearchResult results = await _searchService.SearchAsync(searchResource.ResourceType, searchResource.Queries, CancellationToken.None);
+
+                    int count = results.Results.Count();
+
+                    string id = entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
+
+                    if (resourceIdList.Contains(id))
+                    {
+                        throw new Exception("Duplicates");
+                    }
+
+                    resourceIdList.Add(id);
+                }
+            }
+        }
+
+        private static List<Tuple<string, string>> GetQueriesForSearch(string ifNoneExsts)
+        {
+            List<Tuple<string, string>> queries = new List<Tuple<string, string>>();
+
+            string[] queriess = ifNoneExsts.Split("&&");
+
+            foreach (string str in queriess)
+            {
+                string[] query = str.Split("=");
+                queries.Add(Tuple.Create(query[0], query[1]));
+            }
+
+            return queries;
         }
 
         private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
@@ -243,87 +328,94 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             foreach ((RouteContext request, int entryIndex) in _requests[httpVerb])
             {
-                var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
+                EntryComponent entryComponent = await Execute(responseBundle, request);
 
-                if (request.Handler != null)
+                responseBundle.Entry[entryIndex] = entryComponent;
+            }
+        }
+
+        private async Task<EntryComponent> Execute(Hl7.Fhir.Model.Bundle responseBundle, RouteContext request)
+        {
+            var entryComponent = new Hl7.Fhir.Model.Bundle.EntryComponent();
+
+            if (request.Handler != null)
+            {
+                HttpContext httpContext = request.HttpContext;
+
+                IFhirRequestContext originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+
+                request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+                var newFhirRequestContext = new FhirRequestContext(
+                    httpContext.Request.Method,
+                    httpContext.Request.GetDisplayUrl(),
+                    originalFhirRequestContext.BaseUri.OriginalString,
+                    originalFhirRequestContext.CorrelationId,
+                    httpContext.Request.Headers,
+                    httpContext.Response.Headers,
+                    resourceType?.ToString())
                 {
-                    HttpContext httpContext = request.HttpContext;
+                    Principal = originalFhirRequestContext.Principal,
+                };
+                _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
 
-                    IFhirRequestContext originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                _bundleHttpContextAccessor.HttpContext = httpContext;
 
-                    request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
-                    var newFhirRequestContext = new FhirRequestContext(
-                        httpContext.Request.Method,
-                        httpContext.Request.GetDisplayUrl(),
-                        originalFhirRequestContext.BaseUri.OriginalString,
-                        originalFhirRequestContext.CorrelationId,
-                        httpContext.Request.Headers,
-                        httpContext.Response.Headers,
-                        resourceType?.ToString())
+                await request.Handler.Invoke(httpContext);
+
+                httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+                string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
+
+                ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
+                entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                {
+                    Status = httpContext.Response.StatusCode.ToString(),
+                    Location = responseHeaders.Location?.OriginalString,
+                    Etag = responseHeaders.ETag?.ToString(),
+                    LastModified = responseHeaders.LastModified,
+                };
+
+                if (!string.IsNullOrWhiteSpace(bodyContent))
+                {
+                    var entryComponentResource = _fhirJsonParser.Parse<Resource>(bodyContent);
+
+                    if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
                     {
-                        Principal = originalFhirRequestContext.Principal,
-                    };
-                    _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
+                        entryComponent.Response.Outcome = entryComponentResource;
 
-                    _bundleHttpContextAccessor.HttpContext = httpContext;
-
-                    await request.Handler.Invoke(httpContext);
-
-                    httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-                    string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
-
-                    ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
-                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
-                    {
-                        Status = httpContext.Response.StatusCode.ToString(),
-                        Location = responseHeaders.Location?.OriginalString,
-                        Etag = responseHeaders.ETag?.ToString(),
-                        LastModified = responseHeaders.LastModified,
-                    };
-
-                    if (!string.IsNullOrWhiteSpace(bodyContent))
-                    {
-                        var entryComponentResource = _fhirJsonParser.Parse<Resource>(bodyContent);
-
-                        if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
+                        if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
                         {
-                            entryComponent.Response.Outcome = entryComponentResource;
-
-                            if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
-                            {
-                                ThrowTransactionException(httpContext, (OperationOutcome)entryComponentResource);
-                            }
-                        }
-                        else
-                        {
-                            entryComponent.Resource = entryComponentResource;
+                            ThrowTransactionException(httpContext, (OperationOutcome)entryComponentResource);
                         }
                     }
                     else
                     {
-                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
-                        {
-                            entryComponent.Response.Outcome = CreateOperationOutcome(
-                                OperationOutcome.IssueSeverity.Error,
-                                OperationOutcome.IssueType.Forbidden,
-                                Api.Resources.Forbidden);
-                        }
+                        entryComponent.Resource = entryComponentResource;
                     }
                 }
                 else
                 {
-                    entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                    if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
                     {
-                        Status = ((int)HttpStatusCode.NotFound).ToString(),
-                        Outcome = CreateOperationOutcome(
+                        entryComponent.Response.Outcome = CreateOperationOutcome(
                             OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.NotFound,
-                            string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
-                    };
+                            OperationOutcome.IssueType.Forbidden,
+                            Api.Resources.Forbidden);
+                    }
                 }
-
-                responseBundle.Entry[entryIndex] = entryComponent;
             }
+            else
+            {
+                entryComponent.Response = new Hl7.Fhir.Model.Bundle.ResponseComponent
+                {
+                    Status = ((int)HttpStatusCode.NotFound).ToString(),
+                    Outcome = CreateOperationOutcome(
+                        OperationOutcome.IssueSeverity.Error,
+                        OperationOutcome.IssueType.NotFound,
+                        string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                };
+            }
+
+            return entryComponent;
         }
 
         private static OperationOutcome CreateOperationOutcome(OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, string diagnostics)
