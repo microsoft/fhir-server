@@ -367,7 +367,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     // This id is new to us
                     var insertId = Guid.NewGuid().ToString();
-                    entry.Resource.Id = insertId";
+                    entry.Resource.Id = insertId;
 
                     var referenceId = $"{entry.Resource.TypeName}/{insertId}";
                     idDictionary.Add(entry.FullUrl, referenceId);
