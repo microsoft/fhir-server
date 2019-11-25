@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
@@ -50,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             {
                 // No matches: The server creates the resource
                 // TODO: There is a potential contention issue here in that this could create another new resource with a different id
-                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(message.Resource), cancellationToken);
+                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(message.Resource, message.PersistId), cancellationToken);
             }
             else if (count == 1)
             {
