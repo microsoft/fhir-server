@@ -109,17 +109,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
-        {
-            EntryComponent[] entryComponents = new EntryComponent[_requestCount];
-            responseBundle.Entry = entryComponents.ToList();
-
-            foreach (Hl7.Fhir.Model.Bundle.HTTPVerb verb in _verbExecutionOrder)
-            {
-                await ExecuteRequests(responseBundle, verb);
-            }
-        }
-
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
         {
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();

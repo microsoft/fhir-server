@@ -67,17 +67,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
         [Trait(Traits.Priority, Priority.One)]
         [Fact]
-        public async Task GivenABatch_WhenInvoked_MetricNotifications()
+        public async Task GivenABatch_WhenInvoked_MetricNotificationsShouldBeEmitted()
         {
             _metricHandler?.ResetCount();
 
             await ExecuteAndValidate(
                 () => _client.CreateAsync(Samples.GetDefaultBatch().ToPoco()),
-                (type: typeof(ApiResponseNotification), count: 1),
-                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1));
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
         }
 
-        private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count)[] expectedNotifications)
+        private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)
         {
             if (!_fixture.IsUsingInProcTestServer)
             {

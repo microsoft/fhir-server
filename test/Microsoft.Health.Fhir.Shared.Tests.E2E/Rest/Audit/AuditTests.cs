@@ -505,7 +505,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.NotNull(auditEntry);
             Assert.Equal(expectedAuditAction, auditEntry.AuditAction);
             Assert.Equal(expectedAction, auditEntry.Action);
-
             Assert.Equal(expectedResourceType?.ToString(), auditEntry.ResourceType);
             Assert.Equal(expectedUri, auditEntry.RequestUri);
             Assert.Equal(expectedStatusCode, auditEntry.StatusCode);
