@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Requested operation does not support _search interation using POST..
+        ///   Looks up a localized string similar to Requested operation does not support {0} interaction using {1}..
         /// </summary>
         public static string InvalidBundleEntry {
             get {

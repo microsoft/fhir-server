@@ -198,7 +198,7 @@
   </data>
   <data name="ResourcesMustBeUnique" xml:space="preserve">
     <value>Bundle contains multiple resources with the same url value '{0}'.</value>
-    <comment>'{0}' is the full url for POST and request url for PUT and DELETE.</comment>
+    <comment>{0} is the full url for POST and request url for PUT and DELETE.</comment>
   </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
     <value>Resource type in the URL must match resourceType in the resource.</value>
@@ -258,6 +258,7 @@
     <comment>{NumberedPlaceHolder=”STU3”}</comment>
   </data>
   <data name="InvalidBundleEntry" xml:space="preserve">
-    <value>Requested operation does not support _search interation using POST.</value>
+    <value>Requested operation does not support {0} interaction using {1}.</value>
+    <comment>{0} is the interaction route and {1} is the http verb.</comment>
   </data>
 </root>
