@@ -521,13 +521,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Returns the Capability Statement of this server which is used to determine
         /// what FHIR features are supported by this implementation.
         /// </summary>
-        /// <param name="system">Specifies if all system capabilities should be returned or only configured (default).</param>
         [HttpGet]
         [AllowAnonymous]
         [Route(KnownRoutes.Metadata, Name = RouteNames.Metadata)]
-        public async Task<IActionResult> Metadata(bool system = false)
+        public async Task<IActionResult> Metadata()
         {
-            ResourceElement response = await _mediator.GetCapabilitiesAsync(system, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.GetCapabilitiesAsync(HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -551,7 +550,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="bundle">The bundle being posted</param>
         [HttpPost]
         [Route("", Name = RouteNames.PostBundle)]
-        [AuditEventType(AuditEventSubType.Batch)] // TODO: Our current auditing implementation only allows one audit event type attribute even though this action handles two.
+        [AuditEventType(AuditEventSubType.BundlePost)]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());

@@ -3,12 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using NSubstitute;
@@ -54,6 +56,18 @@ namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        }
+
+        [Fact]
+        public async Task GivenCosmosDbWithTooManyRequests_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
+        {
+            _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration)
+                .ThrowsForAnyArgs(new RequestRateExceededException(TimeSpan.Zero));
+
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            Assert.Equal(HealthStatus.Healthy, result.Status);
+            Assert.Contains("rate limit", result.Description);
         }
     }
 }

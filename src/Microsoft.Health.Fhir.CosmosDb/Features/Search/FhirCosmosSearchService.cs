@@ -11,7 +11,6 @@ using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -25,9 +24,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
-            IQueryBuilder queryBuilder,
-            IModelInfoProvider modelInfoProvider)
-            : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
+            IQueryBuilder queryBuilder)
+            : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
@@ -40,10 +38,43 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            return await ExecuteSearchAsync(
+            SearchResult searchResult = await ExecuteSearchAsync(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions),
                 searchOptions,
                 cancellationToken);
+
+            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+            {
+                // If this is the first page and there aren't any more pages
+                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
+                {
+                    // Count the results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count();
+                }
+                else
+                {
+                    try
+                    {
+                        // Otherwise, indicate that we'd like to get the count
+                        searchOptions.CountOnly = true;
+
+                        // And perform a second read.
+                        var totalSearchResult = await ExecuteSearchAsync(
+                            _queryBuilder.BuildSqlQuerySpec(searchOptions),
+                            searchOptions,
+                            cancellationToken);
+
+                        searchResult.TotalCount = totalSearchResult.TotalCount;
+                    }
+                    finally
+                    {
+                        // Ensure search options is set to its original state.
+                        searchOptions.CountOnly = false;
+                    }
+                }
+            }
+
+            return searchResult;
         }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(
@@ -65,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 EnableCrossPartitionQuery = true,
                 MaxItemCount = searchOptions.MaxItemCount,
-                RequestContinuation = searchOptions.ContinuationToken,
+                RequestContinuation = searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
             };
 
             if (searchOptions.CountOnly)

@@ -14,12 +14,12 @@ using Hl7.FhirPath;
 namespace Microsoft.Health.Fhir.Core.Models
 {
     /// <summary>
-    /// Wraps an ITypedElement that contains FHIR data (generic to a specific version of FHIR)
+    /// Wraps an ITypedElement that contains generic FHIR data
     /// </summary>
     public class ResourceElement
     {
         private readonly Lazy<EvaluationContext> _context;
-        private List<string> _nonDomainTypes = new List<string>
+        private readonly List<string> _nonDomainTypes = new List<string>
             {
                 "Bundle",
                 "Parameters",
@@ -71,6 +71,16 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             object scalar = Instance.Scalar(fhirPath, _context.Value);
             return (T)scalar;
+        }
+
+        public IEnumerable<ITypedElement> Select(string fhirPath)
+        {
+            return Instance.Select(fhirPath, _context.Value);
+        }
+
+        public bool Predicate(string fhirPath)
+        {
+            return Instance.Predicate(fhirPath, _context.Value);
         }
     }
 }

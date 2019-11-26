@@ -236,35 +236,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public void Build(IListedCapabilityStatement statement)
+        public void Build(ICapabilityStatementBuilder builder)
         {
-            EnsureArg.IsNotNull(statement, nameof(statement));
+            EnsureArg.IsNotNull(builder, nameof(builder));
 
-            statement.SupportsInclude = true;
-
-            foreach (var resource in ModelInfoProvider.GetResourceTypeNames())
-            {
-                statement.BuildRestResourceComponent(resource, builder =>
-                {
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.NoVersion);
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.Versioned);
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.VersionedUpdate);
-                    builder.ReadHistory = true;
-                    builder.UpdateCreate = true;
-                });
-            }
+            builder.AddDefaultResourceInteractions()
+                   .AddDefaultSearchParameters();
 
             if (_coreFeatures.SupportsBatch)
             {
                 // Batch supported added in listedCapability
-                statement.TryAddRestInteraction(SystemRestfulInteraction.Batch);
+                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
             }
 
             if (_coreFeatures.SupportsTransaction)
             {
                 // Transaction supported added in listedCapability
-                statement.TryAddRestInteraction(SystemRestfulInteraction.Transaction);
+                builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
+        }
+
+        public ITransactionScope BeginTransaction()
+        {
+            return new DefaultTransactionScope();
         }
     }
 }

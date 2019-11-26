@@ -108,15 +108,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Bundle;
         }
 
-        public static async Task<ResourceElement> GetCapabilitiesAsync(this IMediator mediator, bool isSystem = false, CancellationToken cancellationToken = default)
+        public static async Task<ResourceElement> GetCapabilitiesAsync(this IMediator mediator, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-
-            if (isSystem)
-            {
-                var sysResponse = await mediator.Send(new GetSystemCapabilitiesRequest(), cancellationToken);
-                return sysResponse.CapabilityStatement;
-            }
 
             var response = await mediator.Send(new GetCapabilitiesRequest(), cancellationToken);
             return response.CapabilityStatement;

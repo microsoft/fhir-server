@@ -11,9 +11,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public interface IProvideCapability
     {
         /// <summary>
-        /// Allows this component to add capabilities into the specified ListedCapabilityStatement.
+        /// Allows this component to configure the server's CapabilityStatement.
         /// </summary>
-        /// <param name="statement">The ListedCapabilityStatement to be added to.</param>
-        void Build(IListedCapabilityStatement statement);
+        /// <param name="builder">Instance of the CapabilityStatementBuilder.</param>
+        void Build(ICapabilityStatementBuilder builder);
     }
 }

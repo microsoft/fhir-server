@@ -71,6 +71,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenANonExistingResource_WhenRead_ThenAuditLogEntriesShouldBeCreated()
         {
             // TODO: The resource type being logged here is incorrect. The issue is tracked by https://github.com/Microsoft/fhir-server/issues/334.
+
+            string resourceId = Guid.NewGuid().ToString();
             await ExecuteAndValidate(
                 async () =>
                 {
@@ -78,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
                     try
                     {
-                        await _client.ReadAsync<Patient>(ResourceType.Patient, "123");
+                        await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
                     }
                     catch (FhirException ex)
                     {
@@ -92,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 },
                 "read",
                 ResourceType.OperationOutcome,
-                _ => $"Patient/123",
+                _ => $"Patient/{resourceId}",
                 HttpStatusCode.NotFound);
         }
 

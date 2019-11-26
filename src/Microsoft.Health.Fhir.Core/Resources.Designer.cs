@@ -88,15 +88,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to CapabilityStatement must have only a single item in the &apos;Rest&apos; collection..
-        /// </summary>
-        internal static string CapabilityStatementSingleRestItem {
-            get {
-                return ResourceManager.GetString("CapabilityStatementSingleRestItem", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The chained parameter must be a reference search parameter type..
         /// </summary>
         internal static string ChainedParameterMustBeReferenceSearchParamType {
@@ -358,38 +349,20 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Value &apos;{0}&apos; is not supported. Please select from the following list of supported capabilities: [{1}]..
+        /// </summary>
+        internal static string InvalidConfigSetting {
+            get {
+                return ResourceManager.GetString("InvalidConfigSetting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The continuation token is invalid..
         /// </summary>
         internal static string InvalidContinuationToken {
             get {
                 return ResourceManager.GetString("InvalidContinuationToken", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported. Please select from the following list of supported capabilities: [{2}]..
-        /// </summary>
-        internal static string InvalidEnumConfigSetting {
-            get {
-                return ResourceManager.GetString("InvalidEnumConfigSetting", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to A duplicate value was found for field &apos;{0}&apos;. Please check your configured options..
-        /// </summary>
-        internal static string InvalidListConfigDuplicateItem {
-            get {
-                return ResourceManager.GetString("InvalidListConfigDuplicateItem", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Unsupported values for field &apos;{0}&apos; were selected. Please check your configured options..
-        /// </summary>
-        internal static string InvalidListConfigSetting {
-            get {
-                return ResourceManager.GetString("InvalidListConfigSetting", resourceCulture);
             }
         }
         
@@ -822,6 +795,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UnsupportedDestinationTypeMessage {
             get {
                 return ResourceManager.GetString("UnsupportedDestinationTypeMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;_total&quot; parameter is not supported..
+        /// </summary>
+        internal static string UnsupportedTotalParameter {
+            get {
+                return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
             }
         }
         

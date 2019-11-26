@@ -128,5 +128,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 Claims,
                 customHeaders: _auditHeaderReader.Read(_httpContext));
         }
+
+        [Fact]
+        public void GivenAnActionHasAuditEventTypeAttribute_WhenFhirRequestContextHasAuditValue_ThenAuditLogShouldBeLoggedWithFhirRequestValue()
+        {
+            string otherAuditEventType = "other-audit";
+
+            _fhirRequestContext.AuditEventType.Returns(otherAuditEventType);
+
+            _auditHelper.LogExecuting(ControllerName, NonAnonymousActionName, _httpContext, _claimsExtractor);
+
+            _auditLogger.Received(1).LogAudit(
+                AuditAction.Executing,
+                otherAuditEventType,
+                resourceType: null,
+                requestUri: Uri,
+                statusCode: null,
+                correlationId: CorrelationId,
+                callerIpAddress: CallerIpAddressInString,
+                callerClaims: Claims,
+                customHeaders: _auditHeaderReader.Read(_httpContext));
+        }
     }
 }

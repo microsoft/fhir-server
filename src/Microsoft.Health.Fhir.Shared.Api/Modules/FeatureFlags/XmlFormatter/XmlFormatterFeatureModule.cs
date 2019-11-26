@@ -4,14 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
 {
@@ -52,8 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
                 services.Add<XmlFormatterConfiguration>()
                     .Singleton()
                     .AsSelf()
-                    .AsService<IPostConfigureOptions<MvcOptions>>()
-                    .AsService<IProvideCapability>();
+                    .AsImplementedInterfaces();
             }
         }
     }

@@ -16,6 +16,7 @@
             "environmentVariables": {
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
                 "SqlServer:Initialize": "true",
+                "SqlServer:AllowDatabaseCreation": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "DataStore": "SqlServer",
                 "ASPNETCORE_ENVIRONMENT": "development"

@@ -7,6 +7,10 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public static class KnownResourceTypes
     {
+        public const string AuditEvent = "AuditEvent";
+
+        public const string Binary = "Binary";
+
         public const string Bundle = "Bundle";
 
         public const string Device = "Device";
@@ -22,6 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Models
         public const string OperationOutcome = "OperationOutcome";
 
         public const string Organization = "Organization";
+
+        public const string Parameters = "Parameters";
 
         public const string RiskAssessment = "RiskAssessment";
 

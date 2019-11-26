@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -14,21 +16,28 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         private static IModelInfoProvider _modelInfoProvider;
 
-        public static FhirSpecification Version
-        {
-            get
-            {
-                EnsureProvider();
-                return _modelInfoProvider.Version;
-            }
-        }
-
         public static IModelInfoProvider Instance
         {
             get
             {
                 EnsureProvider();
                 return _modelInfoProvider;
+            }
+        }
+
+        public static FhirSpecification Version
+        {
+            get
+            {
+                return Instance.Version;
+            }
+        }
+
+        public static IStructureDefinitionSummaryProvider StructureDefinitionSummaryProvider
+        {
+            get
+            {
+                return Instance.StructureDefinitionSummaryProvider;
             }
         }
 
@@ -49,44 +58,37 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public static string GetFhirTypeNameForType(Type type)
         {
-            EnsureProvider();
-            return _modelInfoProvider.GetFhirTypeNameForType(type);
+            return Instance.GetFhirTypeNameForType(type);
         }
 
         public static bool IsKnownResource(string name)
         {
-            EnsureProvider();
-            return _modelInfoProvider.IsKnownResource(name);
+            return Instance.IsKnownResource(name);
         }
 
         public static bool IsKnownCompartmentType(string compartmentType)
         {
-            EnsureProvider();
-            return _modelInfoProvider.IsKnownCompartmentType(compartmentType);
+            return Instance.IsKnownCompartmentType(compartmentType);
         }
 
-        public static string[] GetResourceTypeNames()
+        public static IReadOnlyCollection<string> GetResourceTypeNames()
         {
-            EnsureProvider();
-            return _modelInfoProvider.GetResourceTypeNames();
+            return Instance.GetResourceTypeNames();
         }
 
-        public static string[] GetCompartmentTypeNames()
+        public static IReadOnlyCollection<string> GetCompartmentTypeNames()
         {
-            EnsureProvider();
-            return _modelInfoProvider.GetCompartmentTypeNames();
+            return Instance.GetCompartmentTypeNames();
         }
 
         public static Type GetTypeForFhirType(string resourceType)
         {
-            EnsureProvider();
-            return _modelInfoProvider.GetTypeForFhirType(resourceType);
+            return Instance.GetTypeForFhirType(resourceType);
         }
 
         public static EvaluationContext GetEvaluationContext(ITypedElement element)
         {
-            EnsureProvider();
-            return _modelInfoProvider.GetEvaluationContext(element);
+            return Instance.GetEvaluationContext(element);
         }
 
         public static void EnsureValidResourceType(string resourceName, string parameterName)

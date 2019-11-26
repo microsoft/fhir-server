@@ -12,17 +12,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\FhirMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\CapabilityStatementExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderBase.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetCapabilitiesHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetOperationVersionsHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IConfiguredConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ISystemConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ListedContactPoint.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\SystemConformanceProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentDefinitionManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentIndexer.cs" />

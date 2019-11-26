@@ -26,19 +26,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingMetadata_GivenSystemFlag_TheServerShouldReturnSuccessfully()
-        {
-            FhirResponse<CapabilityStatement> readAsync = await Client.ReadAsync<CapabilityStatement>("metadata?system=true");
-
-            Assert.NotEmpty(readAsync.Resource.Rest);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
         public async Task WhenGettingMetadata_GivenInvalidFormatParameter_TheServerShouldReturnNotAcceptable()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<CapabilityStatement>("metadata?_format=blah"));
             Assert.Equal(HttpStatusCode.NotAcceptable, ex.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("abc")]
+        [InlineData("")]
+        [InlineData("1")]
+        [InlineData("0")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenGettingMetadata_GivenInvalidPrettyParameter_TheServerShouldReturnBadRequest(string value)
+        {
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<CapabilityStatement>($"metadata?_pretty={value}"));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
     }
 }

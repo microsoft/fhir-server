@@ -99,6 +99,26 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.CosmosDb
 
                 // wrap with try/catch
 
+                ExpressionStatementSyntax processExceptionExpressionStatementSyntax;
+
+                InvocationExpressionSyntax processExceptionExpression = SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("ProcessException")).AddArgumentListArguments(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("ex")));
+                if (isAsync)
+                {
+                    processExceptionExpressionStatementSyntax = SyntaxFactory.ExpressionStatement(SyntaxFactory.AwaitExpression(processExceptionExpression));
+                }
+                else
+                {
+                    processExceptionExpressionStatementSyntax = SyntaxFactory.ExpressionStatement(SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    processExceptionExpression,
+                                    SyntaxFactory.IdentifierName("GetAwaiter"))),
+                            SyntaxFactory.IdentifierName("GetResult"))));
+                }
+
                 visitedNode = visitedNode.WithBody(SyntaxFactory.Block(SyntaxFactory.TryStatement(
                     block: visitedNode.Body,
                     catches: SyntaxFactory.SingletonList(
@@ -113,7 +133,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.CosmosDb
                                     SyntaxFactory.SeparatedList(
                                         new StatementSyntax[]
                                         {
-                                            SyntaxFactory.ExpressionStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("ProcessException")).AddArgumentListArguments(SyntaxFactory.Argument(SyntaxFactory.IdentifierName("ex")))),
+                                            processExceptionExpressionStatementSyntax,
                                             SyntaxFactory.ThrowStatement(),
                                         })))),
                     @finally: null)));
@@ -124,7 +144,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.CosmosDb
                     _responseTypeSymbols.Contains(argumentType.ConstructedFrom))
                 {
                     var awaitSyntax = visitedNode.DescendantNodes().OfType<AwaitExpressionSyntax>().First();
-                    visitedNode = visitedNode.ReplaceNode(awaitSyntax, SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("ProcessResponse")).AddArgumentListArguments(SyntaxFactory.Argument(awaitSyntax)));
+                    visitedNode = visitedNode.ReplaceNode(awaitSyntax, SyntaxFactory.AwaitExpression(SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("ProcessResponse")).AddArgumentListArguments(SyntaxFactory.Argument(awaitSyntax))));
                 }
 
                 return visitedNode;

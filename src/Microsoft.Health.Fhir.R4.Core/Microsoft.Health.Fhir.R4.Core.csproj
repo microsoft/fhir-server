@@ -6,22 +6,16 @@
   <PropertyGroup>
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
-  <ItemGroup>
-    <None Remove="Features\Conformance\DefaultCapabilities.json" />
-  </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Features\Conformance\AllCapabilities.json" />
-    <EmbeddedResource Include="Features\Conformance\DefaultCapabilities.json" />
     <EmbeddedResource Include="Features\Definition\search-parameters.json" />
     <EmbeddedResource Include="Features\Definition\compartment.json" />
-    <EmbeddedResource Include="Features\Conformance\BaseCapabilities.json" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.13.0" />
-    <PackageReference Include="Ensure.That" Version="8.1.1" />
-    <PackageReference Include="FluentValidation" Version="8.5.0" />
+    <PackageReference Include="Ensure.That" Version="8.1.2" />
+    <PackageReference Include="FluentValidation" Version="8.5.1" />
     <PackageReference Include="MediatR" Version="7.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.6" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.2.0" />
