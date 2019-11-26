@@ -79,40 +79,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Resource requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
             FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle);
+
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-            for (int i = 0; i < 10; i++)
+
+            for (int i = 0; i < 6; i++)
             {
                 var entry = fhirResponse.Resource.Entry[i];
                 var operationOutcome = entry.Response.Outcome as OperationOutcome;
-                if (i < 6)
-                {
-                    ValidateOperationOutcome(entry.Response.Status, operationOutcome, statusCodeMap[HttpStatusCode.Forbidden], "Authorization failed.", IssueType.Forbidden);
-                }
-                else if (i == 8)
-                {
-                    Assert.Equal("200", entry.Response.Status);
-                    Assert.Null(operationOutcome);
-                }
-                else
-                {
-                    string expectedDiagnostic = null;
-                    switch (i)
-                    {
-                        case 6:
-                            expectedDiagnostic = "The route for \"/Patient?identifier=123456\" was not found.";
-                            break;
-                        case 7:
-                            expectedDiagnostic = "The route for \"/ValueSet/$lookup\" was not found.";
-                            break;
-                        case 9:
-                            expectedDiagnostic = "Resource type 'Patient' with id '12334' couldn't be found.";
-                            break;
-                    }
-
-                    ValidateOperationOutcome(entry.Response.Status, operationOutcome, statusCodeMap[HttpStatusCode.NotFound], expectedDiagnostic, IssueType.NotFound);
-                }
+                ValidateOperationOutcome(entry.Response.Status, operationOutcome, statusCodeMap[HttpStatusCode.Forbidden], "Authorization failed.", IssueType.Forbidden);
             }
+
+            var resourceEntry = fhirResponse.Resource.Entry[6];
+            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/Patient?identifier=123456\" was not found.", IssueType.NotFound);
+            resourceEntry = fhirResponse.Resource.Entry[7];
+            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            resourceEntry = fhirResponse.Resource.Entry[8];
+            Assert.Equal("200", resourceEntry.Response.Status);
+            Assert.Null(resourceEntry.Response.Outcome);
+            resourceEntry = fhirResponse.Resource.Entry[9];
+            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Fact]
@@ -128,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Assert.Equal("201", resource.Entry[0].Response.Status);
             Assert.True("201".Equals(resource.Entry[1].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
-            Assert.Equal("200", resource.Entry[2].Response.Status);
+            Assert.True("200".Equals(resource.Entry[2].Response.Status) || "201".Equals(resource.Entry[2].Response.Status), "Update");
             Assert.True("201".Equals(resource.Entry[3].Response.Status) || "200".Equals(resource.Entry[3].Response.Status), "Update or Create");
 
             // stu3 returns 404 and R4 returns 412 due to data issue in stu3. Since there is only one mismatch handled with OR but if we find
