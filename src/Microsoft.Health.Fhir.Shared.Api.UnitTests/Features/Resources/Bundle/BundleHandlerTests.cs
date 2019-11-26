@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using NSubstitute;
 using NSubstitute.Core;
@@ -54,6 +55,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _fhirJsonSerializer = new FhirJsonSerializer();
             _fhirJsonParser = new FhirJsonParser();
 
+            var searchService = Substitute.For<ISearchService>();
+            var transactionValidator = new TransactionValidator(searchService);
+
             _bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
             IFeatureCollection featureCollection = CreateFeatureCollection();
@@ -70,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var transactionHandler = Substitute.For<ITransactionHandler>();
 
-            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, NullLogger<BundleHandler>.Instance);
+            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, transactionValidator, NullLogger<BundleHandler>.Instance);
         }
 
         [Fact]

@@ -35,44 +35,60 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (ShouldValidateBundleEntry(entry))
                 {
-                    string resourceId = null;
+                    string resourceId = await GetResourceId(entry);
 
-                    if (entry.Request.IfNoneExist == null && !entry.Request.Url.Contains("?", StringComparison.InvariantCulture))
-                    {
-                        resourceId = GetResourceUrl(entry);
-                    }
-                    else
-                    {
-                        SearchResourceRequest searchResource = null;
-
-                        if (entry.Request.Method == HTTPVerb.PUT || entry.Request.Method == HTTPVerb.DELETE)
-                        {
-                            string[] queries = entry.Request.Url.Split("?");
-                            searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(queries[1]));
-                        }
-                        else if (entry.Request.Method == HTTPVerb.POST)
-                        {
-                            searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(entry.Request.IfNoneExist));
-                        }
-
-                        SearchResult results = await _searchService.SearchAsync(searchResource.ResourceType, searchResource.Queries, CancellationToken.None);
-
-                        int count = results.Results.Count();
-
-                        resourceId = entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
-                    }
-
-                    if (!string.IsNullOrEmpty(resourceId))
-                    {
-                        if (resourceIdList.Contains(resourceId))
-                        {
-                            throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, resourceId));
-                        }
-
-                        resourceIdList.Add(resourceId);
-                    }
+                    CheckIfMultipleResourceExists(resourceIdList, resourceId);
                 }
             }
+        }
+
+        public static void CheckIfMultipleResourceExists(HashSet<string> resourceIdList, string resourceId)
+        {
+            if (!string.IsNullOrEmpty(resourceId))
+            {
+                if (resourceIdList.Contains(resourceId))
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, resourceId));
+                }
+
+                resourceIdList.Add(resourceId);
+            }
+        }
+
+        private async Task<string> GetResourceId(EntryComponent entry)
+        {
+            string resourceId = null;
+
+            if (entry.Request.IfNoneExist == null && !entry.Request.Url.Contains("?", StringComparison.InvariantCulture))
+            {
+                if (entry.Request.Method != HTTPVerb.POST)
+                {
+                    resourceId = entry.Request.Url;
+                }
+            }
+            else
+            {
+                SearchResourceRequest searchResource = null;
+
+                if (entry.Request.Method == HTTPVerb.PUT || entry.Request.Method == HTTPVerb.DELETE)
+                {
+                    string[] queries = entry.Request.Url.Split("?");
+                    searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(queries[1]));
+                }
+                else if (entry.Request.Method == HTTPVerb.POST)
+                {
+                    searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(entry.Request.IfNoneExist));
+                }
+
+                SearchResult results = await _searchService.SearchAsync(searchResource.ResourceType, searchResource.Queries, CancellationToken.None);
+
+                if (results?.Results.Count() > 0)
+                {
+                    resourceId = entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
+                }
+            }
+
+            return resourceId;
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
@@ -92,26 +108,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                  || requestUrl.Contains("$", StringComparison.InvariantCulture));
         }
 
-        private static string GetResourceUrl(EntryComponent component)
+        private static List<Tuple<string, string>> GetQueriesForSearch(string queryParameter)
         {
-            if (component.Request.Method == HTTPVerb.POST)
+            var queries = new List<Tuple<string, string>>();
+
+            string[] searchParameters = queryParameter.Split("&&");
+
+            foreach (string searchParameter in searchParameters)
             {
-                return component.FullUrl;
-            }
-
-            return component.Request.Url;
-        }
-
-        private static List<Tuple<string, string>> GetQueriesForSearch(string ifNoneExsts)
-        {
-            List<Tuple<string, string>> queries = new List<Tuple<string, string>>();
-
-            string[] queriess = ifNoneExsts.Split("&&");
-
-            foreach (string str in queriess)
-            {
-                string[] query = str.Split("=");
-                queries.Add(Tuple.Create(query[0], query[1]));
+                string[] parameters = searchParameter.Split("=");
+                queries.Add(Tuple.Create(parameters[0], parameters[1]));
             }
 
             return queries;

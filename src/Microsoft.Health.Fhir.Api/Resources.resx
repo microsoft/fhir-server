@@ -197,8 +197,8 @@
     <value>Id must be specified in the resource.</value>
   </data>
   <data name="ResourcesMustBeUnique" xml:space="preserve">
-    <value>Bundle contains multiple resources with the same url value '{0}'.</value>
-    <comment>'{0}' is the full url for POST and request url for PUT and DELETE.</comment>
+    <value>Bundle contains multiple resources that refers to the same resource '{0}'.</value>
+    <comment>'{0}' represents the the logical id for CREATE,UPDATE and DELETE. It represents the full url for POST and request url for PUT and DELETE, otherwise.</comment>
   </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
     <value>Resource type in the URL must match resourceType in the resource.</value>
