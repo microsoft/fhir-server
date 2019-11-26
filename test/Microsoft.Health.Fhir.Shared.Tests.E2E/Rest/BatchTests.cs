@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingABatch_GivenAProperBundle_ThenSuccessIsReturned()
+        public async Task WhenSubmittingABatch_GivenAProperBundle_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
             Resource requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
@@ -81,21 +81,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-
-            // Since first five requests are POST/PUT
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 10; i++)
             {
                 var entry = fhirResponse.Resource.Entry[i];
-                Assert.Equal(statusCodeMap[HttpStatusCode.Forbidden], entry.Response.Status);
                 var operationOutcome = entry.Response.Outcome as OperationOutcome;
-                Assert.NotNull(operationOutcome);
-                Assert.Single(operationOutcome.Issue);
+                if (i < 6)
+                {
+                    ValidateOperationOutcome(entry.Response.Status, operationOutcome, statusCodeMap[HttpStatusCode.Forbidden], "Authorization failed.", IssueType.Forbidden);
+                }
+                else if (i == 8)
+                {
+                    Assert.Equal("200", entry.Response.Status);
+                    Assert.Null(operationOutcome);
+                }
+                else
+                {
+                    string expectedDiagnostic = null;
+                    switch (i)
+                    {
+                        case 6:
+                            expectedDiagnostic = "The route for \"/Patient?identifier=123456\" was not found.";
+                            break;
+                        case 7:
+                            expectedDiagnostic = "The route for \"/ValueSet/$lookup\" was not found.";
+                            break;
+                        case 9:
+                            expectedDiagnostic = "Resource type 'Patient' with id '12334' couldn't be found.";
+                            break;
+                    }
 
-                var issue = operationOutcome.Issue.First();
-
-                Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
-                Assert.Equal(IssueType.Forbidden, issue.Code);
-                Assert.Equal("Authorization failed.", issue.Diagnostics);
+                    ValidateOperationOutcome(entry.Response.Status, operationOutcome, statusCodeMap[HttpStatusCode.NotFound], expectedDiagnostic, IssueType.NotFound);
+                }
             }
         }
 
@@ -123,6 +139,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal("404", resource.Entry[7].Response.Status);
             Assert.Equal("200", resource.Entry[8].Response.Status);
             Assert.Equal("404", resource.Entry[9].Response.Status);
+        }
+
+        private void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
+        {
+            Assert.Equal(expectedStatusCode, actualStatusCode);
+            Assert.NotNull(operationOutcome);
+            Assert.Single(operationOutcome.Issue);
+
+            var issue = operationOutcome.Issue.First();
+
+            Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
+            Assert.Equal(expectedIssueType, issue.Code);
+            Assert.Equal(expectedDiagnostics, issue.Diagnostics);
         }
     }
 }

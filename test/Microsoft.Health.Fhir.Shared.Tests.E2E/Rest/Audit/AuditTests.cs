@@ -392,7 +392,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
-        private async Task ExecuteAndValidateBatch<T>(Func<Task<FhirResponse<T>>> action, List<string> expectedActions, List<string> expectedPathSegments, List<HttpStatusCode> expectedStatusCodes)
+        private async Task ExecuteAndValidateBatch<T>(Func<Task<FhirResponse<T>>> action, List<(string, string, HttpStatusCode)> expectedList)
             where T : Resource
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -416,15 +416,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.Equal(18, auditList.Count);
             for (int i = 0; i < 18; i++)
             {
-                var expectedUri = new Uri($"http://localhost/{expectedPathSegments[i]}");
+                var expectedAction = expectedList[i].Item1;
+                var expectedPathSegment = expectedList[i].Item2;
+                var expectedStatusCode = expectedList[i].Item3;
+                var expectedUri = new Uri($"http://localhost/{expectedPathSegment}");
                 if (i == 0 || (i % 2 != 0 && i != 17))
                 {
-                    ValidateExecutingAuditEntry(auditList[i], expectedActions[i], expectedUri, correlationId, expectedAppId, ExpectedClaimKey);
+                    ValidateExecutingAuditEntry(auditList[i], expectedAction, expectedUri, correlationId, expectedAppId, ExpectedClaimKey);
                 }
                 else
                 {
                     ResourceType? expectedResourceType = null;
-                    if ((auditList[i].StatusCode.Equals(HttpStatusCode.Created) || (expectedActions[i].Equals("update") && auditList[i].StatusCode.Equals(HttpStatusCode.OK))) && expectedPathSegments[i].Contains("Patient"))
+                    if ((auditList[i].StatusCode.Equals(HttpStatusCode.Created) || (expectedAction.Equals("update") && auditList[i].StatusCode.Equals(HttpStatusCode.OK))) && expectedPathSegment.Contains("Patient"))
                     {
                         expectedResourceType = ResourceType.Patient;
                     }
@@ -432,12 +435,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     {
                         expectedResourceType = ResourceType.OperationOutcome;
                     }
-                    else if (auditList[i].StatusCode.Equals(HttpStatusCode.OK) && (expectedActions[i].Equals("search-type") || expectedActions[i].Equals("batch")))
+                    else if (auditList[i].StatusCode.Equals(HttpStatusCode.OK) && (expectedAction.Equals("search-type") || expectedAction.Equals("batch")))
                     {
                         expectedResourceType = ResourceType.Bundle;
                     }
 
-                    ValidateExecutedAuditEntry(auditList[i], expectedActions[i], expectedResourceType, expectedUri, expectedStatusCodes[i], correlationId, expectedAppId, ExpectedClaimKey);
+                    ValidateExecutedAuditEntry(auditList[i], expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey);
                 }
             }
         }

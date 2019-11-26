@@ -28,14 +28,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            var expectedActions = new List<string> { "batch", "delete", "delete", "create", "create", "create", "create", "update", "update", "update", "update", "update", "update", "search-type", "search-type", "read", "read", "batch" };
-            var expectedPathSegments = new List<string> { string.Empty, "Patient/234", "Patient/234", "Patient", "Patient", "Patient", "Patient", "Patient/123", "Patient/123", "Patient?identifier=http:/example.org/fhir/ids|456456", "Patient?identifier=http:/example.org/fhir/ids|456456", "Patient/123", "Patient/123", "Patient?name=peter", "Patient?name=peter", "Patient/12334", "Patient/12334", string.Empty };
-            var expectedStatusCodes = new List<HttpStatusCode> { HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.OK, HttpStatusCode.Created, HttpStatusCode.NoContent, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.PreconditionFailed, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.NotFound, HttpStatusCode.NotFound, HttpStatusCode.OK };
+            List<(string expectedActions, string expectedPathSegments, HttpStatusCode expectedStatusCodes)> expectedList = new List<(string, string, HttpStatusCode)>
+            {
+                ("batch", string.Empty, HttpStatusCode.OK),
+                ("delete", "Patient/234", HttpStatusCode.OK),
+                ("delete", "Patient/234", HttpStatusCode.NoContent),
+                ("create", "Patient", HttpStatusCode.OK),
+                ("create", "Patient", HttpStatusCode.Created),
+                ("create", "Patient", HttpStatusCode.OK),
+                ("create", "Patient", HttpStatusCode.Created),
+                ("update", "Patient/123", HttpStatusCode.OK),
+                ("update", "Patient/123", HttpStatusCode.OK),
+                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.OK),
+                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.Created),
+                ("update", "Patient/123", HttpStatusCode.OK),
+                ("update", "Patient/123", HttpStatusCode.PreconditionFailed),
+                ("search-type", "Patient?name=peter", HttpStatusCode.OK),
+                ("search-type", "Patient?name=peter", HttpStatusCode.OK),
+                ("read", "Patient/12334", HttpStatusCode.OK),
+                ("read", "Patient/12334", HttpStatusCode.NotFound),
+                ("batch", string.Empty, HttpStatusCode.OK),
+            };
+
             await ExecuteAndValidateBatch(
                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
-               expectedActions,
-               expectedPathSegments,
-               expectedStatusCodes);
+               expectedList);
         }
     }
 }
