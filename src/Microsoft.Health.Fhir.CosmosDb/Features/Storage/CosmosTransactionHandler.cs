@@ -4,11 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public interface ITransactionHandler : IDisposable
+    internal class CosmosTransactionHandler : ITransactionHandler
     {
-        ITransactionScope BeginTransaction();
+        public ITransactionScope BeginTransaction()
+        {
+            throw new NotSupportedException();
+        }
+
+        public void Dispose()
+        {
+        }
     }
 }

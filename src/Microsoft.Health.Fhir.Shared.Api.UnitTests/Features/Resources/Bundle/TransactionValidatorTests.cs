@@ -11,7 +11,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
@@ -54,30 +53,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var resourceIdList = new HashSet<string>(StringComparer.Ordinal);
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            foreach (var entry in bundle.Entry)
-            {
-                var mockSearchEntry = new SearchResultEntry(
-        new ResourceWrapper(
-            "123",
-            "1",
-            "Patient",
-            new RawResource("data", Core.Models.FhirResourceFormat.Json),
-            null,
-            DateTimeOffset.MinValue,
-            false,
-            null,
-            null,
-            null));
+            var mockSearchEntry = new SearchResultEntry(
+                new ResourceWrapper(
+                    "123",
+                    "1",
+                    "Patient",
+                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                    null,
+                    DateTimeOffset.MinValue,
+                    false,
+                    null,
+                    null,
+                    null));
 
-                var queries = new List<Tuple<string, string>>();
-                string conditionalParameter = "identifier=http:/example.org/fhir/ids|234259";
+            var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
 
-                var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
-
-                _transactionValidator.GetExistingResourceId("Patient", conditionalParameter).Returns(searchResult);
-
-                await _transactionValidator.ValidateBundle(bundle);
-            }
+            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
+            await _transactionValidator.ValidateBundle(bundle);
         }
     }
 }

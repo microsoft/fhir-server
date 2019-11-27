@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
@@ -13,11 +14,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public static class TransactionExceptionHandler
     {
-        public static void ThrowTransactionException(string errorMessage, HttpStatusCode statusCode, OperationOutcome operationOutcome)
+        public static void ThrowTransactionException(string method, string path, string statusCode, OperationOutcome operationOutcome)
         {
             var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
 
-            throw new TransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
+            var errorMessage = string.Format(Api.Resources.TransactionFailed, method, path);
+
+            if (!Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
+            {
+                httpStatusCode = HttpStatusCode.BadRequest;
+            }
+
+            throw new TransactionFailedException(errorMessage, httpStatusCode, operationOutcomeIssues);
         }
 
         public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)

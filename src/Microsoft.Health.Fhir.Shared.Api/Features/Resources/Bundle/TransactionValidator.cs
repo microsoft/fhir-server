@@ -108,7 +108,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return await _searchService.SearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, CancellationToken.None);
+            var results = await _searchService.SearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, CancellationToken.None);
+
+            return results;
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)

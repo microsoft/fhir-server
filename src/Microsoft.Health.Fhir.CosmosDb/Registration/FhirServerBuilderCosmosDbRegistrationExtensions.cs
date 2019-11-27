@@ -56,6 +56,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<CosmosTransactionHandler>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<FhirCollectionUpgradeManager>()
                 .Singleton()
                 .AsSelf()
