@@ -38,6 +38,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IFhirStorageTestHelper TestHelper => _fixture.GetRequiredService<IFhirStorageTestHelper>();
 
+        public ITransactionHandler TransactionHandler => _fixture.GetRequiredService<ITransactionHandler>();
+
         void IDisposable.Dispose()
         {
             (_fixture as IDisposable)?.Dispose();

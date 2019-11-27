@@ -15,7 +15,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Common;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -38,9 +37,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly StringOverflowRewriter _stringOverflowRewriter;
-        private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -49,20 +48,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
-            SqlServerDataStoreConfiguration configuration,
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _stringOverflowRewriter = stringOverflowRewriter;
-            _configuration = configuration;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
         }
 
@@ -150,14 +150,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
-            using (SqlCommand sqlCommand = connection.CreateCommand())
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                connection.Open();
-
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
-                EnableTimeAndIoMessageLogging(stringBuilder, connection);
+                EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
                 var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch);
 
@@ -251,12 +249,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         [Conditional("DEBUG")]
-        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnection connection)
+        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnectionWrapper sqlConnectionWrapper)
         {
             stringBuilder.AppendLine("SET STATISTICS IO ON;");
             stringBuilder.AppendLine("SET STATISTICS TIME ON;");
             stringBuilder.AppendLine();
-            connection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
+            sqlConnectionWrapper.SqlConnection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
         }
 
         /// <summary>

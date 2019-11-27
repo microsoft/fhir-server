@@ -32,7 +32,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
-using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -57,8 +56,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly Hl7.Fhir.Model.Bundle.HTTPVerb[] _verbExecutionOrder;
         private List<int> emptyRequestsOrder;
 
-        public BundleHandler(IHttpContextAccessor httpContextAccessor, IFhirRequestContextAccessor fhirRequestContextAccessor, FhirJsonSerializer fhirJsonSerializer, FhirJsonParser fhirJsonParser, ITransactionHandler transactionHandler, IBundleHttpContextAccessor bundleHttpContextAccessor, ILogger<BundleHandler> logger)
-        : this()
+        public BundleHandler(
+            IHttpContextAccessor httpContextAccessor,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            FhirJsonSerializer fhirJsonSerializer,
+            FhirJsonParser fhirJsonParser,
+            ITransactionHandler transactionHandler,
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            ILogger<BundleHandler> logger)
+            : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -268,13 +274,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
                         {
                             entryComponent.Response.Outcome = entryComponentResource;
-
-                            if (responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
-                            {
-                                var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
-
-                                TransactionExceptionHandler.ThrowTransactionException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, (OperationOutcome)entryComponentResource);
-                            }
                         }
                         else
                         {
@@ -302,6 +301,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             OperationOutcome.IssueType.NotFound,
                             string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
                     };
+                }
+
+                if (entryComponent.Response.Outcome != null && responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
+                {
+                    var errorMessage = string.Format(Api.Resources.TransactionFailed, request.HttpContext.Request.Method, request.HttpContext.Request.Path);
+
+                    if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
+                    {
+                        httpStatusCode = HttpStatusCode.BadRequest;
+                    }
+
+                    TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
                 }
 
                 responseBundle.Entry[entryIndex] = entryComponent;

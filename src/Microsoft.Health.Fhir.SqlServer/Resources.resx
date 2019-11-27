@@ -123,4 +123,7 @@
   <data name="ScriptNotFound" xml:space="preserve">
     <value>The provided version is unknown.</value>
   </data>
+  <data name="TransactionProcessingException" xml:space="preserve">
+    <value>There was an internal server error while processing the transaction.</value>
+  </data>
 </root>
