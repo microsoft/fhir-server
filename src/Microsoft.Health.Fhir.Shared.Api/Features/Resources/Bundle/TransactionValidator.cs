@@ -44,21 +44,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     string resourceId = await GetResourceId(entry);
 
-                    CheckIfMultipleResourceExists(resourceIdList, resourceId);
-                }
-            }
-        }
+                    if (!string.IsNullOrEmpty(resourceId))
+                    {
+                        // Throw exception if resourceId is already present in the hashset.
+                        if (resourceIdList.Contains(resourceId))
+                        {
+                            throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, resourceId));
+                        }
 
-        private static void CheckIfMultipleResourceExists(HashSet<string> resourceIdList, string resourceId)
-        {
-            if (!string.IsNullOrEmpty(resourceId))
-            {
-                if (resourceIdList.Contains(resourceId))
-                {
-                    throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, resourceId));
+                        resourceIdList.Add(resourceId);
+                    }
                 }
-
-                resourceIdList.Add(resourceId);
             }
         }
 
@@ -76,21 +72,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             else
             {
                 string resourceType = null;
-                StringValues conditionalParameter;
+                StringValues conditionalQueries;
 
                 if (entry.Request.Method == HTTPVerb.PUT || entry.Request.Method == HTTPVerb.DELETE)
                 {
                     string[] conditinalUpdateParameters = entry.Request.Url.Split("?");
                     resourceType = conditinalUpdateParameters[0];
-                    conditionalParameter = conditinalUpdateParameters[1];
+                    conditionalQueries = conditinalUpdateParameters[1];
                 }
                 else if (entry.Request.Method == HTTPVerb.POST)
                 {
                     resourceType = entry.Request.Url;
-                    conditionalParameter = entry.Request.IfNoneExist;
+                    conditionalQueries = entry.Request.IfNoneExist;
                 }
 
-                SearchResult results = await GetExistingResourceId(resourceType, conditionalParameter);
+                SearchResult results = await GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries);
 
                 if (results?.Results.Count() > 0)
                 {
@@ -101,16 +97,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return string.Empty;
         }
 
-        public async Task<SearchResult> GetExistingResourceId(string resourceType, StringValues conditionalParameter)
+        public async Task<SearchResult> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries)
         {
-            Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalParameter)
+            if (string.IsNullOrEmpty(resourceType) || string.IsNullOrEmpty(conditionalQueries))
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidConditionalReferenceParameters, requestUrl));
+            }
+
+            Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalQueries)
                               .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            var results = await _searchService.SearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, CancellationToken.None);
-
-            return results;
+            return await _searchService.SearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, CancellationToken.None);
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
@@ -128,21 +127,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return !(entry.Resource?.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle
                  || requestMethod == HTTPVerb.GET
                  || requestUrl.Contains("$", StringComparison.InvariantCulture));
-        }
-
-        public static List<Tuple<string, string>> GetQueriesForSearch(string queryParameter)
-        {
-            var queries = new List<Tuple<string, string>>();
-
-            string[] searchParameters = queryParameter.Split("&&");
-
-            foreach (string searchParameter in searchParameters)
-            {
-                string[] parameters = searchParameter.Split("=");
-                queries.Add(Tuple.Create(parameters[0], parameters[1]));
-            }
-
-            return queries;
         }
     }
 }

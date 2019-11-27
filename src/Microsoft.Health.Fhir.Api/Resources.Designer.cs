@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Requested operation does not support _search interation using POST..
+        ///   Looks up a localized string similar to Requested operation does not support {0} interaction using {1}..
         /// </summary>
         public static string InvalidBundleEntry {
             get {
@@ -147,6 +147,24 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InvalidCompoundCode {
             get {
                 return ResourceManager.GetString("InvalidCompoundCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; doesnot resolve to a resource..
+        /// </summary>
+        public static string InvalidConditionalReference {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type and Query parameter must be present in the given request {0}..
+        /// </summary>
+        public static string InvalidConditionalReferenceParameters {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReferenceParameters", resourceCulture);
             }
         }
         

@@ -137,7 +137,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
-                                               .AcceptVisitor(TableExpressionCombiner.Instance)
                                                .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
                                                .AcceptVisitor(NormalizedPredicateReorderer.Instance)
                                                .AcceptVisitor(_chainFlatteningRewriter)

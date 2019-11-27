@@ -66,9 +66,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     null,
                     null));
 
-            var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
+            var mockSearchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
 
-            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
+            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(mockSearchResult);
+
             await _transactionValidator.ValidateBundle(bundle);
         }
     }

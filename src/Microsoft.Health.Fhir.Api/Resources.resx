@@ -258,6 +258,15 @@
     <comment>{NumberedPlaceHolder=”STU3”}</comment>
   </data>
   <data name="InvalidBundleEntry" xml:space="preserve">
-    <value>Requested operation does not support _search interation using POST.</value>
+    <value>Requested operation does not support {0} interaction using {1}.</value>
+    <comment>{0} is the interaction route and {1} is the http verb.</comment>
+  </data>
+  <data name="InvalidConditionalReference" xml:space="preserve">
+    <value>Given conditional reference '{0}' doesnot resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
+    <value>Resource type and Query parameter must be present in the given request {0}.</value>
+    <comment>{0} is the request url.</comment>
   </data>
 </root>
