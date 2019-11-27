@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     if (!string.IsNullOrEmpty(resourceId))
                     {
+                        // Throw exception if resourceId is already present in the hashset.
                         if (resourceIdList.Contains(resourceId))
                         {
                             throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, resourceId));
