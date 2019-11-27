@@ -14,15 +14,12 @@ namespace Microsoft.Health.Fhir.Core.Messages.Create
 {
     public class CreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
     {
-        public CreateResourceRequest(ResourceElement resource, bool persistId = false)
+        public CreateResourceRequest(ResourceElement resource)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             Resource = resource;
-            PersistId = persistId;
         }
-
-        public bool PersistId { get; }
 
         public ResourceElement Resource { get; }
 

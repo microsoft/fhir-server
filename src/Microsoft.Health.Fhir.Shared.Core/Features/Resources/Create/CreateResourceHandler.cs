@@ -23,8 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         public CreateResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
         }
 
@@ -34,11 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             var resource = message.Resource.Instance.ToPoco<Resource>();
 
-            // Check to see if we want to persist the supplied Id
-            if (!message.PersistId)
-            {
-                resource.Id = null;
-            }
+            // If an Id is supplied on create it should be removed/ignored
+            resource.Id = null;
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
 

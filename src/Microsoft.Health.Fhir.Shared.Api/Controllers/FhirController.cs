@@ -150,9 +150,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
-            bool persistId = HttpContext.Items.ContainsKey("persistId");
-
-            ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), persistId, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -172,13 +170,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
         {
-            bool persistId = HttpContext.Items.ContainsKey("persistId");
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownFhirHeaders.IfNoneExist];
 
             Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
 
-            UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, persistId), HttpContext.RequestAborted);
+            UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters), HttpContext.RequestAborted);
 
             if (createResponse == null)
             {

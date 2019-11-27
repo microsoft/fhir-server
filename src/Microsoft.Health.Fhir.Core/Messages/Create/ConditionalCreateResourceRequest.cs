@@ -15,21 +15,18 @@ namespace Microsoft.Health.Fhir.Core.Messages.Create
 {
     public class ConditionalCreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
     {
-        public ConditionalCreateResourceRequest(ResourceElement resource, IReadOnlyList<Tuple<string, string>> conditionalParameters, bool persistId = false)
+        public ConditionalCreateResourceRequest(ResourceElement resource, IReadOnlyList<Tuple<string, string>> conditionalParameters)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 
             Resource = resource;
             ConditionalParameters = conditionalParameters;
-            PersistId = persistId;
         }
 
         public ResourceElement Resource { get; }
 
         public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; }
-
-        public bool PersistId { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

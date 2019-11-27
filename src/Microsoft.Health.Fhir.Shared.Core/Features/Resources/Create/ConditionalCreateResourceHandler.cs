@@ -28,8 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
-            IMediator mediator)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            IMediator mediator,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             {
                 // No matches: The server creates the resource
                 // TODO: There is a potential contention issue here in that this could create another new resource with a different id
-                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(message.Resource, message.PersistId), cancellationToken);
+                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(message.Resource), cancellationToken);
             }
             else if (count == 1)
             {
