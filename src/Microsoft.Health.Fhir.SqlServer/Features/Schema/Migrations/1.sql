@@ -1251,6 +1251,17 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
+    Export Job
+**************************************************************/
+CREATE TABLE dbo.ExportJob
+(
+    JobId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    JobStatus varchar(10) NULL,
+    RawJobRecord varbinary(max) NOT NULL
+)
+
+
+/*************************************************************
     Sequence for generating unique 12.5ns "tick" components that are added
     to a base ID based on the timestamp to form a unique resource surrogate ID
 **************************************************************/
@@ -1268,6 +1279,25 @@ GO
 /*************************************************************
     Stored procedures for creating and deleting
 **************************************************************/
+/*
+CREATE PROCEDURE dbo.CreateExportJob
+    @jobId varchar(64),
+    --@jobTimeStamp datetime2(7),
+    @jobStatus varchar(10),
+    @rawJobRecord varbinary(max)
+AS
+    SET NOCOUNT ON
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    INSERT INTO dbo.ExportJob
+        (JobId, JobStatus, RawJobRecord)
+    VALUES
+        (@jobId, @jobStatus, @rawJobRecord)
+  
+    COMMIT TRANSACTION
+GO*/
 
 --
 -- STORED PROCEDURE

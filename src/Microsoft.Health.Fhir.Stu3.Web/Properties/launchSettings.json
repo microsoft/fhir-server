@@ -11,14 +11,15 @@
     },
     "SqlServer": {
       "commandName": "Project",
-      "environmentVariables": {
-        "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3;Integrated Security=true",
-        "SqlServer:Initialize": "true",
-        "SqlServer:AllowDatabaseCreation": "true",
-        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-        "DataStore": "SqlServer",
-        "ASPNETCORE_ENVIRONMENT": "development"
-      },
+        "environmentVariables": {
+            "SqlServer:DeleteAllDataOnStartup": "true",
+            "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3;Integrated Security=true",
+            "SqlServer:Initialize": "true",
+            "SqlServer:AllowDatabaseCreation": "true",
+            "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+            "DataStore": "SqlServer",
+            "ASPNETCORE_ENVIRONMENT": "development"
+        },
       "applicationUrl": "https://localhost:44348/"
     }
   }

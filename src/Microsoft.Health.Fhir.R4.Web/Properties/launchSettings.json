@@ -14,6 +14,7 @@
             "commandName": "Project",
             "launchBrowser": true,
             "environmentVariables": {
+                "SqlServer:DeleteAllDataOnStartup": "true",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
                 "SqlServer:Initialize": "true",
                 "SqlServer:AllowDatabaseCreation": "true",

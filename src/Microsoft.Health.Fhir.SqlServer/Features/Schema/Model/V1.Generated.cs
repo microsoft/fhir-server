@@ -14,6 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CompartmentAssignmentTable CompartmentAssignment = new CompartmentAssignmentTable();
         internal readonly static CompartmentTypeTable CompartmentType = new CompartmentTypeTable();
         internal readonly static DateTimeSearchParamTable DateTimeSearchParam = new DateTimeSearchParamTable();
+        internal readonly static ExportJobTable ExportJob = new ExportJobTable();
         internal readonly static NumberSearchParamTable NumberSearchParam = new NumberSearchParamTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static QuantitySearchParamTable QuantitySearchParam = new QuantitySearchParamTable();
@@ -85,6 +86,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly DateTime2Column EndDateTime = new DateTime2Column("EndDateTime", 7);
             internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
+        }
+
+        internal class ExportJobTable : Table
+        {
+            internal ExportJobTable(): base("dbo.ExportJob")
+            {
+            }
+
+            internal readonly VarCharColumn JobId = new VarCharColumn("JobId", 64, "Latin1_General_100_CS_AS");
+            internal readonly NullableVarCharColumn JobStatus = new NullableVarCharColumn("JobStatus", 10);
+            internal readonly VarBinaryColumn RawJobRecord = new VarBinaryColumn("RawJobRecord", -1);
         }
 
         internal class NumberSearchParamTable : Table
