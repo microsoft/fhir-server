@@ -295,7 +295,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bundle contains multiple resources that refers to the same resource &apos;{0}&apos;..
+        ///   Looks up a localized string similar to Bundle contains multiple resources with the same url value &apos;{0}&apos;..
         /// </summary>
         public static string ResourcesMustBeUnique {
             get {
