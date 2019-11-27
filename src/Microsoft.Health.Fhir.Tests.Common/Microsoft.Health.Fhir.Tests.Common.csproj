@@ -56,6 +56,7 @@
     <None Remove="TestFiles\R4\BloodPressure.json" />
     <None Remove="TestFiles\R4\Bundle-Batch.json" />
     <None Remove="TestFiles\R4\Bundle-Transaction.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
@@ -93,6 +94,7 @@
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
     <None Remove="TestFiles\Stu3\Bundle-Batch.json" />
     <None Remove="TestFiles\Stu3\Bundle-Transaction.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
@@ -128,6 +130,7 @@
     <EmbeddedResource Include="TestFiles\R4\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\R4\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-Batch.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
@@ -168,6 +171,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-Batch.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />

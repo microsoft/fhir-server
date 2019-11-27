@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly BundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly IRouter _router;
+        private readonly ISearchService _searchService;
 
         public BundleHandlerTests()
         {
@@ -55,8 +57,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _fhirJsonSerializer = new FhirJsonSerializer();
             _fhirJsonParser = new FhirJsonParser();
 
-            var searchService = Substitute.For<ISearchService>();
-            var transactionValidator = new TransactionValidator(searchService);
+            _searchService = Substitute.For<ISearchService>();
+            var transactionValidator = new TransactionValidator(_searchService);
 
             _bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
@@ -159,7 +161,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                         Request = new RequestComponent
                         {
                             Method = HTTPVerb.POST,
-                            Url = "/Patient/789",
+                            Url = "/Patient",
                         },
                         Resource = new Hl7.Fhir.Model.Patient
                         {
@@ -170,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                         Request = new RequestComponent
                         {
                             Method = HTTPVerb.PUT,
-                            Url = "/Patient",
+                            Url = "/Patient/789",
                         },
                         Resource = new Hl7.Fhir.Model.Patient
                         {
@@ -191,6 +193,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal("403", bundleResource.Entry[0].Response.Status);
             Assert.Equal("404", bundleResource.Entry[1].Response.Status);
             Assert.Equal("200", bundleResource.Entry[2].Response.Status);
+        }
+
+        [Theory]
+        [InlineData("Bundle-TransactionWithConditionalReferenceInResourceBody")]
+        public async Task GivenABundle_WhenConditionalReference_ResolvesReferencesCorrectlyAsync(string inputBundle)
+        {
+            var requestBundle = Samples.GetJsonSample(inputBundle);
+            var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
+            var mockSearchEntry = new SearchResultEntry(
+               new ResourceWrapper(
+                   "123",
+                   "1",
+                   "Patient",
+                   new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                   null,
+                   DateTimeOffset.MinValue,
+                   false,
+                   null,
+                   null,
+                   null));
+
+            var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
+            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
+
+            var referenceIdDictionary = new Dictionary<string, string>();
+            foreach (var entry in bundle.Entry)
+            {
+                await _bundleHandler.ResolveBundleReferencesAsync(entry, referenceIdDictionary);
+            }
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)
