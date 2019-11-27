@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -27,8 +29,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         }
 
         // Validates if transaction bundle contains multiple entries that are modifying the same resource.
-        public async Task ValidateTransactionBundle(Hl7.Fhir.Model.Bundle bundle)
+        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle)
         {
+            if (bundle.Type != BundleType.Transaction)
+            {
+                return;
+            }
+
             var resourceIdList = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var entry in bundle.Entry)
@@ -42,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        public static void CheckIfMultipleResourceExists(HashSet<string> resourceIdList, string resourceId)
+        private static void CheckIfMultipleResourceExists(HashSet<string> resourceIdList, string resourceId)
         {
             if (!string.IsNullOrEmpty(resourceId))
             {
@@ -57,38 +64,51 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<string> GetResourceId(EntryComponent entry)
         {
-            string resourceId = null;
-
             if (entry.Request.IfNoneExist == null && !entry.Request.Url.Contains("?", StringComparison.InvariantCulture))
             {
-                if (entry.Request.Method != HTTPVerb.POST)
+                if (entry.Request.Method == HTTPVerb.POST)
                 {
-                    resourceId = entry.Request.Url;
+                    return entry.FullUrl;
                 }
+
+                return entry.Request.Url;
             }
             else
             {
-                SearchResourceRequest searchResource = null;
+                string resourceType = null;
+                StringValues conditionalParameter;
 
                 if (entry.Request.Method == HTTPVerb.PUT || entry.Request.Method == HTTPVerb.DELETE)
                 {
-                    string[] queries = entry.Request.Url.Split("?");
-                    searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(queries[1]));
+                    string[] conditinalUpdateParameters = entry.Request.Url.Split("?");
+                    resourceType = conditinalUpdateParameters[0];
+                    conditionalParameter = conditinalUpdateParameters[1];
                 }
                 else if (entry.Request.Method == HTTPVerb.POST)
                 {
-                    searchResource = new SearchResourceRequest(entry.Resource.TypeName, GetQueriesForSearch(entry.Request.IfNoneExist));
+                    resourceType = entry.Request.Url;
+                    conditionalParameter = entry.Request.IfNoneExist;
                 }
 
-                SearchResult results = await _searchService.SearchAsync(searchResource.ResourceType, searchResource.Queries, CancellationToken.None);
+                SearchResult results = await GetExistingResourceId(resourceType, conditionalParameter);
 
                 if (results?.Results.Count() > 0)
                 {
-                    resourceId = entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
+                    return entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
                 }
             }
 
-            return resourceId;
+            return string.Empty;
+        }
+
+        public async Task<SearchResult> GetExistingResourceId(string resourceType, StringValues conditionalParameter)
+        {
+            Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalParameter)
+                              .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
+
+            var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
+
+            return await _searchService.SearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, CancellationToken.None);
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
@@ -108,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                  || requestUrl.Contains("$", StringComparison.InvariantCulture));
         }
 
-        private static List<Tuple<string, string>> GetQueriesForSearch(string queryParameter)
+        public static List<Tuple<string, string>> GetQueriesForSearch(string queryParameter)
         {
             var queries = new List<Tuple<string, string>>();
 
