@@ -32,7 +32,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
-using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -134,6 +133,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else if (bundleResource.Type == Hl7.Fhir.Model.Bundle.BundleType.Transaction)
             {
+                TransactionValidator.ValidateTransactionBundle(bundleResource);
+
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse,
@@ -163,33 +164,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return new BundleResponse(responseBundle.ToResourceElement());
-        }
-
-        private static void ThrowTransactionException(string method, string path, string statusCode, OperationOutcome operationOutcome)
-        {
-            var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
-
-            var errorMessage = string.Format(Api.Resources.TransactionFailed, method, path);
-
-            if (!Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
-            {
-                httpStatusCode = HttpStatusCode.BadRequest;
-            }
-
-            throw new TransactionFailedException(errorMessage, httpStatusCode, operationOutcomeIssues);
-        }
-
-        private static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationOutcomeIssueList)
-        {
-            var issues = new List<OperationOutcomeIssue>();
-
-            operationOutcomeIssueList.ForEach(x =>
-                issues.Add(new OperationOutcomeIssue(
-                    x.Severity.ToString(),
-                    x.Code.ToString(),
-                    x.Diagnostics)));
-
-            return issues;
         }
 
         private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
@@ -331,7 +305,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (entryComponent.Response.Outcome != null && responseBundle.Type == Hl7.Fhir.Model.Bundle.BundleType.TransactionResponse)
                 {
-                    ThrowTransactionException(request.HttpContext.Request.Method, request.HttpContext.Request.Path, entryComponent.Response.Status, (OperationOutcome)entryComponent.Response.Outcome);
+                    var errorMessage = string.Format(Api.Resources.TransactionFailed, request.HttpContext.Request.Method, request.HttpContext.Request.Path);
+
+                    if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
+                    {
+                        httpStatusCode = HttpStatusCode.BadRequest;
+                    }
+
+                    TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
                 }
 
                 responseBundle.Entry[entryIndex] = entryComponent;
