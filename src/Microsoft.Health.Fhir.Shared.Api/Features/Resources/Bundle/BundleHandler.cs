@@ -132,6 +132,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (_bundleType == BundleType.Transaction)
             {
+                TransactionValidator.ValidateTransactionBundle(bundleResource);
+
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = BundleType.TransactionResponse,
@@ -163,29 +165,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private static void ThrowTransactionException(HttpContext httpContext, OperationOutcome operationOutcome)
-        {
-            var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
-
-            var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
-
-            throw new TransactionFailedException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, operationOutcomeIssues);
-        }
-
-        private static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
-        {
-            var issues = new List<OperationOutcomeIssue>();
-
-            operationoutcomeIssueList.ForEach(x =>
-                issues.Add(new OperationOutcomeIssue(
-                    x.Severity.ToString(),
-                    x.Code.ToString(),
-                    x.Diagnostics)));
-
-            return issues;
-        }
-
-        private async Task FillRequestLists(List<EntryComponent> bundleEntries)
+        private async Task FillRequestLists(List<Hl7.Fhir.Model.Bundle.EntryComponent> bundleEntries)
         {
             int order = 0;
             _requestCount = bundleEntries.Count;
@@ -318,7 +298,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                             if (responseBundle.Type == BundleType.TransactionResponse)
                             {
-                                ThrowTransactionException(httpContext, (OperationOutcome)entryComponentResource);
+                                var errorMessage = string.Format(Api.Resources.TransactionFailed, httpContext.Request.Method, httpContext.Request.Path);
+
+                                TransactionExceptionHandler.ThrowTransactionException(errorMessage, (HttpStatusCode)httpContext.Response.StatusCode, (OperationOutcome)entryComponentResource);
                             }
                         }
                         else

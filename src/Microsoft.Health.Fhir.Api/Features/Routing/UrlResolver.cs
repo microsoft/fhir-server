@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         // https://github.com/aspnet/Hosting/issues/793
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IActionContextAccessor _actionContextAccessor;
+        private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UrlResolver"/> class.
@@ -43,24 +45,39 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="urlHelperFactory">The ASP.NET Core URL helper factory.</param>
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
+        /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
         public UrlResolver(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
-            IActionContextAccessor actionContextAccessor)
+            IActionContextAccessor actionContextAccessor,
+            IBundleHttpContextAccessor bundleHttpContextAccessor)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
+            EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
+            _bundleHttpContextAccessor = bundleHttpContextAccessor;
         }
 
-        private HttpRequest Request => _httpContextAccessor.HttpContext.Request;
+        private HttpRequest Request
+        {
+            get
+            {
+                if (_bundleHttpContextAccessor.HttpContext != null)
+                {
+                    return _bundleHttpContextAccessor.HttpContext.Request;
+                }
+
+                return _httpContextAccessor.HttpContext.Request;
+            }
+        }
 
         private ActionContext ActionContext => _actionContextAccessor.ActionContext;
 
