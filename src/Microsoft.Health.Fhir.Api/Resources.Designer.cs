@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
@@ -120,6 +120,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string GeneralTransactionFailedError {
             get {
                 return ResourceManager.GetString("GeneralTransactionFailedError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Requested operation does not support {0} interaction using {1}..
+        /// </summary>
+        public static string InvalidBundleEntry {
+            get {
+                return ResourceManager.GetString("InvalidBundleEntry", resourceCulture);
             }
         }
         
@@ -264,6 +273,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ResourceIdRequired {
             get {
                 return ResourceManager.GetString("ResourceIdRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bundle contains multiple resources with the same url value &apos;{0}&apos;..
+        /// </summary>
+        public static string ResourcesMustBeUnique {
+            get {
+                return ResourceManager.GetString("ResourcesMustBeUnique", resourceCulture);
             }
         }
         
