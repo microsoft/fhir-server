@@ -17,12 +17,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Fact]
         public void GivenAnOperationOutcome_WhenExecuted_ThenACorrectExceptionIsThrown()
         {
+            string message = "Error Message";
             HttpStatusCode statusCode = HttpStatusCode.Processing;
             var operationOutcome = GetOperationOutcome();
-            string method = "PUT";
-            string path = "Patient/12345";
 
-            Assert.Throws<TransactionFailedException>(() => TransactionExceptionHandler.ThrowTransactionException(method, path, statusCode.ToString(), operationOutcome));
+            Assert.Throws<TransactionFailedException>(() => TransactionExceptionHandler.ThrowTransactionException(message, statusCode, operationOutcome));
         }
 
         [Fact]

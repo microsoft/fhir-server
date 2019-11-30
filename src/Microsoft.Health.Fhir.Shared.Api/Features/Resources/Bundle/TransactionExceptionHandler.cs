@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             throw new TransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }
 
-        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
+        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationOutcomeIssueList)
         {
             var issues = new List<OperationOutcomeIssue>();
 
