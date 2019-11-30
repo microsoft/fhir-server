@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
         {
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            _bundleType = bundleResource.Type;
 
             // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
             await _transactionValidator.ValidateBundle(bundleResource);
@@ -234,7 +235,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        internal async Task ResolveBundleReferencesAsync(EntryComponent entry, Dictionary<string, string> referenceIdDictionary)
+        public async Task ResolveBundleReferencesAsync(EntryComponent entry, Dictionary<string, string> referenceIdDictionary)
         {
             IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
 
@@ -254,12 +255,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         SearchResult results = await _transactionValidator.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries);
 
-                        if (results.Results == null || results.Results.Count() == 0 || results.Results.Count() > 1)
+                        int? resultCount = results?.Results.Count();
+
+                        if (resultCount == null || resultCount == 0 || resultCount > 1)
                         {
                             throw new RequestNotValidException(string.Format(Api.Resources.InvalidConditionalReference, reference.Reference));
                         }
 
-                        string resourceId = resourceType + "/" + results.Results.First().Resource.ResourceId;
+                        string resourceId = $"{resourceType}/{results.Results.First().Resource.ResourceId}";
 
                         referenceIdDictionary.Add(reference.Reference, resourceId);
 

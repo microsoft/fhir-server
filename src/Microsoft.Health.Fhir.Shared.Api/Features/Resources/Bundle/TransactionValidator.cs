@@ -14,6 +14,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -28,7 +29,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _searchService = searchService;
         }
 
-        // Validates if transaction bundle contains multiple entries that are modifying the same resource.
+        /// <summary>
+        /// Validates if transaction bundle contains multiple entries that are modifying the same resource.
+        /// </summary>
+        /// <param name="bundle"> The input bundle</param>
         public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle)
         {
             if (bundle.Type != BundleType.Transaction)
@@ -73,22 +77,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 string resourceType = null;
                 StringValues conditionalQueries;
+                HTTPVerb requestMethod = (HTTPVerb)entry.Request.Method;
+                bool conditionalCreate = requestMethod == HTTPVerb.POST;
+                bool condtionalUpdate = requestMethod == HTTPVerb.PUT || requestMethod == HTTPVerb.DELETE;
 
-                if (entry.Request.Method == HTTPVerb.PUT || entry.Request.Method == HTTPVerb.DELETE)
+                if (condtionalUpdate)
                 {
                     string[] conditinalUpdateParameters = entry.Request.Url.Split("?");
                     resourceType = conditinalUpdateParameters[0];
                     conditionalQueries = conditinalUpdateParameters[1];
                 }
-                else if (entry.Request.Method == HTTPVerb.POST)
+                else if (conditionalCreate)
                 {
                     resourceType = entry.Request.Url;
                     conditionalQueries = entry.Request.IfNoneExist;
                 }
 
                 SearchResult results = await GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries);
+                int? resultCount = results?.Results.Count();
 
-                if (results?.Results.Count() > 0)
+                if (resultCount > 1)
+                {
+                    // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
+                    throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationNotSelectiveEnough, conditionalQueries));
+                }
+
+                if (resultCount == 1)
                 {
                     return entry.Resource.TypeName + "/" + results.Results.First().Resource.ResourceId;
                 }
@@ -123,10 +137,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url));
             }
 
-            // Check for duplicate resources within a bundle entry is skipped if the entry is bundle or if the request within a entry is not modifying the resource.
-            return !(entry.Resource?.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle
-                 || requestMethod == HTTPVerb.GET
-                 || requestUrl.Contains("$", StringComparison.InvariantCulture));
+            // Resource type bundle is not supported.within a bundle.
+            if (entry.Resource?.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle)
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedResourceType, KnownResourceTypes.Bundle));
+            }
+
+            // Check for duplicate resources within a bundle entry is skipped if the request within a entry is not modifying the resource.
+            return !(requestMethod == HTTPVerb.GET
+                    || requestUrl.Contains("$", StringComparison.InvariantCulture));
         }
     }
 }

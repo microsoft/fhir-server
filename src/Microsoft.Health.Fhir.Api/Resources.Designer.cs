@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough for query parameter &apos;{0}&apos;..
+        /// </summary>
+        public static string ConditionalOperationNotSelectiveEnough {
+            get {
+                return ResourceManager.GetString("ConditionalOperationNotSelectiveEnough", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header is required..
         /// </summary>
         public static string ContentTypeHeaderRequired {
@@ -160,7 +169,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resource type and Query parameter must be present in the given request {0}..
+        ///   Looks up a localized string similar to Resource type and Query parameter must be present in a given request {0}..
         /// </summary>
         public static string InvalidConditionalReferenceParameters {
             get {
@@ -295,7 +304,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bundle contains multiple resources with the same url value &apos;{0}&apos;..
+        ///   Looks up a localized string similar to Bundle contains multiple resources that refers to the same resource &apos;{0}&apos;..
         /// </summary>
         public static string ResourcesMustBeUnique {
             get {

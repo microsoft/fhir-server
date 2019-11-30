@@ -12,9 +12,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public static class TransactionExceptionHandler
+    internal static class TransactionExceptionHandler
     {
-        public static void ThrowTransactionException(string method, string path, string statusCode, OperationOutcome operationOutcome)
+        internal static void ThrowTransactionException(string method, string path, string statusCode, OperationOutcome operationOutcome)
         {
             var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
 
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             throw new TransactionFailedException(errorMessage, httpStatusCode, operationOutcomeIssues);
         }
 
-        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
+        internal static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
         {
             var issues = new List<OperationOutcomeIssue>();
 

@@ -27,12 +27,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _transactionValidator = new TransactionValidator(_searchService);
         }
 
-        [Theory]
-        [InlineData("Bundle-Transaction")]
-        [InlineData("Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl")]
-        public async System.Threading.Tasks.Task GivenABundleWithUniqueResources_TransactionValidatorShouldNotThrowExceptionAsync(string inputBundle)
+        [Fact]
+        public async System.Threading.Tasks.Task GivenABundleWithUniqueResources_TransactionValidatorShouldNotThrowExceptionAsync()
         {
-            var requestBundle = Samples.GetJsonSample(inputBundle);
+            var requestBundle = Samples.GetDefaultTransaction();
             await _transactionValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>());
         }
 
