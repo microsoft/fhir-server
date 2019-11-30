@@ -197,7 +197,7 @@
     <value>Id must be specified in the resource.</value>
   </data>
   <data name="ResourcesMustBeUnique" xml:space="preserve">
-    <value>Bundle contains multiple resources that refers to the same resource '{0}'.</value>
+    <value>Bundle contains multiple resources with the same url value '{0}'.</value>
     <comment>{0} is the full url for POST and request url for PUT and DELETE.</comment>
   </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
@@ -266,7 +266,7 @@
     <comment>{0} is the conditional reference parameter.</comment>
   </data>
   <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
-    <value>Resource type and Query parameter must be present in a given request {0}.</value>
+    <value>Resource type and query parameter must be present in a given request '{0}'.</value>
     <comment>{0} is the request url.</comment>
   </data>
   <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">

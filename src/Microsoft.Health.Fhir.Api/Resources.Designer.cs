@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resource type and Query parameter must be present in a given request {0}..
+        ///   Looks up a localized string similar to Resource type and query parameter must be present in a given request &apos;{0}&apos;..
         /// </summary>
         public static string InvalidConditionalReferenceParameters {
             get {
@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bundle contains multiple resources that refers to the same resource &apos;{0}&apos;..
+        ///   Looks up a localized string similar to Bundle contains multiple resources with the same url value &apos;{0}&apos;..
         /// </summary>
         public static string ResourcesMustBeUnique {
             get {

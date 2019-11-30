@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
@@ -14,25 +13,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     internal static class TransactionExceptionHandler
     {
-        internal static void ThrowTransactionException(string method, string path, string statusCode, OperationOutcome operationOutcome)
+        public static void ThrowTransactionException(string errorMessage, HttpStatusCode statusCode, OperationOutcome operationOutcome)
         {
-            var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
+            List<OperationOutcomeIssue> operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
 
-            var errorMessage = string.Format(Api.Resources.TransactionFailed, method, path);
-
-            if (!Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
-            {
-                httpStatusCode = HttpStatusCode.BadRequest;
-            }
-
-            throw new TransactionFailedException(errorMessage, httpStatusCode, operationOutcomeIssues);
+            throw new TransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }
 
-        internal static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
+        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
         {
             var issues = new List<OperationOutcomeIssue>();
 
-            operationoutcomeIssueList.ForEach(x =>
+            operationOutcomeIssueList.ForEach(x =>
                 issues.Add(new OperationOutcomeIssue(
                     x.Severity.ToString(),
                     x.Code.ToString(),
