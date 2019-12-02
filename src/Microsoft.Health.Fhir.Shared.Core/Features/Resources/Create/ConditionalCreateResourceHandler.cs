@@ -26,8 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
-            IMediator mediator)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory)
+            IMediator mediator,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 

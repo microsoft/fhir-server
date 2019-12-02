@@ -24,8 +24,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             IFhirDataStore fhirDataStore,
             ISearchService searchService,
             Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
 
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         protected async Task<SearchResultEntry[]> Search(string instanceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, CancellationToken cancellationToken)
         {
-            // Filters search parameters that can limit the number of exact results
+            // Filters search parameters that can limit the number of results (e.g. _count=1)
             IReadOnlyList<Tuple<string, string>> filteredParameters = conditionalParameters
                 .Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.Count, StringComparison.OrdinalIgnoreCase)
                             && !string.Equals(x.Item1, KnownQueryParameterNames.Summary, StringComparison.OrdinalIgnoreCase))
@@ -42,8 +43,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
             SearchResult results = await _searchService.SearchAsync(instanceType, filteredParameters, cancellationToken);
 
-            // No search parameters where used
-            if (results?.UnsupportedSearchParameters.Count + results?.UnsupportedSortingParameters.Count == filteredParameters.Count)
+            // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
+            int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count + results?.UnsupportedSortingParameters.Count;
+            if (totalUnusedParameters == filteredParameters.Count)
             {
                 throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
             }
