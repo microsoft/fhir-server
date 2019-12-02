@@ -13,18 +13,18 @@ using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
-    public abstract class BaseActionResult<TResult> : ActionResult, IBaseActionResult
+    public abstract class ResourceActionResult<TResult> : ActionResult, IResourceActionResult
     {
-        protected BaseActionResult()
+        protected ResourceActionResult()
         {
         }
 
-        protected BaseActionResult(TResult result)
+        protected ResourceActionResult(TResult result)
         {
             Result = result;
         }
 
-        protected BaseActionResult(TResult result, HttpStatusCode statusCode)
+        protected ResourceActionResult(TResult result, HttpStatusCode statusCode)
             : this(result)
         {
             StatusCode = statusCode;

@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -59,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _metricHandler?.ResetCount();
 
             await ExecuteAndValidate(
-                () => _client.HttpClient.GetAsync(FhirServerApplicationBuilderExtensions.HealthCheckPath),
+                () => _client.HttpClient.GetAsync("/health/check"),
                 (type: typeof(ApiResponseNotification), count: 0, resourceType: (string)null),
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: (string)null));
         }

@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     /// <summary>
     /// Used to return the result of a versions operation.
     /// </summary>
-    public class OperationVersionsResult : BaseActionResult<VersionsResult>
+    public class OperationVersionsResult : ResourceActionResult<VersionsResult>
     {
         private readonly VersionsResult _versionsResult;
 

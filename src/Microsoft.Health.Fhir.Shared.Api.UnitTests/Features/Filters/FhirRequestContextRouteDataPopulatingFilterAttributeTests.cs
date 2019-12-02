@@ -12,9 +12,11 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -24,11 +26,12 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
-    public class FhirRequestContextRouteNameFilterAttributeTests
+    public class FhirRequestContextRouteDataPopulatingFilterAttributeTests
     {
-        private readonly ActionExecutingContext _context;
+        private readonly ActionExecutingContext _actionExecutingContext;
+        private readonly ActionExecutedContext _actionExecutedContext;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
+        private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly IAuditEventTypeMapping _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
         private readonly string _correlationId = Guid.NewGuid().ToString();
         private readonly HttpContext _httpContext = new DefaultHttpContext();
@@ -37,7 +40,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private const string RouteName = "routeName";
         private const string NormalAuditEventType = "event-name";
 
-        public FhirRequestContextRouteNameFilterAttributeTests()
+        private readonly FhirRequestContextRouteDataPopulatingFilterAttribute _filterAttribute;
+
+        public FhirRequestContextRouteDataPopulatingFilterAttributeTests()
         {
             var controllerActionDescriptor = new ControllerActionDescriptor
             {
@@ -50,14 +55,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 },
             };
 
-            _context = new ActionExecutingContext(
+            _actionExecutingContext = new ActionExecutingContext(
                 new ActionContext(_httpContext, new RouteData(), controllerActionDescriptor),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object>(),
                 FilterTestsHelper.CreateMockFhirController());
 
-            _fhirRequestContext.CorrelationId.Returns(_correlationId);
+            _actionExecutedContext = new ActionExecutedContext(
+                new ActionContext(_httpContext, new RouteData(), controllerActionDescriptor),
+                new List<IFilterMetadata>(),
+                FilterTestsHelper.CreateMockFhirController());
+
+            _fhirRequestContext.CorrelationId = _correlationId;
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+
+            _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
         }
 
         [Fact]
@@ -69,14 +81,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenNormalBatchRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultBatch().ToPoco<Hl7.Fhir.Model.Bundle>());
+            _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultBatch().ToPoco<Hl7.Fhir.Model.Bundle>());
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.Batch);
         }
 
         [Fact]
         public void GivenNormalTransactionRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultTransaction().ToPoco<Hl7.Fhir.Model.Bundle>());
+            _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultTransaction().ToPoco<Hl7.Fhir.Model.Bundle>());
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.Transaction);
         }
 
@@ -89,18 +101,42 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenABundleRequestWithANonBundleResourceRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
-            _context.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultObservation().ToPoco<Observation>());
+            _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultObservation().ToPoco<Observation>());
 
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.BundlePost);
+        }
+
+        [Fact]
+        public void GivenAResourceActionResult_WhenExecutedAnAction_ThenResourceTypeShouldBeSet()
+        {
+            const string resourceTypeName = "Patient";
+
+            var result = Substitute.For<IResourceActionResult, IActionResult>();
+
+            result.GetResultTypeName().Returns(resourceTypeName);
+
+            _actionExecutedContext.Result = (IActionResult)result;
+
+            _filterAttribute.OnActionExecuted(_actionExecutedContext);
+
+            Assert.Equal(resourceTypeName, _fhirRequestContext.ResourceType);
+        }
+
+        [Fact]
+        public void GivenANonResourceActionResult_WhenExecutedAnAction_ThenResourceTypeShouldBeSet()
+        {
+            _actionExecutedContext.Result = new StatusCodeResult(200);
+
+            _filterAttribute.OnActionExecuted(_actionExecutedContext);
+
+            Assert.Null(_fhirRequestContext.ResourceType);
         }
 
         private void ExecuteAndValidateFilter(string auditEventTypeFromMapping, string expectedAuditEventType)
         {
             _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(auditEventTypeFromMapping);
 
-            var filter = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
-
-            filter.OnActionExecuting(_context);
+            _filterAttribute.OnActionExecuting(_actionExecutingContext);
 
             Assert.NotNull(_fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
             Assert.Equal(expectedAuditEventType, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);

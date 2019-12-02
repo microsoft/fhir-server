@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -133,14 +134,11 @@ namespace Microsoft.Extensions.DependencyInjection
                         app.UseStatusCodePagesWithReExecute("/CustomError", "?statusCode={0}");
                     }
 
-                    // The audit module needs to come after the exception handler because we need to catch
-                    // the response before it gets converted to custom error.
+                    // The audit module needs to come after the exception handler because we need to catch the response before it gets converted to custom error.
                     app.UseAudit();
+                    app.UseApiNotifications();
 
-                    app.UseAuthentication();
-
-                    // Now that we've authenticated the user, update the context with any post-authentication info.
-                    app.UseFhirRequestContextAfterAuthentication();
+                    app.UseFhirRequestContextAuthentication();
 
                     next(app);
                 };

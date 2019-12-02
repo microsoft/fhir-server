@@ -38,5 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Metadata = "metadata";
 
         public const string Versions = "$versions";
+
+        public const string HealthCheck = "/health/check";
     }
 }
