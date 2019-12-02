@@ -11,20 +11,20 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public static class TransactionExceptionHandler
+    internal static class TransactionExceptionHandler
     {
         public static void ThrowTransactionException(string errorMessage, HttpStatusCode statusCode, OperationOutcome operationOutcome)
         {
-            var operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
+            List<OperationOutcomeIssue> operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
 
             throw new TransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }
 
-        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationoutcomeIssueList)
+        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationOutcomeIssueList)
         {
             var issues = new List<OperationOutcomeIssue>();
 
-            operationoutcomeIssueList.ForEach(x =>
+            operationOutcomeIssueList.ForEach(x =>
                 issues.Add(new OperationOutcomeIssue(
                     x.Severity.ToString(),
                     x.Code.ToString(),
