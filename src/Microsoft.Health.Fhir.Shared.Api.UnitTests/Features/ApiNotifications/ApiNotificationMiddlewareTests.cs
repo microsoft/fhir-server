@@ -48,18 +48,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
         }
 
         [Fact]
-        public async Task GivenRequestPathButNoStorageRequestMetrics_WhenInvoked_EmitsMediatRApiEvents()
-        {
-            _httpContext.Request.Path = "/Observations";
-            await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
-
-            await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenRequestPathAndStorageRequestMetrics_WhenInvoked_EmitsMediatRApiAndStorageEvents()
+        public async Task GivenAuditEventTypeNotNull_WhenInvoked_EmitsMediatRApiAndStorageEvents()
         {
             _httpContext.Request.Path = "/Observation";
+            _fhirRequestContext.AuditEventType = "read";
+
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
             await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
