@@ -1260,6 +1260,7 @@ CREATE TABLE dbo.ExportJob
     RawJobRecord varbinary(max) NOT NULL
 )
 
+GO
 
 /*************************************************************
     Sequence for generating unique 12.5ns "tick" components that are added
@@ -1279,10 +1280,23 @@ GO
 /*************************************************************
     Stored procedures for creating and deleting
 **************************************************************/
-/*
+
+--
+-- STORED PROCEDURE
+--     Creates an export job.
+--
+-- DESCRIPTION
+--     Creates a new row to the ExportJob table, adding a new job to the queue of jobs to be processed.
+--
+-- PARAMETERS
+--     @jobId
+--         * The ID of the export job record
+--     @jobStatus
+--         * The status of the export job
+--     @rawJobRecord
+--         * A compressed UTF16-encoded JSON document
 CREATE PROCEDURE dbo.CreateExportJob
     @jobId varchar(64),
-    --@jobTimeStamp datetime2(7),
     @jobStatus varchar(10),
     @rawJobRecord varbinary(max)
 AS
@@ -1297,7 +1311,7 @@ AS
         (@jobId, @jobStatus, @rawJobRecord)
   
     COMMIT TRANSACTION
-GO*/
+GO
 
 --
 -- STORED PROCEDURE

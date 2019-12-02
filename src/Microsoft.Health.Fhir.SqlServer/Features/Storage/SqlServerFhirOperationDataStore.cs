@@ -59,27 +59,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     writer.Flush();
 
                     stream.Seek(0, 0);
-                    /*
+
                     V1.CreateExportJob.PopulateCommand(
                         command,
                         jobRecord.Id,
                         jobRecord.Status.ToString(),
-                        stream);*/
+                        stream);
 
-                    var query = "INSERT INTO dbo.ExportJob (JobId, JobStatus, RawJobRecord)";
-                    query += " VALUES (@jobId, @jobStatus, @rawJobRecord)";
-
-                    command.CommandText = query;
-
-                    // TODO: Where should this be set? Should this be set? Seems to be null on Cosmos side.
-                    jobRecord.StartTime = DateTimeOffset.Now;
-
-                    command.Parameters.AddWithValue("@jobId", jobRecord.Id);
-                    command.Parameters.AddWithValue("@jobStatus", jobRecord.Status);
-                    command.Parameters.AddWithValue("@rawJobRecord", stream); // TODO: On Cosmos side this is a zipped binary stream. handled in a stored procedure.
-
-                    // TODO: Log SQL command.
-                    await command.ExecuteNonQueryAsync(cancellationToken);
+                    await command.ExecuteScalarAsync(cancellationToken);
                 }
             }
 
