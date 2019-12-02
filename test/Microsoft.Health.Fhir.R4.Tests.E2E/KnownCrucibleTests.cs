@@ -434,8 +434,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "testscript-example-update/SETUP",
             "transactionandbatchtest/XFER0",
             "transactionandbatchtest/XFER10",
-            "transactionandbatchtest/XFER11",
-            "transactionandbatchtest/XFER12",
         };
 
         public static readonly string[] KnownBroken =
