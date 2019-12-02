@@ -10,10 +10,10 @@ The FHIR Server can be connected to a SQL server intance external to Kubernetes,
 
 ### Create secret for SA password
 
-Create a Kubernetes secret to store the SQL Server SA password:
+Create a Kubernetes secret to store the SQL Server SA password, `<SA_PASSWORD>`:
 
 ```bash
-kubectl create secret generic sql-settings --from-literal=password='YourSQLP@ss'
+kubectl create secret generic sql-settings --from-literal=password='<SA_PASSWORD>'
 ```
 
 ### Deploy SQL Server
@@ -42,17 +42,17 @@ docker push <your-registry>/azure-fhir-api .
 
 ### Create secret for SQL connection string
 
-Create a Kubernetes secret to store the SQL server connection string. The example below shows the connection string in the format for when SQL server is deployed on Kubernetes, using the password `YourSQLP@ss` as used in the example above:
+Create a Kubernetes secret to store the SQL server connection string. The example below shows the connection string in the format for when SQL server is deployed on Kubernetes, using the password `<SA_PASSWORD>` as used in the example above:
 
 ```bash
-kubectl create secret generic fhir-api --from-literal=connection-string='Server=tcp:sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=YourSQLP@ss;MultipleActiveResultSets=False;Connection Timeout=30;'
+kubectl create secret generic fhir-api --from-literal=connection-string='Server=tcp:sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=<SA_PASSWORD>;MultipleActiveResultSets=False;Connection Timeout=30;'
 ```
 
 ### Deploy the FHIR Server API
 
 Edit the file `./samples/kubernetes/azure-fhir-api.yaml` and replace `<your-registry>` with the server name of your container registry.
 
-To deploy the FHIR API run the following command: 
+To deploy the FHIR API run the following command:
 
 ```bash
 kubectl apply -f ./samples/kubernetes/azure-fhir-api.yaml
