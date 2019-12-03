@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            services.AddScoped<ResourceIdProvider>();
+
             services.AddSingleton<IRawResourceFactory, RawResourceFactory>();
             services.AddSingleton<IResourceWrapperFactory, ResourceWrapperFactory>();
 

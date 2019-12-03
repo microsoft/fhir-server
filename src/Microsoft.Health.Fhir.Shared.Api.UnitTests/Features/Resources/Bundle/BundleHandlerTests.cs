@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly BundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly IRouter _router;
+        private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ISearchService _searchService;
 
         public BundleHandlerTests()
@@ -78,7 +79,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var transactionHandler = Substitute.For<ITransactionHandler>();
 
-            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, transactionValidator, NullLogger<BundleHandler>.Instance);
+            _resourceIdProvider = new ResourceIdProvider();
+
+            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, _resourceIdProvider, transactionValidator, NullLogger<BundleHandler>.Instance);
         }
 
         [Fact]
@@ -219,7 +222,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
 
-            var referenceIdDictionary = new Dictionary<string, string>();
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+
             foreach (var entry in bundle.Entry)
             {
                 IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
@@ -227,7 +231,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 // Asserting the conditional reference value before resolution
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
 
-                await _bundleHandler.ResolveBundleReferencesAsync(entry, referenceIdDictionary);
+                await _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Equal("Patient/123", references.First().Reference);
@@ -271,11 +275,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var searchResult = new SearchResult(new[] { mockSearchEntry, mockSearchEntry1 }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
 
-            var referenceIdDictionary = new Dictionary<string, string>();
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
             foreach (var entry in bundle.Entry)
             {
                 IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferencesAsync(entry, referenceIdDictionary));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }

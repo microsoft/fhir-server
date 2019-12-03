@@ -47,19 +47,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (ShouldValidateBundleEntry(entry))
                 {
                     string resourceId = await GetResourceId(entry);
+                    string conditionalCreateQuery = entry.Request.IfNoneExist ?? entry.Request.IfNoneExist;
 
                     if (!string.IsNullOrEmpty(resourceId))
                     {
                         // Throw exception if resourceId is already present in the hashset.
                         if (resourceIdList.Contains(resourceId))
                         {
-                            throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, resourceId));
+                            string requestUrl = BuildRequestUrlForConditionalQueries(entry, conditionalCreateQuery);
+                            throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, requestUrl));
                         }
 
                         resourceIdList.Add(resourceId);
                     }
                 }
             }
+        }
+
+        private static string BuildRequestUrlForConditionalQueries(EntryComponent entry, string conditionalCreateQuery)
+        {
+            return conditionalCreateQuery == null ? entry.Request.Url : entry.Request.Url + "?" + conditionalCreateQuery;
         }
 
         private async Task<string> GetResourceId(EntryComponent entry)

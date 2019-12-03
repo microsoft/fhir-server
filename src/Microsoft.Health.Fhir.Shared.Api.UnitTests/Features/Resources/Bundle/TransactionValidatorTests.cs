@@ -35,11 +35,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Theory]
-        [InlineData("Bundle-TransactionWithConditionalReferenceReferringToSameResource")]
-        [InlineData("Bundle-TransactionWithMultipleEntriesModifyingSameResource")]
-        public async System.Threading.Tasks.Task GivenATransactionBundle_IfContainsMultipleEntriesWithTheSameResource_TransactionValidatorShouldThrowException(string inputBundle)
+        [InlineData("Bundle-TransactionWithConditionalReferenceReferringToSameResource", "Patient?identifier=http:/example.org/fhir/ids|234259")]
+        [InlineData("Bundle-TransactionWithMultipleEntriesModifyingSameResource", "Patient/123")]
+        public async System.Threading.Tasks.Task GivenATransactionBundle_IfContainsMultipleEntriesWithTheSameResource_TransactionValidatorShouldThrowException(string inputBundle, string requestedUrlInErrorMessage)
         {
-            var expectedMessage = "Bundle contains multiple resources that refers to the same resource 'Patient/123'.";
+            var expectedMessage = "Bundle contains multiple resources that refers to the same resource '" + requestedUrlInErrorMessage + "'.";
 
             var requestBundle = Samples.GetJsonSample(inputBundle);
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => ValidateIfBundleEntryIsUniqueAsync(requestBundle));
