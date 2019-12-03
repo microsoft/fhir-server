@@ -287,9 +287,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     _bundleHttpContextAccessor.HttpContext = httpContext;
 
-                    _resourceIdProvider.Create = () => persistedId;
+                    Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
+
+                    if (!string.IsNullOrWhiteSpace(persistedId))
+                    {
+                        _resourceIdProvider.Create = () => persistedId;
+                    }
 
                     await request.Handler.Invoke(httpContext);
+
+                    _resourceIdProvider.Create = originalResourceIdProvider;
 
                     httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
                     string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
@@ -355,7 +362,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
+        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
         {
             foreach (EntryComponent entry in bundleEntries)
             {
@@ -365,10 +372,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
 
                 // We've already come across this ID
-                if (!idDictionary.TryGetValue(entry.FullUrl, out _))
+                if (!string.IsNullOrWhiteSpace(entry.FullUrl) && !idDictionary.ContainsKey(entry.FullUrl))
                 {
                     // This id is new to us
-                    var insertId = Guid.NewGuid().ToString();
+                    var insertId = _resourceIdProvider.Create();
                     entry.Resource.Id = insertId;
 
                     idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
