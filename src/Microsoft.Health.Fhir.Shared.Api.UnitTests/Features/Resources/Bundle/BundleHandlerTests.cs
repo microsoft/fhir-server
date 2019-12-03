@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly BundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly IRouter _router;
+        private readonly ResourceIdProvider _resourceIdProvider;
 
         public BundleHandlerTests()
         {
@@ -70,7 +71,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var transactionHandler = Substitute.For<ITransactionHandler>();
 
-            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, NullLogger<BundleHandler>.Instance);
+            _resourceIdProvider = new ResourceIdProvider();
+
+            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, _resourceIdProvider, NullLogger<BundleHandler>.Instance);
         }
 
         [Fact]
