@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     {
         public static SummaryType GetSummaryType(this HttpContext context, ILogger logger)
         {
-            var query = context.Request.Query[SearchParams.SEARCH_PARAM_SUMMARY].FirstOrDefault();
+            var query = context.Request.Query[KnownQueryParameterNames.Summary].FirstOrDefault();
 
             if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
             {
