@@ -20,16 +20,16 @@ Once deployed the FHIR Server metadata endpoint should be avaialble at `http://l
 
 To build the `azure-fhir-api` image run the following command from the root of the `microsoft/fhir-server`repository:
 
-The default configuration builds an image with the FHIR STU3 API:
+The default configuration builds an image with the FHIR R4 API:
 
 ```bash
 docker build -f samples/docker/Dockerfile -t azure-fhir-api .
 ```
 
-For R4 use the following command:
+For STU3 use the following command:
 
 ```bash
-docker build -f samples/docker/Dockerfile -t azure-fhir-api --build-arg FHIR_VERSION=R4 .
+docker build -f samples/docker/Dockerfile -t azure-fhir-api --build-arg FHIR_VERSION=Stu3 .
 ```
 
 The container can then be run, specifying configuration details such as:

@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/dotnet/core/sdk:2.2-bionic AS build
 
-ARG FHIR_VERSION=Stu3
+ARG FHIR_VERSION=R4
 
 WORKDIR /build
 
@@ -15,7 +15,8 @@ RUN dotnet publish "./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.He
 
 FROM mcr.microsoft.com/dotnet/core/aspnet:2.2-alpine AS runtime
 
-ARG FHIR_VERSION=Stu3
+ARG FHIR_VERSION=R4
+
 # See https://www.abhith.net/blog/docker-sql-error-on-aspnet-core-alpine/
 RUN apk add --no-cache icu-libs
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
