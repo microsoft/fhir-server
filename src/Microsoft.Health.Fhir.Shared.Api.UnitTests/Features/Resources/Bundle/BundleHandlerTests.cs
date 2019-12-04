@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -61,7 +62,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _fhirJsonParser = new FhirJsonParser();
 
             _searchService = Substitute.For<ISearchService>();
-            var transactionValidator = new TransactionValidator(_searchService);
+
+            IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+            Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
+            IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
+            ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
+            var transactionValidator = new TransactionValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
 
             _bundleHttpContextAccessor = new BundleHttpContextAccessor();
 

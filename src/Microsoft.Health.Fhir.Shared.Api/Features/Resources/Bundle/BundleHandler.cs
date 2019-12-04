@@ -278,16 +278,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         string resourceType = queries[0];
                         string conditionalQueries = queries[1];
 
-                        SearchResult results = await _transactionValidator.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries);
+                        SearchResultEntry[] results = await _transactionValidator.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries);
 
-                        int? resultCount = results?.Results.Count();
+                        int? resultCount = results?.Length;
 
-                        if (resultCount == null || resultCount == 0 || resultCount > 1)
+                        if (!resultCount.HasValue || resultCount != 1)
                         {
                             throw new RequestNotValidException(string.Format(Api.Resources.InvalidConditionalReference, reference.Reference));
                         }
 
-                        string resourceId = $"{resourceType}/{results.Results.First().Resource.ResourceId}";
+                        string resourceId = $"{resourceType}/{results[0].Resource.ResourceId}";
 
                         referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
 

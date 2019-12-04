@@ -9,6 +9,7 @@ using System.Threading;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -24,7 +25,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
         public TransactionValidatorTests()
         {
-            _transactionValidator = new TransactionValidator(_searchService);
+            IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+            Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
+            IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
+            ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
+            _transactionValidator = new TransactionValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
         }
 
         [Fact]
