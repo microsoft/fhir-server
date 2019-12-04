@@ -52,27 +52,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingABatch_GivenAProperBundleWithFewFailedRequests_ThenSuccessIsReturnedAndOperationOutcomesForFailedRequests()
-        {
-            Resource requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
-
-            FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle);
-            Assert.NotNull(fhirResponse);
-            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-            foreach (var entry in fhirResponse.Resource.Entry)
-            {
-                if (entry.Response.Status.StartsWith("4"))
-                {
-                    var operationOutcome = entry.Response.Outcome as OperationOutcome;
-                    Assert.NotNull(operationOutcome);
-                    Assert.Equal(Hl7.Fhir.Model.ResourceType.OperationOutcome, operationOutcome.ResourceType);
-                    Assert.Single(operationOutcome.Issue);
-                }
-            }
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
         public async Task WhenSubmittingABatch_GivenAProperBundleWithReadonlyUser_ThenForbiddenAndOutcomeIsReturned()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
@@ -121,10 +100,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // more mismatch later we can create partial test classes for stu3 and R4
             Assert.True("412".Equals(resource.Entry[4].Response.Status) || "404".Equals(resource.Entry[4].Response.Status), "Conditional Update");
             Assert.Equal("204", resource.Entry[5].Response.Status);
-            Assert.Equal("404", resource.Entry[6].Response.Status);
-            Assert.Equal("404", resource.Entry[7].Response.Status);
+            ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/Patient?identifier=123456\" was not found.", IssueType.NotFound);
+            ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resource.Entry[8].Response.Status);
-            Assert.Equal("404", resource.Entry[9].Response.Status);
+            ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         private void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
