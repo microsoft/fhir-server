@@ -64,6 +64,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         command,
                         jobRecord.Id,
                         jobRecord.Status.ToString(),
+                        null,
+                        jobRecord.QueuedTime,
                         stream);
 
                     await command.ExecuteScalarAsync(cancellationToken);

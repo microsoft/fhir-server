@@ -1256,9 +1256,23 @@ GO
 CREATE TABLE dbo.ExportJob
 (
     JobId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    JobStatus varchar(10) NULL,
+    JobStatus varchar(10) NOT NULL,
+    HeartbeatTimeStamp datetimeoffset(7) NULL,
+    QueuedDateTime datetimeoffset(7) NOT NULL,
     RawJobRecord varbinary(max) NOT NULL
 )
+
+CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob
+(
+    JobId
+)
+
+CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_JobStatus_HeartbeatTimeStamp_QueuedDateTime ON dbo.ExportJob
+(
+    JobStatus,
+    HeartbeatTimeStamp,
+    QueuedDateTime
+) -- TODO: Modify this as needed when implementing method to acquire export jobs.
 
 GO
 
@@ -1277,10 +1291,10 @@ CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
         CACHE 1000000
 GO
 
-/*************************************************************
-    Stored procedures for creating and deleting
-**************************************************************/
 
+/*************************************************************
+    Stored procedure for exporting
+**************************************************************/
 --
 -- STORED PROCEDURE
 --     Creates an export job.
@@ -1293,11 +1307,17 @@ GO
 --         * The ID of the export job record
 --     @jobStatus
 --         * The status of the export job
+--     @heartbeatTimeStamp
+--         * The time the export job is pinged
+--     @queuedDataTime
+--         * The time the export job is queued
 --     @rawJobRecord
 --         * A compressed UTF16-encoded JSON document
 CREATE PROCEDURE dbo.CreateExportJob
     @jobId varchar(64),
     @jobStatus varchar(10),
+    @hearbeatTimeStamp datetimeoffset(7) = NULL,
+    @queuedDateTime datetimeoffset(7),
     @rawJobRecord varbinary(max)
 AS
     SET NOCOUNT ON
@@ -1306,13 +1326,16 @@ AS
     BEGIN TRANSACTION
 
     INSERT INTO dbo.ExportJob
-        (JobId, JobStatus, RawJobRecord)
+        (JobId, JobStatus, HeartbeatTimeStamp, QueuedDateTime, RawJobRecord)
     VALUES
-        (@jobId, @jobStatus, @rawJobRecord)
+        (@jobId, @jobStatus, @hearbeatTimeStamp, @queuedDateTime, @rawJobRecord)
   
     COMMIT TRANSACTION
 GO
 
+/*************************************************************
+    Stored procedures for creating and deleting
+**************************************************************/
 --
 -- STORED PROCEDURE
 --     UpsertResource
