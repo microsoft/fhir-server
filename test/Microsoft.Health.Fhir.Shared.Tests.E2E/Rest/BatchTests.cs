@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-            ValidateResourceStatusCode(fhirResponse.Resource);
+            ValidateResourceOutput(fhirResponse.Resource);
         }
 
         [Fact]
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        private void ValidateResourceStatusCode(Bundle resource)
+        private void ValidateResourceOutput(Bundle resource)
         {
             Assert.Equal("201", resource.Entry[0].Response.Status);
             Assert.True("201".Equals(resource.Entry[1].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
