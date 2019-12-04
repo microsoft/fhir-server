@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets total number of documents
         /// </summary>
-        public int? TotalCount { get; }
+        public int? TotalCount { get; set; }
 
         /// <summary>
         /// Gets the continuation token.

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -25,11 +26,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingMetadata_GivenSystemFlag_TheServerShouldReturnSuccessfully()
+        public async Task WhenGettingMetadata_GivenInvalidFormatParameter_TheServerShouldReturnNotAcceptable()
         {
-            FhirResponse<CapabilityStatement> readAsync = await Client.ReadAsync<CapabilityStatement>("metadata?system=true");
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<CapabilityStatement>("metadata?_format=blah"));
+            Assert.Equal(HttpStatusCode.NotAcceptable, ex.StatusCode);
+        }
 
-            Assert.NotEmpty(readAsync.Resource.Rest);
+        [Theory]
+        [InlineData("abc")]
+        [InlineData("")]
+        [InlineData("1")]
+        [InlineData("0")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenGettingMetadata_GivenInvalidPrettyParameter_TheServerShouldReturnBadRequest(string value)
+        {
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<CapabilityStatement>($"metadata?_pretty={value}"));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
     }
 }

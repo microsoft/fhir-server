@@ -13,7 +13,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 {
@@ -22,8 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         public DeleteResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
         }
 
@@ -69,11 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
 
             return new DeleteResourceResponse(new ResourceKey(key.ResourceType, key.Id, version), WeakETag.FromVersionId(version));
-        }
-
-        protected override void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
-        {
-            statement.TryAddRestInteraction(resourceType, TypeRestfulInteraction.Delete);
         }
     }
 }

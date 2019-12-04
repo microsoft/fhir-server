@@ -18,14 +18,16 @@ namespace Microsoft.Health.Fhir.Core.Models
             Uri url = null,
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
-            IReadOnlyCollection<string> targetResourceTypes = null)
+            IReadOnlyCollection<string> targetResourceTypes = null,
+            string description = null)
             : this(
                 name,
                 Enum.Parse<SearchParamType>(searchParamType),
                 url,
                 components,
                 expression,
-                targetResourceTypes)
+                targetResourceTypes,
+                description)
         {
         }
 
@@ -35,7 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Models
             Uri url = null,
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
-            IReadOnlyCollection<string> targetResourceTypes = null)
+            IReadOnlyCollection<string> targetResourceTypes = null,
+            string description = null)
             : this(name)
         {
             Url = url;
@@ -43,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             Component = components;
             Expression = expression;
             TargetResourceTypes = targetResourceTypes;
+            Description = description;
         }
 
         public SearchParameterInfo(string name)
@@ -55,6 +59,8 @@ namespace Microsoft.Health.Fhir.Core.Models
         public string Name { get; }
 
         public string Code { get; }
+
+        public string Description { get; set; }
 
         public string Expression { get; }
 

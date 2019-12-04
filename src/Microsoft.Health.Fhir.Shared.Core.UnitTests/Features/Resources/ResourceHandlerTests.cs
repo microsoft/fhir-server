@@ -43,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly CapabilityStatement _conformanceStatement;
         private readonly IMediator _mediator;
         private readonly ISearchService _searchService;
+        private readonly ResourceIdProvider _resourceIdProvider;
 
         public ResourceHandlerTests()
         {
@@ -80,13 +81,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var collection = new ServiceCollection();
 
+            _resourceIdProvider = new ResourceIdProvider();
             collection.Add(x => _mediator).Singleton().AsSelf();
-            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), () => true)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), () => true)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer, _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -120,6 +122,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             resource = (await _mediator.UpsertResourceAsync(resource)).Resource;
 
             Assert.NotNull(resource.Id);
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenCreatingAResourceAndResourceIdProviderHasValue_ThenTheIdShouldBeUsedFromResourceIdProvider()
+        {
+            var resource = Samples.GetDefaultObservation()
+                .UpdateId("id1");
+
+            _resourceIdProvider.Create = () => "id2";
+
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(new UpsertOutcome(wrapper, SaveOutcomeType.Created));
+
+            resource = await _mediator.CreateResourceAsync(resource);
+
+            Assert.NotNull(resource.Id);
+            Assert.Equal("id2", resource.Id);
         }
 
         [Fact]

@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>
                     {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceTypeMismatch),
+                        new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceTypeMismatch),
                     });
                 }
             }

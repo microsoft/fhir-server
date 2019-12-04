@@ -33,7 +33,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExceptionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\InProcTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MetadataTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\StartupWithMetricHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\OperationVersionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\PatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />

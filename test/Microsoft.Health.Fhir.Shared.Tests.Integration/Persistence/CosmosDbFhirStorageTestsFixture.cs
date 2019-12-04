@@ -16,6 +16,7 @@ using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -81,8 +82,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             IDocumentClientTestProvider testProvider = new DocumentClientReadWriteTestProvider();
 
             var fhirRequestContextAccessor = new FhirRequestContextAccessor();
+            var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
-            var documentClientInitializer = new FhirDocumentClientInitializer(testProvider, fhirRequestContextAccessor, NullLogger<FhirDocumentClientInitializer>.Instance);
+            var documentClientInitializer = new FhirDocumentClientInitializer(testProvider, fhirRequestContextAccessor, cosmosResponseProcessor, NullLogger<FhirDocumentClientInitializer>.Instance);
             _documentClient = documentClientInitializer.CreateDocumentClient(_cosmosDataStoreConfiguration);
             var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
 
@@ -99,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 CollectionInitializationSemaphore.Release();
             }
 
-            var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(Substitute.For<IFhirRequestContextAccessor>(), NullFhirDocumentQueryLogger.Instance);
+            var cosmosDocumentQueryFactory = new FhirCosmosDocumentQueryFactory(cosmosResponseProcessor, NullFhirDocumentQueryLogger.Instance);
 
             var documentClient = new NonDisposingScope(_documentClient);
 
@@ -110,7 +112,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                new VersionSpecificModelInfoProvider());
+                new VersionSpecificModelInfoProvider(),
+                Options.Create(new CoreFeatureConfiguration()));
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 documentClient,

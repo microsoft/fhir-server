@@ -389,23 +389,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             tokenResponse["client_id"] = clientId;
 
             // Replace fully qualifies scopes with short scopes and replace $
-            string[] scopes = tokenResponse["scope"].ToString().Split(' ');
-            var scopesBuilder = new StringBuilder();
+            string[] scopes = tokenResponse["scope"]?.ToString().Split(' ');
 
-            foreach (var s in scopes)
+            if (scopes != null)
             {
-                if (IsAbsoluteUrl(s))
-                {
-                    var scopeUri = new Uri(s);
-                    scopesBuilder.Append($"{scopeUri.Segments.Last().Replace('$', '/')} ");
-                }
-                else
-                {
-                    scopesBuilder.Append($"{s.Replace('$', '/')} ");
-                }
-            }
+                var scopesBuilder = new StringBuilder();
 
-            tokenResponse["scope"] = scopesBuilder.ToString().TrimEnd(' ');
+                foreach (var s in scopes)
+                {
+                    if (IsAbsoluteUrl(s))
+                    {
+                        var scopeUri = new Uri(s);
+                        scopesBuilder.Append($"{scopeUri.Segments.Last().Replace('$', '/')} ");
+                    }
+                    else
+                    {
+                        scopesBuilder.Append($"{s.Replace('$', '/')} ");
+                    }
+                }
+
+                tokenResponse["scope"] = scopesBuilder.ToString().TrimEnd(' ');
+            }
 
             return new ContentResult()
             {

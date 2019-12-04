@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
@@ -16,6 +15,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -40,6 +41,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
+        private readonly CoreFeatureConfiguration _coreFeatures;
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
 
         public SqlServerFhirDataStore(
@@ -47,18 +50,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
+            IOptions<CoreFeatureConfiguration> coreFeatures,
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
+            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+
             _configuration = configuration;
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
             _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
+            _coreFeatures = coreFeatures.Value;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
@@ -78,11 +89,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
-                await connection.OpenAsync(cancellationToken);
-
-                using (var command = connection.CreateCommand())
+                using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
                 using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
                 using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
                 using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
@@ -146,10 +155,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await _model.EnsureInitialized();
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
-                await connection.OpenAsync(cancellationToken);
-
                 int? requestedVersion = null;
                 if (!string.IsNullOrEmpty(key.VersionId))
                 {
@@ -161,7 +168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestedVersion = parsedVersion;
                 }
 
-                using (SqlCommand command = connection.CreateCommand())
+                using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
                 {
                     V1.ReadResource.PopulateCommand(
                         command,
@@ -217,11 +224,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await _model.EnsureInitialized();
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
-                await connection.OpenAsync(cancellationToken);
-
-                using (var command = connection.CreateCommand())
+                using (var command = sqlConnectionWrapper.CreateSqlCommand())
                 {
                     V1.HardDeleteResource.PopulateCommand(command, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
@@ -230,22 +235,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public void Build(IListedCapabilityStatement statement)
+        public void Build(ICapabilityStatementBuilder builder)
         {
-            EnsureArg.IsNotNull(statement, nameof(statement));
+            EnsureArg.IsNotNull(builder, nameof(builder));
 
-            statement.SupportsInclude = true;
+            builder.AddDefaultResourceInteractions()
+                   .AddDefaultSearchParameters();
 
-            foreach (var resource in ModelInfoProvider.GetResourceTypeNames())
+            if (_coreFeatures.SupportsBatch)
             {
-                statement.BuildRestResourceComponent(resource, builder =>
-                {
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.NoVersion);
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.Versioned);
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.VersionedUpdate);
-                    builder.ReadHistory = true;
-                    builder.UpdateCreate = true;
-                });
+                // Batch supported added in listedCapability
+                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
+            }
+
+            if (_coreFeatures.SupportsTransaction)
+            {
+                // Transaction supported added in listedCapability
+                builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
         }
     }

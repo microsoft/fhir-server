@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -18,11 +17,9 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
-    public class ConditionalCreateResourceHandler : BaseResourceHandler, IRequestHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
+    public class ConditionalCreateResourceHandler : BaseConditionalHandler, IRequestHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
     {
-        private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
-        private readonly bool _featureEnabled;
 
         public ConditionalCreateResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -30,27 +27,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
             IMediator mediator,
-            IsEnabled featureEnabled)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(featureEnabled, nameof(featureEnabled));
 
-            _searchService = searchService;
             _mediator = mediator;
-            _featureEnabled = featureEnabled();
         }
-
-        public delegate bool IsEnabled();
 
         public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest message, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            SearchResult results = await _searchService.SearchAsync(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
+            SearchResultEntry[] matchedResults = await Search(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
 
-            int count = results.Results.Count();
+            int count = matchedResults.Length;
             if (count == 0)
             {
                 // No matches: The server creates the resource
@@ -65,14 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
                 throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
-            }
-        }
-
-        protected override void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
-        {
-            if (_featureEnabled)
-            {
-                statement.BuildRestResourceComponent(resourceType, x => x.ConditionalCreate = true);
             }
         }
     }

@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -357,8 +358,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.OK)
-                    .SetETagHeader()
-                    .SetLastModifiedHeader();
+                .SetETagHeader()
+                .SetLastModifiedHeader();
         }
 
         /// <summary>
@@ -387,6 +388,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
+        }
+
+        /// <summary>
+        /// Patches the specified resource
+        /// </summary>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        [HttpPatch]
+        [Route(KnownRoutes.ResourceTypeById)]
+        [AuditEventType(AuditEventSubType.Patch)]
+        [Authorize(PolicyNames.WritePolicy)]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Controller methods won't be called if static.")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "Need the parameters for routing to work.")]
+        public Task<IActionResult> Patch(string typeParameter, string idParameter)
+        {
+            throw new MethodNotAllowedException(Resources.PatchNotSupported);
         }
 
         /// <summary>
@@ -504,13 +521,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Returns the Capability Statement of this server which is used to determine
         /// what FHIR features are supported by this implementation.
         /// </summary>
-        /// <param name="system">Specifies if all system capabilities should be returned or only configured (default).</param>
         [HttpGet]
         [AllowAnonymous]
         [Route(KnownRoutes.Metadata, Name = RouteNames.Metadata)]
-        public async Task<IActionResult> Metadata(bool system = false)
+        public async Task<IActionResult> Metadata()
         {
-            ResourceElement response = await _mediator.GetCapabilitiesAsync(system, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.GetCapabilitiesAsync(HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -534,9 +550,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="bundle">The bundle being posted</param>
         [HttpPost]
         [Route("", Name = RouteNames.PostBundle)]
-        [AuditEventType(AuditEventSubType.Batch)] // TODO: Our current auditing implementation only allows one audit event type attribute even though this action handles two.
-        [Authorize(PolicyNames.ReadPolicy)]
-        [Authorize(PolicyNames.WritePolicy)]
+        [AuditEventType(AuditEventSubType.BundlePost)]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());

@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>
                     {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.UrlResourceIdMismatch),
+                        new ValidationFailure(nameof(Base.TypeName), Api.Resources.UrlResourceIdMismatch),
                     });
                 }
 
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>
                     {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceIdRequired),
+                        new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceIdRequired),
                     });
                 }
             }
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                 {
-                    new ValidationFailure(nameof(Base.TypeName), Resources.ResourceAndIdRequired),
+                    new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceAndIdRequired),
                 });
             }
         }

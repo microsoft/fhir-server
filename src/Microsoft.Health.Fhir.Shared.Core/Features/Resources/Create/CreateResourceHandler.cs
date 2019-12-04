@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
@@ -24,8 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         public CreateResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
         }
 
@@ -52,11 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             resource.VersionId = result.Wrapper.Version;
 
             return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), SaveOutcomeType.Created));
-        }
-
-        protected override void AddResourceCapability(IListedCapabilityStatement statement, string resourceType)
-        {
-            statement.TryAddRestInteraction(resourceType, TypeRestfulInteraction.Create);
         }
     }
 }
