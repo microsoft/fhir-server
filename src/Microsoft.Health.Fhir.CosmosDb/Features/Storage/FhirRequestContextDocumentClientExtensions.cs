@@ -11,6 +11,7 @@ using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -46,6 +47,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 else if (dce.Message.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
+                }
+                else if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+                {
+                    throw new RequestEntityTooLargeException();
                 }
             }
         }

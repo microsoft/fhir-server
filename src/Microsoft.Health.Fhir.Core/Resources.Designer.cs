@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -579,6 +579,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ResourcePermissionEmpty {
             get {
                 return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested resource exceeded the backing database&apos;s size limit..
+        /// </summary>
+        internal static string ResourceTooLarge {
+            get {
+                return ResourceManager.GetString("ResourceTooLarge", resourceCulture);
             }
         }
         

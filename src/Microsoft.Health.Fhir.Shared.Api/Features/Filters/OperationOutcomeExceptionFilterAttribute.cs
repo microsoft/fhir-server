@@ -109,6 +109,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case OperationNotImplementedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.NotImplemented;
                         break;
+                    case RequestEntityTooLargeException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.RequestEntityTooLarge;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;
