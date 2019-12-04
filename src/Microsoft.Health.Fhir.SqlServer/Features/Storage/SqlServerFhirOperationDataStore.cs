@@ -81,10 +81,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             throw new NotImplementedException();
         }
 
-        public async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
+        public Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
         {
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
-            return null;
+            // TODO: Implement this method (returning null for now to allow the create method to run).
+            return Task.FromResult<ExportJobOutcome>(null);
         }
 
         public Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
