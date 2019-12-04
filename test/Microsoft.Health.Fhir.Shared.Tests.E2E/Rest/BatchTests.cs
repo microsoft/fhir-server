@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // stu3 returns 404 and R4 returns 412 due to data issue in stu3. Since there is only one mismatch handled with OR but if we find
             // more mismatch later we can create partial test classes for stu3 and R4
-            Assert.True("412".Equals(resource.Entry[4].Response.Status) || "404".Equals(resource.Entry[4].Response.Status), "Conditional Update");
+            Assert.True("412".Equals(resource.Entry[4].Response.Status) || "404".Equals(resource.Entry[4].Response.Status), "Conditional update");
             Assert.Equal("204", resource.Entry[5].Response.Status);
             ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/Patient?identifier=123456\" was not found.", IssueType.NotFound);
             ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
