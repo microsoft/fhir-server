@@ -7,11 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CrucibleTestFixture : IClassFixture<CrucibleDataSource>
     {
         private readonly CrucibleDataSource _dataSource;

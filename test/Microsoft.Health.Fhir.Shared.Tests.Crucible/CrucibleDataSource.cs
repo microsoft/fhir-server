@@ -16,9 +16,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
     public class CrucibleDataSource
     {
         private const int PastResultsValidInMinutes = 10;
+        private static DataStore _dataStore;
 
-        public CrucibleDataSource()
+        public CrucibleDataSource(DataStore dataStore)
         {
+            _dataStore = dataStore;
             TestRun = new Lazy<ServerTestRun>(() => GetTestRunAsync().GetAwaiter().GetResult());
         }
 
@@ -50,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             using (var testFhirServerFactory = new TestFhirServerFactory())
             {
                 var fhirClient = testFhirServerFactory
-                    .GetTestFhirServer(DataStore.CosmosDb, null)
+                    .GetTestFhirServer(_dataStore, null)
                     .GetFhirClient(ResourceFormat.Json);
 
                 if (fhirClient.SecuritySettings.SecurityEnabled)
