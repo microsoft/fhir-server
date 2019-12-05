@@ -90,5 +90,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 
             return new ServerTestRun(crucible.ServerBase, result);
         }
+
+        public static DataStore GetDataStore()
+        {
+            return _dataStore;
+        }
     }
 }

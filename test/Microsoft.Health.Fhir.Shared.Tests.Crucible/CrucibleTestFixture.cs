@@ -40,12 +40,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 
             if (findTest != null)
             {
+                bool isCosmosDb = CrucibleDataSource.GetDataStore().Equals(DataStore.CosmosDb);
                 var failures = findTest.Result
                     .Where(x =>
                     {
                         var testName = $"{x.TestId ?? findTest.TestId}/{x.Id}";
-                        return x.Status == "fail" && !KnownCrucibleTests.KnownFailures.Contains(testName) && !KnownCrucibleTests.KnownBroken.Contains(testName)
+                        bool commonFailures = x.Status == "fail" && !KnownCrucibleTests.KnownCommonFailures.Contains(testName) && !KnownCrucibleTests.KnownBroken.Contains(testName)
                                && !x.Message.ToString().Contains(KnownCrucibleTests.BundleCountFilter);
+                        return isCosmosDb ? commonFailures && !KnownCrucibleTests.KnownCosmosDbFailures.Contains(testName) : commonFailures && !KnownCrucibleTests.KnownSqlServerFailures.Contains(testName);
                     })
                     .ToArray();
 
@@ -73,7 +75,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                 }
 
                 var shouldBeFailing = findTest.Result
-                    .Where(x => x.Status == "pass" && KnownCrucibleTests.KnownFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}"))
+                    .Where(x => x.Status == "pass" && KnownCrucibleTests.KnownCommonFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}") && isCosmosDb ?
+                    KnownCrucibleTests.KnownCosmosDbFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}") :
+                    KnownCrucibleTests.KnownSqlServerFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}"))
                     .ToArray();
 
                 if (shouldBeFailing.Any())
