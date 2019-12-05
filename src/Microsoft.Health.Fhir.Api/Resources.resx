@@ -197,7 +197,7 @@
     <value>Id must be specified in the resource.</value>
   </data>
   <data name="ResourcesMustBeUnique" xml:space="preserve">
-    <value>Bundle contains multiple resources that refers to the same resource '{0}'.</value>
+    <value>Bundle contains multiple entries that refers to the same resource '{0}'.</value>
     <comment>{0} is the full url for POST and request url for PUT and DELETE.</comment>
   </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
@@ -258,11 +258,11 @@
     <comment>{NumberedPlaceHolder=”STU3”}</comment>
   </data>
   <data name="InvalidBundleEntry" xml:space="preserve">
-    <value>Requested operation does not support {0} interaction using {1}.</value>
-    <comment>{0} is the interaction route and {1} is the http verb.</comment>
+    <value>Requested operation '{0}' is not supported using {1}.</value>
+    <comment>{0} is the operation and {1} is the http verb.</comment>
   </data>
   <data name="InvalidConditionalReference" xml:space="preserve">
-    <value>Given conditional reference '{0}' doesnot resolve to a resource.</value>
+    <value>Given conditional reference '{0}' does not resolve to a resource.</value>
     <comment>{0} is the conditional reference parameter.</comment>
   </data>
   <data name="InvalidConditionalReferenceParameters" xml:space="preserve">

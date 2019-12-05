@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly List<int> _emptyRequestsOrder;
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private BundleType? _bundleType;
-        private readonly TransactionValidator _transactionValidator;
+        private readonly TransactionBundleValidator _transactionBundleValidator;
 
         public BundleHandler(
             IHttpContextAccessor httpContextAccessor,
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ITransactionHandler transactionHandler,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             ResourceIdProvider resourceIdProvider,
-            TransactionValidator transactionValidator,
+            TransactionBundleValidator transactionBundleValidator,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
             EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
-            EnsureArg.IsNotNull(transactionValidator, nameof(transactionValidator));
+            EnsureArg.IsNotNull(transactionBundleValidator, nameof(transactionBundleValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _resourceIdProvider = resourceIdProvider;
             _logger = logger;
-            _transactionValidator = transactionValidator;
+            _transactionBundleValidator = transactionBundleValidator;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<(RouteContext, int, string)>());
@@ -133,9 +133,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _bundleType = bundleResource.Type;
 
             // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
-            await _transactionValidator.ValidateBundle(bundleResource);
+            await _transactionBundleValidator.ValidateBundle(bundleResource, cancellationToken);
 
-            await FillRequestLists(bundleResource.Entry);
+            await FillRequestLists(bundleResource.Entry, cancellationToken);
 
             if (_bundleType == BundleType.Batch)
             {
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private async Task FillRequestLists(List<EntryComponent> bundleEntries)
+        private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
         {
             int order = 0;
             _requestCount = bundleEntries.Count;
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // For resources within a transaction, we need to resolve any intrabundle references and potentially persist any internally assigned ids
                 if (_bundleType == BundleType.Transaction && entry.Resource != null)
                 {
-                    await ResolveIntraBundleReferences(entry, _referenceIdDictionary);
+                    await ResolveIntraBundleReferences(entry, _referenceIdDictionary, cancellationToken);
 
                     if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                     {
@@ -217,8 +217,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             persistedId = value.resourceId;
                         }
                     }
-
-                    // await ResolveBundleReferencesAsync(entry, referenceIdDictionary);
                 }
 
                 httpContext.Features[typeof(IHttpAuthenticationFeature)] = _httpAuthenticationFeature;
@@ -259,7 +257,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        public async Task ResolveIntraBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary)
+        public async Task ResolveIntraBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
 
@@ -278,7 +276,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         string resourceType = queries[0];
                         string conditionalQueries = queries[1];
 
-                        SearchResultEntry[] results = await _transactionValidator.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries);
+                        SearchResultEntry[] results = await _transactionBundleValidator.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
 
                         int? resultCount = results?.Length;
 

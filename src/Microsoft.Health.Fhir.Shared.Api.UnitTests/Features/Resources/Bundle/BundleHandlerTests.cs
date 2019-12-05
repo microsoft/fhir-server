@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
             IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
-            var transactionValidator = new TransactionValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
+            var transactionBundleValidator = new TransactionBundleValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
 
             _bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _resourceIdProvider = new ResourceIdProvider();
 
-            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, _resourceIdProvider, transactionValidator, NullLogger<BundleHandler>.Instance);
+            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, _resourceIdProvider, transactionBundleValidator, NullLogger<BundleHandler>.Instance);
         }
 
         [Fact]
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 // Asserting the conditional reference value before resolution
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
 
-                await _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary);
+                await _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary, CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Equal("Patient/123", references.First().Reference);
@@ -276,7 +276,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     null,
                     null));
 
-            var expectedMessage = "Given conditional reference 'Patient?identifier=12345' doesnot resolve to a resource.";
+            var expectedMessage = "Given conditional reference 'Patient?identifier=12345' does not resolve to a resource.";
 
             var searchResult = new SearchResult(new[] { mockSearchEntry, mockSearchEntry1 }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             foreach (var entry in bundle.Entry)
             {
                 IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }

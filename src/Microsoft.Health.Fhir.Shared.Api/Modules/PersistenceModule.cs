@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<IFhirDataStore>>();
             services.AddFactory<IScoped<IFhirOperationDataStore>>();
 
-            services.AddScoped<TransactionValidator>();
+            services.AddScoped<TransactionBundleValidator>();
         }
     }
 }

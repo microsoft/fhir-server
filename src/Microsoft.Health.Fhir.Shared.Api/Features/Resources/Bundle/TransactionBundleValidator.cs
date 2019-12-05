@@ -21,9 +21,9 @@ using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public class TransactionValidator : BaseConditionalHandler
+    public class TransactionBundleValidator : BaseConditionalHandler
     {
-        public TransactionValidator(
+        public TransactionBundleValidator(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
@@ -34,23 +34,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         }
 
         /// <summary>
-        /// Validates if transaction bundle contains multiple entries that are modifying the same resource.
+        /// This method validates if transaction bundle contains multiple entries that are modifying the same resource.
+        /// It also validates if the request operations within a entry is a valid operation.
         /// </summary>
         /// <param name="bundle"> The input bundle</param>
-        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle)
+        /// <param name="cancellationToken"> The cancellation token</param>
+        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, CancellationToken cancellationToken)
         {
             if (bundle.Type != BundleType.Transaction)
             {
                 return;
             }
 
-            var resourceIdList = new HashSet<string>(StringComparer.Ordinal);
+            var resourceIdList = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var entry in bundle.Entry)
             {
                 if (ShouldValidateBundleEntry(entry))
                 {
-                    string resourceId = await GetResourceId(entry);
+                    string resourceId = await GetResourceId(entry, cancellationToken);
                     string conditionalCreateQuery = entry.Request.IfNoneExist ?? entry.Request.IfNoneExist;
 
                     if (!string.IsNullOrEmpty(resourceId))
@@ -70,12 +72,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static string BuildRequestUrlForConditionalQueries(EntryComponent entry, string conditionalCreateQuery)
         {
-            return conditionalCreateQuery == null ? entry.Request.Url : entry.Request.Url + "?" + conditionalCreateQuery;
+            return string.IsNullOrWhiteSpace(conditionalCreateQuery) ? entry.Request.Url : entry.Request.Url + "?" + conditionalCreateQuery;
         }
 
-        private async Task<string> GetResourceId(EntryComponent entry)
+        private async Task<string> GetResourceId(EntryComponent entry, CancellationToken cancellationToken)
         {
-            if (entry.Request.IfNoneExist == null && !entry.Request.Url.Contains("?", StringComparison.InvariantCulture))
+            if (string.IsNullOrWhiteSpace(entry.Request.IfNoneExist) && !entry.Request.Url.Contains("?", StringComparison.Ordinal))
             {
                 if (entry.Request.Method == HTTPVerb.POST)
                 {
@@ -90,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 StringValues conditionalQueries;
                 HTTPVerb requestMethod = (HTTPVerb)entry.Request.Method;
                 bool conditionalCreate = requestMethod == HTTPVerb.POST;
-                bool condtionalUpdate = requestMethod == HTTPVerb.PUT || requestMethod == HTTPVerb.DELETE;
+                bool condtionalUpdate = requestMethod == HTTPVerb.PUT;
 
                 if (condtionalUpdate)
                 {
@@ -104,7 +106,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     conditionalQueries = entry.Request.IfNoneExist;
                 }
 
-                SearchResultEntry[] matchedResults = await GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries);
+                SearchResultEntry[] matchedResults = await GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
                 int? count = matchedResults?.Length;
 
                 if (count > 1)
@@ -122,7 +124,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return string.Empty;
         }
 
-        public async Task<SearchResultEntry[]> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries)
+        public async Task<SearchResultEntry[]> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(resourceType) || string.IsNullOrEmpty(conditionalQueries))
             {
@@ -134,7 +136,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return await Search(searchResourceRequest.ResourceType, searchResourceRequest.Queries, CancellationToken.None);
+            return await Search(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken);
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
@@ -143,9 +145,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             HTTPVerb? requestMethod = entry.Request.Method;
 
             // Search operations using _search and POST endpoint is not supported for bundle.
-            if (requestMethod == HTTPVerb.POST && requestUrl.Contains("_search", StringComparison.InvariantCulture))
+            // Conditional Delete operation is also not currently not supported.
+            if ((requestMethod == HTTPVerb.POST && requestUrl.Contains("_search", StringComparison.OrdinalIgnoreCase))
+                || (requestMethod == HTTPVerb.DELETE && requestUrl.Contains("?", StringComparison.Ordinal)))
             {
-                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url));
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
             }
 
             // Resource type bundle is not supported.within a bundle.

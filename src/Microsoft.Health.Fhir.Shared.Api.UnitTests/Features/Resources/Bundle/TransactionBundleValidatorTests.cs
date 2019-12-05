@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -18,36 +19,46 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
-    public class TransactionValidatorTests
+    public class TransactionBundleValidatorTests
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
-        private TransactionValidator _transactionValidator;
+        private TransactionBundleValidator _transactionBundleValidator;
 
-        public TransactionValidatorTests()
+        public TransactionBundleValidatorTests()
         {
             IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
             Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
             IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
-            _transactionValidator = new TransactionValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
+            _transactionBundleValidator = new TransactionBundleValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task GivenABundleWithUniqueResources_TransactionValidatorShouldNotThrowExceptionAsync()
+        public async Task GivenABundleWithUniqueResources_TransactionBundleValidatorShouldNotThrowExceptionAsync()
         {
-            var requestBundle = Samples.GetDefaultTransaction();
-            await _transactionValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>());
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), CancellationToken.None);
         }
 
         [Theory]
         [InlineData("Bundle-TransactionWithConditionalReferenceReferringToSameResource", "Patient?identifier=http:/example.org/fhir/ids|234259")]
         [InlineData("Bundle-TransactionWithMultipleEntriesModifyingSameResource", "Patient/123")]
-        public async System.Threading.Tasks.Task GivenATransactionBundle_IfContainsMultipleEntriesWithTheSameResource_TransactionValidatorShouldThrowException(string inputBundle, string requestedUrlInErrorMessage)
+        public async Task GivenATransactionBundle_IfContainsMultipleEntriesWithTheSameResource_TransactionBundleValidatorShouldThrowException(string inputBundle, string requestedUrlInErrorMessage)
         {
-            var expectedMessage = "Bundle contains multiple resources that refers to the same resource '" + requestedUrlInErrorMessage + "'.";
+            var expectedMessage = "Bundle contains multiple entries that refers to the same resource '" + requestedUrlInErrorMessage + "'.";
 
             var requestBundle = Samples.GetJsonSample(inputBundle);
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => ValidateIfBundleEntryIsUniqueAsync(requestBundle));
+            Assert.Equal(expectedMessage, exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundle_IfContainsEntryWithConditionalDelete_TransactionBundleValidatorShouldThrowException()
+        {
+            var expectedMessage = "Requested operation 'Patient?identifier=123456' is not supported using DELETE.";
+
+            var requestBundle = Samples.GetDefaultTransaction();
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
         }
 
@@ -73,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(mockSearchResult);
 
-            await _transactionValidator.ValidateBundle(bundle);
+            await _transactionBundleValidator.ValidateBundle(bundle, CancellationToken.None);
         }
     }
 }

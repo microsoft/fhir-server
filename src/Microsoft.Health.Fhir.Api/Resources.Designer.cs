@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Requested operation does not support {0} interaction using {1}..
+        ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is not supported using {1}..
         /// </summary>
         public static string InvalidBundleEntry {
             get {
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; doesnot resolve to a resource..
+        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
         /// </summary>
         public static string InvalidConditionalReference {
             get {
@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bundle contains multiple resources that refers to the same resource &apos;{0}&apos;..
+        ///   Looks up a localized string similar to Bundle contains multiple entries that refers to the same resource &apos;{0}&apos;..
         /// </summary>
         public static string ResourcesMustBeUnique {
             get {

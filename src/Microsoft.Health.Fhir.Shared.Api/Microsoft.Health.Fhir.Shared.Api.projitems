@@ -37,7 +37,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\KnownFhirHeaders.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionBundleValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionExceptionHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalCreates\ConditionalCreateFeatureModule.cs" />
