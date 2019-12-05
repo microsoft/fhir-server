@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     /// <summary>
     /// Provides R4 specific tests.
     /// </summary>
-    /// [Trait(Traits.Category, Categories.Batch)]
+    [Trait(Traits.Category, Categories.Batch)]
     public partial class AuditTests
     {
         [Fact]

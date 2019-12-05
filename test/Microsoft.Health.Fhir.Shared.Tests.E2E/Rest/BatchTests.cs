@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingABatch_GivenAProperBundle_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
+        public async Task WhenSubmittingABatch_GivenAValidBundle_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
             Resource requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingABatch_GivenAProperBundleWithReadonlyUser_ThenForbiddenAndOutcomeIsReturned()
+        public async Task WhenSubmittingABatch_GivenAValidBundleWithReadonlyUser_ThenForbiddenAndOutcomeIsReturned()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             Resource requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True("200".Equals(resource.Entry[2].Response.Status) || "201".Equals(resource.Entry[2].Response.Status), "Update");
             Assert.True("201".Equals(resource.Entry[3].Response.Status) || "200".Equals(resource.Entry[3].Response.Status), "Update or Create");
 
-            // Passes locally each time but fails in pipeline. Investigation is required
+            // Passes locally each time but fails in pipeline. Investigation is needed
             // Assert.True("412".Equals(resource.Entry[4].Response.Status) || "404".Equals(resource.Entry[4].Response.Status), "Conditional update");
             Assert.Equal("204", resource.Entry[5].Response.Status);
             ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/Patient?identifier=123456\" was not found.", IssueType.NotFound);
