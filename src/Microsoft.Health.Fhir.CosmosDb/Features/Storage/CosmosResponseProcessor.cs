@@ -64,6 +64,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
                 }
+                else if (dce.StatusCode == HttpStatusCode.BadRequest && dce.Message.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Core.Exceptions.RequestEntityTooLargeException();
+                }
             }
         }
 
