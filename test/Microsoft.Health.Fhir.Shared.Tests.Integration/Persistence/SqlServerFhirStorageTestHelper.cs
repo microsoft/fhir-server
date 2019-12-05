@@ -19,9 +19,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _connectionString = connectionString;
         }
 
-        public Task DeleteAllExportJobRecordsAsync()
+        public async Task DeleteAllExportJobRecordsAsync()
         {
-            throw new System.NotImplementedException();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
+                command.Connection.Open();
+                await command.ExecuteNonQueryAsync();
+            }
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()

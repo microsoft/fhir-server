@@ -17,8 +17,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
-    [Collection(FhirOperationTestConstants.FhirOperationTests)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class CosmosFhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private IFhirOperationDataStore _operationDataStore;
@@ -56,6 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAMatchingJob_WhenGettingById_ThenTheMatchingJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenNoMatchingJob_WhenGettingById_ThehJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
@@ -74,6 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAMatchingJob_WhenGettingByHash_ThenTheMatchingJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
@@ -84,6 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenNoMatchingJob_WhenGettingByHash_ThenNoMatchingJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
@@ -94,6 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsNoRunningJob_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned()
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
@@ -114,6 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
         [InlineData(OperationStatus.Running)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenJobIsNotInQueuedState_WhenAcquiringJobs_ThenNoJobShouldBeReturned(OperationStatus operationStatus)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
@@ -128,6 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(1, 0)]
         [InlineData(2, 1)]
         [InlineData(3, 2)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenNumberOfRunningJobs_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
             ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync();
@@ -159,6 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsRunningJobThatExpired_WhenAcquiringJobs_ThenTheExpiredJobShouldBeReturned()
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
@@ -174,6 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereAreQueuedJobs_WhenSimultaneouslyAcquiringJobs_ThenCorrectJobsShouldBeReturned()
         {
             ExportJobRecord[] jobRecords = new[]
