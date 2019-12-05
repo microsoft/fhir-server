@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task WhenPostingToHttp_GivenALargeResource_ThenServerShouldRespondWithRequestEntityTooLarge()
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
