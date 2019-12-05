@@ -11,6 +11,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -32,6 +33,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public SqlServerFhirOperationDataStore(SqlServerDataStoreConfiguration configuration, ILogger<SqlServerFhirOperationDataStore> logger)
         {
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _configuration = configuration;
             _logger = logger;
             _memoryStreamManager = new RecyclableMemoryStreamManager();
