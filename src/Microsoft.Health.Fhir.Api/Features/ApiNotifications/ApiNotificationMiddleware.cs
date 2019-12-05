@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Extensions;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
@@ -42,9 +43,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(next, nameof(next));
 
-            if (context.Request.IsHealthCheck())
+            if (!context.Request.IsFhirRequest())
             {
-                // Don't emit events for health check
+                // Don't emit events for internal calls.
                 await next(context);
                 return;
             }

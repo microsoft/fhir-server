@@ -13,15 +13,16 @@ namespace Microsoft.Health.Fhir.Api.Extensions
     public static class HttpRequestExtensions
     {
         /// <summary>
-        /// Check to see whether the request is for health check or not.
+        /// Check to see whether the request is a FHIR request or not.
         /// </summary>
         /// <param name="request">The request.</param>
-        /// <returns><c>true</c> if the request is for health check; otherwise <c>false</c>.</returns>
-        public static bool IsHealthCheck(this HttpRequest request)
+        /// <returns><c>true</c> if the request is a FHIR request; otherwise <c>false</c>.</returns>
+        public static bool IsFhirRequest(this HttpRequest request)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            return request.Path.HasValue && request.Path.StartsWithSegments(KnownRoutes.HealthCheck, StringComparison.InvariantCultureIgnoreCase);
+            return !request.Path.StartsWithSegments(KnownRoutes.HealthCheck, StringComparison.InvariantCultureIgnoreCase) &&
+                   !request.Path.StartsWithSegments(KnownRoutes.CustomError, StringComparison.InvariantCultureIgnoreCase);
         }
     }
 }

@@ -40,5 +40,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Versions = "$versions";
 
         public const string HealthCheck = "/health/check";
+        public const string CustomError = "/CustomError";
     }
 }
