@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 
         public static string CrucibleEnvironmentUrl => Environment.GetEnvironmentVariable("CrucibleEnvironmentUrl");
 
-        public static string TestEnvironmentUrl => Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
+        public static string TestEnvironmentUrl => _dataStore.Equals(DataStore.SqlServer) ? Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSqlSuffix}") : Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
 
-        public static string TestEnvironmentName => Environment.GetEnvironmentVariable("TestEnvironmentName") + Constants.TestEnvironmentVariableVersionSuffix;
+        public static string TestEnvironmentName => _dataStore.Equals(DataStore.SqlServer) ? Environment.GetEnvironmentVariable("TestEnvironmentName") + Constants.TestEnvironmentVariableVersionSqlSuffix : Environment.GetEnvironmentVariable("TestEnvironmentName") + Constants.TestEnvironmentVariableVersionSuffix;
 
         public Lazy<ServerTestRun> TestRun { get; }
 
