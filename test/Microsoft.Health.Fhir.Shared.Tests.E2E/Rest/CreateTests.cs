@@ -68,13 +68,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 largeStringBuilder.Append('a');
             }
 
-            poco.Id = Guid.NewGuid().ToString();
-            poco.Meta = new Meta
-            {
-                VersionId = Guid.NewGuid().ToString(),
-                LastUpdated = DateTimeOffset.UtcNow,
-            };
-
             poco.Text.Div = $"<div>{largeStringBuilder.ToString()}</div>";
 
             var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(poco));
