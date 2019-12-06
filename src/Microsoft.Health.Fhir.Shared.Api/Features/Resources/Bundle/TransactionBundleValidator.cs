@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (ShouldValidateBundleEntry(entry))
                 {
                     string resourceId = await GetResourceId(entry, cancellationToken);
-                    string conditionalCreateQuery = entry.Request.IfNoneExist ?? entry.Request.IfNoneExist;
+                    string conditionalCreateQuery = entry.Request.IfNoneExist;
 
                     if (!string.IsNullOrEmpty(resourceId))
                     {
