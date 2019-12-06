@@ -9,7 +9,6 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Microsoft.Health.Fhir.Api.Modules.HealthChecks
@@ -27,12 +26,12 @@ namespace Microsoft.Health.Fhir.Api.Modules.HealthChecks
 
         public void PostConfigure(string name, HealthCheckServiceOptions options)
         {
-            var list = options.Registrations.ToArray();
+            HealthCheckRegistration[] list = options.Registrations.ToArray();
             options.Registrations.Clear();
 
             var logger = _serviceProvider.GetRequiredService<ILogger<CachedHealthCheck>>();
 
-            foreach (var registration in list)
+            foreach (HealthCheckRegistration registration in list)
             {
                 // Wrap health checks with a caching wrapper.
 
