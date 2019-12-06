@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed while running health check..
+        /// </summary>
+        public static string FailedHealthCheckMessage {
+            get {
+                return ResourceManager.GetString("FailedHealthCheckMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
         public static string Forbidden {
