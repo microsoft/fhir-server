@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using NSubstitute.Core;
@@ -212,18 +213,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            var mockSearchEntry = new SearchResultEntry(
-               new ResourceWrapper(
-                   "123",
-                   "1",
-                   "Patient",
-                   new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                   null,
-                   DateTimeOffset.MinValue,
-                   false,
-                   null,
-                   null,
-                   null));
+            SearchResultEntry mockSearchEntry = GetMockSearchEntry("123", KnownResourceTypes.Patient);
 
             var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
@@ -250,31 +240,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            var mockSearchEntry = new SearchResultEntry(
-               new ResourceWrapper(
-                   "123",
-                   "1",
-                   "Patient",
-                   new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                   null,
-                   DateTimeOffset.MinValue,
-                   false,
-                   null,
-                   null,
-                   null));
-
-            var mockSearchEntry1 = new SearchResultEntry(
-                new ResourceWrapper(
-                    "123",
-                    "2",
-                    "Patient",
-                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                    null,
-                    DateTimeOffset.MinValue,
-                    false,
-                    null,
-                    null,
-                    null));
+            SearchResultEntry mockSearchEntry = GetMockSearchEntry("123", KnownResourceTypes.Patient);
+            SearchResultEntry mockSearchEntry1 = GetMockSearchEntry("123", KnownResourceTypes.Patient);
 
             var expectedMessage = "Given conditional reference 'Patient?identifier=12345' does not resolve to a resource.";
 
@@ -288,6 +255,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
+        }
+
+        private static SearchResultEntry GetMockSearchEntry(string resourceId, string resourceType)
+        {
+            return new SearchResultEntry(
+               new ResourceWrapper(
+                   resourceId,
+                   "1",
+                   resourceType,
+                   new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                   null,
+                   DateTimeOffset.MinValue,
+                   false,
+                   null,
+                   null,
+                   null));
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)

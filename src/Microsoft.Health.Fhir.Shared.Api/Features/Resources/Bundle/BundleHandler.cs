@@ -132,13 +132,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             _bundleType = bundleResource.Type;
 
-            // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
-            await _transactionBundleValidator.ValidateBundle(bundleResource, cancellationToken);
-
-            await FillRequestLists(bundleResource.Entry, cancellationToken);
-
             if (_bundleType == BundleType.Batch)
             {
+                await FillRequestLists(bundleResource.Entry, cancellationToken);
+
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = BundleType.BatchResponse,
@@ -150,6 +147,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (_bundleType == BundleType.Transaction)
             {
+                // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
+                await _transactionBundleValidator.ValidateBundle(bundleResource, cancellationToken);
+
+                await FillRequestLists(bundleResource.Entry, cancellationToken);
+
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = BundleType.TransactionResponse,

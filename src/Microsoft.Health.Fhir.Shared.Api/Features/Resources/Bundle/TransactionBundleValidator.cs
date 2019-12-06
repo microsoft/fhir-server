@@ -41,11 +41,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// <param name="cancellationToken"> The cancellation token</param>
         public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, CancellationToken cancellationToken)
         {
-            if (bundle.Type != BundleType.Transaction)
-            {
-                return;
-            }
-
             var resourceIdList = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var entry in bundle.Entry)
