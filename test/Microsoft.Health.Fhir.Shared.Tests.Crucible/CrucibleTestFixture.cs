@@ -75,9 +75,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                 }
 
                 var shouldBeFailing = findTest.Result
-                    .Where(x => x.Status == "pass" && KnownCrucibleTests.KnownCommonFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}") && isCosmosDb ?
+                    .Where(x => x.Status == "pass" && KnownCrucibleTests.KnownCommonFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}") && (isCosmosDb ?
                     KnownCrucibleTests.KnownCosmosDbFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}") :
-                    KnownCrucibleTests.KnownSqlServerFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}"))
+                    KnownCrucibleTests.KnownSqlServerFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}")))
                     .ToArray();
 
                 if (shouldBeFailing.Any())
