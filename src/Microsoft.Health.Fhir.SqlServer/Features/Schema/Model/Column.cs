@@ -434,9 +434,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         }
     }
 
-    public class RowVersionColumn : Column<byte[]>
+    public class TimestampColumn : Column<byte[]>
     {
-        public RowVersionColumn(string name)
+        public TimestampColumn(string name)
             : base(name, SqlDbType.Timestamp, true)
         {
         }

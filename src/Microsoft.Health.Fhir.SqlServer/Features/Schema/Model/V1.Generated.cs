@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDateTimeOffsetColumn HeartbeatTimeStamp = new NullableDateTimeOffsetColumn("HeartbeatTimeStamp", 7);
             internal readonly DateTimeOffsetColumn QueuedDateTime = new DateTimeOffsetColumn("QueuedDateTime", 7);
             internal readonly VarBinaryColumn RawJobRecord = new VarBinaryColumn("RawJobRecord", -1);
-            internal readonly RowVersionColumn JobVersion = new RowVersionColumn("JobVersion");
+            internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
         }
 
         internal class NumberSearchParamTable : Table
