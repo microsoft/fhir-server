@@ -1331,6 +1331,8 @@ AS
     VALUES
         (@jobId, @jobStatus, @heartbeatTimeStamp, @queuedDateTime, @rawJobRecord)
   
+    SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
+
     COMMIT TRANSACTION
 GO
 

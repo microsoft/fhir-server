@@ -72,12 +72,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         jobRecord.QueuedTime,
                         stream);
 
-                    await command.ExecuteScalarAsync(cancellationToken);
+                    int? rowVersion = (int?)await command.ExecuteScalarAsync(cancellationToken);
+
+                    // The row version should nerver be null.
+                    Ensure.That(rowVersion).IsNotNull();
+
+                    return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
                 }
             }
-
-            // TODO: Where should the e tag come from?
-            return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("1"));
         }
 
         public Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
