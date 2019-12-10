@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenATransactionBundleWithConditionalReferences_ReferencesAreResolvedCorrectlyAsync()
+        public async Task GivenATransactionBundleWithConditionalReferences_WhenResolved_ThenReferencesValuesAreUpdatedCorrectly()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenATransactionBundleWithConditionalReferences_WhenReferencesNotResolved_ThrowsExceptionAsync()
+        public async Task GivenATransactionBundleWithConditonalReferences_WhenNotResolved_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();

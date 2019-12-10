@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenABundleWithUniqueResources_TransactionBundleValidatorShouldNotThrowExceptionAsync()
+        public async Task GivenATransactionBundle_WhenContainsUniqueResources_NoExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
             await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), CancellationToken.None);
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Theory]
         [InlineData("Bundle-TransactionWithConditionalReferenceReferringToSameResource", "Patient?identifier=http:/example.org/fhir/ids|234259")]
         [InlineData("Bundle-TransactionWithMultipleEntriesModifyingSameResource", "Patient/123")]
-        public async Task GivenATransactionBundle_IfContainsMultipleEntriesWithTheSameResource_TransactionBundleValidatorShouldThrowException(string inputBundle, string requestedUrlInErrorMessage)
+        public async Task GivenATransactionBundle_WhenContainsMultipleEntriesWithTheSameResource_ThenRequestNotValidExceptionShouldBeThrown(string inputBundle, string requestedUrlInErrorMessage)
         {
             var expectedMessage = "Bundle contains multiple entries that refers to the same resource '" + requestedUrlInErrorMessage + "'.";
 
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenATransactionBundle_IfContainsEntryWithConditionalDelete_TransactionBundleValidatorShouldThrowException()
+        public async Task GivenATransactionBundle_WhenContainsEntryWithConditionalDelete_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var expectedMessage = "Requested operation 'Patient?identifier=123456' is not supported using DELETE.";
 
