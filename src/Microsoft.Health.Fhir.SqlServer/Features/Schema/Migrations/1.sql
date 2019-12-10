@@ -1259,7 +1259,8 @@ CREATE TABLE dbo.ExportJob
     JobStatus varchar(10) NOT NULL,
     HeartbeatTimeStamp datetimeoffset(7) NULL,
     QueuedDateTime datetimeoffset(7) NOT NULL,
-    RawJobRecord varbinary(max) NOT NULL
+    RawJobRecord varbinary(max) NOT NULL,
+	JobVersion rowversion NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob

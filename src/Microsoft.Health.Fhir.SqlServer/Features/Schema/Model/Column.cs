@@ -434,6 +434,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         }
     }
 
+    public class RowVersionColumn : Column<byte[]>
+    {
+        public RowVersionColumn(string name)
+            : base(name, SqlDbType.Timestamp, true)
+        {
+        }
+
+        public override byte[] Read(SqlDataReader reader, int ordinal)
+        {
+            // The row version storage size is 8 bytes.
+            const int length = 8;
+
+            byte[] bytes = new byte[length];
+            reader.GetBytes(Metadata.Name, ordinal, 0, bytes, 0, length);
+
+            return bytes;
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, byte[] value)
+        {
+            record.SetBytes(ordinal, 0, value, 0, value.Length);
+        }
+    }
+
     public abstract class StringColumn : Column<string>
     {
         public StringColumn(string name, SqlDbType type, bool nullable, int length, string collation = null)
