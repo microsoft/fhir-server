@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -263,7 +264,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidResourceType");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            var expectedMessage = "Resource type 'Patientt'  given in the reference 'Patientt?identifier=12345' is not supported.";
+            var expectedMessage = "Resource type 'Patientt' in the reference 'Patientt?identifier=12345' is not supported.";
 
             var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
             foreach (var entry in bundle.Entry)
