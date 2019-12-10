@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
@@ -25,7 +24,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var actionId) &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                string location = string.Concat(parsedModel.GetType().ToString().Split('.').Last(), ".id");
+                string location = context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceType) ?
+                    string.Concat(resourceType, ".id") : string.Empty;
                 if (string.IsNullOrWhiteSpace(((Resource)parsedModel).Id))
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>

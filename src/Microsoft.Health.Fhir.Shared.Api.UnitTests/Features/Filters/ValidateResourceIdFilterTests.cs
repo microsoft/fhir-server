@@ -77,8 +77,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             var context = CreateContext(observation, Guid.NewGuid().ToString());
 
-            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
-
             var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
             Assert.Equal("Observation.id", exception.Issues.First<OperationOutcomeIssue>().Location.First());
         }
