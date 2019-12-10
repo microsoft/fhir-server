@@ -556,6 +556,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested resource exceeded the backing database&apos;s size limit..
+        /// </summary>
+        internal static string ResourceTooLarge {
+            get {
+                return ResourceManager.GetString("ResourceTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The supplied version &apos;{0}&apos; did not match..
         /// </summary>
         internal static string ResourceVersionConflict {

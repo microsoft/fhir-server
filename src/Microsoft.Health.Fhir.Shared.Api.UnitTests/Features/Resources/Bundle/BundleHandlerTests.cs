@@ -50,9 +50,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             _router = Substitute.For<IRouter>();
 
-            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
-            fhirRequestContext.BaseUri.Returns(new Uri("https://localhost/"));
-            fhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+            var fhirRequestContext = new DefaultFhirRequestContext();
+            fhirRequestContext.BaseUri = new Uri("https://localhost/");
+            fhirRequestContext.CorrelationId = Guid.NewGuid().ToString();
 
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _fhirRequestContextAccessor.FhirRequestContext.Returns(fhirRequestContext);

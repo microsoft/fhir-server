@@ -25,15 +25,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             string baseUriString,
             string correlationId,
             IDictionary<string, StringValues> requestHeaders,
-            IDictionary<string, StringValues> responseHeaders,
-            string resourceType)
+            IDictionary<string, StringValues> responseHeaders)
         {
             EnsureArg.IsNotNullOrWhiteSpace(method, nameof(method));
             EnsureArg.IsNotNullOrWhiteSpace(uriString, nameof(uriString));
             EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
             EnsureArg.IsNotNullOrWhiteSpace(correlationId, nameof(correlationId));
             EnsureArg.IsNotNull(responseHeaders, nameof(responseHeaders));
-            EnsureArg.IsNotNull(requestHeaders, nameof(requestHeaders));
 
             Method = method;
             _uriString = uriString;
@@ -41,7 +39,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             CorrelationId = correlationId;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
-            ResourceType = resourceType;
         }
 
         public string Method { get; }

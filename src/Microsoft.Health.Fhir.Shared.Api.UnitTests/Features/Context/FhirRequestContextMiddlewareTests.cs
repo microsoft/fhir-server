@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
@@ -48,20 +47,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.True(httpContext.Response.Headers.TryGetValue("X-Request-Id", out StringValues value));
             Assert.Equal(new StringValues(expectedRequestId), value);
-        }
-
-        [Fact]
-        public async Task GivenAnHttpContextWithPrincipal_WhenExecutingFhirRequestContextMiddleware_ThenPrincipalShouldBeSet()
-        {
-            HttpContext httpContext = CreateHttpContext();
-
-            var principal = new ClaimsPrincipal();
-
-            httpContext.User = principal;
-
-            IFhirRequestContext fhirRequestContext = await SetupAsync(httpContext);
-
-            Assert.Same(principal, fhirRequestContext.Principal);
         }
 
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)

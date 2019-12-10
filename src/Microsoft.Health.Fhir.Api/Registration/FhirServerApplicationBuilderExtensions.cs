@@ -10,14 +10,13 @@ using EnsureThat;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Newtonsoft.Json;
 
 namespace Microsoft.AspNetCore.Builder
 {
     public static class FhirServerApplicationBuilderExtensions
     {
-        public static readonly PathString HealthCheckPath = "/health/check";
-
         /// <summary>
         /// Adds FHIR server functionality to the pipeline.
         /// </summary>
@@ -27,7 +26,7 @@ namespace Microsoft.AspNetCore.Builder
         {
             EnsureArg.IsNotNull(app, nameof(app));
 
-            app.UseHealthChecks(HealthCheckPath, new HealthCheckOptions
+            app.UseHealthChecks(new PathString(KnownRoutes.HealthCheck), new HealthCheckOptions
             {
                 ResponseWriter = async (httpContext, healthReport) =>
                 {

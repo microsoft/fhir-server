@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
-        [Route("CustomError")]
+        [Route(KnownRoutes.CustomError)]
         [AllowAnonymous]
         public IActionResult CustomError(int? statusCode = null)
         {

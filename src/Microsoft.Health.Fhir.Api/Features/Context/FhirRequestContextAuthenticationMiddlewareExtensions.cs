@@ -8,14 +8,20 @@ using Microsoft.AspNetCore.Builder;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
 {
-    public static class FhirRequestContextAfterAuthenticationMiddlewareExtensions
+    public static class FhirRequestContextAuthenticationMiddlewareExtensions
     {
-        public static IApplicationBuilder UseFhirRequestContextAfterAuthentication(
+        public static IApplicationBuilder UseFhirRequestContextAuthentication(
             this IApplicationBuilder builder)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            return builder.UseMiddleware<FhirRequestContextAfterAuthenticationMiddleware>();
+            builder.UseMiddleware<FhirRequestContextBeforeAuthenticationMiddleware>();
+
+            builder.UseAuthentication();
+
+            builder.UseMiddleware<FhirRequestContextAfterAuthenticationMiddleware>();
+
+            return builder;
         }
     }
 }

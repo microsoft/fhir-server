@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     {
         private readonly ActionExecutedContext _context;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
+        private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly string _correlationId = Guid.NewGuid().ToString();
 
         public OperationOutcomeExceptionFilterTests()
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 new List<IFilterMetadata>(),
                 FilterTestsHelper.CreateMockFhirController());
 
-            _fhirRequestContext.CorrelationId.Returns(_correlationId);
+            _fhirRequestContext.CorrelationId = _correlationId;
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
         }
 
@@ -188,6 +189,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenANotAcceptableException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new NotAcceptableException("Not acceptable."), HttpStatusCode.NotAcceptable);
+        }
+
+        [Fact]
+        public void GivenARequestEntityTooLargeException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new RequestEntityTooLargeException(), HttpStatusCode.RequestEntityTooLarge);
         }
 
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
