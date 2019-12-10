@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
-    public interface IBaseActionResult
+    public interface IResourceActionResult
     {
         string GetResultTypeName();
     }

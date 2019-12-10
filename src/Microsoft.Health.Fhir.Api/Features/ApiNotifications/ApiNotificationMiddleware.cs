@@ -9,55 +9,58 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
-    public class ApiNotificationMiddleware
+    public class ApiNotificationMiddleware : IMiddleware
     {
-        private readonly RequestDelegate _next;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
         private readonly ILogger<ApiNotificationMiddleware> _logger;
 
         public ApiNotificationMiddleware(
-            RequestDelegate next,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IMediator mediator,
             ILogger<ApiNotificationMiddleware> logger)
         {
-            EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _next = next;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _mediator = mediator;
             _logger = logger;
         }
 
-        public async Task Invoke(HttpContext context)
+        public async Task InvokeAsync(HttpContext context, RequestDelegate next)
         {
-            if (context.Request.Path.HasValue && context.Request.Path.StartsWithSegments(FhirServerApplicationBuilderExtensions.HealthCheckPath, System.StringComparison.InvariantCultureIgnoreCase))
-            {
-                // Don't emit events for health check
+            EnsureArg.IsNotNull(context, nameof(context));
+            EnsureArg.IsNotNull(next, nameof(next));
 
-                await _next(context);
+            if (!context.Request.IsFhirRequest())
+            {
+                // Don't emit events for internal calls.
+                await next(context);
                 return;
             }
 
+            await PublishNotificationAsync(context, next);
+        }
+
+        protected virtual async Task PublishNotificationAsync(HttpContext context, RequestDelegate next)
+        {
             var apiNotification = new ApiResponseNotification();
 
-            using (var timer = _logger.BeginTimedScope("ApiNotificationMiddleware") as ActionTimer)
+            using (var timer = _logger.BeginTimedScope(nameof(ApiNotificationMiddleware)) as ActionTimer)
             {
                 try
                 {
-                    await _next(context);
+                    await next(context);
                 }
                 finally
                 {

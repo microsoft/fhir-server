@@ -41,6 +41,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         }
 
         [Fact]
+        public async Task GivenMetadata_WhenRead_ThenAuditLogEntriesShouldNotBeCreated()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline
+                return;
+            }
+
+            FhirResponse response = await _client.ReadAsync<CapabilityStatement>("metadata");
+
+            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
+
+            Assert.NotNull(correlationId);
+
+            Assert.Empty(_auditLogger.GetAuditEntriesByCorrelationId(correlationId));
+        }
+
+        [Fact]
         public async Task GivenAResource_WhenCreated_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(

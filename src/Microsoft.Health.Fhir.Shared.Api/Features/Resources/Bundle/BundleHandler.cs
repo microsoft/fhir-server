@@ -278,11 +278,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         originalFhirRequestContext.BaseUri.OriginalString,
                         originalFhirRequestContext.CorrelationId,
                         httpContext.Request.Headers,
-                        httpContext.Response.Headers,
-                        resourceType?.ToString())
+                        httpContext.Response.Headers)
                     {
                         Principal = originalFhirRequestContext.Principal,
+                        ResourceType = resourceType?.ToString(),
                     };
+
                     _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
 
                     _bundleHttpContextAccessor.HttpContext = httpContext;

@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -18,9 +17,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
     public class AuditHelperTests
     {
-        private const string ControllerName = "controller";
-        private const string AnonymousActionName = "anonymous";
-        private const string NonAnonymousActionName = "non-anonymous";
         private const string AuditEventType = "audit";
         private const string CorrelationId = "correlation";
         private static readonly Uri Uri = new Uri("http://localhost/123");
@@ -29,8 +25,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private const string CallerIpAddressInString = "10.0.0.0";
 
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private readonly IAuditEventTypeMapping _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
+        private readonly IAuditHeaderReader _auditHeaderReader = Substitute.For<IAuditHeaderReader>();
 
         private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
@@ -38,7 +34,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
         private readonly HttpContext _httpContext = new DefaultHttpContext();
         private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
-        private readonly IAuditHeaderReader _auditHeaderReader = Substitute.For<IAuditHeaderReader>();
 
         public AuditHelperTests()
         {
@@ -47,20 +42,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _fhirRequestContextAccessor.FhirRequestContext = _fhirRequestContext;
 
-            _auditEventTypeMapping.GetAuditEventType(ControllerName, AnonymousActionName).Returns((string)null);
-            _auditEventTypeMapping.GetAuditEventType(ControllerName, NonAnonymousActionName).Returns(AuditEventType);
-
             _httpContext.Connection.RemoteIpAddress = CallerIpAddress;
 
             _claimsExtractor.Extract().Returns(Claims);
 
-            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditEventTypeMapping, _auditLogger, NullLogger<AuditHelper>.Instance, _auditHeaderReader);
+            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditLogger, _auditHeaderReader);
         }
 
         [Fact]
-        public void GivenAnActionHasAllowAnonymousAttribute_WhenLogExecutingIsCalled_ThenAuditLogShouldNotBeLogged()
+        public void GivenNoAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldNotBeLogged()
         {
-            _auditHelper.LogExecuting(ControllerName, AnonymousActionName, _httpContext, _claimsExtractor);
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
 
             _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
                 auditAction: default,
@@ -74,9 +66,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAnActionHasAuditEventTypeAttribute_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
+        public void GivenAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
         {
-            _auditHelper.LogExecuting(ControllerName, NonAnonymousActionName, _httpContext, _claimsExtractor);
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
 
             _auditLogger.Received(1).LogAudit(
                 AuditAction.Executing,
@@ -91,10 +85,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAnActionHasAllowAnonymousAttribute_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged()
+        public void GivenNoAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged()
         {
-            // OK
-            _auditHelper.LogExecuted(ControllerName, AnonymousActionName, "Patient", _httpContext, _claimsExtractor);
+            _auditHelper.LogExecuted(_httpContext, _claimsExtractor);
 
             _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
                 auditAction: default,
@@ -108,14 +101,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenAnActionHasAuditEventTypeAttribute_WhenLogExecutedIsCalled_ThenAuditLogShouldBeLogged()
+        public void GivenAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
             const string expectedResourceType = "Patient";
 
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+            _fhirRequestContext.ResourceType.Returns(expectedResourceType);
+
             _httpContext.Response.StatusCode = (int)expectedStatusCode;
 
-            _auditHelper.LogExecuted(ControllerName, NonAnonymousActionName, expectedResourceType, _httpContext, _claimsExtractor);
+            _auditHelper.LogExecuted(_httpContext, _claimsExtractor);
 
             _auditLogger.Received(1).LogAudit(
                 AuditAction.Executed,
@@ -126,27 +122,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 CorrelationId,
                 CallerIpAddressInString,
                 Claims,
-                customHeaders: _auditHeaderReader.Read(_httpContext));
-        }
-
-        [Fact]
-        public void GivenAnActionHasAuditEventTypeAttribute_WhenFhirRequestContextHasAuditValue_ThenAuditLogShouldBeLoggedWithFhirRequestValue()
-        {
-            string otherAuditEventType = "other-audit";
-
-            _fhirRequestContext.AuditEventType.Returns(otherAuditEventType);
-
-            _auditHelper.LogExecuting(ControllerName, NonAnonymousActionName, _httpContext, _claimsExtractor);
-
-            _auditLogger.Received(1).LogAudit(
-                AuditAction.Executing,
-                otherAuditEventType,
-                resourceType: null,
-                requestUri: Uri,
-                statusCode: null,
-                correlationId: CorrelationId,
-                callerIpAddress: CallerIpAddressInString,
-                callerClaims: Claims,
                 customHeaders: _auditHeaderReader.Read(_httpContext));
         }
     }

@@ -8,6 +8,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -38,6 +39,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             fhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
 
+            // Set the resource type based on the route data
+            RouteData routeData = context.RouteData;
+
+            if (routeData?.Values != null)
+            {
+                if (routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType))
+                {
+                    fhirRequestContext.ResourceType = resourceType?.ToString();
+                }
+            }
+
             if (context.ActionDescriptor is ControllerActionDescriptor controllerActionDescriptor)
             {
                 fhirRequestContext.AuditEventType = _auditEventTypeMapping.GetAuditEventType(
@@ -67,16 +79,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 }
             }
 
-            // Set the resource type based on the route data
-            RouteData routeData = context.RouteData;
+            base.OnActionExecuting(context);
+        }
 
-            if (routeData?.Values != null)
-            {
-                if (routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType))
-                {
-                    fhirRequestContext.ResourceType = resourceType?.ToString();
-                }
-            }
+        public override void OnActionExecuted(ActionExecutedContext context)
+        {
+            // The result can either be a FhirResult or an OperationOutcomeResult which both extend BaseActionResult.
+            var result = context.Result as IResourceActionResult;
+
+            _fhirRequestContextAccessor.FhirRequestContext.ResourceType = result?.GetResultTypeName();
+
+            base.OnActionExecuted(context);
         }
     }
 }

@@ -6,10 +6,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
+using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -19,9 +20,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
     public class ApiNotificationMiddlewareTests
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
+        private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
 
+        private readonly RequestDelegate _next = httpContext => Task.CompletedTask;
         private readonly ApiNotificationMiddleware _apiNotificationMiddleware;
         private readonly HttpContext _httpContext = new DefaultHttpContext();
 
@@ -30,7 +32,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
             _apiNotificationMiddleware = new ApiNotificationMiddleware(
-                    httpContext => Task.CompletedTask,
                     _fhirRequestContextAccessor,
                     _mediator,
                     NullLogger<ApiNotificationMiddleware>.Instance);
@@ -39,29 +40,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
         [Fact]
         public async Task GivenRequestPath_WhenInvoked_DoesNotLogForHealthCheck()
         {
-            _httpContext.Request.Path = FhirServerApplicationBuilderExtensions.HealthCheckPath;
+            _httpContext.Request.Path = new PathString(KnownRoutes.HealthCheck);
 
-            await _apiNotificationMiddleware.Invoke(_httpContext);
+            await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
-        public async Task GivenRequestPathButNoStorageRequestMetrics_WhenInvoked_EmitsMediatRApiEvents()
-        {
-            _httpContext.Request.Path = "/Observations";
-            await _apiNotificationMiddleware.Invoke(_httpContext);
-
-            await _mediator.ReceivedWithAnyArgs(1).Publish<ApiResponseNotification>(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenRequestPathAndStorageRequestMetrics_WhenInvoked_EmitsMediatRApiAndStorageEvents()
+        public async Task GivenAuditEventTypeNotNull_WhenInvoked_EmitsMediatRApiAndStorageEvents()
         {
             _httpContext.Request.Path = "/Observation";
-            await _apiNotificationMiddleware.Invoke(_httpContext);
+            _fhirRequestContext.AuditEventType = "read";
 
-            await _mediator.ReceivedWithAnyArgs(1).Publish<ApiResponseNotification>(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
+            await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
+
+            await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -70,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             _fhirRequestContextAccessor.FhirRequestContext.Returns((IFhirRequestContext)null);
 
             _httpContext.Request.Path = "/Observation";
-            await _apiNotificationMiddleware.Invoke(_httpContext);
+            await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
         }
@@ -82,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             _mediator.WhenForAnyArgs(async x => await x.Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>())).Throw(new System.Exception("Failure"));
 
             _httpContext.Request.Path = "/Observation";
-            await _apiNotificationMiddleware.Invoke(_httpContext);
+            await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
         }
