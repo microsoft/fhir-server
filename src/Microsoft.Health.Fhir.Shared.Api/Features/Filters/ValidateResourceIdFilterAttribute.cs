@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
@@ -24,19 +25,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var actionId) &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                if (!string.Equals((string)actionId, ((Resource)parsedModel).Id, StringComparison.Ordinal))
-                {
-                    throw new ResourceNotValidException(new List<ValidationFailure>
-                    {
-                        new ValidationFailure(nameof(Base.TypeName), Api.Resources.UrlResourceIdMismatch),
-                    });
-                }
-
+                string location = string.Concat(parsedModel.GetType().ToString().Split('.').Last(), ".id");
                 if (string.IsNullOrWhiteSpace(((Resource)parsedModel).Id))
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>
                     {
-                        new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceIdRequired),
+                        new ValidationFailure(location, Api.Resources.ResourceIdRequired),
+                    });
+                }
+
+                if (!string.Equals((string)actionId, ((Resource)parsedModel).Id, StringComparison.Ordinal))
+                {
+                    throw new ResourceNotValidException(new List<ValidationFailure>
+                    {
+                        new ValidationFailure(location, Api.Resources.UrlResourceIdMismatch),
                     });
                 }
             }
