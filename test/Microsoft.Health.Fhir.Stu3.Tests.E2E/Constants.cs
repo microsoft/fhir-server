@@ -8,5 +8,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E
     public static class Constants
     {
         public const string TestEnvironmentVariableVersionSuffix = "";
+        public const string TestEnvironmentVariableVersionSqlSuffix = "_Sql";
     }
 }
