@@ -269,7 +269,11 @@
     <value>Resource type and query parameter must be present in a given request '{0}'.</value>
     <comment>{0} is the request url.</comment>
   </data>
-  <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
+  <data name="ConditionalOperationInBundleNotSelectiveEnough" xml:space="preserve">
     <value>Operation was not attempted because search criteria was not selective enough for query parameter '{0}'.</value>
+  </data>
+  <data name="ResourceNotSupported" xml:space="preserve">
+    <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
+    <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
 </root>

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -41,6 +42,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// <param name="cancellationToken"> The cancellation token</param>
         public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(bundle, nameof(bundle));
+
             var resourceIdList = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var entry in bundle.Entry)
@@ -107,7 +110,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (count > 1)
                 {
                     // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
-                    throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationNotSelectiveEnough, conditionalQueries));
+                    throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationInBundleNotSelectiveEnough, conditionalQueries));
                 }
 
                 if (count == 1)

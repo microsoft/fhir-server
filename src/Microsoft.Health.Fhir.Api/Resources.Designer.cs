@@ -81,9 +81,9 @@ namespace Microsoft.Health.Fhir.Api {
         /// <summary>
         ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough for query parameter &apos;{0}&apos;..
         /// </summary>
-        public static string ConditionalOperationNotSelectiveEnough {
+        public static string ConditionalOperationInBundleNotSelectiveEnough {
             get {
-                return ResourceManager.GetString("ConditionalOperationNotSelectiveEnough", resourceCulture);
+                return ResourceManager.GetString("ConditionalOperationInBundleNotSelectiveEnough", resourceCulture);
             }
         }
         
@@ -300,6 +300,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ResourceIdRequired {
             get {
                 return ResourceManager.GetString("ResourceIdRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
+        /// </summary>
+        public static string ResourceNotSupported {
+            get {
+                return ResourceManager.GetString("ResourceNotSupported", resourceCulture);
             }
         }
         

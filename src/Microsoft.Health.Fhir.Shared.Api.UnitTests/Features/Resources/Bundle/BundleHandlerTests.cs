@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 // Asserting the conditional reference value before resolution
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
 
-                await _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary, CancellationToken.None);
+                await _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Equal("Patient/123", references.First().Reference);
@@ -252,7 +252,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             foreach (var entry in bundle.Entry)
             {
                 IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveIntraBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
+                Assert.Equal(exception.Message, expectedMessage);
+            }
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundleWithInvalidResourceTypeInReference_WhenExecuted_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidResourceType");
+            var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
+            var expectedMessage = "Resource type 'Patientt'  given in the reference 'Patientt?identifier=12345' is not supported.";
+
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+            foreach (var entry in bundle.Entry)
+            {
+                IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }
