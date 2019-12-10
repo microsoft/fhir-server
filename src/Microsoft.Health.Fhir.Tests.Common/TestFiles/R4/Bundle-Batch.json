@@ -154,7 +154,7 @@
             "request": {
                 "method": "PUT",
                 "url": "Patient/123",
-                "ifMatch": "W/\"2\""
+                "ifMatch": "W/\"3\""
             }
         },
         {
