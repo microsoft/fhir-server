@@ -12,7 +12,6 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Extensions;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
@@ -50,14 +49,14 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 return;
             }
 
-            await InvokeInternalAsync(context, next);
+            await PublishNotificationAsync(context, next);
         }
 
-        protected virtual async Task InvokeInternalAsync(HttpContext context, RequestDelegate next)
+        protected virtual async Task PublishNotificationAsync(HttpContext context, RequestDelegate next)
         {
             var apiNotification = new ApiResponseNotification();
 
-            using (var timer = _logger.BeginTimedScope("ApiNotificationMiddleware") as ActionTimer)
+            using (var timer = _logger.BeginTimedScope(nameof(ApiNotificationMiddleware)) as ActionTimer)
             {
                 try
                 {
