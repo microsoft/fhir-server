@@ -115,6 +115,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case TransactionFailedException tfe:
                         operationOutcomeResult.StatusCode = tfe.ResponseStatusCode;
                         break;
+                    case RequestEntityTooLargeException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.RequestEntityTooLarge;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Validation;
@@ -54,6 +55,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(observation.Meta.LastUpdated, response.Content.Headers.LastModified);
 
             DotNetAttributeValidation.Validate(observation, true);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task WhenPostingToHttp_GivenALargeResource_ThenServerShouldRespondWithRequestEntityTooLarge()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            StringBuilder largeStringBuilder = new StringBuilder();
+
+            for (int i = 0; i < 1024 * 1024 * 2; i++)
+            {
+                largeStringBuilder.Append('a');
+            }
+
+            poco.Text.Div = $"<div>{largeStringBuilder.ToString()}</div>";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(poco));
+            Assert.Equal(HttpStatusCode.RequestEntityTooLarge, exception.StatusCode);
         }
 
         [Fact]
