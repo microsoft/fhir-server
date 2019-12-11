@@ -15,12 +15,18 @@ using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
@@ -39,6 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly BundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly IRouter _router;
         private readonly ResourceIdProvider _resourceIdProvider;
+        private readonly ISearchService _searchService;
 
         public BundleHandlerTests()
         {
@@ -55,6 +62,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _fhirJsonSerializer = new FhirJsonSerializer();
             _fhirJsonParser = new FhirJsonParser();
+
+            _searchService = Substitute.For<ISearchService>();
+
+            IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+            Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
+            IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
+            ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
+            var transactionBundleValidator = new TransactionBundleValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
 
             _bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
@@ -74,7 +89,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _resourceIdProvider = new ResourceIdProvider();
 
-            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, _resourceIdProvider, NullLogger<BundleHandler>.Instance);
+            _bundleHandler = new BundleHandler(_httpContextAccessor, _fhirRequestContextAccessor, _fhirJsonSerializer, _fhirJsonParser, transactionHandler, _bundleHttpContextAccessor, _resourceIdProvider, transactionBundleValidator, NullLogger<BundleHandler>.Instance);
         }
 
         [Fact]
@@ -159,7 +174,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                         Request = new RequestComponent
                         {
                             Method = HTTPVerb.POST,
-                            Url = "/Patient/789",
+                            Url = "/Patient",
                         },
                         Resource = new Hl7.Fhir.Model.Patient
                         {
@@ -170,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                         Request = new RequestComponent
                         {
                             Method = HTTPVerb.PUT,
-                            Url = "/Patient",
+                            Url = "/Patient/789",
                         },
                         Resource = new Hl7.Fhir.Model.Patient
                         {
@@ -191,6 +206,89 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal("403", bundleResource.Entry[0].Response.Status);
             Assert.Equal("404", bundleResource.Entry[1].Response.Status);
             Assert.Equal("200", bundleResource.Entry[2].Response.Status);
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundleWithConditionalReferences_WhenResolved_ThenReferencesValuesAreUpdatedCorrectly()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
+            var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
+            SearchResultEntry mockSearchEntry = GetMockSearchEntry("123", KnownResourceTypes.Patient);
+
+            var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
+            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
+
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+
+            foreach (var entry in bundle.Entry)
+            {
+                IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+
+                // Asserting the conditional reference value before resolution
+                Assert.Equal("Patient?identifier=12345", references.First().Reference);
+
+                await _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None);
+
+                // Asserting the resolved reference value after resolution
+                Assert.Equal("Patient/123", references.First().Reference);
+            }
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundleWithConditonalReferences_WhenNotResolved_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
+            var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
+            SearchResultEntry mockSearchEntry = GetMockSearchEntry("123", KnownResourceTypes.Patient);
+            SearchResultEntry mockSearchEntry1 = GetMockSearchEntry("123", KnownResourceTypes.Patient);
+
+            var expectedMessage = "Given conditional reference 'Patient?identifier=12345' does not resolve to a resource.";
+
+            var searchResult = new SearchResult(new[] { mockSearchEntry, mockSearchEntry1 }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
+            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
+
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+            foreach (var entry in bundle.Entry)
+            {
+                IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
+                Assert.Equal(exception.Message, expectedMessage);
+            }
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundleWithInvalidResourceTypeInReference_WhenExecuted_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidResourceType");
+            var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
+            var expectedMessage = "Resource type 'Patientt' in the reference 'Patientt?identifier=12345' is not supported.";
+
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+            foreach (var entry in bundle.Entry)
+            {
+                IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
+                Assert.Equal(exception.Message, expectedMessage);
+            }
+        }
+
+        private static SearchResultEntry GetMockSearchEntry(string resourceId, string resourceType)
+        {
+            return new SearchResultEntry(
+               new ResourceWrapper(
+                   resourceId,
+                   "1",
+                   resourceType,
+                   new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                   null,
+                   DateTimeOffset.MinValue,
+                   false,
+                   null,
+                   null,
+                   null));
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)

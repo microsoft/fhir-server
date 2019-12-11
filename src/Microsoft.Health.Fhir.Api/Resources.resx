@@ -200,7 +200,7 @@
     <value>Id must be specified in the resource.</value>
   </data>
   <data name="ResourcesMustBeUnique" xml:space="preserve">
-    <value>Bundle contains multiple resources with the same url value '{0}'.</value>
+    <value>Bundle contains multiple entries that refers to the same resource '{0}'.</value>
     <comment>{0} is the full url for POST and request url for PUT and DELETE.</comment>
   </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
@@ -261,7 +261,22 @@
     <comment>{NumberedPlaceHolder=”STU3”}</comment>
   </data>
   <data name="InvalidBundleEntry" xml:space="preserve">
-    <value>Requested operation does not support {0} interaction using {1}.</value>
-    <comment>{0} is the interaction route and {1} is the http verb.</comment>
+    <value>Requested operation '{0}' is not supported using {1}.</value>
+    <comment>{0} is the operation and {1} is the http verb.</comment>
+  </data>
+  <data name="InvalidConditionalReference" xml:space="preserve">
+    <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
+    <value>Resource type and query parameter must be present in a given request '{0}'.</value>
+    <comment>{0} is the request url.</comment>
+  </data>
+  <data name="ConditionalOperationInBundleNotSelectiveEnough" xml:space="preserve">
+    <value>Operation was not attempted because search criteria was not selective enough for query parameter '{0}'.</value>
+  </data>
+  <data name="ResourceNotSupported" xml:space="preserve">
+    <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
+    <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
 </root>
