@@ -1255,9 +1255,9 @@ GO
 **************************************************************/
 CREATE TABLE dbo.ExportJob
 (
-    JobId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    JobStatus varchar(10) NOT NULL,
-    HeartbeatTimeStamp datetimeoffset(7) NULL,
+    Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Status varchar(10) NOT NULL,
+    HeartbeatDateTime datetimeoffset(7) NULL,
     QueuedDateTime datetimeoffset(7) NOT NULL,
     RawJobRecord varbinary(max) NOT NULL,
 	JobVersion rowversion NOT NULL
@@ -1265,15 +1265,15 @@ CREATE TABLE dbo.ExportJob
 
 CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob
 (
-    JobId
+    Id
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_JobStatus_HeartbeatTimeStamp_QueuedDateTime ON dbo.ExportJob
+CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Status_HeartbeatDateTime_QueuedDateTime ON dbo.ExportJob
 (
-    JobStatus,
-    HeartbeatTimeStamp,
+    Status,
+    HeartbeatDateTime,
     QueuedDateTime
-) -- TODO: Modify this as needed when implementing method to acquire export jobs.
+) -- TODO: Modify indexes as needed when implementing method to acquire export jobs.
 
 GO
 
@@ -1292,7 +1292,6 @@ CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
         CACHE 1000000
 GO
 
-
 /*************************************************************
     Stored procedure for exporting
 **************************************************************/
@@ -1304,20 +1303,21 @@ GO
 --     Creates a new row to the ExportJob table, adding a new job to the queue of jobs to be processed.
 --
 -- PARAMETERS
---     @jobId
+--     @id
 --         * The ID of the export job record
---     @jobStatus
+--     @status
 --         * The status of the export job
---     @heartbeatTimeStamp
---         * The time the export job is pinged
---     @queuedDataTime
+--     @queuedDateTime
 --         * The time the export job is queued
 --     @rawJobRecord
 --         * A compressed UTF16-encoded JSON document
+--
+-- RETURN VALUE
+--     The row version of the created export job.
+--
 CREATE PROCEDURE dbo.CreateExportJob
-    @jobId varchar(64),
-    @jobStatus varchar(10),
-    @heartbeatTimeStamp datetimeoffset(7) = NULL,
+    @id varchar(64),
+    @status varchar(10),
     @queuedDateTime datetimeoffset(7),
     @rawJobRecord varbinary(max)
 AS
@@ -1327,9 +1327,9 @@ AS
     BEGIN TRANSACTION
 
     INSERT INTO dbo.ExportJob
-        (JobId, JobStatus, HeartbeatTimeStamp, QueuedDateTime, RawJobRecord)
+        (Id, Status, QueuedDateTime, RawJobRecord)
     VALUES
-        (@jobId, @jobStatus, @heartbeatTimeStamp, @queuedDateTime, @rawJobRecord)
+        (@id, @status, @queuedDateTime, @rawJobRecord)
   
     SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
 

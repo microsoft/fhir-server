@@ -95,9 +95,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            internal readonly VarCharColumn JobId = new VarCharColumn("JobId", 64, "Latin1_General_100_CS_AS");
-            internal readonly VarCharColumn JobStatus = new VarCharColumn("JobStatus", 10);
-            internal readonly NullableDateTimeOffsetColumn HeartbeatTimeStamp = new NullableDateTimeOffsetColumn("HeartbeatTimeStamp", 7);
+            internal readonly VarCharColumn Id = new VarCharColumn("Id", 64, "Latin1_General_100_CS_AS");
+            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
+            internal readonly NullableDateTimeOffsetColumn HeartbeatDateTime = new NullableDateTimeOffsetColumn("HeartbeatDateTime", 7);
             internal readonly DateTimeOffsetColumn QueuedDateTime = new DateTimeOffsetColumn("QueuedDateTime", 7);
             internal readonly VarBinaryColumn RawJobRecord = new VarBinaryColumn("RawJobRecord", -1);
             internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
@@ -395,18 +395,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            private readonly ParameterDefinition<System.String> _jobId = new ParameterDefinition<System.String>("@jobId", global::System.Data.SqlDbType.VarChar, false, 64);
-            private readonly ParameterDefinition<System.String> _jobStatus = new ParameterDefinition<System.String>("@jobStatus", global::System.Data.SqlDbType.VarChar, false, 10);
-            private readonly ParameterDefinition<System.Nullable<System.DateTimeOffset>> _heartbeatTimeStamp = new ParameterDefinition<System.Nullable<System.DateTimeOffset>>("@heartbeatTimeStamp", global::System.Data.SqlDbType.DateTimeOffset, true, 7);
+            private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
             private readonly ParameterDefinition<System.DateTimeOffset> _queuedDateTime = new ParameterDefinition<System.DateTimeOffset>("@queuedDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
             private readonly ParameterDefinition<global::System.IO.Stream> _rawJobRecord = new ParameterDefinition<global::System.IO.Stream>("@rawJobRecord", global::System.Data.SqlDbType.VarBinary, false, -1);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String jobId, System.String jobStatus, System.Nullable<System.DateTimeOffset> heartbeatTimeStamp, System.DateTimeOffset queuedDateTime, global::System.IO.Stream rawJobRecord)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String status, System.DateTimeOffset queuedDateTime, global::System.IO.Stream rawJobRecord)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.CreateExportJob";
-                _jobId.AddParameter(command.Parameters, jobId);
-                _jobStatus.AddParameter(command.Parameters, jobStatus);
-                _heartbeatTimeStamp.AddParameter(command.Parameters, heartbeatTimeStamp);
+                _id.AddParameter(command.Parameters, id);
+                _status.AddParameter(command.Parameters, status);
                 _queuedDateTime.AddParameter(command.Parameters, queuedDateTime);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
             }
