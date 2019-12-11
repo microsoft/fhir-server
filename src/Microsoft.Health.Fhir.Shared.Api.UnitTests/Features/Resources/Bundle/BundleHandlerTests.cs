@@ -209,6 +209,44 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
+        public async Task GivenATransactionBundleWithIdentifierReferences_WhenResolved_ThenReferencesValuesAreNotUpdated()
+        {
+            var observation = new Observation
+            {
+                Subject = new ResourceReference
+                {
+                    Identifier = new Identifier("https://example.com", "12345"),
+                },
+            };
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Resource = observation,
+                    },
+                },
+            };
+
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+
+            foreach (var entry in bundle.Entry)
+            {
+                List<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>().ToList();
+
+                // Asserting the conditional reference value before resolution
+                Assert.Null(references.First().Reference);
+
+                await _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None);
+
+                // Asserting the resolved reference value after resolution
+                Assert.Null(references.First().Reference);
+            }
+        }
+
+        [Fact]
         public async Task GivenATransactionBundleWithConditionalReferences_WhenResolved_ThenReferencesValuesAreUpdatedCorrectly()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
@@ -223,7 +261,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             foreach (var entry in bundle.Entry)
             {
-                IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+                List<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>().ToList();
 
                 // Asserting the conditional reference value before resolution
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
