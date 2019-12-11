@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            // Even enteries are audit executed entry and odd entries are audit executing entry
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("batch", string.Empty, null, null),
@@ -41,10 +40,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
                 ("update", "Patient/123", null, null),
                 ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
-                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", null, null),
-                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.Created, ResourceType.Patient),
-                ("update", "Patient/123", null, null),
-                ("update", "Patient/123", HttpStatusCode.PreconditionFailed, ResourceType.OperationOutcome),
+                ("update", "Patient?identifier=234234", null, null),
+                ("update", "Patient?identifier=234234", HttpStatusCode.OK, ResourceType.Patient),
+                ("update", "Patient/123a", null, null),
+                ("update", "Patient/123a", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
                 ("search-type", "Patient?name=peter", null, null),
                 ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Bundle),
                 ("read", "Patient/12334", null, null),

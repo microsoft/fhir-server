@@ -392,7 +392,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
-        private async Task ExecuteAndValidateBatch<T>(Func<Task<FhirResponse<T>>> action, List<(string, string, HttpStatusCode)> expectedList)
+        private async Task ExecuteAndValidateBatch<T>(Func<Task<FhirResponse<T>>> action, List<(string, string, HttpStatusCode?, ResourceType?)> expectedList)
             where T : Resource
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -413,36 +413,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             IReadOnlyList<AuditEntry> auditList = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
 
-            Assert.Equal(18, auditList.Count);
-            for (int i = 0; i < 18; i++)
-            {
-                var expectedAction = expectedList[i].Item1;
-                var expectedPathSegment = expectedList[i].Item2;
-                var expectedStatusCode = expectedList[i].Item3;
-                var expectedUri = new Uri($"http://localhost/{expectedPathSegment}");
-                if (i == 0 || (i % 2 != 0 && i != 17))
-                {
-                    ValidateExecutingAuditEntry(auditList[i], expectedAction, expectedUri, correlationId, expectedAppId, ExpectedClaimKey);
-                }
-                else
-                {
-                    ResourceType? expectedResourceType = null;
-                    if ((auditList[i].StatusCode.Equals(HttpStatusCode.Created) || (expectedAction.Equals("update") && auditList[i].StatusCode.Equals(HttpStatusCode.OK))) && expectedPathSegment.Contains("Patient"))
-                    {
-                        expectedResourceType = ResourceType.Patient;
-                    }
-                    else if (auditList[i].StatusCode.Equals(HttpStatusCode.NotFound) || auditList[i].StatusCode.Equals(HttpStatusCode.PreconditionFailed))
-                    {
-                        expectedResourceType = ResourceType.OperationOutcome;
-                    }
-                    else if (auditList[i].StatusCode.Equals(HttpStatusCode.OK) && (expectedAction.Equals("search-type") || expectedAction.Equals("batch")))
-                    {
-                        expectedResourceType = ResourceType.Bundle;
-                    }
-
-                    ValidateExecutedAuditEntry(auditList[i], expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey);
-                }
-            }
+            Assert.Equal(expectedList.Count, auditList.Count);
+            ValidateExecutingAuditEntry(auditList[0], expectedList[0].Item1, new Uri($"http://localhost/{expectedList[0].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[1], expectedList[1].Item1, new Uri($"http://localhost/{expectedList[1].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[2], expectedList[2].Item1, expectedList[2].Item4, new Uri($"http://localhost/{expectedList[2].Item2}"), expectedList[2].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[3], expectedList[3].Item1, new Uri($"http://localhost/{expectedList[3].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[4], expectedList[4].Item1, expectedList[4].Item4, new Uri($"http://localhost/{expectedList[4].Item2}"), expectedList[4].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[5], expectedList[5].Item1, new Uri($"http://localhost/{expectedList[5].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[6], expectedList[6].Item1, expectedList[6].Item4, new Uri($"http://localhost/{expectedList[6].Item2}"), expectedList[6].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[7], expectedList[7].Item1, new Uri($"http://localhost/{expectedList[7].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[8], expectedList[8].Item1, expectedList[8].Item4, new Uri($"http://localhost/{expectedList[8].Item2}"), expectedList[8].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[9], expectedList[9].Item1, new Uri($"http://localhost/{expectedList[9].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[10], expectedList[10].Item1, expectedList[10].Item4, new Uri($"http://localhost/{expectedList[10].Item2}"), expectedList[10].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[11], expectedList[11].Item1, new Uri($"http://localhost/{expectedList[11].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[12], expectedList[12].Item1, expectedList[12].Item4, new Uri($"http://localhost/{expectedList[12].Item2}"), expectedList[12].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[13], expectedList[13].Item1, new Uri($"http://localhost/{expectedList[13].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[14], expectedList[14].Item1, expectedList[14].Item4, new Uri($"http://localhost/{expectedList[14].Item2}"), expectedList[14].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[15], expectedList[15].Item1, new Uri($"http://localhost/{expectedList[15].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[16], expectedList[16].Item1, expectedList[16].Item4, new Uri($"http://localhost/{expectedList[16].Item2}"), expectedList[16].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[17], expectedList[17].Item1, expectedList[17].Item4, new Uri($"http://localhost/{expectedList[17].Item2}"), expectedList[17].Item3, correlationId, expectedAppId, ExpectedClaimKey);
         }
 
         private async Task ExecuteAndValidate(Func<Task<HttpResponseMessage>> action, string expectedAction, string expectedPathSegment, HttpStatusCode expectedStatusCode, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
