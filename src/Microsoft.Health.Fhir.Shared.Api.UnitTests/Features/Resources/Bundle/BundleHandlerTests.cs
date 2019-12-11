@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenATransactionBundleWithConditonalReferences_WhenNotResolved_ThenRequestNotValidExceptionShouldBeThrown()
+        public async Task GivenATransactionBundleWithConditionalReferences_WhenNotResolved_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -290,7 +290,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
             foreach (var entry in bundle.Entry)
             {
-                IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
                 var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
@@ -307,7 +306,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
             foreach (var entry in bundle.Entry)
             {
-                IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
                 var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
