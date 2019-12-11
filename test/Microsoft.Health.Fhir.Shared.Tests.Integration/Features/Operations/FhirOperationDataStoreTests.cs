@@ -18,14 +18,14 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
-    public class CosmosFhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
+    public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private IFhirOperationDataStore _operationDataStore;
         private IFhirStorageTestHelper _testHelper;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), "destinationType", "destinationConnection");
 
-        public CosmosFhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
+        public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {
             _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
