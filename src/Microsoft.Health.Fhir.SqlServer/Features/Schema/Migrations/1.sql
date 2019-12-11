@@ -1273,7 +1273,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Status_HeartbeatDateTime_QueuedDat
     Status,
     HeartbeatDateTime,
     QueuedDateTime
-) -- TODO: Modify indexes as needed when implementing method to acquire export jobs.
+) -- TODO: Modify indexes as needed when implementing remaining sql export methods.
 
 GO
 
