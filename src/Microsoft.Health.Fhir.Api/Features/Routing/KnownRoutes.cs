@@ -33,6 +33,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ExportResourceTypeById = ResourceTypeById + "/" + Export;
         public const string ExportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + IdRouteSegment;
 
+        public const string Validate = "$validate";
+        public const string ValidateResourceType = ResourceType + "/" + Validate;
+        public const string ValidateResourceTypeById = ResourceTypeById + "/" + Validate;
+
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";
