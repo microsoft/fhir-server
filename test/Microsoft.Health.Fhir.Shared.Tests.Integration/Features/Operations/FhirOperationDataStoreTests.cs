@@ -20,8 +20,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
-        private IFhirOperationDataStore _operationDataStore;
-        private IFhirStorageTestHelper _testHelper;
+        private readonly IFhirOperationDataStore _operationDataStore;
+        private readonly IFhirStorageTestHelper _testHelper;
+        private readonly CancellationToken _cancellationToken;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), "destinationType", "destinationConnection");
 
@@ -29,11 +30,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
+            _cancellationToken = new CancellationTokenSource().Token;
         }
 
         public async Task InitializeAsync()
         {
-            await _testHelper.DeleteAllExportJobRecordsAsync();
+            await _testHelper.DeleteAllExportJobRecordsAsync(_cancellationToken);
         }
 
         public Task DisposeAsync()

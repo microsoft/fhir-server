@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _collectionUri = collectionUri;
         }
 
-        public async Task DeleteAllExportJobRecordsAsync()
+        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken)
         {
             IDocumentQuery<Document> query = _documentClient.CreateDocumentQuery<Document>(
                 _collectionUri,
@@ -37,11 +38,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             while (query.HasMoreResults)
             {
-                FeedResponse<Document> documents = await query.ExecuteNextAsync<Document>();
+                FeedResponse<Document> documents = await query.ExecuteNextAsync<Document>(cancellationToken);
 
                 foreach (Document doc in documents)
                 {
-                    await _documentClient.DeleteDocumentAsync(doc.SelfLink, new RequestOptions() { PartitionKey = new PartitionKey(ExportJobPartitionKey) });
+                    await _documentClient.DeleteDocumentAsync(doc.SelfLink, new RequestOptions() { PartitionKey = new PartitionKey(ExportJobPartitionKey) }, cancellationToken);
                 }
             }
         }

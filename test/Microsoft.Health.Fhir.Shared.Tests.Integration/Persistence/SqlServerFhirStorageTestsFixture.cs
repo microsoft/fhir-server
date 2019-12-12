@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _masterConnectionString;
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
-        private IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
 

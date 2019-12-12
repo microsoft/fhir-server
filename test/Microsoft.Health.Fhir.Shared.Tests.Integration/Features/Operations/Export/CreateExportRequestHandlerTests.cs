@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         public Task InitializeAsync()
         {
-            return _fhirStorageTestHelper.DeleteAllExportJobRecordsAsync();
+            return _fhirStorageTestHelper.DeleteAllExportJobRecordsAsync(_cancellationToken);
         }
 
         public Task DisposeAsync()

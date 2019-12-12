@@ -5,6 +5,7 @@
 
 using System.Data.SqlClient;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -19,13 +20,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _connectionString = connectionString;
         }
 
-        public async Task DeleteAllExportJobRecordsAsync()
+        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken)
         {
             using (var connection = new SqlConnection(_connectionString))
             {
                 var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
                 command.Connection.Open();
-                await command.ExecuteNonQueryAsync();
+                await command.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 
