@@ -434,6 +434,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         }
     }
 
+    /// <summary>
+    /// Represents a rowversion type column.
+    /// </summary>
+    /// <remarks>
+    /// The timestamp data type is a synonym for the rowversion data type, and its syntax is now deprecated in SQL.
+    /// </remarks>
     public class TimestampColumn : Column<byte[]>
     {
         public TimestampColumn(string name)
@@ -443,7 +449,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
         public override byte[] Read(SqlDataReader reader, int ordinal)
         {
-            // The row version storage size is 8 bytes.
+            // The rowversion storage size is 8 bytes.
             const int length = 8;
 
             byte[] bytes = new byte[length];
