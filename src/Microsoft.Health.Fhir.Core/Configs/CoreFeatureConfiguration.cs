@@ -19,5 +19,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating whether Transaction is enabled or not.
         /// </summary>
         public bool SupportsTransaction { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether Validate is enabled or not.
+        /// </summary>
+        public bool SupportsValidate { get; set; }
     }
 }
