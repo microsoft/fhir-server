@@ -266,6 +266,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             foreach (ResourceReference reference in references)
             {
+                if (string.IsNullOrWhiteSpace(reference.Reference))
+                {
+                    continue;
+                }
+
                 // Checks to see if this reference has already been assigned an Id
                 if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceInformation))
                 {
