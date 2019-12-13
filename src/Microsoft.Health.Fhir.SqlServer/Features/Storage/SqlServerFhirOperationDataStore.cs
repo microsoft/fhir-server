@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
 using System.IO.Compression;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -71,10 +72,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         jobRecord.QueuedTime,
                         stream);
 
-                    int? rowVersion = (int?)await command.ExecuteScalarAsync(cancellationToken);
+                    var rowVersion = (int?)await command.ExecuteScalarAsync(cancellationToken);
 
-                    // The row version should nerver be null.
-                    Ensure.That(rowVersion).IsNotNull();
+                    if (rowVersion == null)
+                    {
+                        throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
+                    }
 
                     return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
                 }
