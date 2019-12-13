@@ -240,7 +240,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(builder, nameof(builder));
 
             builder.AddDefaultResourceInteractions()
-                   .AddDefaultSearchParameters();
+                   .AddDefaultSearchParameters()
+                   .AddRestSearchParams();
 
             if (_coreFeatures.SupportsBatch)
             {
