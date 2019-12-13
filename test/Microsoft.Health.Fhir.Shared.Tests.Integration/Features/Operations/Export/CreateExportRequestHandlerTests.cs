@@ -23,7 +23,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 {
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class CreateExportRequestHandlerTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private static readonly Uri RequestUrl = new Uri("https://localhost/$export/");
@@ -73,6 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsAMatchingJob_WhenCreatingAnExportJob_ThenExistingJobShouldBeReturned()
         {
             var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
@@ -122,6 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsAMatchingJob_WhenRequestorClaimsInDifferentOrder_ThenExistingJobShouldBeReturned()
         {
             var claim1 = KeyValuePair.Create("oid", "user1");
@@ -158,6 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenDestinationTypeOrDestinationConnectionSettings_WhenCreatingAnExportJob_ThenItShouldBeRemovedFromRequestUri()
         {
             const string baseUrlFormat = "http://localhost/$export?_count=100{0}&_another=123";

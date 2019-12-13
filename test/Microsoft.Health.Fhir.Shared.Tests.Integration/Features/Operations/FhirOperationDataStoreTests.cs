@@ -17,6 +17,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
+    [Collection(FhirOperationTestConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
