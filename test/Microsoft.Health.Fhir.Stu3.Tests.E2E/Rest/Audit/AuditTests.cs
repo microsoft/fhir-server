@@ -8,6 +8,7 @@ using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -19,6 +20,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     [Trait(Traits.Category, Categories.Batch)]
     public partial class AuditTests
     {
+        [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
