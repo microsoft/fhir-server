@@ -281,18 +281,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True("200".Equals(resource.Entry[3].Response.Status), "Get");
             Assert.True("200".Equals(resource.Entry[3].Response.Status), "Delete");
         }
-
-        private void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
-        {
-            Assert.Equal(expectedStatusCode, actualStatusCode);
-            Assert.NotNull(operationOutcome);
-            Assert.Single(operationOutcome.Issue);
-
-            var issue = operationOutcome.Issue.First();
-
-            Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
-            Assert.Equal(expectedIssueType, issue.Code);
-            Assert.Equal(expectedDiagnostics, issue.Diagnostics);
-        }
     }
 }
