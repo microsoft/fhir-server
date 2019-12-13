@@ -144,7 +144,7 @@
     <value>Transaction was failed while processing the request.</value>
   </data>
   <data name="InvalidBundleType" xml:space="preserve">
-    <value>Bundles of type '{0}' are not supported.</value>
+    <value>Bundles of type '{0}' are not supported for this operation.</value>
     <comment>{0) is the given bundle type.</comment>
   </data>
   <data name="InvalidCompoundCode" xml:space="preserve">

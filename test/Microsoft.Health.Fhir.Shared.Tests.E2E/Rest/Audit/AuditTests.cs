@@ -21,8 +21,11 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
+    /// <summary>
+    /// Provides Audit specific tests.
+    /// </summary
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public class AuditTests : IClassFixture<AuditTestFixture>
+    public partial class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
         private const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
@@ -378,6 +381,150 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 () => _client.CreateClientForClientApplication(TestApplications.NativeClient),
                 HttpStatusCode.Forbidden,
                 expectedAppId: TestApplications.NativeClient.ClientId);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [Trait(Traits.Category, Categories.Transaction)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionBundleWithValidEntries_WhenSuccessfulPost_ThenAuditLogEntriesShouldBeCreated()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline
+                return;
+            }
+
+            // Even enteries are audit executed entry and odd entries are audit executing entry
+            List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
+            {
+                ("transaction", string.Empty, null, null),
+                ("create", "Patient", null, null),
+                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
+                ("create", "Patient", null, null),
+                ("create", "Patient", HttpStatusCode.OK, null),
+                ("update", "Patient/123", null, null),
+                ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
+                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", null, null),
+                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.OK, ResourceType.Patient),
+                ("transaction", string.Empty, HttpStatusCode.OK, ResourceType.Bundle),
+            };
+
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
+
+            await ExecuteAndValidateTransaction(
+               () => _client.PostBundleAsync(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()),
+               expectedList);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [Trait(Traits.Category, Categories.Transaction)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionBundleWith_WhenAUnsuccessfulPost_ThenTransactionShouldRollBackAndAuditLogEntriesShouldBeCreated()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline
+                return;
+            }
+
+            List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
+            {
+                ("transaction", string.Empty, null, null),
+                ("create", "Patient", null, null),
+                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
+                ("read", "Patient/12345", null, null),
+                ("read", "Patient/12345", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
+                ("transaction", string.Empty, HttpStatusCode.NotFound, ResourceType.OperationOutcome),
+            };
+
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack");
+
+            await ExecuteAndValidateTransactionRollBacks(
+              async () =>
+              {
+                  FhirResponse<OperationOutcome> result = null;
+
+                  try
+                  {
+                      await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>());
+                  }
+                  catch (FhirException ex)
+                  {
+                      result = ex.Response;
+                  }
+
+                  // The request should have failed.
+                  Assert.NotNull(result);
+
+                  return result;
+              },
+              expectedList);
+        }
+
+        private async Task ExecuteAndValidateTransaction<T>(Func<Task<FhirResponse<T>>> action, List<(string, string, HttpStatusCode?, ResourceType?)> expectedList)
+           where T : Resource
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline.
+                return;
+            }
+
+            FhirResponse<T> response = null;
+
+            response = await action();
+
+            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
+
+            Assert.NotNull(correlationId);
+
+            string expectedAppId = TestApplications.ServiceClient.ClientId;
+
+            IReadOnlyList<AuditEntry> auditList = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
+
+            Assert.Equal(expectedList.Count, auditList.Count);
+            ValidateExecutingAuditEntry(auditList[0], expectedList[0].Item1, new Uri($"http://localhost/{expectedList[0].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[1], expectedList[1].Item1, new Uri($"http://localhost/{expectedList[1].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[2], expectedList[2].Item1, expectedList[2].Item4, new Uri($"http://localhost/{expectedList[2].Item2}"), expectedList[2].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[3], expectedList[3].Item1, new Uri($"http://localhost/{expectedList[3].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[4], expectedList[4].Item1, expectedList[4].Item4, new Uri($"http://localhost/{expectedList[4].Item2}"), expectedList[4].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[5], expectedList[5].Item1, new Uri($"http://localhost/{expectedList[5].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[6], expectedList[6].Item1, expectedList[6].Item4, new Uri($"http://localhost/{expectedList[6].Item2}"), expectedList[6].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[7], expectedList[7].Item1, new Uri($"http://localhost/{expectedList[7].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[8], expectedList[8].Item1, expectedList[8].Item4, new Uri($"http://localhost/{expectedList[8].Item2}"), expectedList[8].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[9], expectedList[9].Item1, expectedList[9].Item4, new Uri($"http://localhost/{expectedList[9].Item2}"), expectedList[9].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+        }
+
+        private async Task ExecuteAndValidateTransactionRollBacks<T>(Func<Task<FhirResponse<T>>> action, List<(string, string, HttpStatusCode?, ResourceType?)> expectedList)
+   where T : Resource
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline.
+                return;
+            }
+
+            FhirResponse<T> response = null;
+
+            response = await action();
+
+            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
+
+            Assert.NotNull(correlationId);
+
+            string expectedAppId = TestApplications.ServiceClient.ClientId;
+
+            IReadOnlyList<AuditEntry> auditList = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
+
+            Assert.Equal(expectedList.Count, auditList.Count);
+            ValidateExecutingAuditEntry(auditList[0], expectedList[0].Item1, new Uri($"http://localhost/{expectedList[0].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[1], expectedList[1].Item1, new Uri($"http://localhost/{expectedList[1].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[2], expectedList[2].Item1, expectedList[2].Item4, new Uri($"http://localhost/{expectedList[2].Item2}"), expectedList[2].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutingAuditEntry(auditList[3], expectedList[3].Item1, new Uri($"http://localhost/{expectedList[3].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[4], expectedList[4].Item1, expectedList[4].Item4, new Uri($"http://localhost/{expectedList[4].Item2}"), expectedList[4].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditList[5], expectedList[5].Item1, expectedList[5].Item4, new Uri($"http://localhost/{expectedList[5].Item2}"), expectedList[5].Item3, correlationId, expectedAppId, ExpectedClaimKey);
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
