@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public interface IFhirStorageTestHelper
     {
-        Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken);
+        Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets a token representing the state of the database.

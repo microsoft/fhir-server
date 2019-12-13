@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _collectionUri = collectionUri;
         }
 
-        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken)
+        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
             IDocumentQuery<Document> query = _documentClient.CreateDocumentQuery<Document>(
                 _collectionUri,
