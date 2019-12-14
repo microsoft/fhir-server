@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
-                    "OK")));
+                    "All OK")));
         }
     }
 }
