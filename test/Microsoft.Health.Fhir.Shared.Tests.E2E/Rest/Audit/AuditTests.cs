@@ -438,7 +438,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack");
 
-            await ExecuteAndValidateTransactionRollBacks(
+            await ExecuteAndValidateTransaction(
               async () =>
               {
                   FhirResponse<OperationOutcome> result = null;
@@ -482,46 +482,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             IReadOnlyList<AuditEntry> auditList = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
 
             Assert.Equal(expectedList.Count, auditList.Count);
-            ValidateExecutingAuditEntry(auditList[0], expectedList[0].Item1, new Uri($"http://localhost/{expectedList[0].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutingAuditEntry(auditList[1], expectedList[1].Item1, new Uri($"http://localhost/{expectedList[1].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutedAuditEntry(auditList[2], expectedList[2].Item1, expectedList[2].Item4, new Uri($"http://localhost/{expectedList[2].Item2}"), expectedList[2].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutingAuditEntry(auditList[3], expectedList[3].Item1, new Uri($"http://localhost/{expectedList[3].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutedAuditEntry(auditList[4], expectedList[4].Item1, expectedList[4].Item4, new Uri($"http://localhost/{expectedList[4].Item2}"), expectedList[4].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutingAuditEntry(auditList[5], expectedList[5].Item1, new Uri($"http://localhost/{expectedList[5].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutedAuditEntry(auditList[6], expectedList[6].Item1, expectedList[6].Item4, new Uri($"http://localhost/{expectedList[6].Item2}"), expectedList[6].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutingAuditEntry(auditList[7], expectedList[7].Item1, new Uri($"http://localhost/{expectedList[7].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutedAuditEntry(auditList[8], expectedList[8].Item1, expectedList[8].Item4, new Uri($"http://localhost/{expectedList[8].Item2}"), expectedList[8].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutedAuditEntry(auditList[9], expectedList[9].Item1, expectedList[9].Item4, new Uri($"http://localhost/{expectedList[9].Item2}"), expectedList[9].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-        }
 
-        private async Task ExecuteAndValidateTransactionRollBacks<T>(Func<Task<FhirResponse<T>>> action, List<(string, string, HttpStatusCode?, ResourceType?)> expectedList)
-   where T : Resource
-        {
-            if (!_fixture.IsUsingInProcTestServer)
+            for (int iter = 0; iter < auditList.Count; iter++)
             {
-                // This test only works with the in-proc server with customized middleware pipeline.
-                return;
+                if (iter == 0)
+                {
+                    // Validates the first entry is logging transaction is getting executed
+                    ValidateExecutingAuditEntry(auditList[0], expectedList[0].Item1, new Uri($"http://localhost/{expectedList[0].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+                    continue;
+                }
+
+                if (iter == auditList.Count - 1)
+                {
+                    // Validates the last entry is logging transaction has been executed
+                    int lastIndex = auditList.Count - 1;
+                    ValidateExecutedAuditEntry(auditList[lastIndex], expectedList[lastIndex].Item1, expectedList[lastIndex].Item4, new Uri($"http://localhost/{expectedList[lastIndex].Item2}"), expectedList[lastIndex].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+                    continue;
+                }
+
+                if (iter % 2 != 0)
+                {
+                    // Validates processing of every entry in a transaction bundle is being logged before execution.
+                    ValidateExecutingAuditEntry(auditList[iter], expectedList[iter].Item1, new Uri($"http://localhost/{expectedList[iter].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
+                }
+                else
+                {
+                    // Validates processing of every entry in a transaction bundle is being logged after execution.
+                    ValidateExecutedAuditEntry(auditList[iter], expectedList[iter].Item1, expectedList[iter].Item4, new Uri($"http://localhost/{expectedList[iter].Item2}"), expectedList[iter].Item3, correlationId, expectedAppId, ExpectedClaimKey);
+                }
             }
-
-            FhirResponse<T> response = null;
-
-            response = await action();
-
-            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
-
-            Assert.NotNull(correlationId);
-
-            string expectedAppId = TestApplications.ServiceClient.ClientId;
-
-            IReadOnlyList<AuditEntry> auditList = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
-
-            Assert.Equal(expectedList.Count, auditList.Count);
-            ValidateExecutingAuditEntry(auditList[0], expectedList[0].Item1, new Uri($"http://localhost/{expectedList[0].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutingAuditEntry(auditList[1], expectedList[1].Item1, new Uri($"http://localhost/{expectedList[1].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutedAuditEntry(auditList[2], expectedList[2].Item1, expectedList[2].Item4, new Uri($"http://localhost/{expectedList[2].Item2}"), expectedList[2].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutingAuditEntry(auditList[3], expectedList[3].Item1, new Uri($"http://localhost/{expectedList[3].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutedAuditEntry(auditList[4], expectedList[4].Item1, expectedList[4].Item4, new Uri($"http://localhost/{expectedList[4].Item2}"), expectedList[4].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-            ValidateExecutedAuditEntry(auditList[5], expectedList[5].Item1, expectedList[5].Item4, new Uri($"http://localhost/{expectedList[5].Item2}"), expectedList[5].Item3, correlationId, expectedAppId, ExpectedClaimKey);
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)

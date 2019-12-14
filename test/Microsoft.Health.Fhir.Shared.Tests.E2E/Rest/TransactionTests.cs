@@ -80,11 +80,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            var operationOutcome = fhirException.OperationOutcome;
-            Assert.NotNull(operationOutcome.Id);
-            Assert.NotEmpty(operationOutcome.Issue);
-            Assert.Equal(IssueType.Invalid, operationOutcome.Issue[0].Code);
-            Assert.Equal(IssueSeverity.Error, operationOutcome.Issue[0].Severity);
+            string[] expectedDiagnostics = { "Requested operation 'Patient?identifier=123456' is not supported using DELETE." };
+            IssueType[] expectedCodeType = { IssueType.Invalid };
+            ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
         [Fact]
@@ -96,21 +94,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 
-            var operationOutcome = fhirException.OperationOutcome;
-            Assert.NotNull(operationOutcome.Id);
-            Assert.NotEmpty(operationOutcome.Issue);
-
-            Assert.Equal(OperationOutcome.IssueType.Processing, operationOutcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
-            Assert.Equal("Transaction failed on 'GET' for the requested url '/Patient/12345'.", operationOutcome.Issue[0].Diagnostics);
-
-            Assert.Equal(OperationOutcome.IssueType.NotFound, operationOutcome.Issue[1].Code);
-            Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[1].Severity);
-            Assert.Equal("Resource type 'Patient' with id '12345' couldn't be found.", operationOutcome.Issue[1].Diagnostics);
+            string[] expectedDiagnostics = { "Transaction failed on 'GET' for the requested url '/Patient/12345'.", "Resource type 'Patient' with id '12345' couldn't be found." };
+            IssueType[] expectedCodeType = { OperationOutcome.IssueType.Processing, OperationOutcome.IssueType.NotFound };
+            ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
 
             // Validate that transaction has rolledback
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, "family=ADHI");
-
             Assert.Empty(bundle.Entry);
         }
 
@@ -123,12 +112,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            var operationOutcome = fhirException.OperationOutcome;
-            Assert.NotNull(operationOutcome.Id);
-            Assert.NotEmpty(operationOutcome.Issue);
-            Assert.Equal(OperationOutcome.IssueType.Invalid, operationOutcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
-            Assert.Equal("Bundle contains multiple entries that refers to the same resource 'Patient?identifier=http:/example.org/fhir/ids|234259'.", operationOutcome.Issue[0].Diagnostics);
+            string[] expectedDiagnostics = { "Bundle contains multiple entries that refers to the same resource 'Patient?identifier=http:/example.org/fhir/ids|234259'." };
+            IssueType[] expectedCodeType = { OperationOutcome.IssueType.Invalid };
+            ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
         [Fact]
@@ -141,12 +127,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
 
-            var operationOutcome = fhirException.OperationOutcome;
-            Assert.NotNull(operationOutcome.Id);
-            Assert.NotEmpty(operationOutcome.Issue);
-            Assert.Equal(OperationOutcome.IssueType.Login, operationOutcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
-            Assert.Equal("Authentication failed.", operationOutcome.Issue[0].Diagnostics);
+            string[] expectedDiagnostics = { "Authentication failed." };
+            IssueType[] expectedCodeType = { OperationOutcome.IssueType.Login };
+            ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
         [Fact]
@@ -159,16 +142,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
 
-            var operationOutcome = fhirException.OperationOutcome;
-            Assert.NotNull(operationOutcome.Id);
-            Assert.NotEmpty(operationOutcome.Issue);
-            Assert.Equal(OperationOutcome.IssueType.Processing, operationOutcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
-            Assert.Equal("Transaction failed on 'POST' for the requested url '/Patient'.", operationOutcome.Issue[0].Diagnostics);
-
-            Assert.Equal(OperationOutcome.IssueType.Forbidden, operationOutcome.Issue[1].Code);
-            Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[1].Severity);
-            Assert.Equal("Authorization failed.", operationOutcome.Issue[1].Diagnostics);
+            string[] expectedDiagnostics = { "Transaction failed on 'POST' for the requested url '/Patient'.", "Authorization failed." };
+            IssueType[] expectedCodeType = { OperationOutcome.IssueType.Processing, OperationOutcome.IssueType.Forbidden };
+            ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
         [Fact]
@@ -204,12 +180,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            var operationOutcome = fhirException.OperationOutcome;
+            string[] expectedDiagnostics = { "Given conditional reference 'Patient?identifier=http:/example.org/fhir/ids|234235' does not resolve to a resource." };
+            IssueType[] expectedCodeType = { IssueType.Invalid };
+            ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
+        }
+
+        private static void ValidateOperationOutcome(string[] expectedDiagnostics, IssueType[] expectedCodeType, OperationOutcome operationOutcome)
+        {
             Assert.NotNull(operationOutcome.Id);
             Assert.NotEmpty(operationOutcome.Issue);
-            Assert.Equal(OperationOutcome.IssueType.Invalid, operationOutcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
-            Assert.Equal("Given conditional reference 'Patient?identifier=http:/example.org/fhir/ids|234235' does not resolve to a resource.", operationOutcome.Issue[0].Diagnostics);
+
+            for (int iter = 0; iter < operationOutcome.Issue.Count; iter++)
+            {
+                Assert.Equal(expectedCodeType[iter], operationOutcome.Issue[iter].Code);
+                Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[iter].Severity);
+                Assert.Equal(expectedDiagnostics[iter], operationOutcome.Issue[iter].Diagnostics);
+            }
         }
 
         [Fact]
