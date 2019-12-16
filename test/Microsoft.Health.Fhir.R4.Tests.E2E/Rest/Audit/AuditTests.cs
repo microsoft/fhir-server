@@ -31,27 +31,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            // Even enteries are audit executed entry and odd entries are audit executing entry
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
-                ("batch", string.Empty, null, null),
-                ("delete", "Patient/234", null, null),
-                ("delete", "Patient/234", HttpStatusCode.NoContent, null),
-                ("create", "Patient", null, null),
-                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
-                ("create", "Patient", null, null),
-                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
-                ("update", "Patient/123", null, null),
-                ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
-                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", null, null),
-                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.Created, ResourceType.Patient),
-                ("update", "Patient/123", null, null),
-                ("update", "Patient/123", HttpStatusCode.PreconditionFailed, ResourceType.OperationOutcome),
-                ("search-type", "Patient?name=peter", null, null),
-                ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Bundle),
-                ("read", "Patient/12334", null, null),
-                ("read", "Patient/12334", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
                 ("batch", string.Empty, HttpStatusCode.OK, ResourceType.Bundle),
+                ("delete", "Patient/234", HttpStatusCode.NoContent, null),
+                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
+                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
+                ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
+                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.Created, ResourceType.Patient),
+                ("update", "Patient/123", HttpStatusCode.PreconditionFailed, ResourceType.OperationOutcome),
+                ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Bundle),
+                ("read", "Patient/12334", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
             };
 
             await ExecuteAndValidateBatch(
