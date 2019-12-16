@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public TransactionTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
+            Client.DeleteAllResources(ResourceType.Patient).Wait();
         }
 
         protected FhirClient Client { get; set; }
@@ -43,20 +44,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAProperBundle_WhenSubmittingATransaction_ThenSuccessIsReturnedWithExpectedStatusCodesPerRequests()
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
+            // Insert resources first inorder to test a delete.
+            FhirResponse<Bundle> setUpResponse = await SetUp();
 
-            FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>());
-            Assert.NotNull(fhirResponse);
-            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-            ValidateResourceOutput(fhirResponse);
-
-            var id = fhirResponse.Resource.Entry.First().Resource.Id;
+            var id = setUpResponse.Resource.Entry.First().Resource.Id;
 
             var requestResource = Samples.GetJsonSample("Bundle-TransactionWithAllValidRoutes");
 
-            var rrequestBundle1 = requestResource.ToPoco<Bundle>();
+            var requestBundle = requestResource.ToPoco<Bundle>();
 
-            rrequestBundle1.Entry.Add(new EntryComponent
+            requestBundle.Entry.Add(new EntryComponent
             {
                 Request = new RequestComponent
                 {
@@ -65,17 +62,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             });
 
-            FhirResponse<Bundle> fhirResponse1 = await Client.PostBundleAsync(rrequestBundle1);
+            FhirResponse<Bundle> fhirResponse1 = await Client.PostBundleAsync(requestBundle);
             Assert.NotNull(fhirResponse1);
             Assert.Equal(HttpStatusCode.OK, fhirResponse1.StatusCode);
-            ValidateResourceOutputForAllRoutes(fhirResponse);
+            ValidateResourceOutputForAllRoutes(fhirResponse1);
+        }
+
+        private async System.Threading.Tasks.Task<FhirResponse<Bundle>> SetUp()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
+
+            FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>());
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+            ValidateResourceOutput(fhirResponse);
+            return fhirResponse;
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithInvalidRoutes_WhenSubmittingATransaction_ThenBadRequestExceptionIsReturnedWithProperOperationOutCome()
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInValidRoutes");
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidRoutes");
 
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
@@ -107,12 +115,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithMutipleEntriesReferringToSameResource_WhenSubmittingATransaction_ThenProperOperationOutComeIsReturned()
         {
+            // Insert a resource that has a predefined identifier.
+            await SetUp();
+
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceReferringToSameResource");
 
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            string[] expectedDiagnostics = { "Bundle contains multiple entries that refers to the same resource 'Patient?identifier=http:/example.org/fhir/ids|234259'." };
+            string[] expectedDiagnostics = { "Bundle contains multiple entries that refers to the same resource 'Patient?identifier=http:/example.org/fhir/ids|234234'." };
             IssueType[] expectedCodeType = { OperationOutcome.IssueType.Invalid };
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
@@ -257,15 +268,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True("201".Equals(resource.Entry[1].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
             Assert.True("200".Equals(resource.Entry[2].Response.Status) || "201".Equals(resource.Entry[2].Response.Status), "Update");
             Assert.True("201".Equals(resource.Entry[3].Response.Status) || "200".Equals(resource.Entry[3].Response.Status), "Conditional Update");
-            Assert.True("200".Equals(resource.Entry[3].Response.Status) || "200".Equals(resource.Entry[3].Response.Status), "Get");
         }
 
         private void ValidateResourceOutputForAllRoutes(Bundle resource)
         {
-            Assert.True("201".Equals(resource.Entry[1].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
-            Assert.True("200".Equals(resource.Entry[3].Response.Status), "Get");
-            Assert.True("200".Equals(resource.Entry[3].Response.Status), "Get");
-            Assert.True("200".Equals(resource.Entry[3].Response.Status), "Delete");
+            Assert.True("201".Equals(resource.Entry[0].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
+            Assert.True("200".Equals(resource.Entry[1].Response.Status), "Get");
+            Assert.True("200".Equals(resource.Entry[2].Response.Status), "Get");
+            Assert.True("204".Equals(resource.Entry[3].Response.Status), "Delete");
         }
     }
 }
