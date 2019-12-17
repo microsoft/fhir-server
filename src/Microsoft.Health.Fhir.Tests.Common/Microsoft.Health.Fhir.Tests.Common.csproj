@@ -61,8 +61,8 @@
     <None Remove="TestFiles\R4\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithInvalidResourceType.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithInValidRoutes.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
@@ -106,8 +106,8 @@
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithInvalidResourceType.json" />
-    <None Remove="TestFiles\Stu3\Bundle-TransactionWithInValidRoutes.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
@@ -146,7 +146,7 @@
     <EmbeddedResource Include="TestFiles\R4\Bundle-Batch.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionForRollBack.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithAllValidRoutes.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithInvalidRoutes.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithInvalidResourceType.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithReferenceInResourceBody.json" />
@@ -194,9 +194,9 @@
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-Batch.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionForRollBack.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithInvalidResourceType.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithInvalidRoutes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithAllValidRoutes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithValidBundleEntry.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />

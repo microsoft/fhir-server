@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithInvalidRoutes_WhenSubmittingATransaction_ThenBadRequestExceptionIsReturnedWithProperOperationOutCome()
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidRoutes");
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidProcessingRoutes");
 
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
