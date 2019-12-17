@@ -443,6 +443,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "history001/HI02",
             "history001/HI06",
             "history001/HI08",
+            "transactionandbatchtest/XFER4",
+            "transactionandbatchtest/XFER6",
+            "transactionandbatchtest/XFER7",
         };
 
         public static readonly string[] KnownBroken =
