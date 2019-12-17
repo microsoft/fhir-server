@@ -24,9 +24,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var actionId) &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                string location = context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceType) ?
-                    string.Concat(resourceType, ".id") : string.Empty;
-                if (string.IsNullOrWhiteSpace(((Resource)parsedModel).Id))
+                var resource = (Resource)parsedModel;
+                var location = $"{resource.TypeName}.id";
+                if (string.IsNullOrWhiteSpace(resource.Id))
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>
                     {
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     });
                 }
 
-                if (!string.Equals((string)actionId, ((Resource)parsedModel).Id, StringComparison.Ordinal))
+                if (!string.Equals((string)actionId, resource.Id, StringComparison.Ordinal))
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>
                     {
