@@ -120,6 +120,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Null(typeName);
         }
 
+        [Fact]
+        public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenProfileIsAddedAtResource()
+        {
+            _builder.AddDefaultResourceInteractions();
+
+            ITypedElement statement = _builder.Build();
+
+            object profile = statement.Scalar($"{ResourceQuery("Account")}.profile");
+
+            Assert.Equal("http://hl7.org/fhir/StructureDefinition/Account", profile);
+        }
+
         private static string ResourceQuery(string resource)
         {
             return $"CapabilityStatement.rest.resource.where(type = '{resource}')";
