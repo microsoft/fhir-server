@@ -20,5 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public const string ResourceType = "_type";
 
         public static readonly Uri ResourceTypeUri = new Uri("http://hl7.org/fhir/SearchParameter/Resource-type");
+
+        public static readonly Uri TypeUri = new Uri("http://hl7.org/fhir/SearchParameter/type");
     }
 }
