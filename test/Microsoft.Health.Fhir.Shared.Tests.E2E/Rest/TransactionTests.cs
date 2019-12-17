@@ -118,12 +118,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Insert a resource that has a predefined identifier.
             await SetUp();
 
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithMultipleResourcesWithSameFullUrl");
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceReferringToSameResource");
 
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            string[] expectedDiagnostics = { "Bundle contains multiple entries that refers to the same resource 'Patient/123'." };
+            string[] expectedDiagnostics = { "Bundle contains multiple entries that refers to the same resource 'Patient?identifier=http:/example.org/fhir/ids|234234'." };
             IssueType[] expectedCodeType = { OperationOutcome.IssueType.Invalid };
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
