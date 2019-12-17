@@ -40,12 +40,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 "Not supported");
         }
 
-        [Fact]
-        public async Task GivenAValidateRequest_WhenTheResourceIsOfTypeParameters_ThenANotSupportedErrorIsReturned()
-        {
-
-        }
-
         private void CheckOperationOutcomeIssue(
             OperationOutcome.IssueComponent issue,
             OperationOutcome.IssueSeverity expectedSeverity,
