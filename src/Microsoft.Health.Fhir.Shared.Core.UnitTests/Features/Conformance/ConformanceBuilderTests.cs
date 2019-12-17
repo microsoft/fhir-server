@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingRestSearchParam_ThenTypeSearchParamIsAdded()
         {
-            _builder.AddRestSearchParams();
+            _builder.AddDefaultRestSearchParams();
 
             ITypedElement statement = _builder.Build();
 
@@ -115,9 +115,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             ITypedElement statement = _builder.Build();
 
-            object typeDocumentation = statement.Scalar($"{ResourceQuery("Account")}.searchParam.where(name = '_type').documentation");
+            object typeName = statement.Scalar($"{ResourceQuery("Account")}.searchParam.where(name = '_type').name");
 
-            Assert.Null(typeDocumentation);
+            Assert.Null(typeName);
         }
 
         private static string ResourceQuery(string resource)

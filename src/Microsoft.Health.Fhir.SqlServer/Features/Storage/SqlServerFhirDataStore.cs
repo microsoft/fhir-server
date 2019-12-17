@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             builder.AddDefaultResourceInteractions()
                    .AddDefaultSearchParameters()
-                   .AddRestSearchParams();
+                   .AddDefaultRestSearchParams();
 
             if (_coreFeatures.SupportsBatch)
             {

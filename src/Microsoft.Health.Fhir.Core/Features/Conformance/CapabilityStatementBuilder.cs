@@ -27,10 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly ListedCapabilityStatement _statement;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private static readonly IEnumerable<SearchParamComponent> SearchRestParams = new SearchParamComponent[]
-            {
-                new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token },
-            };
 
         private CapabilityStatementBuilder(ListedCapabilityStatement statement, IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
@@ -117,12 +113,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder AddRestSearchParams()
+        public ICapabilityStatementBuilder AddDefaultRestSearchParams()
         {
-            foreach (SearchParamComponent searchParam in SearchRestParams)
-            {
-                _statement.Rest.Server().SearchParam.Add(searchParam);
-            }
+            _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
 
             return this;
         }

@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         ICapabilityStatementBuilder AddDefaultSearchParameters();
 
-        ICapabilityStatementBuilder AddRestSearchParams();
+        ICapabilityStatementBuilder AddDefaultRestSearchParams();
 
         ITypedElement Build();
     }
