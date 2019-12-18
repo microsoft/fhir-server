@@ -14,6 +14,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
@@ -112,6 +113,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
+        public ICapabilityStatementBuilder AddDefaultRestSearchParams()
+        {
+            _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
+
+            return this;
+        }
+
         public ICapabilityStatementBuilder AddSearchParams(string resourceType, IEnumerable<SearchParamComponent> searchParameters)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
@@ -122,6 +130,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             {
                 foreach (SearchParamComponent searchParam in searchParameters)
                 {
+                    // Exclude _type search param under resource
+                    if (string.Equals("_type", searchParam.Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
                     c.SearchParam.Add(searchParam);
                 }
             });
