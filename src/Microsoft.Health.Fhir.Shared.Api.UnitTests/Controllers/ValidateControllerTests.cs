@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -31,10 +32,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var payload = new Observation();
 
             var result = (FhirResult)await disabledValidateController.Validate(payload);
-            var operationOutcome = (OperationOutcome)result.Result.Instance;
+            var operationOutcome = (OperationOutcome)result.Result.ResourceInstance;
 
+            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
             CheckOperationOutcomeIssue(
-                operationOutcome.Issue.GetEnumerator().Current,
+                operationOutcome.Issue[0],
                 OperationOutcome.IssueSeverity.Error,
                 OperationOutcome.IssueType.NotSupported,
                 "Not supported");

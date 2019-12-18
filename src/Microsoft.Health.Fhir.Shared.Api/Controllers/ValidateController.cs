@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     Diagnostics = "Not supported",
                 });
 
-                return FhirResult.Create(outcome.ToResourceElement());
+                return FhirResult.Create(outcome.ToResourceElement(), HttpStatusCode.BadRequest);
             }
 
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));
