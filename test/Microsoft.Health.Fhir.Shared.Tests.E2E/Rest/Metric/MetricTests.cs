@@ -63,6 +63,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: (string)null));
         }
 
+        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Priority, Priority.One)]
+        [Fact]
+        public async Task GivenABatch_WhenInvokedAtCosmosDb_MetricNotificationsShouldBeEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 10, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Priority, Priority.One)]
+        [Fact]
+        public async Task GivenABatch_WhenInvokedAtSqlServer_MetricNotificationsShouldBeEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+        }
+
         private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)
         {
             if (!_fixture.IsUsingInProcTestServer)
