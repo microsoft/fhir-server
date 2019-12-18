@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -52,10 +51,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             "Patient/$validate",
             "{\"resourceType\":\"Patient\",\"name\":\"test, one\"}",
             "Type checking the data: Since type HumanName is not a primitive, it cannot have a value (at Resource.name[0])")]
-        [InlineData(
-            "Observation/$validate",
-            "{\"resourceType\":\"Observation\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
-            "Element with min. cardinality 1 cannot be null")]
         public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload, string expectedIssue)
         {
             HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage(path, payload));
@@ -63,6 +58,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var contentString = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            CheckOperationOutcomeIssue(
+                    contentString,
+                    OperationOutcome.IssueSeverity.Error,
+                    OperationOutcome.IssueType.Invalid,
+                    expectedIssue);
+        }
+
+        [Theory]
+        [InlineData(
+            "Observation/$validate",
+            "{\"resourceType\":\"Observation\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
+            "Element with min. cardinality 1 cannot be null",
+            "Observation.StatusElement")]
+        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorWithLocationsIsReturned(string path, string payload, string expectedIssue, string location)
+        {
+            HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage(path, payload));
+
+            var contentString = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(location, ExtractFromJson(contentString, "location", true));
             CheckOperationOutcomeIssue(
                     contentString,
                     OperationOutcome.IssueSeverity.Error,
@@ -86,9 +102,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(expectedMessage, diagnostics);
         }
 
-        private string ExtractFromJson(string json, string property)
+        private string ExtractFromJson(string json, string property, bool isArray = false)
         {
-            var propertyWithQuotes = property + "\":\"";
+            var propertyWithQuotes = property + "\":" + (isArray ? "[" : string.Empty) + "\"";
             var start = json.IndexOf(propertyWithQuotes) + propertyWithQuotes.Length;
             var end = json.IndexOf("\"", start);
 
