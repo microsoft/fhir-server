@@ -127,9 +127,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             ITypedElement statement = _builder.Build();
 
-            object profile = statement.Scalar($"{ResourceQuery("Account")}.profile");
+            bool hasProfile = (bool)statement.Scalar($"{ResourceQuery("Account")}.profile.exists()");
 
-            Assert.Equal("http://hl7.org/fhir/StructureDefinition/Account", profile);
+            Assert.True(hasProfile);
         }
 
         private static string ResourceQuery(string resource)
