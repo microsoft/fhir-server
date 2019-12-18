@@ -15,7 +15,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
     /// <summary>
-    /// Provides R4 specific tests.
+    /// Provides STU3 specific tests.
     /// </summary>
     [Trait(Traits.Category, Categories.Batch)]
     public partial class AuditTests
