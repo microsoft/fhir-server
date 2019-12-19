@@ -33,8 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
             UrlEncoder encoder,
             IDataProtectionProvider dataProtection,
             ISystemClock clock,
-            IBundleHttpContextAccessor
-            bundleHttpContextAccessor,
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
             IAuditHelper auditHelper,
             IClaimsExtractor claimsExtractor)
             : base(options, logger, encoder, dataProtection, clock)
