@@ -279,4 +279,10 @@
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
+  <data name="ValidateWithParametersNotSupported" xml:space="preserve">
+    <value>Resources of type Parameters are not supported by this endpoint.</value>
+  </data>
+  <data name="ValidationNotSupported" xml:space="preserve">
+    <value>$validate is not a supported endpoint.</value>
+  </data>
 </root>

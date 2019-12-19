@@ -835,6 +835,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to All OK.
+        /// </summary>
+        internal static string ValidationPassed {
+            get {
+                return ResourceManager.GetString("ValidationPassed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to VersionId should not be in the weak ETag format..
         /// </summary>
         internal static string VersionIdFormatNotETag {

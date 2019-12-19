@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 operationOutcome.Issue[0],
                 OperationOutcome.IssueSeverity.Error,
                 OperationOutcome.IssueType.NotSupported,
-                "Not supported");
+                "$validate is not a supported endpoint.");
         }
 
         private void CheckOperationOutcomeIssue(

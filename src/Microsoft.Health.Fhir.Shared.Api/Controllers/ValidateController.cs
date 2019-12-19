@@ -3,8 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -17,7 +17,9 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -48,15 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (!_coreFeatures.SupportsValidate || resource.ResourceType == ResourceType.Parameters)
             {
-                var outcome = new OperationOutcome();
-                outcome.Issue.Add(new OperationOutcome.IssueComponent
-                {
-                    Severity = OperationOutcome.IssueSeverity.Error,
-                    Code = OperationOutcome.IssueType.NotSupported,
-                    Diagnostics = "Not supported",
-                });
-
-                return FhirResult.Create(outcome.ToResourceElement(), HttpStatusCode.BadRequest);
+                throw new OperationNotImplementedException(!_coreFeatures.SupportsValidate ? Resources.ValidationNotSupported : Resources.ValidateWithParametersNotSupported);
             }
 
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));

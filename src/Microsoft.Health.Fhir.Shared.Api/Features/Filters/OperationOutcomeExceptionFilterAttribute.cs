@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -79,6 +80,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = HttpStatusCode.ServiceUnavailable;
                         break;
                     case ResourceNotValidException _:
+                        var controllerDescriptor = (ControllerActionDescriptor)context.ActionDescriptor;
+                        if (controllerDescriptor.ControllerTypeInfo.Name == "ValidateController")
+                        {
+                            operationOutcomeResult.StatusCode = HttpStatusCode.OK;
+                        }
+                        else
+                        {
+                            operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
+                        }
+
+                        break;
                     case BadRequestException _:
                     case RequestNotValidException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;

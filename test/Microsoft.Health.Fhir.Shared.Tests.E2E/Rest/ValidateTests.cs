@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var contentString = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             CheckOperationOutcomeIssue(
                     contentString,
                     OperationOutcome.IssueSeverity.Error,
@@ -71,13 +71,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             "{\"resourceType\":\"Observation\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
             "Element with min. cardinality 1 cannot be null",
             "Observation.StatusElement")]
+        [InlineData(
+            "Observation/$validate",
+            "{\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}",
+            "Resource type in the URL must match resourceType in the resource.",
+            "TypeName")]
         public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorWithLocationsIsReturned(string path, string payload, string expectedIssue, string location)
         {
             HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage(path, payload));
 
             var contentString = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal(location, ExtractFromJson(contentString, "location", true));
             CheckOperationOutcomeIssue(
                     contentString,
