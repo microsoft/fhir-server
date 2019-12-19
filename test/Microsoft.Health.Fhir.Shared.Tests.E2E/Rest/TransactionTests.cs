@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenATransactionBundleReferencesInResourceBody_ReferencesAreResolvedCorrectlyAsync()
+        public async Task GivenATransactionBundleReferencesInResourceBody_WhenSuccessfulExecution_ReferencesAreResolvedCorrectlyAsync()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 

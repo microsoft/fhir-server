@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry").ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            await ExecuteAndValidateTransaction(
+            await ExecuteAndValidate(
                 () => _client.PostBundleAsync(requestBundle),
                 (type: typeof(ApiResponseNotification), count: 1, resourceType: requestBundle.ResourceType.ToString()));
         }
@@ -111,28 +111,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                         Assert.Equal(expectedNotification.resourceType, casted.ResourceType);
                     }
                 }
-            }
-        }
-
-        private async Task ExecuteAndValidateTransaction<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)
-        {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with a customized metric handler.
-                return;
-            }
-
-            var result = await action() as FhirResponse;
-
-            foreach ((Type type, int count, string resourceType) expectedNotification in expectedNotifications)
-            {
-                if (expectedNotification.count == 0)
-                {
-                    Assert.False(_metricHandler.NotificationMapping.TryGetValue(expectedNotification.type, out var _));
-                    continue;
-                }
-
-                Assert.Equal(expectedNotification.count, _metricHandler.NotificationMapping[expectedNotification.type].Count);
 
                 if (result != null && expectedNotification.type == typeof(ApiResponseNotification))
                 {

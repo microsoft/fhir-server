@@ -418,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         [Trait(Traits.Category, Categories.Transaction)]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenATransactionBundleWith_WhenAUnsuccessfulPost_ThenTransactionShouldRollBackAndAuditLogEntriesShouldBeCreated()
+        public async Task GivenATransactionBundle_WhenAnUnsuccessfulPost_ThenTransactionShouldRollBackAndAuditLogEntriesShouldBeCreated()
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -483,24 +483,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             Assert.Equal(expectedList.Count, auditList.Count);
 
+            int lastIndex = auditList.Count - 1;
+
             for (int iter = 0; iter < auditList.Count; iter++)
             {
-                if (iter == 0)
-                {
-                    // Validates the first entry is logging transaction is getting executed
-                    ValidateExecutingAuditEntry(auditList[0], expectedList[0].Item1, new Uri($"http://localhost/{expectedList[0].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-                    continue;
-                }
-
-                if (iter == auditList.Count - 1)
-                {
-                    // Validates the last entry is logging transaction has been executed
-                    int lastIndex = auditList.Count - 1;
-                    ValidateExecutedAuditEntry(auditList[lastIndex], expectedList[lastIndex].Item1, expectedList[lastIndex].Item4, new Uri($"http://localhost/{expectedList[lastIndex].Item2}"), expectedList[lastIndex].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-                    continue;
-                }
-
-                if (iter % 2 != 0)
+                if (IsEntryRepresentsExecuting(iter, lastIndex))
                 {
                     // Validates processing of every entry in a transaction bundle is being logged before execution.
                     ValidateExecutingAuditEntry(auditList[iter], expectedList[iter].Item1, new Uri($"http://localhost/{expectedList[iter].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
@@ -511,6 +498,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     ValidateExecutedAuditEntry(auditList[iter], expectedList[iter].Item1, expectedList[iter].Item4, new Uri($"http://localhost/{expectedList[iter].Item2}"), expectedList[iter].Item3, correlationId, expectedAppId, ExpectedClaimKey);
                 }
             }
+        }
+
+        private static bool IsEntryRepresentsExecuting(int iter, int lastIndex)
+        {
+            // The first entry logs executing status of transaction bundle.
+            // The last entry logs executed status of transaction bundle.
+            // Every odd entry in audit list represents the executing status of every resource.
+            return (iter == 0 || iter % 2 != 0) && iter != lastIndex;
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
