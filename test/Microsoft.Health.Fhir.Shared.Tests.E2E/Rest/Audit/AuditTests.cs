@@ -383,7 +383,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 expectedAppId: TestApplications.NativeClient.ClientId);
         }
 
-        [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.All)]
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Batch)]
@@ -423,10 +423,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                {
                    return _client.PostBundleAsync(batch);
                },
-               expectedList);
+               expectedList,
+               TestApplications.ServiceClient.ClientId);
         }
 
-        [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.All)]
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
@@ -465,11 +466,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Bundle),
             };
 
-            FhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.ServiceClient);
+            FhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
             await ExecuteAndValidateBatch(
                 () => tempClient.PostBundleAsync(batch),
-                expectedList);
+                expectedList,
+                TestApplications.NativeClient.ClientId);
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
@@ -497,7 +499,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
-        private async Task ExecuteAndValidateBatch<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList)
+        private async Task ExecuteAndValidateBatch<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList, string expectedAppId)
             where T : Resource
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -510,8 +512,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
             Assert.NotNull(correlationId);
-
-            string expectedAppId = TestApplications.ServiceClient.ClientId;
 
             var inspectors = new List<Action<AuditEntry>>();
 
@@ -610,13 +610,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             if (expectedClaimValue != null)
             {
-                Assert.Collection(
-                    auditEntry.CallerClaims,
-                    claim =>
-                    {
-                        Assert.Equal(expectedClaimKey, claim.Key);
-                        Assert.Equal(expectedClaimValue, claim.Value);
-                    });
+                Assert.Contains(
+                    new KeyValuePair<string, string>(expectedClaimKey, expectedClaimValue), auditEntry.CallerClaims);
             }
             else
             {
