@@ -6,8 +6,8 @@
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using NSubstitute;
@@ -62,14 +62,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private ValidateController GetController(bool enableValidate)
         {
-            var coreFeatureConfiguration = new CoreFeatureConfiguration
+            var featureConfiguration = new FeatureConfiguration
             {
                 SupportsValidate = enableValidate,
             };
-            IOptions<CoreFeatureConfiguration> optionsCoreFeatureConfiguration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            optionsCoreFeatureConfiguration.Value.Returns(coreFeatureConfiguration);
+            IOptions<FeatureConfiguration> optionsFeatureConfiguration = Substitute.For<IOptions<FeatureConfiguration>>();
+            optionsFeatureConfiguration.Value.Returns(featureConfiguration);
 
-            return new ValidateController(_mediator, optionsCoreFeatureConfiguration);
+            return new ValidateController(_mediator, optionsFeatureConfiguration);
         }
     }
 }

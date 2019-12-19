@@ -10,12 +10,12 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
@@ -32,12 +32,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class ValidateController : Controller
     {
         private readonly IMediator _mediator;
-        private readonly CoreFeatureConfiguration _coreFeatures;
+        private readonly FeatureConfiguration _features;
 
-        public ValidateController(IMediator mediator, IOptions<CoreFeatureConfiguration> coreFeatures)
+        public ValidateController(IMediator mediator, IOptions<FeatureConfiguration> features)
         {
             _mediator = mediator;
-            _coreFeatures = coreFeatures.Value;
+            _features = features.Value;
         }
 
         [HttpPost]
@@ -46,9 +46,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Validate([FromBody] Resource resource)
         {
-            if (!_coreFeatures.SupportsValidate || resource.ResourceType == ResourceType.Parameters)
+            if (!_features.SupportsValidate || resource.ResourceType == ResourceType.Parameters)
             {
-                throw new OperationNotImplementedException(!_coreFeatures.SupportsValidate ? Resources.ValidationNotSupported : Resources.ValidateWithParametersNotSupported);
+                throw new OperationNotImplementedException(!_features.SupportsValidate ? Resources.ValidationNotSupported : Resources.ValidateWithParametersNotSupported);
             }
 
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));
