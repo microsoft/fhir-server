@@ -25,12 +25,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline
-                return;
-            }
-
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("batch", string.Empty, HttpStatusCode.OK, ResourceType.Bundle),

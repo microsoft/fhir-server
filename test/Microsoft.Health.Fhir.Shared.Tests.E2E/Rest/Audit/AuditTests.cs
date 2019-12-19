@@ -390,13 +390,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundleWithValidEntries_WhenSuccessfulPost_ThenAuditLogEntriesShouldBeCreated()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline
-                return;
-            }
-
-            // Even enteries are audit executed entry and odd entries are audit executing entry
+            // Even entries are audit executed entry and odd entries are audit executing entry
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("transaction", string.Empty, HttpStatusCode.OK, ResourceType.Bundle),
@@ -419,12 +413,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundle_WhenAnUnsuccessfulPost_ThenTransactionShouldRollBackAndAuditLogEntriesShouldBeCreated()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline
-                return;
-            }
-
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("transaction", string.Empty, HttpStatusCode.NotFound, ResourceType.OperationOutcome),
@@ -447,6 +435,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         private async Task ExecuteAndValidateBundle<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList)
            where T : Resource
         {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline.
+                return;
+            }
+
             FhirResponse<T> response = await action();
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
