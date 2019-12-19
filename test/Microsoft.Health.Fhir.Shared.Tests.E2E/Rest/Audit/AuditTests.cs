@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     /// Provides Audit specific tests.
     /// </summary
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public partial class AuditTests : IClassFixture<AuditTestFixture>
+    public class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
         private const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
@@ -413,7 +413,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
                 ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
                 ("update", $"Patient?identifier=http:/example.org/fhir/ids|456456{updateGuid}", HttpStatusCode.Created, ResourceType.Patient),
-                ("update", "Patient/123", IfMatchFailureStatus, ResourceType.OperationOutcome),
+                ("update", "Patient/123", Constants.IfMatchFailureStatus, ResourceType.OperationOutcome),
                 ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Bundle),
                 ("read", $"Patient/12334{readGuid}", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
             };
