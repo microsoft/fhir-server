@@ -80,15 +80,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = HttpStatusCode.ServiceUnavailable;
                         break;
                     case ResourceNotValidException _:
-                        var controllerDescriptor = (ControllerActionDescriptor)context.ActionDescriptor;
-                        if (controllerDescriptor.ControllerTypeInfo.Name == "ValidateController")
+                        if (context.ActionDescriptor is ControllerActionDescriptor)
                         {
-                            operationOutcomeResult.StatusCode = HttpStatusCode.OK;
+                            var controllerDescriptor = (ControllerActionDescriptor)context.ActionDescriptor;
+                            if (controllerDescriptor.ControllerTypeInfo.Name == "ValidateController")
+                            {
+                                operationOutcomeResult.StatusCode = HttpStatusCode.OK;
+                                break;
+                            }
                         }
-                        else
-                        {
-                            operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
-                        }
+
+                        operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
 
                         break;
                     case BadRequestException _:

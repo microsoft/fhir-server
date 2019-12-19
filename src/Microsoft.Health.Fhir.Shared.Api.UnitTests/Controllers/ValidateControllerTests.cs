@@ -3,13 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Net;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using NSubstitute;
 using Xunit;
 
@@ -31,15 +31,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var disabledValidateController = GetController(false);
             var payload = new Observation();
 
-            var result = (FhirResult)await disabledValidateController.Validate(payload);
-            var operationOutcome = (OperationOutcome)result.Result.ResourceInstance;
-
-            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
-            CheckOperationOutcomeIssue(
-                operationOutcome.Issue[0],
-                OperationOutcome.IssueSeverity.Error,
-                OperationOutcome.IssueType.NotSupported,
-                "$validate is not a supported endpoint.");
+            try
+            {
+                await disabledValidateController.Validate(payload);
+                Assert.False(true);
+            }
+            catch (OperationNotImplementedException ex)
+            {
+                var enumerator = ex.Issues.GetEnumerator();
+                enumerator.MoveNext();
+                CheckOperationOutcomeIssue(
+                    enumerator.Current.ToPoco(),
+                    OperationOutcome.IssueSeverity.Error,
+                    OperationOutcome.IssueType.NotSupported,
+                    "$validate is not a supported endpoint.");
+            }
         }
 
         private void CheckOperationOutcomeIssue(
