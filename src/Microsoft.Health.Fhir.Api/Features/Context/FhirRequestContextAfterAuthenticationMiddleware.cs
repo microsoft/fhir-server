@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public async Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
             // Now the authentication is completed successfully, sets the user.
             if (context.User != null)
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             }
 
             // Call the next delegate/middleware in the pipeline
-            return _next(context);
+            await _next(context);
         }
     }
 }

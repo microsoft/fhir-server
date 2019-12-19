@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
+        public async Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
         {
             HttpRequest request = context.Request;
 
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
 
             // Call the next delegate/middleware in the pipeline
-            return _next(context);
+            await _next(context);
         }
     }
 }

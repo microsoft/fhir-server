@@ -37,12 +37,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _auditEventTypeMapping = auditEventTypeMapping;
         }
 
-        public Task Invoke(HttpContext context)
+        public async Task Invoke(HttpContext context)
         {
             try
             {
                 // Call the next delegate/middleware in the pipeline
-                return _next(context);
+                await _next(context);
             }
             finally
             {
