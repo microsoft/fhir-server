@@ -391,31 +391,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         {
             var batch = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
-            // Make the criteria unique so that the tests behave consistently
-            var createGuid = Guid.NewGuid().ToString();
-            batch.Entry[1].Request.IfNoneExist = batch.Entry[1].Request.IfNoneExist + createGuid;
-            var createPatient = (Patient)batch.Entry[1].Resource;
-            createPatient.Identifier[0].Value = createPatient.Identifier[0].Value + createGuid;
-
-            var updateGuid = Guid.NewGuid().ToString();
-            batch.Entry[3].Request.Url = batch.Entry[3].Request.Url + updateGuid;
-            var updatePatient = (Patient)batch.Entry[3].Resource;
-            updatePatient.Identifier[0].Value = updatePatient.Identifier[0].Value + updateGuid;
-
-            var readGuid = Guid.NewGuid().ToString();
-            batch.Entry[9].Request.Url = batch.Entry[9].Request.Url + readGuid;
-
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("batch", string.Empty, HttpStatusCode.OK, ResourceType.Bundle),
-                ("delete", "Patient/234", HttpStatusCode.NoContent, null),
-                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
-                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
-                ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
-                ("update", $"Patient?identifier=http:/example.org/fhir/ids|456456{updateGuid}", HttpStatusCode.Created, ResourceType.Patient),
-                ("update", "Patient/123", Constants.IfMatchFailureStatus, ResourceType.OperationOutcome),
-                ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Bundle),
-                ("read", $"Patient/12334{readGuid}", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
+                ("delete", batch.Entry[5].Request.Url, HttpStatusCode.NoContent, null),
+                ("create", batch.Entry[0].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("create", batch.Entry[1].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("update", batch.Entry[2].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
+                ("update", batch.Entry[3].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("update", batch.Entry[4].Request.Url, Constants.IfMatchFailureStatus, ResourceType.OperationOutcome),
+                ("search-type", batch.Entry[8].Request.Url, HttpStatusCode.OK, ResourceType.Bundle),
+                ("read", batch.Entry[9].Request.Url, HttpStatusCode.NotFound, ResourceType.OperationOutcome),
             };
 
             await ExecuteAndValidateBatch(
