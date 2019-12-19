@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("read", "Patient/12334", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
             };
 
-            await ExecuteAndValidateBatch(
+            await ExecuteAndValidateBundle(
                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
                expectedList);
         }

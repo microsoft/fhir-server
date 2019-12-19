@@ -39,12 +39,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
                 ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
                 ("update", "Patient?identifier=234234", HttpStatusCode.OK, ResourceType.Patient),
-                ("update", "Patient/123a", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
+                ("update", "Patient/123a", HttpStatusCode.Conflict, ResourceType.OperationOutcome),
                 ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Bundle),
                 ("read", "Patient/12334", HttpStatusCode.NotFound, ResourceType.OperationOutcome),
             };
 
-            await ExecuteAndValidateBatch(
+            await ExecuteAndValidateBundle(
                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
                expectedList);
         }
