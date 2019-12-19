@@ -252,7 +252,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(builder, nameof(builder));
 
             builder.AddDefaultResourceInteractions()
-                .AddDefaultSearchParameters();
+                .AddDefaultSearchParameters()
+                .AddDefaultRestSearchParams();
 
             if (_coreFeatures.SupportsBatch)
             {

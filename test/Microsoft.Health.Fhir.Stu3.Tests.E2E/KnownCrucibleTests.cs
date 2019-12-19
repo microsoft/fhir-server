@@ -429,8 +429,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "transactionandbatchtest/XFER6",
             "transactionandbatchtest/XFER7",
             "transactionandbatchtest/XFER10",
-            "transactionandbatchtest/XFER11",
-            "transactionandbatchtest/XFER12",
         };
 
         public static readonly string[] KnownCosmosDbFailures =
