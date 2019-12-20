@@ -44,6 +44,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
+            await Client.UpdateAsync(requestBundle.Entry[2].Resource as Patient);
+
             FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
