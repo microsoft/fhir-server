@@ -42,7 +42,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenSubmittingABatch_GivenAValidBundle_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
-            Resource requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
+            var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
+
+            await Client.UpdateAsync(requestBundle.Entry[2].Resource as Patient);
 
             FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle);
             Assert.NotNull(fhirResponse);
@@ -51,12 +53,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Bundle resource = fhirResponse.Resource;
 
             Assert.Equal("201", resource.Entry[0].Response.Status);
-            Assert.True("201".Equals(resource.Entry[1].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
-            Assert.True("200".Equals(resource.Entry[2].Response.Status) || "201".Equals(resource.Entry[2].Response.Status), "Update");
-            Assert.True("201".Equals(resource.Entry[3].Response.Status) || "200".Equals(resource.Entry[3].Response.Status), "Update or Create");
-            Assert.True("412".Equals(resource.Entry[4].Response.Status) || "404".Equals(resource.Entry[4].Response.Status), "Conditional update");
+            Assert.Equal("201", resource.Entry[1].Response.Status);
+            Assert.Equal("200", resource.Entry[2].Response.Status);
+            Assert.Equal("201", resource.Entry[3].Response.Status);
+            Assert.Equal(((int)Constants.IfMatchFailureStatus).ToString(), resource.Entry[4].Response.Status);
             Assert.Equal("204", resource.Entry[5].Response.Status);
-            ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/Patient?identifier=123456\" was not found.", IssueType.NotFound);
+            ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], $"The route for \"/{requestBundle.Entry[6].Request.Url}\" was not found.", IssueType.NotFound);
             ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resource.Entry[8].Response.Status);
             ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
@@ -67,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task WhenSubmittingABatch_GivenAValidBundleWithReadonlyUser_ThenForbiddenAndOutcomeIsReturned()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
-            Resource requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
+            Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
             FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle);
 
@@ -82,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             var resourceEntry = fhirResponse.Resource.Entry[6];
-            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/Patient?identifier=123456\" was not found.", IssueType.NotFound);
+            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], $"The route for \"/{requestBundle.Entry[6].Request.Url}\" was not found.", IssueType.NotFound);
             resourceEntry = fhirResponse.Resource.Entry[7];
             ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             resourceEntry = fhirResponse.Resource.Entry[8];
