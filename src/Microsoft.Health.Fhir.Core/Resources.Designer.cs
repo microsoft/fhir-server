@@ -754,6 +754,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The type is not present..
+        /// </summary>
+        internal static string TypeNotPresent {
+            get {
+                return ResourceManager.GetString("TypeNotPresent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
         /// </summary>
         internal static string UnableToDeleteSecret {
