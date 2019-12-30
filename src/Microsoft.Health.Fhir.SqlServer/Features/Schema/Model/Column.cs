@@ -465,7 +465,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
         public override void Set(SqlDataRecord record, int ordinal, byte[] value)
         {
-            record.SetBytes(ordinal, 0, value, 0, value.Length);
+            long fieldOffset = 0;
+            int bufferOffset = 0;
+
+            record.SetBytes(ordinal, fieldOffset, value, bufferOffset, value.Length);
         }
     }
 
