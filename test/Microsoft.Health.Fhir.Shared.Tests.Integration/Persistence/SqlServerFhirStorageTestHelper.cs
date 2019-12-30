@@ -25,7 +25,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (var connection = new SqlConnection(_connectionString))
             {
                 var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
-                command.Connection.Open();
+
+                await command.Connection.OpenAsync(cancellationToken);
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
         }
