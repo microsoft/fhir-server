@@ -434,6 +434,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         }
     }
 
+    /// <summary>
+    /// Represents a rowversion type column.
+    /// </summary>
+    /// <remarks>
+    /// The timestamp data type is a synonym for the rowversion data type, and its syntax is now deprecated in SQL.
+    /// The rowversion data type is used in the SQL code, and it is translated to timestamp on the C# side because
+    /// the SqlDbType enum only supports timestamp.
+    /// </remarks>
+    public class TimestampColumn : Column<byte[]>
+    {
+        public TimestampColumn(string name)
+            : base(name, SqlDbType.Timestamp, true)
+        {
+        }
+
+        public override byte[] Read(SqlDataReader reader, int ordinal)
+        {
+            // The rowversion storage size is 8 bytes.
+            const int length = 8;
+
+            byte[] bytes = new byte[length];
+            long fieldOffset = 0;
+            int bufferOffset = 0;
+
+            reader.GetBytes(Metadata.Name, ordinal, fieldOffset, bytes, bufferOffset, length);
+
+            return bytes;
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, byte[] value)
+        {
+            long fieldOffset = 0;
+            int bufferOffset = 0;
+
+            record.SetBytes(ordinal, fieldOffset, value, bufferOffset, value.Length);
+        }
+    }
+
     public abstract class StringColumn : Column<string>
     {
         public StringColumn(string name, SqlDbType type, bool nullable, int length, string collation = null)

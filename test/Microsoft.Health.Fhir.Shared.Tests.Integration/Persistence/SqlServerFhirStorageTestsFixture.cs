@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Configs;
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _masterConnectionString;
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
 
@@ -76,6 +78,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler);
 
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
+
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(config, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+
             _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
         }
 
@@ -143,6 +148,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IFhirDataStore))
             {
                 return _fhirDataStore;
+            }
+
+            if (serviceType == typeof(IFhirOperationDataStore))
+            {
+                return _fhirOperationDataStore;
             }
 
             if (serviceType == typeof(IFhirStorageTestHelper))

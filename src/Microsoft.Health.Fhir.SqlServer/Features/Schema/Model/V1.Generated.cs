@@ -14,6 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CompartmentAssignmentTable CompartmentAssignment = new CompartmentAssignmentTable();
         internal readonly static CompartmentTypeTable CompartmentType = new CompartmentTypeTable();
         internal readonly static DateTimeSearchParamTable DateTimeSearchParam = new DateTimeSearchParamTable();
+        internal readonly static ExportJobTable ExportJob = new ExportJobTable();
         internal readonly static NumberSearchParamTable NumberSearchParam = new NumberSearchParamTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static QuantitySearchParamTable QuantitySearchParam = new QuantitySearchParamTable();
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static TokenTextTable TokenText = new TokenTextTable();
         internal readonly static TokenTokenCompositeSearchParamTable TokenTokenCompositeSearchParam = new TokenTokenCompositeSearchParamTable();
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
+        internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
@@ -85,6 +87,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly DateTime2Column EndDateTime = new DateTime2Column("EndDateTime", 7);
             internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
+        }
+
+        internal class ExportJobTable : Table
+        {
+            internal ExportJobTable(): base("dbo.ExportJob")
+            {
+            }
+
+            internal readonly VarCharColumn Id = new VarCharColumn("Id", 64, "Latin1_General_100_CS_AS");
+            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
+            internal readonly NullableDateTimeOffsetColumn HeartbeatDateTime = new NullableDateTimeOffsetColumn("HeartbeatDateTime", 7);
+            internal readonly DateTimeOffsetColumn QueuedDateTime = new DateTimeOffsetColumn("QueuedDateTime", 7);
+            internal readonly VarBinaryColumn RawJobRecord = new VarBinaryColumn("RawJobRecord", -1);
+            internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
         }
 
         internal class NumberSearchParamTable : Table
@@ -371,6 +387,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256, "Latin1_General_100_CS_AS");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
+        }
+
+        internal class CreateExportJobProcedure : StoredProcedure
+        {
+            internal CreateExportJobProcedure(): base("dbo.CreateExportJob")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
+            private readonly ParameterDefinition<System.DateTimeOffset> _queuedDateTime = new ParameterDefinition<System.DateTimeOffset>("@queuedDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            private readonly ParameterDefinition<global::System.IO.Stream> _rawJobRecord = new ParameterDefinition<global::System.IO.Stream>("@rawJobRecord", global::System.Data.SqlDbType.VarBinary, false, -1);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String status, System.DateTimeOffset queuedDateTime, global::System.IO.Stream rawJobRecord)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.CreateExportJob";
+                _id.AddParameter(command.Parameters, id);
+                _status.AddParameter(command.Parameters, status);
+                _queuedDateTime.AddParameter(command.Parameters, queuedDateTime);
+                _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
+            }
         }
 
         internal class HardDeleteResourceProcedure : StoredProcedure

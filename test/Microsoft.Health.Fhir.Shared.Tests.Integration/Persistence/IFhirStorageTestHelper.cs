@@ -3,13 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public interface IFhirStorageTestHelper
     {
-        Task DeleteAllExportJobRecordsAsync();
+        /// <summary>
+        /// Deletes all export job records from the database.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task.</returns>
+        Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets a token representing the state of the database.

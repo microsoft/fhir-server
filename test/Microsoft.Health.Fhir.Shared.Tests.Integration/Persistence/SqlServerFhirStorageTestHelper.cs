@@ -5,6 +5,7 @@
 
 using System.Data.SqlClient;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -19,9 +20,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _connectionString = connectionString;
         }
 
-        public Task DeleteAllExportJobRecordsAsync()
+        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            throw new System.NotImplementedException();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
