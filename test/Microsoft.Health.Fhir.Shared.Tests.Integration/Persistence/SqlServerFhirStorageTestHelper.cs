@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _connectionString = connectionString;
         }
 
-        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken)
+        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
             using (var connection = new SqlConnection(_connectionString))
             {
