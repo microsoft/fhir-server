@@ -455,7 +455,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             const int length = 8;
 
             byte[] bytes = new byte[length];
-            reader.GetBytes(Metadata.Name, ordinal, 0, bytes, 0, length);
+            long fieldOffset = 0;
+            int bufferOffset = 0;
+
+            reader.GetBytes(Metadata.Name, ordinal, fieldOffset, bytes, bufferOffset, length);
 
             return bytes;
         }
