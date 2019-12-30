@@ -439,6 +439,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     /// </summary>
     /// <remarks>
     /// The timestamp data type is a synonym for the rowversion data type, and its syntax is now deprecated in SQL.
+    /// The rowversion data type is used in the SQL code, and it is translated to timestamp on the C# side because
+    /// the SqlDbType enum only supports timestamp.
     /// </remarks>
     public class TimestampColumn : Column<byte[]>
     {

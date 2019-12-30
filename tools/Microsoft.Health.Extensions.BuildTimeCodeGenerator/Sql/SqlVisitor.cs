@@ -230,6 +230,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                 if (string.Compare(sqlDbTypeToNormalize, "RowVersion", StringComparison.InvariantCultureIgnoreCase) == 0)
                 {
                     // The timestamp data type is a synonym for the rowversion data type. Its syntax is now deprecated in SQL.
+                    // We are translating rowversion (used in the SQL code) to timestamp here because the SqlDbType enum only supports timestamp.
                     normalizedSqlDbType = SqlDbType.Timestamp.ToString();
                 }
             }
