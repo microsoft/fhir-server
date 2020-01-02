@@ -405,7 +405,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("read", batch.Entry[9].Request.Url, HttpStatusCode.NotFound, ResourceType.OperationOutcome),
             };
 
-            await ExecuteAndValidateBatch(
+            await ExecuteAndValidateBundle(
                () =>
                {
                    return _client.PostBundleAsync(batch);
@@ -455,13 +455,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             FhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
-            await ExecuteAndValidateBatch(
+            await ExecuteAndValidateBundle(
                 () => tempClient.PostBundleAsync(batch),
                 expectedList,
                 TestApplications.NativeClient.ClientId);
         }
 
-        private async Task ExecuteAndValidateBatch<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList, string expectedAppId)
+        private async Task ExecuteAndValidateBundle<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList, string expectedAppId)
             where T : Resource
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -518,7 +518,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
-            await ExecuteAndValidateBatch(
+            await ExecuteAndValidateBundle(
                () => _client.PostBundleAsync(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()),
                expectedList,
                TestApplications.ServiceClient.ClientId);
@@ -539,7 +539,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack");
 
-            await ExecuteAndValidateBatch(
+            await ExecuteAndValidateBundle(
               async () =>
               {
                   var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
@@ -548,85 +548,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
               },
               expectedList,
               TestApplications.ServiceClient.ClientId);
-        }
-
-        private async Task ExecuteAndValidateBundle<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList)
-           where T : Resource
-        {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline.
-                return;
-            }
-
-            FhirResponse<T> response = await action();
-
-            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
-
-            Assert.NotNull(correlationId);
-
-            string expectedAppId = TestApplications.ServiceClient.ClientId;
-
-            IReadOnlyList<AuditEntry> auditList = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
-
-            Assert.Equal(2 * expectedList.Count, auditList.Count);
-
-            int lastIndex = auditList.Count - 1;
-
-            // iter iterates the actualAuditList. expectedIter iterates the expected auditList.
-            for (int iter = 0, expectedIter = 0; iter < auditList.Count; iter++)
-            {
-                expectedIter = MapExpectedListIteratorToActualListIterator(lastIndex, iter, expectedIter);
-
-                if (IsEntryRepresentsExecuting(iter, lastIndex))
-                {
-                    // Validates processing of every entry in a transaction bundle is being logged before execution.
-                    ValidateExecutingAuditEntry(auditList[iter], expectedList[expectedIter].Item1, new Uri($"http://localhost/{expectedList[expectedIter].Item2}"), correlationId, expectedAppId, ExpectedClaimKey);
-                }
-                else
-                {
-                    // Validates processing of every entry in a transaction bundle is being logged after execution.
-                    ValidateExecutedAuditEntry(auditList[iter], expectedList[expectedIter].Item1, expectedList[expectedIter].Item4, new Uri($"http://localhost/{expectedList[expectedIter].Item2}"), expectedList[expectedIter].Item3, correlationId, expectedAppId, ExpectedClaimKey);
-                }
-            }
-        }
-
-        private static int MapExpectedListIteratorToActualListIterator(int lastIndex, int iter, int expectedIter)
-        {
-            // first and last entry of actualAuditList logsthe executing and executed status of the bundle type.
-            if (IsFirstEntry(iter) || IsLastEntry(lastIndex, iter))
-            {
-                expectedIter = 0;
-            }
-            else if (!IsEntryInAnEvenPosition(iter))
-            {
-                expectedIter++;
-            }
-
-            return expectedIter;
-        }
-
-        private static bool IsEntryInAnEvenPosition(int iter)
-        {
-            return iter % 2 == 0;
-        }
-
-        private static bool IsLastEntry(int lastIndex, int iter)
-        {
-            return iter == lastIndex;
-        }
-
-        private static bool IsFirstEntry(int iter)
-        {
-            return iter == 0;
-        }
-
-        private static bool IsEntryRepresentsExecuting(int iter, int lastIndex)
-        {
-            // The first entry logs executing status of transaction bundle.
-            // The last entry logs executed status of transaction bundle.
-            // Every odd entry in audit list represents the executing status of every resource.
-            return (IsFirstEntry(iter) || !IsEntryInAnEvenPosition(iter)) && !IsLastEntry(lastIndex, iter);
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
