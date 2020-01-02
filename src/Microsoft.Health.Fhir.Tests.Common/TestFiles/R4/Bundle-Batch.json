@@ -154,7 +154,7 @@
             "request": {
                 "method": "PUT",
                 "url": "Patient/123",
-                "ifMatch": "W/\"3\""
+                "ifMatch": "W/\"3a\""
             }
         },
         {
@@ -198,7 +198,7 @@
             "request": {
                 "method": "GET",
                 "url": "Patient/12334",
-                "ifNoneMatch": "W/\"4\"",
+                "ifNoneMatch": "W/\"4a\"",
                 "ifModifiedSince": "2015-08-31T08:14:33+10:00"
             }
         }

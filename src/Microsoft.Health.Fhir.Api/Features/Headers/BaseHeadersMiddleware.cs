@@ -21,12 +21,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             _next = next;
         }
 
-        public Task Invoke(HttpContext context)
+        public async Task Invoke(HttpContext context)
         {
             context.Response.OnStarting(SecurityHeadersHelper.SetSecurityHeaders, state: context);
 
             // Call the next delegate/middleware in the pipeline
-            return _next(context);
+            await _next(context);
         }
     }
 }
