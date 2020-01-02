@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -41,7 +42,30 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public static ResourceElement GetDefaultBatch()
         {
-            return GetJsonSample("Bundle-Batch");
+            var batch = GetJsonSample("Bundle-Batch").ToPoco<Bundle>();
+
+            // Make the criteria unique so that the tests behave consistently
+            var createGuid = Guid.NewGuid().ToString();
+            batch.Entry[1].Request.IfNoneExist = batch.Entry[1].Request.IfNoneExist + createGuid;
+            var createPatient = (Patient)batch.Entry[1].Resource;
+            createPatient.Identifier[0].Value = createPatient.Identifier[0].Value + createGuid;
+
+            var updateIdGuid = Guid.NewGuid().ToString();
+            batch.Entry[2].Request.Url = batch.Entry[2].Request.Url + updateIdGuid;
+            batch.Entry[2].FullUrl = batch.Entry[2].FullUrl + updateIdGuid;
+            var updateIdPatient = (Patient)batch.Entry[2].Resource;
+            updateIdPatient.Id = updateIdPatient.Id + updateIdGuid;
+            batch.Entry[4].Request.Url = batch.Entry[4].Request.Url + updateIdGuid;
+            batch.Entry[4].FullUrl = batch.Entry[4].FullUrl + updateIdGuid;
+            var updateIdIfMatchPatient = (Patient)batch.Entry[4].Resource;
+            updateIdIfMatchPatient.Id = updateIdIfMatchPatient.Id + updateIdGuid;
+
+            var updateIdentifierGuid = Guid.NewGuid().ToString();
+            batch.Entry[3].Request.Url = batch.Entry[3].Request.Url + updateIdentifierGuid;
+            var updatePatient = (Patient)batch.Entry[3].Resource;
+            updatePatient.Identifier[0].Value = updatePatient.Identifier[0].Value + updateIdentifierGuid;
+
+            return batch.ToResourceElement();
         }
 
         public static ResourceElement GetDefaultTransaction()
