@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private int _requestCount;
         private readonly HTTPVerb[] _verbExecutionOrder;
         private readonly List<int> _emptyRequestsOrder;
-        private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
+        private readonly Dictionary<string, (string resourceId, string resourceType, string versionId)> _referenceIdDictionary;
         private BundleType? _bundleType;
         private readonly TransactionBundleValidator _transactionBundleValidator;
 
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
             _emptyRequestsOrder = new List<int>();
-            _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+            _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string versionId)>();
         }
 
         private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                     {
-                        if (_referenceIdDictionary.TryGetValue(entry.FullUrl, out (string resourceId, string resourceType) value))
+                        if (_referenceIdDictionary.TryGetValue(entry.FullUrl, out (string resourceId, string resourceType, string versionId) value))
                         {
                             persistedId = value.resourceId;
                         }
@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, CancellationToken cancellationToken)
+        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType, string version)> referenceIdDictionary, CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
 
@@ -271,10 +271,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     continue;
                 }
 
+                string version = string.Empty;
+
+                if (reference.Reference.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] versionedReference = reference.Reference.Split("/_history/");
+                    reference.Reference = versionedReference[0];
+                    version = versionedReference[1];
+                }
+
                 // Checks to see if this reference has already been assigned an Id
                 if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceInformation))
                 {
-                    reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
+                    if (string.IsNullOrWhiteSpace(version))
+                    {
+                        reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
+                    }
+                    else
+                    {
+                        if (referenceInformation.version == version)
+                        {
+                            reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{referenceInformation.version}";
+                        }
+                    }
                 }
                 else
                 {
@@ -297,8 +316,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
 
                         string resourceId = results[0].Resource.ResourceId;
+                        version = results[0].Resource.Version;
 
-                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
+                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType, version));
 
                         reference.Reference = $"{resourceType}/{resourceId}";
                     }
@@ -418,23 +438,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
+        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType, string versionId)> idDictionary)
         {
             foreach (EntryComponent entry in bundleEntries)
             {
-                if (entry.Request.Method != HTTPVerb.POST)
+                var versionId = entry.Resource?.Meta?.VersionId;
+                var requestUrl = entry.Request?.Url;
+
+                if (entry.Request.Method == HTTPVerb.POST)
                 {
-                    continue;
+                    // We've already come across this ID
+                    if (!string.IsNullOrWhiteSpace(entry.FullUrl) && !idDictionary.ContainsKey(entry.FullUrl))
+                    {
+                        // This id is new to us
+                        var insertId = _resourceIdProvider.Create();
+                        entry.Resource.Id = insertId;
+
+                        // Use 1 as a version if meta.version is not present.
+                        var version = versionId ?? "1";
+
+                        idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName, version));
+                    }
                 }
-
-                // We've already come across this ID
-                if (!string.IsNullOrWhiteSpace(entry.FullUrl) && !idDictionary.ContainsKey(entry.FullUrl))
+                else if (versionId != null && requestUrl != null)
                 {
-                    // This id is new to us
-                    var insertId = _resourceIdProvider.Create();
-                    entry.Resource.Id = insertId;
+                    var id = requestUrl.Contains("/", StringComparison.Ordinal) ? requestUrl.Split("/")[1] : null;
 
-                    idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
+                    if (id != null)
+                    {
+                        idDictionary.Add(entry.FullUrl, (id, entry.Resource.TypeName, entry.Resource?.Meta?.VersionId));
+                    }
                 }
             }
         }
