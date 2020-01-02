@@ -188,6 +188,7 @@ namespace Microsoft.Health.Fhir.Web
                     Data["DevelopmentIdentityProvider:Enabled"] = bool.TrueString;
                     Data["FhirServer:Security:Authentication:Audience"] = DevelopmentIdentityProviderConfiguration.Audience;
                     Data["FhirServer:Security:PrincipalClaims:0"] = DevelopmentIdentityProviderConfiguration.LastModifiedClaim;
+                    Data["FhirServer:Security:PrincipalClaims:1"] = DevelopmentIdentityProviderConfiguration.ClientIdClaim;
                 }
             }
         }

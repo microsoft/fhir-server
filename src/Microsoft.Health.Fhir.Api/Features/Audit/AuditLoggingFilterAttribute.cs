@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -40,7 +41,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            _auditHelper.LogExecuted(context.HttpContext, _claimsExtractor);
+            // The status code of 403 is only ever encountered here in the case of a failed bundle sub operation.
+            // All other 403s will be thrown before the attributes are executed and audited in the middleware.
+            if ((HttpStatusCode)context.HttpContext.Response.StatusCode != HttpStatusCode.Forbidden)
+            {
+                _auditHelper.LogExecuted(context.HttpContext, _claimsExtractor);
+            }
 
             base.OnResultExecuted(context);
         }
