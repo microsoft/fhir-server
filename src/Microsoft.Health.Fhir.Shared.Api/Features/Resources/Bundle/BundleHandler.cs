@@ -471,8 +471,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName, version));
                     }
                 }
-                else if (versionId != null && requestUrl != null)
+                else if (versionId != null && requestUrl != null && !string.IsNullOrWhiteSpace(entry.FullUrl))
                 {
+                    // Extract id from requestUrl.
                     var id = requestUrl.Contains("/", StringComparison.Ordinal) ? requestUrl.Split("/")[1] : null;
 
                     if (id != null)

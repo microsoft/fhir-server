@@ -38,14 +38,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithVersionedReference_WhenSubmittingATransaction_ThenResolvedReferenceIsVersionSpecific()
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithVersionSpecificResourceReference").ToPoco<Bundle>();
+            var requestBundle1 = Samples.GetJsonSample("Bundle-TransactionWithVersionSpecificReference");
+            var requestBundle = requestBundle1.ToPoco<Bundle>();
 
             var fullUrlBeforeTransaction = requestBundle.Entry[0].FullUrl;
-            var referenceBeforeTransaction = requestBundle.Entry[1].Resource.GetAllChildren<ResourceReference>().ToList()[1].Reference;
+            var referenceBeforeTransaction = requestBundle.Entry[1].Resource.GetAllChildren<ResourceReference>().ToList()[0].Reference;
 
             Assert.True(referenceBeforeTransaction.Contains(fullUrlBeforeTransaction, StringComparison.OrdinalIgnoreCase));
             Assert.True(referenceBeforeTransaction.Contains("/_history/1", StringComparison.OrdinalIgnoreCase));
@@ -54,11 +54,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
-            var fullUrlAfterTransaction = fhirResponse.Resource.Entry[0].FullUrl;
+            var idAfterTransaction = fhirResponse.Resource.Entry[0].Resource.Id;
 
-            var resolvedReferencesAfterTransaction = fhirResponse.Resource.Entry[1].Resource.GetAllChildren<ResourceReference>().ToList()[1].Reference;
+            var resolvedReferencesAfterTransaction = fhirResponse.Resource.Entry[1].Resource.GetAllChildren<ResourceReference>().ToList()[0].Reference;
 
-            Assert.True(resolvedReferencesAfterTransaction.Contains(fullUrlAfterTransaction, StringComparison.OrdinalIgnoreCase));
+            Assert.True(resolvedReferencesAfterTransaction.Contains(idAfterTransaction, StringComparison.OrdinalIgnoreCase));
             Assert.True(resolvedReferencesAfterTransaction.Contains("/_history/1", StringComparison.OrdinalIgnoreCase));
         }
     }
