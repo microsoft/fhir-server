@@ -279,8 +279,8 @@
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
-  <data name="ValidateWithParametersNotSupported" xml:space="preserve">
-    <value>Resources of type Parameters are not supported by this endpoint.</value>
+  <data name="ValidationForUpdateAndDeleteNotSupported" xml:space="preserve">
+    <value>Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.</value>
   </data>
   <data name="ValidationNotSupported" xml:space="preserve">
     <value>$validate is not a supported endpoint.</value>

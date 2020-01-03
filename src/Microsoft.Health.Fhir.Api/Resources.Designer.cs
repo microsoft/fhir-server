@@ -448,11 +448,11 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resources of type Parameters are not supported by this endpoint..
+        ///   Looks up a localized string similar to Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL..
         /// </summary>
-        public static string ValidateWithParametersNotSupported {
+        public static string ValidationForUpdateAndDeleteNotSupported {
             get {
-                return ResourceManager.GetString("ValidateWithParametersNotSupported", resourceCulture);
+                return ResourceManager.GetString("ValidationForUpdateAndDeleteNotSupported", resourceCulture);
             }
         }
         

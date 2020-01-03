@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -18,6 +20,8 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -26,7 +30,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]
-    [ValidateResourceTypeFilter]
     [ValidateModelState]
     [Authorize(PolicyNames.FhirPolicy)]
     public class ValidateController : Controller
@@ -44,11 +47,32 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ValidateResourceType)]
         [AuditEventType(AuditEventSubType.Read)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> Validate([FromBody] Resource resource)
+        public async Task<IActionResult> Validate(string typeParameter, [FromBody] Resource resource)
         {
-            if (!_features.SupportsValidate || resource.ResourceType == ResourceType.Parameters)
+            if (!_features.SupportsValidate)
             {
-                throw new OperationNotImplementedException(!_features.SupportsValidate ? Resources.ValidationNotSupported : Resources.ValidateWithParametersNotSupported);
+                throw new OperationNotImplementedException(Resources.ValidationNotSupported);
+            }
+
+            if (resource.ResourceType == ResourceType.Parameters)
+            {
+                var parameterResource = (Parameters)resource;
+
+                var mode = parameterResource.Parameter.Find(param => param.Name.Equals("mode", System.StringComparison.OrdinalIgnoreCase));
+                if (mode != null && !mode.Value.ToString().Equals("create", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new BadRequestException(Resources.ValidationForUpdateAndDeleteNotSupported);
+                }
+
+                resource = parameterResource.Parameter.Find(param => param.Name.Equals("resource", System.StringComparison.OrdinalIgnoreCase)).Resource;
+            }
+
+            if (!resource.TypeName.Equals(typeParameter, System.StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ResourceNotValidException(new List<ValidationFailure>
+                    {
+                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceTypeMismatch),
+                    });
             }
 
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));
