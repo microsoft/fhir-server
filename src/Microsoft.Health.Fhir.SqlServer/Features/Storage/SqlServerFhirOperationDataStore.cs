@@ -171,10 +171,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         ////    }
 
                         var jobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
-
-                        // TODO: This is not properly parsing the row version.
-                        int bufferIndex = 0;
-                        string rowVersion = Encoding.Default.GetString(rowVersionBytes, bufferIndex, rowVersionBytes.Length);
+                        string rowVersion = GetByteArrayValue(rowVersionBytes);
 
                         exportJobOutcomes.Add(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion)));
                     }
@@ -182,6 +179,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return exportJobOutcomes;
                 }
             }
+        }
+
+        private static string GetByteArrayValue(byte[] bytes)
+        {
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(bytes);
+            }
+
+            return BitConverter.ToInt32(bytes, 0).ToString();
         }
 
         private static async Task UpdateAvailableJobs(SqlConnectionWrapper sqlConnectionWrapper, IList<ExportJobOutcome> exportJobOutcomes, CancellationToken cancellationToken)
