@@ -1259,7 +1259,8 @@ CREATE TABLE dbo.ExportJob
     Status varchar(10) NOT NULL,
     HeartbeatDateTime datetimeoffset(7) NULL,
     QueuedDateTime datetimeoffset(7) NOT NULL,
-    RawJobRecord varbinary(max) NOT NULL,
+    --RawJobRecord varbinary(max) NOT NULL, TODO: RawJobRecord should be of type varbinary(max)
+    RawJobRecord varchar(max) NOT NULL,
     JobVersion rowversion NOT NULL
 )
 
@@ -1319,7 +1320,7 @@ CREATE PROCEDURE dbo.CreateExportJob
     @id varchar(64),
     @status varchar(10),
     @queuedDateTime datetimeoffset(7),
-    @rawJobRecord varbinary(max)
+    @rawJobRecord varchar(max)
 AS
     SET NOCOUNT ON
 
