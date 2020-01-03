@@ -9,7 +9,6 @@ using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.SqlClient;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -26,8 +25,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlServerFhirOperationDataStore : IFhirOperationDataStore
     {
-        internal static readonly Encoding ResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
-
         private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -50,8 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // We will consider a job to be stale if its timestamp is smaller than or equal to this.
             DateTimeOffset expirationTime = Clock.UtcNow - jobHeartbeatTimeoutThreshold;
 
-            using (SqlConnectionWrapper sqlConnectionWrapper =
-                _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
                 int numberOfRunningJobs = await GetNumberOfRunningJobs(expirationTime, sqlConnectionWrapper, cancellationToken);
 
@@ -196,10 +192,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                // TODO: Need to check version / handle concurrency.
                 foreach (ExportJobOutcome exportJobOutcome in exportJobOutcomes)
                 {
                     ExportJobRecord availableJob = exportJobOutcome.JobRecord;
+                    string jobVersion = exportJobOutcome.ETag.VersionId;
 
                     availableJob.Status = OperationStatus.Running;
 
@@ -207,7 +203,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
                     string serializedJob = JsonConvert.SerializeObject(availableJob);
 
-                    sqlCommand.CommandText = $"UPDATE dbo.ExportJob SET Status = '{status}', HeartbeatDateTime = '{heartbeatTimeStamp}', RawJobRecord = '{serializedJob}' WHERE Id = '{availableJob.Id}'";
+                    // TODO: What should we do if this does not successfully update?
+                    sqlCommand.CommandText = $"UPDATE dbo.ExportJob SET Status = '{status}', HeartbeatDateTime = '{heartbeatTimeStamp}', RawJobRecord = '{serializedJob}' WHERE Id = '{availableJob.Id}' AND JobVersion = CONVERT(TIMESTAMP, {jobVersion})";
                     await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
