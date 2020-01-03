@@ -285,4 +285,10 @@
   <data name="ValidationNotSupported" xml:space="preserve">
     <value>$validate is not a supported endpoint.</value>
   </data>
+  <data name="ValidateWithProfileNotSupported" xml:space="preserve">
+    <value>Validation against a profile is not supported.</value>
+  </data>
+  <data name="ValidationModesNotSupported" xml:space="preserve">
+    <value>Validation modes are not supported.</value>
+  </data>
 </root>

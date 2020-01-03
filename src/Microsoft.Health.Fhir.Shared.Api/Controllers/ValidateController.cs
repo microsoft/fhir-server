@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -19,6 +20,7 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -39,6 +41,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public ValidateController(IMediator mediator, IOptions<FeatureConfiguration> features)
         {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(features, nameof(features));
+
             _mediator = mediator;
             _features = features.Value;
         }
@@ -47,11 +52,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ValidateResourceType)]
         [AuditEventType(AuditEventSubType.Read)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> Validate(string typeParameter, [FromBody] Resource resource)
+        public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode)
         {
             if (!_features.SupportsValidate)
             {
                 throw new OperationNotImplementedException(Resources.ValidationNotSupported);
+            }
+
+
+            if (profile != null)
+            {
+                throw new OperationNotImplementedException(Resources.ValidateWithProfileNotSupported);
+            }
+
+            if (mode != null)
+            {
+                throw new OperationNotImplementedException(Resources.ValidationModesNotSupported);
             }
 
             if (resource.ResourceType == ResourceType.Parameters)
@@ -81,6 +97,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 Issue = response.Issues.Select(x => x.ToPoco()).ToList(),
             }.ToResourceElement());
+        }
+
+        [HttpPost]
+        [Route(KnownRoutes.ValidateResourceTypeById)]
+        [AuditEventType(AuditEventSubType.Read)]
+        [Authorize(PolicyNames.ReadPolicy)]
+        [ValidateResourceIdFilter]
+        public async Task<IActionResult> ValidateById([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode)
+        {
+            return await Validate(resource, profile, mode);
         }
     }
 }
