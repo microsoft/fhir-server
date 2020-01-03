@@ -91,6 +91,59 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     expectedIssue);
         }
 
+        [Fact]
+        public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
+
+            HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage("Patient/123/$validate", payload));
+
+            var contentString = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            CheckOperationOutcomeIssue(
+                contentString,
+                OperationOutcome.IssueSeverity.Information,
+                OperationOutcome.IssueType.Informational,
+                "All OK");
+        }
+
+        [Fact]
+        public async void GivenAValidateByIdRequest_WhenTheResourceIdDoesNotMatch_ThenADetailedErrorIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Patient\", \"id\": \"456\"}";
+
+            HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage("Patient/123/$validate", payload));
+
+            var contentString = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("Patient.id", ExtractFromJson(contentString, "location", true));
+            CheckOperationOutcomeIssue(
+                contentString,
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                "Id in the URL must match id in the resource.");
+        }
+
+        [Fact]
+        public async void GivenAValidateByIdRequest_WhenTheResourceIdIsMissing_ThenADetailedErrorIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Patient\"}";
+
+            HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage("Patient/123/$validate", payload));
+
+            var contentString = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("Patient.id", ExtractFromJson(contentString, "location", true));
+            CheckOperationOutcomeIssue(
+                contentString,
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                "Id must be specified in the resource.");
+        }
+
         private void CheckOperationOutcomeIssue(
             string issue,
             OperationOutcome.IssueSeverity? expectedSeverity,
