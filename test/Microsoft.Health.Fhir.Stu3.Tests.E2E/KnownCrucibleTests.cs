@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
     public class KnownCrucibleTests
     {
-        public static readonly string[] KnownFailures =
+        public static readonly string[] KnownCommonFailures =
         {
             "argonautproviderconnectathontest/APCT03",
             "argonautproviderconnectathontest/APCT04",
@@ -177,8 +177,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "search001/SE05.3P",
             "search001/SE05.4G",
             "search001/SE05.4P",
-            "search001/SE05.5G",
-            "search001/SE05.5P",
             "search001/SE05.6G",
             "search001/SE05.6P",
             "search001/SE06G",
@@ -429,8 +427,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "testscript-example-update/SETUP",
             "transactionandbatchtest/XFER0",
             "transactionandbatchtest/XFER10",
-            "transactionandbatchtest/XFER11",
-            "transactionandbatchtest/XFER12",
+        };
+
+        public static readonly string[] KnownCosmosDbFailures =
+        {
+            "search001/SE05.5P",
+            "search001/SE05.5G",
+        };
+
+        public static readonly string[] KnownSqlServerFailures =
+        {
+            "history001/HI01",
+            "history001/HI02",
+            "history001/HI06",
+            "history001/HI08",
         };
 
         public static readonly string[] KnownBroken =

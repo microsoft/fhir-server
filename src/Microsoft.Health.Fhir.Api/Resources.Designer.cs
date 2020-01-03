@@ -70,6 +70,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The route for &quot;{0}&quot; was not found..
+        /// </summary>
+        public static string BundleNotFound {
+            get {
+                return ResourceManager.GetString("BundleNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough for query parameter &apos;{0}&apos;..
+        /// </summary>
+        public static string ConditionalOperationInBundleNotSelectiveEnough {
+            get {
+                return ResourceManager.GetString("ConditionalOperationInBundleNotSelectiveEnough", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header is required..
         /// </summary>
         public static string ContentTypeHeaderRequired {
@@ -84,6 +102,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string CustomAuditHeaderTooLarge {
             get {
                 return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed while running health check..
+        /// </summary>
+        public static string FailedHealthCheckMessage {
+            get {
+                return ResourceManager.GetString("FailedHealthCheckMessage", resourceCulture);
             }
         }
         
@@ -106,6 +133,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Transaction was failed while processing the request..
+        /// </summary>
+        public static string GeneralTransactionFailedError {
+            get {
+                return ResourceManager.GetString("GeneralTransactionFailedError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is not supported using {1}..
+        /// </summary>
+        public static string InvalidBundleEntry {
+            get {
+                return ResourceManager.GetString("InvalidBundleEntry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported..
+        /// </summary>
+        public static string InvalidBundleType {
+            get {
+                return ResourceManager.GetString("InvalidBundleType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid compound authorization code..
         /// </summary>
         public static string InvalidCompoundCode {
@@ -115,11 +169,38 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
+        /// </summary>
+        public static string InvalidConditionalReference {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type and query parameter must be present in a given request &apos;{0}&apos;..
+        /// </summary>
+        public static string InvalidConditionalReferenceParameters {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReferenceParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid launch context parameters..
         /// </summary>
         public static string InvalidLaunchContext {
             get {
                 return ResourceManager.GetString("InvalidLaunchContext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;_pretty&quot; parameter is invalid..
+        /// </summary>
+        public static string InvalidPrettyParameter {
+            get {
+                return ResourceManager.GetString("InvalidPrettyParameter", resourceCulture);
             }
         }
         
@@ -165,15 +246,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string NotFoundException {
             get {
                 return ResourceManager.GetString("NotFoundException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Only bundles of the type batch are supported..
-        /// </summary>
-        public static string OnlyCertainBundleTypesSupported {
-            get {
-                return ResourceManager.GetString("OnlyCertainBundleTypesSupported", resourceCulture);
             }
         }
         
@@ -241,6 +313,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
+        /// </summary>
+        public static string ResourceNotSupported {
+            get {
+                return ResourceManager.GetString("ResourceNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bundle contains multiple entries that refers to the same resource &apos;{0}&apos;..
+        /// </summary>
+        public static string ResourcesMustBeUnique {
+            get {
+                return ResourceManager.GetString("ResourcesMustBeUnique", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource type in the URL must match resourceType in the resource..
         /// </summary>
         public static string ResourceTypeMismatch {
@@ -264,6 +354,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TooManyCustomAuditHeaders {
             get {
                 return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Transaction failed on &apos;{0}&apos; for the requested url &apos;{1}&apos;..
+        /// </summary>
+        public static string TransactionFailed {
+            get {
+                return ResourceManager.GetString("TransactionFailed", resourceCulture);
             }
         }
         

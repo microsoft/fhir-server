@@ -47,5 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// </summary>
         /// <remarks>Specifies if the total number of matching search results should be included in the returned Bundle.</remarks>
         public const string Total = "_total";
+
+        public const string Summary = "_summary";
     }
 }

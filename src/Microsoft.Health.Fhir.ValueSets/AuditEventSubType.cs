@@ -44,6 +44,8 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string SmartOnFhirToken = "smart-on-fhir-token";
 
+        public const string BundlePost = "bundle-post";
+
         public const string Batch = "batch";
 
         public const string Transaction = "transaction";

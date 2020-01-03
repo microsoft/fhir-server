@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     {
         public static SummaryType GetSummaryType(this HttpContext context, ILogger logger)
         {
-            var query = context.Request.Query[SearchParams.SEARCH_PARAM_SUMMARY].FirstOrDefault();
+            var query = context.Request.Query[KnownQueryParameterNames.Summary].FirstOrDefault();
 
             if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
             {
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 if (!bool.TryParse(query, out bool isPretty))
                 {
-                    // Assume no pretty formatting if parameter can't be parsed.
+                    // ContentTypeService validates the _pretty parameter. This is reached if other errors are encountered when parsing the query string.
                     isPretty = default;
                 }
 

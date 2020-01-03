@@ -12,8 +12,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     internal class AadSmartOnFhirProxyAuditLoggingFilterAttribute : AuditLoggingFilterAttribute
     {
         public AadSmartOnFhirProxyAuditLoggingFilterAttribute(
-           AadSmartOnFhirClaimsExtractor claimsExtractor,
-           IAuditHelper auditHelper)
+            AadSmartOnFhirClaimsExtractor claimsExtractor,
+            IAuditHelper auditHelper)
             : base(claimsExtractor, auditHelper)
         {
         }

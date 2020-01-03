@@ -93,6 +93,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.False(noParameters);
         }
 
+        [Fact]
+        public void GivenAConformanceBuilder_WhenAddingRestSearchParam_ThenTypeSearchParamIsAdded()
+        {
+            _builder.AddDefaultRestSearchParams();
+
+            ITypedElement statement = _builder.Build();
+
+            object typeDefinition = statement.Scalar($"CapabilityStatement.rest.searchParam.where(name = '_type').definition");
+
+            Assert.Equal("http://hl7.org/fhir/SearchParameter/type", typeDefinition.ToString());
+        }
+
+        [Fact]
+        public void GivenAConformanceBuilder_WhenAddingResourceSearchParam_ThenTypeSearchParamIsNotAddedUnderResource()
+        {
+            _searchParameterDefinitionManager.GetSearchParameters("Account")
+               .Returns(new[] { new SearchParameterInfo("_type", SearchParamType.Token, description: "description"), });
+
+            _builder.AddDefaultSearchParameters();
+
+            ITypedElement statement = _builder.Build();
+
+            object typeName = statement.Scalar($"{ResourceQuery("Account")}.searchParam.where(name = '_type').name");
+
+            Assert.Null(typeName);
+        }
+
         private static string ResourceQuery(string resource)
         {
             return $"CapabilityStatement.rest.resource.where(type = '{resource}')";

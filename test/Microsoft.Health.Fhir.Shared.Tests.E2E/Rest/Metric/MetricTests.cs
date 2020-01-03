@@ -1,0 +1,128 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
+using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Fhir.Tests.E2E.Rest.Audit;
+using Xunit;
+using Task = System.Threading.Tasks.Task;
+
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
+{
+    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    public class MetricTests : IClassFixture<MetricTestFixture>
+    {
+        private readonly MetricTestFixture _fixture;
+        private readonly FhirClient _client;
+
+        private readonly MetricHandler _metricHandler;
+
+        public MetricTests(MetricTestFixture fixture)
+        {
+            _fixture = fixture;
+            _client = fixture.FhirClient;
+            _metricHandler = _fixture?.MetricHandler;
+        }
+
+        [Fact]
+        public async Task GivenAResource_WhenCreated_ThenCorrectNumberOfMetricNotificationsShouldBeEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                async () =>
+                {
+                    var result = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco());
+                    return result.Response;
+                },
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().ResourceType.ToString()),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().ResourceType.ToString()));
+        }
+
+        [Fact]
+        public async Task GivenHealthCheckPath_WhenInvoked_MetricNotificationsNotEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                () => _client.HttpClient.GetAsync("/health/check"),
+                (type: typeof(ApiResponseNotification), count: 0, resourceType: (string)null),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: (string)null));
+        }
+
+        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Priority, Priority.One)]
+        [Fact]
+        public async Task GivenABatch_WhenInvokedAtCosmosDb_MetricNotificationsShouldBeEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 10, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Priority, Priority.One)]
+        [Fact]
+        public async Task GivenABatch_WhenInvokedAtSqlServer_MetricNotificationsShouldBeEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+        }
+
+        private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with a customized metric handler.
+                return;
+            }
+
+            var result = await action() as HttpResponseMessage;
+
+            foreach ((Type type, int count, string resourceType) expectedNotification in expectedNotifications)
+            {
+                if (expectedNotification.count == 0)
+                {
+                    Assert.False(_metricHandler.NotificationMapping.TryGetValue(expectedNotification.type, out var _));
+                    continue;
+                }
+
+                Assert.Equal(expectedNotification.count, _metricHandler.NotificationMapping[expectedNotification.type].Count);
+
+                if (result != null && expectedNotification.type == typeof(CosmosStorageRequestMetricsNotification))
+                {
+                    result.Headers.TryGetValues(CosmosDbHeaders.RequestCharge, out IEnumerable<string> values);
+
+                    Assert.NotNull(values);
+                    Assert.Equal(expectedNotification.count, values.Count());
+
+                    foreach (var notification in _metricHandler.NotificationMapping[expectedNotification.type])
+                    {
+                        var casted = notification as CosmosStorageRequestMetricsNotification;
+                        Assert.Equal(expectedNotification.resourceType, casted.ResourceType);
+                    }
+                }
+            }
+        }
+    }
+}

@@ -24,15 +24,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly IDocumentClientTestProvider _testProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ILogger<FhirDocumentClientInitializer> _logger;
+        private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
-        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ILogger<FhirDocumentClientInitializer> logger)
+        public FhirDocumentClientInitializer(IDocumentClientTestProvider testProvider, IFhirRequestContextAccessor fhirRequestContextAccessor, ICosmosResponseProcessor cosmosResponseProcessor, ILogger<FhirDocumentClientInitializer> logger)
         {
-            EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(cosmosResponseProcessor, nameof(cosmosResponseProcessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _testProvider = testProvider;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _cosmosResponseProcessor = cosmosResponseProcessor;
             _logger = logger;
         }
 
@@ -86,7 +89,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return new FhirDocumentClient(
                 new DocumentClient(new Uri(configuration.Host), configuration.Key, serializerSettings, connectionPolicy, configuration.DefaultConsistencyLevel),
                 _fhirRequestContextAccessor,
-                configuration.ContinuationTokenSizeLimitInKb);
+                configuration.ContinuationTokenSizeLimitInKb,
+                _cosmosResponseProcessor);
         }
 
         /// <inheritdoc />

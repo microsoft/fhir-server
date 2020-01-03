@@ -120,6 +120,10 @@
   <data name="BackToTop" xml:space="preserve">
     <value>Back to top</value>
   </data>
+  <data name="BundleNotFound" xml:space="preserve">
+    <value>The route for "{0}" was not found.</value>
+    <comment>{0} is a relative URL.</comment>
+  </data>
   <data name="ContentTypeHeaderRequired" xml:space="preserve">
     <value>The "content-type" header is required.</value>
   </data>
@@ -127,17 +131,31 @@
     <value>The maximum length of a custom audit header value is {0}. The supplied custom audit header '{1}' has length of {2}.</value>
     <comment>PH0 is a constant defining the max length of a header.  PH1 is the name  of the header sent in the request.  PH2 is the length of the incoming header value.  Example: The maximum length of a custom audit header value is 2048. The supplied custom audit header 'X-MS-AZUREFHIR-AUDIT-SITE' has length of 3072.</comment>
   </data>
+  <data name="FailedHealthCheckMessage" xml:space="preserve">
+    <value>Failed while running health check.</value>
+  </data>
   <data name="Forbidden" xml:space="preserve">
     <value>Authorization failed.</value>
   </data>
   <data name="GeneralInternalError" xml:space="preserve">
     <value>There was an error processing your request.</value>
   </data>
+  <data name="GeneralTransactionFailedError" xml:space="preserve">
+    <value>Transaction was failed while processing the request.</value>
+  </data>
+  <data name="InvalidBundleType" xml:space="preserve">
+    <value>Bundles of type '{0}' are not supported.</value>
+    <comment>{0) is the given bundle type.</comment>
+  </data>
   <data name="InvalidCompoundCode" xml:space="preserve">
     <value>Invalid compound authorization code.</value>
   </data>
   <data name="InvalidLaunchContext" xml:space="preserve">
     <value>Invalid launch context parameters.</value>
+  </data>
+  <data name="InvalidPrettyParameter" xml:space="preserve">
+    <value>The requested "_pretty" parameter is invalid.</value>
+    <comment>{NumberedPlaceHolder="_pretty"}</comment>
   </data>
   <data name="InvalidRedirectUri" xml:space="preserve">
     <value>Provided value for redirect Uri: {0} is not a valid Uri.</value>
@@ -155,9 +173,6 @@
   </data>
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
-  </data>
-  <data name="OnlyCertainBundleTypesSupported" xml:space="preserve">
-    <value>Only bundles of the type batch are supported.</value>
   </data>
   <data name="OperationFailed" xml:space="preserve">
     <value>{0} operation failed for reason: {1}</value>
@@ -184,6 +199,10 @@
   <data name="ResourceIdRequired" xml:space="preserve">
     <value>Id must be specified in the resource.</value>
   </data>
+  <data name="ResourcesMustBeUnique" xml:space="preserve">
+    <value>Bundle contains multiple entries that refers to the same resource '{0}'.</value>
+    <comment>{0} is the full url for POST and request url for PUT and DELETE.</comment>
+  </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
     <value>Resource type in the URL must match resourceType in the resource.</value>
   </data>
@@ -193,6 +212,10 @@
   <data name="TooManyCustomAuditHeaders" xml:space="preserve">
     <value>The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}.</value>
     <comment>PH0 is a constant defining the max number of custom headers.  PH1 is the count of custom headers sent in the request.  Example: The maximum number of custom audit headers allowed is 10. The number of custom audit headers supplied is 12.</comment>
+  </data>
+  <data name="TransactionFailed" xml:space="preserve">
+    <value>Transaction failed on '{0}' for the requested url '{1}'.</value>
+    <comment>{0} is the http method , {1} is the requested url.</comment>
   </data>
   <data name="UnableToObtainOpenIdConfiguration" xml:space="preserve">
     <value>Unable to obtain OpenID configuration.</value>
@@ -236,5 +259,24 @@
   <data name="WelcomeTitle" xml:space="preserve">
     <value>STU3 API &lt;small&gt;preview&lt;/small&gt;</value>
     <comment>{NumberedPlaceHolder=”STU3”}</comment>
+  </data>
+  <data name="InvalidBundleEntry" xml:space="preserve">
+    <value>Requested operation '{0}' is not supported using {1}.</value>
+    <comment>{0} is the operation and {1} is the http verb.</comment>
+  </data>
+  <data name="InvalidConditionalReference" xml:space="preserve">
+    <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
+    <value>Resource type and query parameter must be present in a given request '{0}'.</value>
+    <comment>{0} is the request url.</comment>
+  </data>
+  <data name="ConditionalOperationInBundleNotSelectiveEnough" xml:space="preserve">
+    <value>Operation was not attempted because search criteria was not selective enough for query parameter '{0}'.</value>
+  </data>
+  <data name="ResourceNotSupported" xml:space="preserve">
+    <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
+    <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
 </root>

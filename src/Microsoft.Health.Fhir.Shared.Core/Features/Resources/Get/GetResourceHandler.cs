@@ -23,8 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceDeserializer deserializer)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            ResourceDeserializer deserializer,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
 

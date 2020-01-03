@@ -68,5 +68,23 @@ namespace Microsoft.Health.Fhir.SqlServer {
                 return ResourceManager.GetString("InvalidContinuationToken", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The provided version is unknown..
+        /// </summary>
+        internal static string ScriptNotFound {
+            get {
+                return ResourceManager.GetString("ScriptNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There was an internal server error while processing the transaction..
+        /// </summary>
+        internal static string TransactionProcessingException {
+            get {
+                return ResourceManager.GetString("TransactionProcessingException", resourceCulture);
+            }
+        }
     }
 }

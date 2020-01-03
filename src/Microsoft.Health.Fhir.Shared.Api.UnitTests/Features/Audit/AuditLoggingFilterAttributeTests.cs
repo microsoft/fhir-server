@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Filters;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using NSubstitute;
@@ -21,9 +23,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
     public class AuditLoggingFilterAttributeTests
     {
-        private const string ControllerName = "controller";
-        private const string ActionName = "action";
-
         private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
         private readonly IAuditHelper _auditHelper = Substitute.For<IAuditHelper>();
 
@@ -43,33 +42,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 new ActionContext(_httpContext, new RouteData(), new ControllerActionDescriptor() { DisplayName = "Executing Context Test Descriptor" }),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object>(),
-                new MockController());
-
-            actionExecutingContext.ActionDescriptor = new ControllerActionDescriptor()
-            {
-                ControllerName = ControllerName,
-                ActionName = ActionName,
-            };
+                FilterTestsHelper.CreateMockFhirController());
 
             _filter.OnActionExecuting(actionExecutingContext);
 
-            _auditHelper.Received(1).LogExecuting(ControllerName, ActionName, _httpContext, _claimsExtractor);
-        }
-
-        [Fact]
-        public void GivenANonFhirResult_WhenExecutedAction_ThenAuditLogShouldBeLogged()
-        {
-            SetupExecutedAction(new OkResult());
-
-            _auditHelper.Received(1).LogExecuted(ControllerName, ActionName, null, _httpContext, _claimsExtractor);
-        }
-
-        [Fact]
-        public void GivenAFhirResultWithNullResource_WhenExecutedAction_ThenAuditLogShouldBeLogged()
-        {
-            SetupExecutedAction(new FhirResult());
-
-            _auditHelper.Received(1).LogExecuted(ControllerName, ActionName, null, _httpContext, _claimsExtractor);
+            _auditHelper.Received(1).LogExecuting(_httpContext, _claimsExtractor);
         }
 
         [Fact]
@@ -77,30 +54,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         {
             var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } }.ToResourceElement());
 
-            SetupExecutedAction(fhirResult);
-
-            _auditHelper.Received(1).LogExecuted(ControllerName, ActionName, "Patient", _httpContext, _claimsExtractor);
-        }
-
-        private void SetupExecutedAction(IActionResult result)
-        {
             var resultExecutedContext = new ResultExecutedContext(
                 new ActionContext(_httpContext, new RouteData(), new ControllerActionDescriptor() { DisplayName = "Executed Context Test Descriptor" }),
                 new List<IFilterMetadata>(),
-                result,
-                new MockController());
-
-            resultExecutedContext.ActionDescriptor = new ControllerActionDescriptor()
-            {
-                ControllerName = ControllerName,
-                ActionName = ActionName,
-            };
+                fhirResult,
+                FilterTestsHelper.CreateMockFhirController());
 
             _filter.OnResultExecuted(resultExecutedContext);
+
+            _auditHelper.Received(1).LogExecuted(_httpContext, _claimsExtractor);
         }
 
-        private class MockController : Controller
+        [Fact]
+        public void GivenAController_WhenExecutedActionAndStatusOf403_ThenAuditLogShouldNotLogged()
         {
+            var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } }.ToResourceElement());
+
+            var resultExecutedContext = new ResultExecutedContext(
+                new ActionContext(_httpContext, new RouteData(), new ControllerActionDescriptor() { DisplayName = "Executed Context Test Descriptor" }),
+                new List<IFilterMetadata>(),
+                fhirResult,
+                FilterTestsHelper.CreateMockFhirController());
+
+            _httpContext.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+
+            _filter.OnResultExecuted(resultExecutedContext);
+
+            _auditHelper.DidNotReceiveWithAnyArgs().LogExecuted(Arg.Any<HttpContext>(), Arg.Any<IClaimsExtractor>());
         }
     }
 }

@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
-        [Route("CustomError")]
+        [Route(KnownRoutes.CustomError)]
         [AllowAnonymous]
         public IActionResult CustomError(int? statusCode = null)
         {
@@ -550,7 +550,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="bundle">The bundle being posted</param>
         [HttpPost]
         [Route("", Name = RouteNames.PostBundle)]
-        [AuditEventType(AuditEventSubType.Batch)] // TODO: Our current auditing implementation only allows one audit event type attribute even though this action handles two.
+        [AuditEventType(AuditEventSubType.BundlePost)]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());

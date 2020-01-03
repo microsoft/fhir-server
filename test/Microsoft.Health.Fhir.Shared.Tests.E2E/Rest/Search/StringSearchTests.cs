@@ -99,5 +99,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(bundle, Fixture.Patients[0], Fixture.Patients[2]);
         }
+
+        [Fact]
+        public async Task GivenAStringSearchParamThatCoversSeveralFields_WhenSpecifiedTwiceInASearch_IntersectsTheTwoResultsProperly()
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, "name=Bea&name=Smith");
+
+            ValidateBundle(bundle, Fixture.Patients[0]);
+        }
     }
 }

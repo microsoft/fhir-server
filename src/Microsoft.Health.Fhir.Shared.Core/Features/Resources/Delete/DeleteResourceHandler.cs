@@ -21,8 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         public DeleteResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
         }
 
