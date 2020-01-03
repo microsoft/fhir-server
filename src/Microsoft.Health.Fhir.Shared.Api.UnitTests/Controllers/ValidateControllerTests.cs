@@ -31,21 +31,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var disabledValidateController = GetController(false);
             var payload = new Observation();
 
-            try
-            {
-                await disabledValidateController.Validate(payload);
-                Assert.False(true);
-            }
-            catch (OperationNotImplementedException ex)
-            {
-                var enumerator = ex.Issues.GetEnumerator();
-                enumerator.MoveNext();
-                CheckOperationOutcomeIssue(
-                    enumerator.Current.ToPoco(),
-                    OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
-                    "$validate is not a supported endpoint.");
-            }
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(() => disabledValidateController.Validate(payload));
+
+            var enumerator = ex.Issues.GetEnumerator();
+            enumerator.MoveNext();
+            CheckOperationOutcomeIssue(
+                enumerator.Current.ToPoco(),
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.NotSupported,
+                "$validate is not a supported endpoint.");
         }
 
         private void CheckOperationOutcomeIssue(

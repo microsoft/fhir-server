@@ -5,6 +5,7 @@
 
 using System.Linq;
 using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -36,6 +37,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public ValidateController(IMediator mediator, IOptions<FeatureConfiguration> features)
         {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(features, nameof(features));
+
             _mediator = mediator;
             _features = features.Value;
         }
