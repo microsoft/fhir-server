@@ -112,7 +112,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            // TODO: Implement this.
+            return Task.FromResult(new ExportJobOutcome(jobRecord, eTag));
         }
 
         private static async Task<int> GetNumberOfRunningJobs(DateTimeOffset expirationTime, SqlConnectionWrapper sqlConnectionWrapper, CancellationToken cancellationToken)
