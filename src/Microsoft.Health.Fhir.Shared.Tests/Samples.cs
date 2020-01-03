@@ -49,11 +49,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Bundle-Transaction");
         }
 
-        public static ResourceElement GetBundleTypeMissing()
-        {
-            return GetJsonSample("Bundle-TypeMissing");
-        }
-
         /// <summary>
         /// Gets back a resource from a json sample file.
         /// </summary>
