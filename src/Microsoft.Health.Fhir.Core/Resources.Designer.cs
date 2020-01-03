@@ -754,7 +754,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The type is not present..
+        ///   Looks up a localized string similar to Bundle type is not present. Possible values are: transaction or batch.
         /// </summary>
         internal static string TypeNotPresent {
             get {
