@@ -236,19 +236,9 @@
                 "subject": {
                     "reference": "Patient/b338216e-081b-49e3-a809-e2d662b6e0e3/_history/1"
                 },
-                "participant": [
-                    {
-                        "individual": {
-                            "reference": "urn:uuid:0000016d-3a85-4cca-0000-0000000000aa"
-                        }
-                    }
-                ],
                 "period": {
                     "start": "2000-01-02T07:17:50-05:00",
                     "end": "2000-01-16T07:17:50-05:00"
-                },
-                "serviceProvider": {
-                    "reference": "urn:uuid:a0b6ec0c-e587-3b2a-bf9f-248849f29ee5"
                 }
             },
             "request": {
