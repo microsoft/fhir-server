@@ -98,7 +98,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsNoRunningJob_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned()
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
@@ -119,7 +118,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
         [InlineData(OperationStatus.Running)]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenJobIsNotInQueuedState_WhenAcquiringJobs_ThenNoJobShouldBeReturned(OperationStatus operationStatus)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
@@ -134,15 +132,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(1, 0)]
         [InlineData(2, 1)]
         [InlineData(3, 2)]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenNumberOfRunningJobs_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
+            await InsertNewExportJobRecordAsync();
             ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync();
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
             ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync();
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
+
+            // Set the oldest queued jobs to 'Running', and update its timestamp. This job shouldn't be returned next time we acquire.
+            await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
 
             ExportJobRecord[] expectedJobRecords = new[] { jobRecord1, jobRecord2 };
 
@@ -166,23 +166,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsRunningJobThatExpired_WhenAcquiringJobs_ThenTheExpiredJobShouldBeReturned()
         {
-            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
+            // Create a job and set it to running.
+            await InsertNewExportJobRecordAsync();
+            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
+
+            ExportJobOutcome jobOutcome = jobs.First();
 
             await Task.Delay(1200);
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
+            IReadOnlyCollection<ExportJobOutcome> expiredJobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
 
-            Assert.NotNull(jobs);
+            Assert.NotNull(expiredJobs);
             Assert.Collection(
-                jobs,
-                job => ValidateExportJobOutcome(jobRecord, job.JobRecord));
+                expiredJobs,
+                expiredJobOutcome => ValidateExportJobOutcome(jobOutcome.JobRecord, expiredJobOutcome.JobRecord));
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereAreQueuedJobs_WhenSimultaneouslyAcquiringJobs_ThenCorrectJobsShouldBeReturned()
         {
             ExportJobRecord[] jobRecords = new[]
