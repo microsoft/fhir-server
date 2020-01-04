@@ -52,19 +52,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ValidateResourceType)]
         [AuditEventType(AuditEventSubType.Read)]
         [Authorize(PolicyNames.ReadPolicy)]
-        public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode)
+        public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode, string typeParameter)
         {
             if (!_features.SupportsValidate)
             {
                 throw new OperationNotImplementedException(Resources.ValidationNotSupported);
             }
 
-
             if (profile != null)
             {
                 throw new OperationNotImplementedException(Resources.ValidateWithProfileNotSupported);
             }
 
+            /*
+             * In order to allow modes (create, update, and delete) I first need to understand what checks are done before performing those actions.
+             * For create it seems to go through the FhirDataStore classes (ex: CosmosFhirDataStore), although what checks are run in addition to normal validation are unclear
+             */
             if (mode != null)
             {
                 throw new OperationNotImplementedException(Resources.ValidationModesNotSupported);
@@ -72,24 +75,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (resource.ResourceType == ResourceType.Parameters)
             {
-                var parameterResource = (Parameters)resource;
-
-                var mode = parameterResource.Parameter.Find(param => param.Name.Equals("mode", System.StringComparison.OrdinalIgnoreCase));
-                if (mode != null && !mode.Value.ToString().Equals("create", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new BadRequestException(Resources.ValidationForUpdateAndDeleteNotSupported);
-                }
-
-                resource = parameterResource.Parameter.Find(param => param.Name.Equals("resource", System.StringComparison.OrdinalIgnoreCase)).Resource;
+                resource = ParseParameters((Parameters)resource, ref profile, ref mode);
             }
 
-            if (!resource.TypeName.Equals(typeParameter, System.StringComparison.OrdinalIgnoreCase))
+            if (mode != null && !mode.Equals("create", System.StringComparison.OrdinalIgnoreCase))
             {
-                throw new ResourceNotValidException(new List<ValidationFailure>
-                    {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceTypeMismatch),
-                    });
+                throw new BadRequestException(Resources.ValidationForUpdateAndDeleteNotSupported);
             }
+
+            ValidateType(resource, typeParameter);
 
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));
 
@@ -103,10 +97,83 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ValidateResourceTypeById)]
         [AuditEventType(AuditEventSubType.Read)]
         [Authorize(PolicyNames.ReadPolicy)]
-        [ValidateResourceIdFilter]
-        public async Task<IActionResult> ValidateById([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode)
+        public async Task<IActionResult> ValidateById([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode, string typeParameter, string idParameter)
         {
-            return await Validate(resource, profile, mode);
+            if (!_features.SupportsValidate)
+            {
+                throw new OperationNotImplementedException(Resources.ValidationNotSupported);
+            }
+
+            if (profile != null)
+            {
+                throw new OperationNotImplementedException(Resources.ValidateWithProfileNotSupported);
+            }
+
+            if (resource.ResourceType == ResourceType.Parameters)
+            {
+                resource = ParseParameters((Parameters)resource, ref profile, ref mode);
+            }
+
+            ValidateType(resource, typeParameter);
+
+            if (resource.Id == null)
+            {
+                throw new ResourceNotValidException(new List<ValidationFailure>
+                    {
+                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceIdRequired),
+                    });
+            }
+
+            if (!resource.Id.Equals(idParameter, System.StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ResourceNotValidException(new List<ValidationFailure>
+                    {
+                        new ValidationFailure(nameof(Base.TypeName), Resources.UrlResourceIdMismatch),
+                    });
+            }
+
+            var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));
+
+            return FhirResult.Create(new OperationOutcome
+            {
+                Issue = response.Issues.Select(x => x.ToPoco()).ToList(),
+            }.ToResourceElement());
+        }
+
+        private static Resource ParseParameters(Parameters resource, ref string profile, ref string mode)
+        {
+            var paramMode = resource.Parameter.Find(param => param.Name.Equals("mode", System.StringComparison.OrdinalIgnoreCase));
+            if (paramMode != null && mode != null)
+            {
+                throw new BadRequestException(Resources.MultipleModesProvided);
+            }
+            else if (paramMode != null && mode == null)
+            {
+                mode = paramMode.Value.ToString();
+            }
+
+            var paramProfile = resource.Parameter.Find(param => param.Name.Equals("profile", System.StringComparison.OrdinalIgnoreCase));
+            if (paramProfile != null && profile != null)
+            {
+                throw new BadRequestException(Resources.MultipleProfilesProvided);
+            }
+            else if (paramProfile != null && profile == null)
+            {
+                profile = paramProfile.Value.ToString();
+            }
+
+            return resource.Parameter.Find(param => param.Name.Equals("resource", System.StringComparison.OrdinalIgnoreCase)).Resource;
+        }
+
+        private static void ValidateType(Resource resource, string expectedType)
+        {
+            if (!resource.TypeName.Equals(expectedType, System.StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ResourceNotValidException(new List<ValidationFailure>
+                    {
+                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceTypeMismatch),
+                    });
+            }
         }
     }
 }

@@ -241,6 +241,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A mode cannot be provided in both a Parameters resource and the URL.
+        /// </summary>
+        public static string MultipleModesProvided {
+            get {
+                return ResourceManager.GetString("MultipleModesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A profile cannot be provided in both a Parameters resource and the URL.
+        /// </summary>
+        public static string MultipleProfilesProvided {
+            get {
+                return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested route was not found..
         /// </summary>
         public static string NotFoundException {
@@ -448,20 +466,20 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL..
-        /// </summary>
-        public static string ValidationForUpdateAndDeleteNotSupported {
-            get {
-                return ResourceManager.GetString("ValidationForUpdateAndDeleteNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Validation against a profile is not supported..
         /// </summary>
         public static string ValidateWithProfileNotSupported {
             get {
                 return ResourceManager.GetString("ValidateWithProfileNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL..
+        /// </summary>
+        public static string ValidationForUpdateAndDeleteNotSupported {
+            get {
+                return ResourceManager.GetString("ValidationForUpdateAndDeleteNotSupported", resourceCulture);
             }
         }
         

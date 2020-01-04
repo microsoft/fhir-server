@@ -291,4 +291,10 @@
   <data name="ValidationModesNotSupported" xml:space="preserve">
     <value>Validation modes are not supported.</value>
   </data>
+  <data name="MultipleModesProvided" xml:space="preserve">
+    <value>A mode cannot be provided in both a Parameters resource and the URL</value>
+  </data>
+  <data name="MultipleProfilesProvided" xml:space="preserve">
+    <value>A profile cannot be provided in both a Parameters resource and the URL</value>
+  </data>
 </root>
