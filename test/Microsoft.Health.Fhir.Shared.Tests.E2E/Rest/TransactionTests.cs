@@ -29,15 +29,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         protected FhirClient Client { get; set; }
 
         [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAProperBundle_WhenSubmittingATransactionForCosmosDbDataStore_ThenNotSupportedIsReturned()
-        {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PostBundleAsync(Samples.GetDefaultTransaction().ToPoco<Bundle>()));
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, ex.StatusCode);
-        }
-
-        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithVersionedReference_WhenSubmittingATransaction_ThenResolvedReferenceIsVersionSpecific()
         {

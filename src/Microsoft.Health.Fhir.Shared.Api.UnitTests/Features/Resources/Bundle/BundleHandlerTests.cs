@@ -242,11 +242,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string version)>();
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string versionId)>();
 
             foreach (var entry in bundle.Entry)
             {
-                List<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>().ToList();
+                var references = entry.Resource.GetAllChildren<ResourceReference>().ToList();
 
                 // Asserting the conditional reference value before resolution
                 Assert.Null(references.First().Reference);
@@ -269,11 +269,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
 
-            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string version)>();
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string versionId)>();
 
             foreach (var entry in bundle.Entry)
             {
-                List<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>().ToList();
+                var references = entry.Resource.GetAllChildren<ResourceReference>().ToList();
 
                 // Asserting the conditional reference value before resolution
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
@@ -299,7 +299,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var searchResult = new SearchResult(new[] { mockSearchEntry, mockSearchEntry1 }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
 
-            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string version)>();
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string versionId)>();
             foreach (var entry in bundle.Entry)
             {
                 var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var expectedMessage = "Resource type 'Patientt' in the reference 'Patientt?identifier=12345' is not supported.";
 
-            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string version)>();
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string versionId)>();
             foreach (var entry in bundle.Entry)
             {
                 var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));

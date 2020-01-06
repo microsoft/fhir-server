@@ -20,7 +20,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
-using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -266,7 +265,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType, string version)> referenceIdDictionary, CancellationToken cancellationToken)
+        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType, string versionId)> referenceIdDictionary, CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
 
@@ -277,27 +276,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     continue;
                 }
 
-                string version = string.Empty;
+                string versionId = string.Empty;
 
                 if (reference.Reference.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
                 {
                     string[] versionedReference = reference.Reference.Split("/_history/");
                     reference.Reference = versionedReference[0];
-                    version = versionedReference[1];
+                    versionId = versionedReference[1];
                 }
 
                 // Checks to see if this reference has already been assigned an Id
                 if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceInformation))
                 {
-                    if (string.IsNullOrWhiteSpace(version))
+                    if (string.IsNullOrWhiteSpace(versionId))
                     {
                         reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
                     }
                     else
                     {
-                        if (referenceInformation.version == version)
+                        if (referenceInformation.versionId == versionId)
                         {
-                            reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{referenceInformation.version}";
+                            reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{referenceInformation.versionId}";
                         }
                     }
                 }
@@ -322,9 +321,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
 
                         string resourceId = results[0].Resource.ResourceId;
-                        version = results[0].Resource.Version;
+                        versionId = results[0].Resource.Version;
 
-                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType, version));
+                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType, versionId));
 
                         reference.Reference = $"{resourceType}/{resourceId}";
                     }
@@ -473,15 +472,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else if (versionId != null && requestUrl != null && !string.IsNullOrWhiteSpace(entry.FullUrl))
                 {
-                    // Extract id from requestUrl.
-                    var id = requestUrl.Contains("/", StringComparison.Ordinal) ? requestUrl.Split("/")[1] : null;
+                    // Extract resourceId from requestUrl.
+                    var resourceId = IsRequestUrlContainsResourceId(requestUrl) ? requestUrl.Split("/")[1] : null;
 
-                    if (id != null)
+                    if (resourceId != null)
                     {
-                        idDictionary.Add(entry.FullUrl, (id, entry.Resource.TypeName, entry.Resource?.Meta?.VersionId));
+                        idDictionary.Add(entry.FullUrl, (resourceId, entry.Resource.TypeName, versionId));
                     }
                 }
             }
+        }
+
+        private static bool IsRequestUrlContainsResourceId(string requestUrl)
+        {
+            return requestUrl.Contains("/", StringComparison.Ordinal) && !requestUrl.Contains("?", StringComparison.Ordinal);
         }
 
         private static OperationOutcome CreateOperationOutcome(OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, string diagnostics)
