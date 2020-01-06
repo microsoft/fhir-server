@@ -41,25 +41,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // TODO: Use parameterized queries.
-        // TODO: Should a new SQL command be created in each one of the methods that this method calls? Or should there be one for all?
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
             // We will consider a job to be stale if its timestamp is smaller than or equal to this.
             DateTimeOffset expirationTime = Clock.UtcNow - jobHeartbeatTimeoutThreshold;
+            IList<ExportJobOutcome> availableJobs;
 
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                int numberOfRunningJobs = await GetNumberOfRunningJobs(expirationTime, sqlConnectionWrapper, cancellationToken);
+                int numberOfRunningJobs = await GetNumberOfRunningJobs(sqlCommand, expirationTime, cancellationToken);
 
                 // Calculate the maximum number of available jobs we can pick up given how many are already running.
                 var limit = maximumNumberOfConcurrentJobsAllowed - numberOfRunningJobs;
 
-                IList<ExportJobOutcome> availableJobs = await GetAvailableJobs(sqlConnectionWrapper, limit, expirationTime, cancellationToken);
+                availableJobs = await GetAvailableJobs(sqlCommand, limit, expirationTime, cancellationToken);
 
-                await UpdateAvailableJobs(sqlConnectionWrapper, availableJobs, cancellationToken);
-
-                return new ReadOnlyCollection<ExportJobOutcome>(availableJobs);
+                await UpdateAvailableJobs(sqlCommand, availableJobs, cancellationToken);
             }
+
+            return new ReadOnlyCollection<ExportJobOutcome>(availableJobs);
         }
 
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
@@ -112,69 +113,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return Task.FromResult(new ExportJobOutcome(jobRecord, eTag));
         }
 
-        private static async Task<int> GetNumberOfRunningJobs(DateTimeOffset expirationTime, SqlConnectionWrapper sqlConnectionWrapper, CancellationToken cancellationToken)
+        private static async Task<int> GetNumberOfRunningJobs(SqlCommand sqlCommand, DateTimeOffset expirationTime, CancellationToken cancellationToken)
         {
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            sqlCommand.CommandText = $"SELECT COUNT(*) FROM dbo.ExportJob WHERE Status = 'Running' AND HeartbeatDateTime > '{expirationTime}'";
+
+            int numberOfRunningJobs = 0;
+
+            try
             {
-                sqlCommand.CommandText = $"SELECT COUNT(*) FROM dbo.ExportJob WHERE Status = 'Running' AND HeartbeatDateTime > '{expirationTime}'";
-
-                int numberOfRunningJobs = 0;
-
-                try
-                {
-                    numberOfRunningJobs = (int)await sqlCommand.ExecuteScalarAsync(cancellationToken);
-                }
-                catch (SqlException)
-                {
-                    // TODO
-                }
-
-                return numberOfRunningJobs;
+                numberOfRunningJobs = (int)await sqlCommand.ExecuteScalarAsync(cancellationToken);
             }
+            catch (SqlException)
+            {
+                // TODO
+            }
+
+            return numberOfRunningJobs;
         }
 
-        private static async Task<List<ExportJobOutcome>> GetAvailableJobs(SqlConnectionWrapper sqlConnectionWrapper, int limit, DateTimeOffset expirationTime, CancellationToken cancellationToken)
+        private static async Task<List<ExportJobOutcome>> GetAvailableJobs(SqlCommand sqlCommand, int limit, DateTimeOffset expirationTime, CancellationToken cancellationToken)
         {
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            // Available jobs are ones that are queued or stale.
+            // TODO: Is this the best way to prioritize which jobs are picked up?
+            sqlCommand.CommandText = $"SELECT TOP {limit} * FROM dbo.ExportJob WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= '{expirationTime}')) ORDER BY HeartbeatDateTime, QueuedDateTime";
+
+            using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
             {
-                // Available jobs are ones that are queued or stale.
-                // TODO: The heartbeat of the queued jobs will be NULL - should we be ordering by a different column?
-                sqlCommand.CommandText = $"SELECT TOP {limit} * FROM dbo.ExportJob WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= '{expirationTime}')) ORDER BY HeartbeatDateTime ASC";
+                var exportJobOutcomes = new List<ExportJobOutcome>();
 
-                using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                while (await reader.ReadAsync(cancellationToken))
                 {
-                    var exportJobOutcomes = new List<ExportJobOutcome>();
+                    (string id, string status, DateTimeOffset? heartbeatDateTime, DateTimeOffset queuedDateTime, string rawJobRecord, byte[] rowVersionBytes) = reader.ReadRow(
+                        V1.ExportJob.Id,
+                        V1.ExportJob.Status,
+                        V1.ExportJob.HeartbeatDateTime,
+                        V1.ExportJob.QueuedDateTime,
+                        V1.ExportJob.RawJobRecord,
+                        V1.ExportJob.JobVersion);
 
-                    while (await reader.ReadAsync(cancellationToken))
-                    {
-                        (string id, string status, DateTimeOffset? heartbeatDateTime, DateTimeOffset queuedDateTime, string rawJobRecord, byte[] rowVersionBytes) = reader.ReadRow(
-                            V1.ExportJob.Id,
-                            V1.ExportJob.Status,
-                            V1.ExportJob.HeartbeatDateTime,
-                            V1.ExportJob.QueuedDateTime,
-                            V1.ExportJob.RawJobRecord,
-                            V1.ExportJob.JobVersion);
+                    // TODO: raw job resource should be a stream.
+                    ////    string rawJobRecord;
+                    ////    ExportJobRecord jobRecord;
 
-                        // TODO: raw job resource should be a stream.
-                        ////    string rawJobRecord;
-                        ////    ExportJobRecord jobRecord;
+                    ////    using (rawJobRecordStream)
+                    ////    using (var gzipStream = new GZipStream(rawJobRecordStream, CompressionMode.Decompress))
+                    ////    using (var streamReader = new StreamReader(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
+                    ////    {
+                    ////        rawJobRecord = await streamReader.ReadToEndAsync();
+                    ////        jobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
+                    ////    }
 
-                        ////    using (rawJobRecordStream)
-                        ////    using (var gzipStream = new GZipStream(rawJobRecordStream, CompressionMode.Decompress))
-                        ////    using (var streamReader = new StreamReader(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
-                        ////    {
-                        ////        rawJobRecord = await streamReader.ReadToEndAsync();
-                        ////        jobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
-                        ////    }
+                    var jobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
+                    string rowVersion = GetByteArrayValue(rowVersionBytes);
 
-                        var jobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
-                        string rowVersion = GetByteArrayValue(rowVersionBytes);
-
-                        exportJobOutcomes.Add(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion)));
-                    }
-
-                    return exportJobOutcomes;
+                    exportJobOutcomes.Add(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion)));
                 }
+
+                return exportJobOutcomes;
             }
         }
 
@@ -188,25 +183,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return BitConverter.ToInt32(bytes, 0).ToString();
         }
 
-        private static async Task UpdateAvailableJobs(SqlConnectionWrapper sqlConnectionWrapper, IList<ExportJobOutcome> exportJobOutcomes, CancellationToken cancellationToken)
+        private static async Task UpdateAvailableJobs(SqlCommand sqlCommand, IList<ExportJobOutcome> exportJobOutcomes, CancellationToken cancellationToken)
         {
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            foreach (ExportJobOutcome exportJobOutcome in exportJobOutcomes)
             {
-                foreach (ExportJobOutcome exportJobOutcome in exportJobOutcomes)
-                {
-                    ExportJobRecord availableJob = exportJobOutcome.JobRecord;
-                    string jobVersion = exportJobOutcome.ETag.VersionId;
+                ExportJobRecord availableJob = exportJobOutcome.JobRecord;
+                string jobVersion = exportJobOutcome.ETag.VersionId;
 
-                    availableJob.Status = OperationStatus.Running;
+                availableJob.Status = OperationStatus.Running;
 
-                    string status = availableJob.Status.ToString();
-                    DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
-                    string serializedJob = JsonConvert.SerializeObject(availableJob);
+                string status = availableJob.Status.ToString();
+                DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
+                string serializedJob = JsonConvert.SerializeObject(availableJob);
 
-                    // TODO: What should we do if this does not successfully update?
-                    sqlCommand.CommandText = $"UPDATE dbo.ExportJob SET Status = '{status}', HeartbeatDateTime = '{heartbeatTimeStamp}', RawJobRecord = '{serializedJob}' WHERE Id = '{availableJob.Id}' AND JobVersion = CONVERT(TIMESTAMP, {jobVersion})";
-                    await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
-                }
+                sqlCommand.CommandText = $"UPDATE dbo.ExportJob SET Status = '{status}', HeartbeatDateTime = '{heartbeatTimeStamp}', RawJobRecord = '{serializedJob}' WHERE Id = '{availableJob.Id}' AND JobVersion = CONVERT(TIMESTAMP, {jobVersion})";
+                await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
             }
         }
     }
