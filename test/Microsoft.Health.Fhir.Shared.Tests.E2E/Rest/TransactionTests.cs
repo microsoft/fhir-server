@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
@@ -47,18 +48,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var resource = Samples.GetJsonSample("PatientWithMinimalData");
             FhirResponse<Patient> response = await Client.CreateAsync(resource.ToPoco<Patient>());
 
-            var id = response.Resource.Id;
+            var insertedId = response.Resource.Id;
 
-            var requestResource = Samples.GetJsonSample("Bundle-TransactionWithAllValidRoutes");
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithAllValidRoutes").ToPoco<Bundle>();
 
-            var requestBundle = requestResource.ToPoco<Bundle>();
+            // Make the criteria unique so that the tests behave consistently for update
+            var updateIdGuid = Guid.NewGuid().ToString();
+            requestBundle.Entry[2].Request.Url = requestBundle.Entry[2].Request.Url + updateIdGuid;
+            requestBundle.Entry[2].FullUrl = requestBundle.Entry[2].FullUrl + updateIdGuid;
+            var updateIdPatient = (Patient)requestBundle.Entry[2].Resource;
+            updateIdPatient.Id = updateIdPatient.Id + updateIdGuid;
 
             requestBundle.Entry.Add(new EntryComponent
             {
                 Request = new RequestComponent
                 {
                     Method = HTTPVerb.DELETE,
-                    Url = "Patient/" + id,
+                    Url = "Patient/" + insertedId,
                 },
             });
 
@@ -257,7 +263,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Assert.True("201".Equals(resource.Entry[0].Response.Status), "Create");
             Assert.True("201".Equals(resource.Entry[1].Response.Status), "Conditional Create");
-            Assert.True("201".Equals(resource.Entry[2].Response.Status) || "200".Equals(resource.Entry[2].Response.Status), "Update");
+            Assert.True("201".Equals(resource.Entry[2].Response.Status), "Update");
             Assert.True("201".Equals(resource.Entry[3].Response.Status), "Conditional Update");
             Assert.True("200".Equals(resource.Entry[4].Response.Status), "Get");
             Assert.True("200".Equals(resource.Entry[5].Response.Status), "Get");
