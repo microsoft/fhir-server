@@ -103,6 +103,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task WhenSubmittingABundle_GivenBundleTypeIsMissing_ThenMethodNotAllowedExceptionIsReturned()
+        {
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>()));
+            ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
+        }
+
         private void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
         {
             Assert.Equal(expectedStatusCode, actualStatusCode);
