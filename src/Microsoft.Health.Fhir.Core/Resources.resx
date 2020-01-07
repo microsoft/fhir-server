@@ -219,6 +219,10 @@
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
+  <data name="InvalidConditionalReference" xml:space="preserve">
+    <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
   <data name="InvalidConfigSetting" xml:space="preserve">
     <value>Value '{0}' is not supported. Please select from the following list of supported capabilities: [{1}].</value>
   </data>

@@ -349,6 +349,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
+        /// </summary>
+        internal static string InvalidConditionalReference {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Value &apos;{0}&apos; is not supported. Please select from the following list of supported capabilities: [{1}]..
         /// </summary>
         internal static string InvalidConfigSetting {
