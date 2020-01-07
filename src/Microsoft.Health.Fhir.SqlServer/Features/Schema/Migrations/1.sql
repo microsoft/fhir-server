@@ -1259,7 +1259,6 @@ CREATE TABLE dbo.ExportJob
     Status varchar(10) NOT NULL,
     HeartbeatDateTime datetimeoffset(7) NULL,
     QueuedDateTime datetimeoffset(7) NOT NULL,
-    --RawJobRecord varbinary(max) NOT NULL, TODO: RawJobRecord should be of type varbinary(max)
     RawJobRecord varchar(max) NOT NULL,
     JobVersion rowversion NOT NULL
 )
@@ -1311,7 +1310,7 @@ GO
 --     @queuedDateTime
 --         * The time the export job is queued
 --     @rawJobRecord
---         * A compressed UTF16-encoded JSON document
+--         * A JSON document
 --
 -- RETURN VALUE
 --     The row version of the created export job.

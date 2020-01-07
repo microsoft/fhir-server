@@ -45,39 +45,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             // We will consider a job to be stale if its timestamp is smaller than or equal to this.
             DateTimeOffset expirationTime = Clock.UtcNow - jobHeartbeatTimeoutThreshold;
-            IList<ExportJobOutcome> availableJobs;
 
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlTransaction transaction = sqlConnectionWrapper.SqlConnection.BeginTransaction(IsolationLevel.Serializable))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
+                sqlCommand.Transaction = transaction;
+
                 int numberOfRunningJobs = await GetNumberOfRunningJobs(sqlCommand, expirationTime, cancellationToken);
 
                 // Calculate the maximum number of available jobs we can pick up given how many are already running.
                 var limit = maximumNumberOfConcurrentJobsAllowed - numberOfRunningJobs;
 
-                availableJobs = await GetAvailableJobs(sqlCommand, limit, expirationTime, cancellationToken);
+                IList<ExportJobOutcome> availableJobs = await GetAvailableJobs(sqlCommand, limit, expirationTime, cancellationToken);
 
                 await UpdateAvailableJobs(sqlCommand, availableJobs, cancellationToken);
-            }
 
-            return new ReadOnlyCollection<ExportJobOutcome>(availableJobs);
+                transaction.Commit();
+
+                return new ReadOnlyCollection<ExportJobOutcome>(availableJobs);
+            }
         }
 
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
-            ////using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
-            ////using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
-            ////using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
             {
-                // TODO: raw job resource should be a stream.
-                ////var rawJobRecord = JsonConvert.SerializeObject(jobRecord);
-                ////writer.Write(rawJobRecord);
-                ////writer.Flush();
-
-                ////stream.Seek(0, 0);
-
                 V1.CreateExportJob.PopulateCommand(
                     sqlCommand,
                     jobRecord.Id,
@@ -115,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private static async Task<int> GetNumberOfRunningJobs(SqlCommand sqlCommand, DateTimeOffset expirationTime, CancellationToken cancellationToken)
         {
-            sqlCommand.CommandText = $"SELECT COUNT(*) FROM dbo.ExportJob WHERE Status = 'Running' AND HeartbeatDateTime > '{expirationTime}'";
+            sqlCommand.CommandText = $"SELECT COUNT(*) FROM dbo.ExportJob WITH (TABLOCKX) WHERE Status = 'Running' AND HeartbeatDateTime > '{expirationTime}'";
 
             int numberOfRunningJobs = 0;
 
@@ -150,18 +144,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         V1.ExportJob.QueuedDateTime,
                         V1.ExportJob.RawJobRecord,
                         V1.ExportJob.JobVersion);
-
-                    // TODO: raw job resource should be a stream.
-                    ////    string rawJobRecord;
-                    ////    ExportJobRecord jobRecord;
-
-                    ////    using (rawJobRecordStream)
-                    ////    using (var gzipStream = new GZipStream(rawJobRecordStream, CompressionMode.Decompress))
-                    ////    using (var streamReader = new StreamReader(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
-                    ////    {
-                    ////        rawJobRecord = await streamReader.ReadToEndAsync();
-                    ////        jobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
-                    ////    }
 
                     var jobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
                     string rowVersion = GetByteArrayValue(rowVersionBytes);
