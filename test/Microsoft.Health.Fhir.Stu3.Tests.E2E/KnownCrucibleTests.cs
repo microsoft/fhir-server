@@ -425,7 +425,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "testscript-example-search/02-PatientSearchDynamic",
             "testscript-example-search/SETUP",
             "testscript-example-update/SETUP",
-            "transactionandbatchtest/XFER0",
+            "transactionandbatchtest/XFER4",
+            "transactionandbatchtest/XFER6",
+            "transactionandbatchtest/XFER7",
             "transactionandbatchtest/XFER10",
         };
 
