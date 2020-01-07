@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -59,7 +60,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 IList<ExportJobOutcome> availableJobs = await GetAvailableJobs(sqlCommand, limit, expirationTime, cancellationToken);
 
-                await UpdateAvailableJobs(sqlCommand, availableJobs, cancellationToken);
+                if (availableJobs.Count > 0)
+                {
+                    await UpdateAvailableJobs(sqlCommand, availableJobs, cancellationToken);
+                }
 
                 transaction.Commit();
 
@@ -167,20 +171,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private static async Task UpdateAvailableJobs(SqlCommand sqlCommand, IList<ExportJobOutcome> exportJobOutcomes, CancellationToken cancellationToken)
         {
-            foreach (ExportJobOutcome exportJobOutcome in exportJobOutcomes)
-            {
-                ExportJobRecord availableJob = exportJobOutcome.JobRecord;
-                string jobVersion = exportJobOutcome.ETag.VersionId;
+            string availableJobsIds = string.Join(",", exportJobOutcomes.Select(outcome => $"'{outcome.JobRecord.Id}'"));
+            string versions = string.Join(",", exportJobOutcomes.Select(outcome => $"CONVERT(TIMESTAMP, {outcome.ETag.VersionId})"));
 
-                availableJob.Status = OperationStatus.Running;
+            string status = OperationStatus.Running.ToString();
+            DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
 
-                string status = availableJob.Status.ToString();
-                DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
-                string serializedJob = JsonConvert.SerializeObject(availableJob);
+            // Update the job records in the export table.
+            sqlCommand.CommandText = $"UPDATE dbo.ExportJob SET Status = '{status}', HeartbeatDateTime = '{heartbeatTimeStamp}', RawJobRecord = REPLACE(RawJobRecord, '\"status\":1', '\"status\":2') WHERE Id IN ({availableJobsIds}) AND JobVersion IN ({versions})";
+            await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
 
-                sqlCommand.CommandText = $"UPDATE dbo.ExportJob SET Status = '{status}', HeartbeatDateTime = '{heartbeatTimeStamp}', RawJobRecord = '{serializedJob}' WHERE Id = '{availableJob.Id}' AND JobVersion = CONVERT(TIMESTAMP, {jobVersion})";
-                await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
-            }
+            // Update the returned job records objects.
+            exportJobOutcomes.ToList().ForEach(outcome => outcome.JobRecord.Status = OperationStatus.Running);
         }
     }
 }
