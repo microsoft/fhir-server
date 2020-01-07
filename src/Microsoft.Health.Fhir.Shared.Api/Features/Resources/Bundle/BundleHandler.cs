@@ -292,12 +292,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
                     }
-                    else
+                    else if (referenceInformation.versionId == versionId)
                     {
-                        if (referenceInformation.versionId == versionId)
-                        {
-                            reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{referenceInformation.versionId}";
-                        }
+                        reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{referenceInformation.versionId}";
                     }
                 }
                 else

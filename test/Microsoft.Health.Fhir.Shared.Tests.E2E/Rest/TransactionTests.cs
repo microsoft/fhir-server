@@ -32,8 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithVersionedReference_WhenSubmittingATransaction_ThenResolvedReferenceIsVersionSpecific()
         {
-            var requestBundle1 = Samples.GetJsonSample("Bundle-TransactionWithVersionSpecificReference");
-            var requestBundle = requestBundle1.ToPoco<Bundle>();
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithVersionSpecificReference").ToPoco<Bundle>();
 
             var fullUrlBeforeTransaction = requestBundle.Entry[0].FullUrl;
             var referenceBeforeTransaction = requestBundle.Entry[1].Resource.GetAllChildren<ResourceReference>().ToList()[0].Reference;
