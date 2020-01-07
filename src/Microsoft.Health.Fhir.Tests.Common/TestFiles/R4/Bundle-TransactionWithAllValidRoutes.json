@@ -71,7 +71,7 @@
             "fullUrl": "http://example.org/fhir/Patient/123",
             "resource": {
                 "resourceType": "Patient",
-                "id": "123",
+                "id": "456456",
                 "text": {
                     "status": "generated",
                     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
@@ -92,7 +92,7 @@
             },
             "request": {
                 "method": "PUT",
-                "url": "Patient/123"
+                "url": "Patient/456456"
             }
         },
         {
