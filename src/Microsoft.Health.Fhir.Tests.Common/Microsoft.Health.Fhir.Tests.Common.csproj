@@ -95,6 +95,7 @@
     <None Remove="TestFiles\R4\Patient-f001.json" />
     <None Remove="TestFiles\R4\Patient.json" />
     <None Remove="TestFiles\R4\Patient.xml" />
+    <None Remove="TestFiles\R4\PatientWithMinimalData.json" />
     <None Remove="TestFiles\R4\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\Weight.json" />
     <None Remove="TestFiles\R4\WeightInGrams.json" />
@@ -118,6 +119,7 @@
     <None Remove="TestFiles\Stu3\DocumentReference-example.json" />
     <None Remove="TestFiles\Stu3\Location-example-hq.json" />
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
+    <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
@@ -182,6 +184,7 @@
     <EmbeddedResource Include="TestFiles\R4\ObservationWithTPMTHaplotypeOne.json" />
     <EmbeddedResource Include="TestFiles\R4\Organization.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R4\PatientWithMinimalData.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
@@ -229,6 +232,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWithNoCode.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Organization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\PatientWithMinimalData.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\ResourceWrapperNoVersion.json" />

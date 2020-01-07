@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.Resources;
@@ -45,9 +44,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAProperBundle_WhenSubmittingATransaction_ThenSuccessIsReturnedWithExpectedStatusCodesPerRequests()
         {
             // Insert resources first inorder to test a delete.
-            FhirResponse<Bundle> setUpResponse = await SetUp();
+            var resource = Samples.GetJsonSample("PatientWithMinimalData");
+            FhirResponse<Patient> response = await Client.CreateAsync(resource.ToPoco<Patient>());
 
-            var id = setUpResponse.Resource.Entry.First().Resource.Id;
+            var id = response.Resource.Id;
 
             var requestResource = Samples.GetJsonSample("Bundle-TransactionWithAllValidRoutes");
 
@@ -66,17 +66,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(fhirResponse1);
             Assert.Equal(HttpStatusCode.OK, fhirResponse1.StatusCode);
             ValidateResourceOutputForAllRoutes(fhirResponse1);
-        }
-
-        private async System.Threading.Tasks.Task<FhirResponse<Bundle>> SetUp()
-        {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
-
-            FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>());
-            Assert.NotNull(fhirResponse);
-            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-            ValidateResourceOutput(fhirResponse);
-            return fhirResponse;
         }
 
         [Fact]
@@ -116,7 +105,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenABundleWithMutipleEntriesReferringToSameResource_WhenSubmittingATransaction_ThenProperOperationOutComeIsReturned()
         {
             // Insert a resource that has a predefined identifier.
-            await SetUp();
+            var resource = Samples.GetJsonSample("PatientWithMinimalData");
+            await Client.CreateAsync(resource.ToPoco<Patient>());
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceReferringToSameResource");
 
@@ -198,8 +188,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private static void ValidateOperationOutcome(string[] expectedDiagnostics, IssueType[] expectedCodeType, OperationOutcome operationOutcome)
         {
-            Assert.NotNull(operationOutcome.Id);
-            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.NotNull(operationOutcome?.Id);
+            Assert.NotEmpty(operationOutcome?.Issue);
+
+            Assert.Equal(expectedCodeType.Length, operationOutcome.Issue.Count);
+            Assert.Equal(expectedDiagnostics.Length, operationOutcome.Issue.Count);
 
             for (int iter = 0; iter < operationOutcome.Issue.Count; iter++)
             {
@@ -235,11 +228,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundleReferencesInResourceBody_WhenSuccessfulExecution_ReferencesAreResolvedCorrectlyAsync()
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
-
-            FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>());
-            Assert.NotNull(fhirResponse);
-            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+            // Insert a resource that has a predefined identifier.
+            var resource = Samples.GetJsonSample("PatientWithMinimalData");
+            await Client.CreateAsync(resource.ToPoco<Patient>());
 
             var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithReferenceInResourceBody");
 
@@ -262,20 +253,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        private void ValidateResourceOutput(Bundle resource)
-        {
-            Assert.True("201".Equals(resource.Entry[0].Response.Status), "Create");
-            Assert.True("201".Equals(resource.Entry[1].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
-            Assert.True("200".Equals(resource.Entry[2].Response.Status) || "201".Equals(resource.Entry[2].Response.Status), "Update");
-            Assert.True("201".Equals(resource.Entry[3].Response.Status) || "200".Equals(resource.Entry[3].Response.Status), "Conditional Update");
-        }
-
         private void ValidateResourceOutputForAllRoutes(Bundle resource)
         {
-            Assert.True("201".Equals(resource.Entry[0].Response.Status) || "200".Equals(resource.Entry[1].Response.Status), "Conditional Create");
-            Assert.True("200".Equals(resource.Entry[1].Response.Status), "Get");
-            Assert.True("200".Equals(resource.Entry[2].Response.Status), "Get");
-            Assert.True("204".Equals(resource.Entry[3].Response.Status), "Delete");
+            Assert.True("201".Equals(resource.Entry[0].Response.Status), "Create");
+            Assert.True("201".Equals(resource.Entry[1].Response.Status), "Conditional Create");
+            Assert.True("200".Equals(resource.Entry[2].Response.Status), "Update");
+            Assert.True("201".Equals(resource.Entry[3].Response.Status), "Conditional Update");
+            Assert.True("200".Equals(resource.Entry[4].Response.Status), "Get");
+            Assert.True("200".Equals(resource.Entry[5].Response.Status), "Get");
+            Assert.True("204".Equals(resource.Entry[6].Response.Status), "Delete");
         }
     }
 }
