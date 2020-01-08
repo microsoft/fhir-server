@@ -20,7 +20,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
-using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -33,9 +32,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
-using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -217,7 +214,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // For resources within a transaction, we need to resolve any intrabundle references and potentially persist any internally assigned ids
                 if (_bundleType == BundleType.Transaction && entry.Resource != null)
                 {
-                    await ResolveBundleReferences(entry, _referenceIdDictionary, cancellationToken);
+                    await _transactionBundleValidator.ResolveBundleReferences(entry, _referenceIdDictionary, cancellationToken);
 
                     if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                     {
@@ -263,52 +260,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 };
 
                 _requests[entry.Request.Method.Value].Add((routeContext, order++, persistedId));
-            }
-        }
-
-        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, CancellationToken cancellationToken)
-        {
-            IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
-
-            foreach (ResourceReference reference in references)
-            {
-                if (string.IsNullOrWhiteSpace(reference.Reference))
-                {
-                    continue;
-                }
-
-                // Checks to see if this reference has already been assigned an Id
-                if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceInformation))
-                {
-                    reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
-                }
-                else
-                {
-                    if (reference.Reference.Contains("?", StringComparison.Ordinal))
-                    {
-                        string[] queries = reference.Reference.Split("?");
-                        string resourceType = queries[0];
-                        string conditionalQueries = queries[1];
-
-                        if (!ModelInfoProvider.IsKnownResource(resourceType))
-                        {
-                            throw new RequestNotValidException(string.Format(Api.Resources.ResourceNotSupported, resourceType, reference.Reference));
-                        }
-
-                        SearchResultEntry[] results = await _transactionBundleValidator.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
-
-                        if (results == null || results.Length != 1)
-                        {
-                            throw new RequestNotValidException(string.Format(Api.Resources.InvalidConditionalReference, reference.Reference));
-                        }
-
-                        string resourceId = results[0].Resource.ResourceId;
-
-                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
-
-                        reference.Reference = $"{resourceType}/{resourceId}";
-                    }
-                }
             }
         }
 

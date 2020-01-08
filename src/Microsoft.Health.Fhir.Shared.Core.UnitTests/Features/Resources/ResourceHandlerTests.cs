@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _resourceIdProvider = new ResourceIdProvider();
             collection.Add(x => _mediator).Singleton().AsSelf();
-            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider)).Singleton().AsSelf().AsImplementedInterfaces();
