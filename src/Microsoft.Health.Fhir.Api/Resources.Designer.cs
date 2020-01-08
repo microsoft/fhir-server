@@ -70,6 +70,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The number of entries in the bundle exceeded the configured limit of {0}..
+        /// </summary>
+        public static string BundleEntryLimitExceeded {
+            get {
+                return ResourceManager.GetString("BundleEntryLimitExceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The route for &quot;{0}&quot; was not found..
         /// </summary>
         public static string BundleNotFound {

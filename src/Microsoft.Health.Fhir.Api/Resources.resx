@@ -279,4 +279,8 @@
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
+  <data name="BundleEntryLimitExceeded" xml:space="preserve">
+    <value>The number of entries in the bundle exceeded the configured limit of {0}.</value>
+    <comment>{0} is the number of entries allowed.</comment>
+  </data>
 </root>
