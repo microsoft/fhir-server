@@ -61,16 +61,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), SaveOutcomeType.Created));
         }
-
-        private static IEnumerable<ResourceReference> ResourceRefUrl(Resource resource)
-        {
-            foreach (Base child in resource.Children)
-            {
-                if (child is ResourceReference targetTypeObject)
-                {
-                    yield return targetTypeObject;
-                }
-            }
-        }
     }
 }
