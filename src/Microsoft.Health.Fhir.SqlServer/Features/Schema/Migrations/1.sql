@@ -1253,9 +1253,10 @@ GO
 /*************************************************************
     Export Job
 **************************************************************/
-CREATE TYPE dbo.ExportJobIdsTableType_1 AS TABLE
+CREATE TYPE dbo.ExportJobTableType_1 AS TABLE
 (
-    Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
+    Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    JobVersion binary(8) NOT NULL -- This will hold corresponding rowversion values from the export job table.
 )
 
 CREATE TABLE dbo.ExportJob
@@ -1280,21 +1281,6 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Status_HeartbeatDateTime_QueuedDat
     QueuedDateTime
 ) -- TODO: Modify indexes as needed when implementing remaining sql export methods.
 
-GO
-
-/*************************************************************
-    Sequence for generating unique 12.5ns "tick" components that are added
-    to a base ID based on the timestamp to form a unique resource surrogate ID
-**************************************************************/
-
-CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
-        AS int
-        START WITH 0
-        INCREMENT BY 1
-        MINVALUE 0
-        MAXVALUE 79999
-        CYCLE
-        CACHE 1000000
 GO
 
 /*************************************************************
@@ -1341,23 +1327,52 @@ AS
     COMMIT TRANSACTION
 GO
 
--- TODO: Documentation
+--
+-- STORED PROCEDURE
+--     Updates export jobs.
+--
+-- DESCRIPTION
+--     Timestamps the specified export jobs and sets their statuses.
+--
+-- PARAMETERS
+--     @status
+--         * The new status of the export jobs
+--     @heartbeatDateTime
+--         * The new heartbeat timestamp of the export jobs
+--     @jobsToUpdate
+--         * A list of IDs of export jobs to update and their corresponding row version values
+--
 CREATE PROCEDURE dbo.UpdateExportJobs
     @status varchar(10),
     @heartbeatDateTime datetimeoffset(7),
-    @ids dbo.ExportJobIdsTableType_1 READONLY--@versions dbo.ExportJobVersionsTableType READONLY --TODO: Put this back in.
+    @jobsToUpdate dbo.ExportJobTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
-    -- Update the job's status to "Running", both in the table column and in the job record JSON.
+    -- Update each export job's status both in the dbo.ExportJob table Status column and in the raw export job record JSON.
     UPDATE dbo.ExportJob
-    SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = REPLACE(RawJobRecord, '"status":1', '"status":2')
-    WHERE Id IN (SELECT Id FROM @ids) --AND JobVersion IN (@versions)
+    SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = REPLACE(RawJobRecord, '"status":1', '"status":2') -- TODO: Pass in this info as parameters.
+    WHERE Id IN (SELECT Id FROM @jobsToUpdate) AND JobVersion IN (SELECT JobVersion from @jobsToUpdate)
 
     COMMIT TRANSACTION
+GO
+
+/*************************************************************
+    Sequence for generating unique 12.5ns "tick" components that are added
+    to a base ID based on the timestamp to form a unique resource surrogate ID
+**************************************************************/
+
+CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
+        AS int
+        START WITH 0
+        INCREMENT BY 1
+        MINVALUE 0
+        MAXVALUE 79999
+        CYCLE
+        CACHE 1000000
 GO
 
 /*************************************************************

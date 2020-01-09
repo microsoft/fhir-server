@@ -468,44 +468,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
             private readonly ParameterDefinition<System.DateTimeOffset> _heartbeatDateTime = new ParameterDefinition<System.DateTimeOffset>("@heartbeatDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
-            private readonly ExportJobIdsTableTypeTableValuedParameterDefinition _ids = new ExportJobIdsTableTypeTableValuedParameterDefinition("@ids");
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String status, System.DateTimeOffset heartbeatDateTime, global::System.Collections.Generic.IEnumerable<ExportJobIdsTableTypeRow> ids)
+            private readonly ExportJobTableTypeTableValuedParameterDefinition _jobsToUpdate = new ExportJobTableTypeTableValuedParameterDefinition("@jobsToUpdate");
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String status, System.DateTimeOffset heartbeatDateTime, global::System.Collections.Generic.IEnumerable<ExportJobTableTypeRow> jobsToUpdate)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpdateExportJobs";
                 _status.AddParameter(command.Parameters, status);
                 _heartbeatDateTime.AddParameter(command.Parameters, heartbeatDateTime);
-                _ids.AddParameter(command.Parameters, ids);
+                _jobsToUpdate.AddParameter(command.Parameters, jobsToUpdate);
             }
 
             public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String status, System.DateTimeOffset heartbeatDateTime, UpdateExportJobsTableValuedParameters tableValuedParameters)
             {
-                PopulateCommand(command, status: status, heartbeatDateTime: heartbeatDateTime, ids: tableValuedParameters.Ids);
+                PopulateCommand(command, status: status, heartbeatDateTime: heartbeatDateTime, jobsToUpdate: tableValuedParameters.JobsToUpdate);
             }
         }
 
         internal class UpdateExportJobsTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpdateExportJobsTableValuedParameters>
         {
-            public UpdateExportJobsTvpGenerator(ITableValuedParameterRowGenerator<TInput, ExportJobIdsTableTypeRow> ExportJobIdsTableTypeRowGenerator)
+            public UpdateExportJobsTvpGenerator(ITableValuedParameterRowGenerator<TInput, ExportJobTableTypeRow> ExportJobTableTypeRowGenerator)
             {
-                this.ExportJobIdsTableTypeRowGenerator = ExportJobIdsTableTypeRowGenerator;
+                this.ExportJobTableTypeRowGenerator = ExportJobTableTypeRowGenerator;
             }
 
-            private readonly ITableValuedParameterRowGenerator<TInput, ExportJobIdsTableTypeRow> ExportJobIdsTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, ExportJobTableTypeRow> ExportJobTableTypeRowGenerator;
             public UpdateExportJobsTableValuedParameters Generate(TInput input)
             {
-                return new UpdateExportJobsTableValuedParameters(ExportJobIdsTableTypeRowGenerator.GenerateRows(input));
+                return new UpdateExportJobsTableValuedParameters(ExportJobTableTypeRowGenerator.GenerateRows(input));
             }
         }
 
         internal struct UpdateExportJobsTableValuedParameters
         {
-            internal UpdateExportJobsTableValuedParameters(global::System.Collections.Generic.IEnumerable<ExportJobIdsTableTypeRow> Ids)
+            internal UpdateExportJobsTableValuedParameters(global::System.Collections.Generic.IEnumerable<ExportJobTableTypeRow> JobsToUpdate)
             {
-                this.Ids = Ids;
+                this.JobsToUpdate = JobsToUpdate;
             }
 
-            internal global::System.Collections.Generic.IEnumerable<ExportJobIdsTableTypeRow> Ids
+            internal global::System.Collections.Generic.IEnumerable<ExportJobTableTypeRow> JobsToUpdate
             {
                 get;
             }
@@ -829,28 +829,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        private class ExportJobIdsTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<ExportJobIdsTableTypeRow>
+        private class ExportJobTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<ExportJobTableTypeRow>
         {
-            internal ExportJobIdsTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.ExportJobIdsTableType_1")
+            internal ExportJobTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.ExportJobTableType_1")
             {
             }
 
             internal readonly VarCharColumn Id = new VarCharColumn("Id", 64, "Latin1_General_100_CS_AS");
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ExportJobIdsTableTypeRow rowData)
+            internal readonly BinaryColumn JobVersion = new BinaryColumn("JobVersion", 8);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, JobVersion};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ExportJobTableTypeRow rowData)
             {
                 Id.Set(record, 0, rowData.Id);
+                JobVersion.Set(record, 1, rowData.JobVersion);
             }
         }
 
-        internal struct ExportJobIdsTableTypeRow
+        internal struct ExportJobTableTypeRow
         {
-            internal ExportJobIdsTableTypeRow(System.String Id)
+            internal ExportJobTableTypeRow(System.String Id, System.Byte[] JobVersion)
             {
                 this.Id = Id;
+                this.JobVersion = JobVersion;
             }
 
             internal System.String Id
+            {
+                get;
+            }
+
+            internal System.Byte[] JobVersion
             {
                 get;
             }

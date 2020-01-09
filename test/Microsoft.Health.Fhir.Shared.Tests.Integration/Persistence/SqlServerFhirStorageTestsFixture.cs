@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Configs;
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<V1.UpsertResourceTvpGenerator<ResourceMetadata>>();
-            var updateExportJobsTvpGenerator = serviceProvider.GetRequiredService<V1.UpdateExportJobsTvpGenerator<List<string>>>();
+            var updateExportJobsTvpGenerator = serviceProvider.GetRequiredService<V1.UpdateExportJobsTvpGenerator<List<ExportJobOutcome>>>();
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();

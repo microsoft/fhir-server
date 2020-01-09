@@ -77,7 +77,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                 case SqlDbType.BigInt:
                     return typeof(long);
                 case SqlDbType.Binary:
-                    break;
+                    return typeof(byte[]);
                 case SqlDbType.Bit:
                     return typeof(bool);
                 case SqlDbType.Char:

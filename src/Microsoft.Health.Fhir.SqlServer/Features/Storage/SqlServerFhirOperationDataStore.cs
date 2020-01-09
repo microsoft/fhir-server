@@ -27,11 +27,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
-        private readonly V1.UpdateExportJobsTvpGenerator<List<string>> _updateExportJobsTvpGenerator;
+        private readonly V1.UpdateExportJobsTvpGenerator<List<ExportJobOutcome>> _updateExportJobsTvpGenerator;
 
         public SqlServerFhirOperationDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            V1.UpdateExportJobsTvpGenerator<List<string>> updateExportJobsTvpGenerator,
+            V1.UpdateExportJobsTvpGenerator<List<ExportJobOutcome>> updateExportJobsTvpGenerator,
             ILogger<SqlServerFhirOperationDataStore> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
-        // TODO: Use parameterized queries.
+        // TODO: Use parameterized queries or move to stored procedure.
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
             // We will consider a job to be stale if its timestamp is smaller than or equal to this.
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Calculate the maximum number of available jobs we can pick up given how many are already running.
                 var limit = maximumNumberOfConcurrentJobsAllowed - numberOfRunningJobs;
 
-                IList<ExportJobOutcome> availableJobs = await GetAvailableJobs(sqlCommand, limit, expirationTime, cancellationToken);
+                List<ExportJobOutcome> availableJobs = await GetAvailableJobs(sqlCommand, limit, expirationTime, cancellationToken);
 
                 if (availableJobs.Count > 0)
                 {
@@ -109,11 +109,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
         {
-            // TODO: Implement this.
+            // TODO: Implement this method.
             return Task.FromResult(new ExportJobOutcome(jobRecord, eTag));
         }
 
-        private static async Task<int> GetNumberOfRunningJobs(SqlCommand sqlCommand, DateTimeOffset expirationTime, CancellationToken cancellationToken)
+        private async Task<int> GetNumberOfRunningJobs(SqlCommand sqlCommand, DateTimeOffset expirationTime, CancellationToken cancellationToken)
         {
             sqlCommand.CommandText = $"SELECT COUNT(*) FROM dbo.ExportJob WITH (TABLOCKX) WHERE Status = 'Running' AND HeartbeatDateTime > '{expirationTime}'";
 
@@ -125,13 +125,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (SqlException)
             {
-                // TODO
+                // TODO: Add error handling to acquire export methods.
             }
 
             return numberOfRunningJobs;
         }
 
-        private static async Task<List<ExportJobOutcome>> GetAvailableJobs(SqlCommand sqlCommand, int limit, DateTimeOffset expirationTime, CancellationToken cancellationToken)
+        private async Task<List<ExportJobOutcome>> GetAvailableJobs(SqlCommand sqlCommand, int limit, DateTimeOffset expirationTime, CancellationToken cancellationToken)
         {
             // Available jobs are ones that are queued or stale.
             // TODO: Is this the best way to prioritize which jobs are picked up?
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         V1.ExportJob.JobVersion);
 
                     var jobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
-                    string rowVersion = GetByteArrayValue(rowVersionBytes);
+                    string rowVersion = RowVersionConverter.GetVersionAsDecimalString(rowVersionBytes);
 
                     exportJobOutcomes.Add(new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion)));
                 }
@@ -161,27 +161,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private static string GetByteArrayValue(byte[] bytes)
-        {
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(bytes);
-            }
-
-            return BitConverter.ToInt32(bytes, 0).ToString();
-        }
-
-        private async Task UpdateAvailableJobs(SqlCommand sqlCommand, IList<ExportJobOutcome> exportJobOutcomes, CancellationToken cancellationToken)
+        // TODO: Add error handling to acquire export methods.
+        private async Task UpdateAvailableJobs(SqlCommand sqlCommand, List<ExportJobOutcome> exportJobOutcomes, CancellationToken cancellationToken)
         {
             string status = OperationStatus.Running.ToString();
             DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
-            List<string> availableJobIds = exportJobOutcomes.Select(outcome => outcome.JobRecord.Id).ToList();
 
             V1.UpdateExportJobs.PopulateCommand(
                 sqlCommand,
                 status,
                 heartbeatTimeStamp,
-                _updateExportJobsTvpGenerator.Generate(availableJobIds));
+                _updateExportJobsTvpGenerator.Generate(exportJobOutcomes));
 
             await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
 

@@ -459,7 +459,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             int bufferOffset = 0;
 
             reader.GetBytes(Metadata.Name, ordinal, fieldOffset, bytes, bufferOffset, length);
-
             return bytes;
         }
 
@@ -469,6 +468,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             int bufferOffset = 0;
 
             record.SetBytes(ordinal, fieldOffset, value, bufferOffset, value.Length);
+        }
+    }
+
+    public class BinaryColumn : Column<byte[]>
+    {
+        public BinaryColumn(string name, int length)
+            : base(name, SqlDbType.Binary, true, length)
+        {
+            Length = length;
+        }
+
+        public int Length { get; }
+
+        public override byte[] Read(SqlDataReader reader, int ordinal)
+        {
+            byte[] bytes = new byte[Length];
+            long fieldOffset = 0;
+            int bufferOffset = 0;
+
+            if (Nullable && reader.IsDBNull(ordinal))
+            {
+                return null;
+            }
+            else
+            {
+                reader.GetBytes(Metadata.Name, ordinal, fieldOffset, bytes, bufferOffset, Length);
+                return bytes;
+            }
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, byte[] value)
+        {
+            if (value != null)
+            {
+                long fieldOffset = 0;
+                int bufferOffset = 0;
+
+                record.SetBytes(ordinal, fieldOffset, value, bufferOffset, value.Length);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
         }
     }
 
