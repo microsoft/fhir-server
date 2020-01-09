@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A mode cannot be provided in both a Parameters resource and the URL.
+        ///   Looks up a localized string similar to Only one mode can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleModesProvided {
             get {
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A profile cannot be provided in both a Parameters resource and the URL.
+        ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
             get {
@@ -480,6 +480,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ValidationForUpdateAndDeleteNotSupported {
             get {
                 return ResourceManager.GetString("ValidationForUpdateAndDeleteNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is not a valid validation mode.
+        /// </summary>
+        public static string ValidationModeNotRecognized {
+            get {
+                return ResourceManager.GetString("ValidationModeNotRecognized", resourceCulture);
             }
         }
         

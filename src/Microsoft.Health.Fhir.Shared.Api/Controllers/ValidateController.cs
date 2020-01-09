@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]
+    [ValidationModeFilter]
     [ValidateModelState]
     [Authorize(PolicyNames.FhirPolicy)]
     public class ValidateController : Controller
@@ -68,20 +69,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
              * In order to allow modes (create, update, and delete) I first need to understand what checks are done before performing those actions.
              * For create it seems to go through the FhirDataStore classes (ex: CosmosFhirDataStore), although what checks are run in addition to normal validation are unclear
              */
-            if (mode != null)
-            {
-                throw new OperationNotImplementedException(Resources.ValidationModesNotSupported);
-            }
 
             if (resource.ResourceType == ResourceType.Parameters)
             {
                 resource = ParseParameters((Parameters)resource, ref profile, ref mode);
             }
 
-            if (mode != null && !mode.Equals("create", System.StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BadRequestException(Resources.ValidationForUpdateAndDeleteNotSupported);
-            }
+            // This is the same as the filter that is applied in the ValidationModeFilter.
+            // It is needed here to cover the case of the mode being passed as part of a Parameters resource.
+            // It is needed as a filter attribute so that it can perform the filter before the ValidateModelState filter returns an error if the user passed an invalid resource.
+            // This is needed because if a user requests a delete validation it doesn't matter what resource they pass, so the delete validation should run regardless of if the resource is valid.
+            ValidationModeFilterAttribute.ParseMode(mode, false);
 
             ValidateType(resource, typeParameter);
 
@@ -113,6 +111,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 resource = ParseParameters((Parameters)resource, ref profile, ref mode);
             }
+
+            ValidationModeFilterAttribute.ParseMode(mode, true);
 
             ValidateType(resource, typeParameter);
 

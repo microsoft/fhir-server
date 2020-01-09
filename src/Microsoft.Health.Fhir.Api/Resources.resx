@@ -292,9 +292,13 @@
     <value>Validation modes are not supported.</value>
   </data>
   <data name="MultipleModesProvided" xml:space="preserve">
-    <value>A mode cannot be provided in both a Parameters resource and the URL</value>
+    <value>Only one mode can be provided between a Parameters resource and the URL</value>
   </data>
   <data name="MultipleProfilesProvided" xml:space="preserve">
-    <value>A profile cannot be provided in both a Parameters resource and the URL</value>
+    <value>Only one profile can be provided between a Parameters resource and the URL</value>
+  </data>
+  <data name="ValidationModeNotRecognized" xml:space="preserve">
+    <value>{0} is not a valid validation mode</value>
+    <comment>Error message for invalid parameter value, {0} is the value</comment>
   </data>
 </root>
