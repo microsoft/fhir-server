@@ -559,9 +559,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            FhirResponse<T> response = null;
-
-            response = await action();
+            FhirResponse<T> response = await action();
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
 

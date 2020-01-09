@@ -68,10 +68,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             });
 
-            FhirResponse<Bundle> fhirResponse1 = await Client.PostBundleAsync(requestBundle);
-            Assert.NotNull(fhirResponse1);
-            Assert.Equal(HttpStatusCode.OK, fhirResponse1.StatusCode);
-            ValidateResourceOutputForAllRoutes(fhirResponse1);
+            FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+            Assert.True("201".Equals(fhirResponse.Resource.Entry[0].Response.Status), "Create");
+            Assert.True("201".Equals(fhirResponse.Resource.Entry[1].Response.Status), "Conditional Create");
+            Assert.True("201".Equals(fhirResponse.Resource.Entry[2].Response.Status), "Update");
+            Assert.True("201".Equals(fhirResponse.Resource.Entry[3].Response.Status), "Conditional Update");
+            Assert.True("200".Equals(fhirResponse.Resource.Entry[4].Response.Status), "Get");
+            Assert.True("200".Equals(fhirResponse.Resource.Entry[5].Response.Status), "Get");
+            Assert.True("204".Equals(fhirResponse.Resource.Entry[6].Response.Status), "Delete");
         }
 
         [Fact]
@@ -92,12 +99,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAProperTransactionBundle_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndProperOperationOutComeIsReturned()
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack");
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack").ToPoco<Bundle>();
 
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+            // Make the criteria unique so that the tests behave consistently
+            var getIdGuid = Guid.NewGuid().ToString();
+            requestBundle.Entry[1].Request.Url = requestBundle.Entry[1].Request.Url + getIdGuid;
+
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostBundleAsync(requestBundle));
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 
-            string[] expectedDiagnostics = { "Transaction failed on 'GET' for the requested url '/Patient/12345'.", "Resource type 'Patient' with id '12345' couldn't be found." };
+            string[] expectedDiagnostics = { "Transaction failed on 'GET' for the requested url '/" + requestBundle.Entry[1].Request.Url + "'.", "Resource type 'Patient' with id '12345" + getIdGuid + "' couldn't be found." };
             IssueType[] expectedCodeType = { OperationOutcome.IssueType.Processing, OperationOutcome.IssueType.NotFound };
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
 
@@ -158,11 +169,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithInvalidConditionalReferenceInResourceBody_WhenSubmittingATransaction_ThenProperOperationOutComeIsReturned()
         {
+            string patientId = Guid.NewGuid().ToString();
+
             var observation = new Observation
             {
                 Subject = new ResourceReference
                 {
-                    Reference = "Patient?identifier=http:/example.org/fhir/ids|234235",
+                    Reference = "Patient?identifier=http:/example.org/fhir/ids|" + patientId,
                 },
             };
 
@@ -187,7 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            string[] expectedDiagnostics = { "Given conditional reference 'Patient?identifier=http:/example.org/fhir/ids|234235' does not resolve to a resource." };
+            string[] expectedDiagnostics = { "Given conditional reference 'Patient?identifier=http:/example.org/fhir/ids|" + patientId + "' does not resolve to a resource." };
             IssueType[] expectedCodeType = { IssueType.Invalid };
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
@@ -253,21 +266,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 foreach (var reference in references)
                 {
-                    // Asserting the conditional reference value before resolution
-                    Assert.True(reference.Reference.Contains("/", System.StringComparison.Ordinal));
+                    // Asserting the conditional reference value after resolution
+                    Assert.True(reference.Reference.Contains("/", StringComparison.Ordinal));
+
+                    // Also asserting that the conditional reference is resolved correctly
+                    Assert.False(reference.Reference.Contains("?", StringComparison.Ordinal));
                 }
             }
-        }
-
-        private void ValidateResourceOutputForAllRoutes(Bundle resource)
-        {
-            Assert.True("201".Equals(resource.Entry[0].Response.Status), "Create");
-            Assert.True("201".Equals(resource.Entry[1].Response.Status), "Conditional Create");
-            Assert.True("201".Equals(resource.Entry[2].Response.Status), "Update");
-            Assert.True("201".Equals(resource.Entry[3].Response.Status), "Conditional Update");
-            Assert.True("200".Equals(resource.Entry[4].Response.Status), "Get");
-            Assert.True("200".Equals(resource.Entry[5].Response.Status), "Get");
-            Assert.True("204".Equals(resource.Entry[6].Response.Status), "Delete");
         }
     }
 }
