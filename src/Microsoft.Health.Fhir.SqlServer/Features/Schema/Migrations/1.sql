@@ -1253,6 +1253,11 @@ GO
 /*************************************************************
     Export Job
 **************************************************************/
+CREATE TYPE dbo.ExportJobIdsTableType_1 AS TABLE
+(
+    Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
 CREATE TABLE dbo.ExportJob
 (
     Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -1293,7 +1298,7 @@ CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
 GO
 
 /*************************************************************
-    Stored procedure for exporting
+    Stored procedures for exporting
 **************************************************************/
 --
 -- STORED PROCEDURE
@@ -1332,6 +1337,25 @@ AS
         (@id, @status, @queuedDateTime, @rawJobRecord)
   
     SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
+
+    COMMIT TRANSACTION
+GO
+
+-- TODO: Documentation
+CREATE PROCEDURE dbo.UpdateExportJobs
+    @status varchar(10),
+    @heartbeatDateTime datetimeoffset(7),
+    @ids dbo.ExportJobIdsTableType_1 READONLY--@versions dbo.ExportJobVersionsTableType READONLY --TODO: Put this back in.
+AS
+    SET NOCOUNT ON
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    -- Update the job's status to "Running", both in the table column and in the job record JSON.
+    UPDATE dbo.ExportJob
+    SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = REPLACE(RawJobRecord, '"status":1', '"status":2')
+    WHERE Id IN (SELECT Id FROM @ids) --AND JobVersion IN (@versions)
 
     COMMIT TRANSACTION
 GO

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Numerics;
 using Hl7.Fhir.Model;
@@ -73,6 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<V1.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var updateExportJobsTvpGenerator = serviceProvider.GetRequiredService<V1.UpdateExportJobsTvpGenerator<List<string>>>();
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
@@ -80,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlConnectionWrapperFactory, updateExportJobsTvpGenerator, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
         }

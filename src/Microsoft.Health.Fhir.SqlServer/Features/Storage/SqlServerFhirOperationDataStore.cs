@@ -19,26 +19,28 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.IO;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlServerFhirOperationDataStore : IFhirOperationDataStore
     {
-        private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
-        private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
+        private readonly V1.UpdateExportJobsTvpGenerator<List<string>> _updateExportJobsTvpGenerator;
 
-        public SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, ILogger<SqlServerFhirOperationDataStore> logger)
+        public SqlServerFhirOperationDataStore(
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            V1.UpdateExportJobsTvpGenerator<List<string>> updateExportJobsTvpGenerator,
+            ILogger<SqlServerFhirOperationDataStore> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(updateExportJobsTvpGenerator, nameof(updateExportJobsTvpGenerator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _updateExportJobsTvpGenerator = updateExportJobsTvpGenerator;
             _logger = logger;
-
-            _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
         // TODO: Use parameterized queries.
@@ -169,16 +171,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return BitConverter.ToInt32(bytes, 0).ToString();
         }
 
-        private static async Task UpdateAvailableJobs(SqlCommand sqlCommand, IList<ExportJobOutcome> exportJobOutcomes, CancellationToken cancellationToken)
+        private async Task UpdateAvailableJobs(SqlCommand sqlCommand, IList<ExportJobOutcome> exportJobOutcomes, CancellationToken cancellationToken)
         {
-            string availableJobsIds = string.Join(",", exportJobOutcomes.Select(outcome => $"'{outcome.JobRecord.Id}'"));
-            string versions = string.Join(",", exportJobOutcomes.Select(outcome => $"CONVERT(TIMESTAMP, {outcome.ETag.VersionId})"));
-
             string status = OperationStatus.Running.ToString();
             DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
+            List<string> availableJobIds = exportJobOutcomes.Select(outcome => outcome.JobRecord.Id).ToList();
 
-            // Update the job records in the export table.
-            sqlCommand.CommandText = $"UPDATE dbo.ExportJob SET Status = '{status}', HeartbeatDateTime = '{heartbeatTimeStamp}', RawJobRecord = REPLACE(RawJobRecord, '\"status\":1', '\"status\":2') WHERE Id IN ({availableJobsIds}) AND JobVersion IN ({versions})";
+            V1.UpdateExportJobs.PopulateCommand(
+                sqlCommand,
+                status,
+                heartbeatTimeStamp,
+                _updateExportJobsTvpGenerator.Generate(availableJobIds));
+
             await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
 
             // Update the returned job records objects.
