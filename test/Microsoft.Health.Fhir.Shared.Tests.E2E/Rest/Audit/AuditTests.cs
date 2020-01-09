@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     {
         private const string RequestIdHeaderName = "X-Request-Id";
         private const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
-        private const string ExpectedClaimKey = "appid";
+        private const string ExpectedClaimKey = "client_id";
 
         private readonly AuditTestFixture _fixture;
         private readonly FhirClient _client;
@@ -649,13 +649,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             if (expectedClaimValue != null)
             {
-                Assert.Collection(
-                    auditEntry.CallerClaims,
-                    claim =>
-                    {
-                        Assert.Equal(expectedClaimKey, claim.Key);
-                        Assert.Equal(expectedClaimValue, claim.Value);
-                    });
+                Assert.Contains(
+                    new KeyValuePair<string, string>(expectedClaimKey, expectedClaimValue), auditEntry.CallerClaims);
             }
             else
             {
