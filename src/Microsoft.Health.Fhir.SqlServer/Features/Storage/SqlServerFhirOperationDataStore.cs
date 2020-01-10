@@ -38,6 +38,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
+        public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                V1.CreateExportJob.PopulateCommand(
+                    sqlCommand,
+                    jobRecord.Id,
+                    jobRecord.Status.ToString(),
+                    jobRecord.QueuedTime,
+                    JsonConvert.SerializeObject(jobRecord));
+
+                var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
+
+                if (rowVersion == null)
+                {
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
+                }
+
+                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
+            }
+        }
+
+        public Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
+        {
+            // TODO: Implement this method (returning null for now to allow the create method to run).
+            return Task.FromResult<ExportJobOutcome>(null);
+        }
+
+        public Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        {
+            // TODO: Implement this method.
+            return Task.FromResult(new ExportJobOutcome(jobRecord, eTag));
+        }
+
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
             // We will consider a job to be stale if its timestamp is smaller than or equal to this.
@@ -79,46 +119,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 return new ReadOnlyCollection<ExportJobOutcome>(acquiredJobs);
             }
-        }
-
-        public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
-        {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
-            {
-                V1.CreateExportJob.PopulateCommand(
-                    sqlCommand,
-                    jobRecord.Id,
-                    jobRecord.Status.ToString(),
-                    jobRecord.QueuedTime,
-                    JsonConvert.SerializeObject(jobRecord));
-
-                var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
-
-                if (rowVersion == null)
-                {
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
-                }
-
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
-            }
-        }
-
-        public Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
-        {
-            // TODO: Implement this method (returning null for now to allow the create method to run).
-            return Task.FromResult<ExportJobOutcome>(null);
-        }
-
-        public Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
-        {
-            // TODO: Implement this method.
-            return Task.FromResult(new ExportJobOutcome(jobRecord, eTag));
         }
     }
 }
