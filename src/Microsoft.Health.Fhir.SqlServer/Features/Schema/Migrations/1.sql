@@ -1253,12 +1253,6 @@ GO
 /*************************************************************
     Export Job
 **************************************************************/
-CREATE TYPE dbo.ExportJobTableType_1 AS TABLE
-(
-    Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    JobVersion binary(8) NOT NULL -- This will hold corresponding rowversion values from the export job table.
-)
-
 CREATE TABLE dbo.ExportJob
 (
     Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -1327,6 +1321,7 @@ AS
     COMMIT TRANSACTION
 GO
 
+--
 -- STORED PROCEDURE
 --     Acquires export jobs.
 --
@@ -1374,7 +1369,7 @@ AS
 
     DECLARE @updatedJobs TABLE (RawJobRecord varchar(max) NOT NULL, JobVersion binary(8) NOT NULL)
 
-    -- Update each available job's status to running both in the dbo.ExportJob table's Status column and in the raw export job record JSON.
+    -- Update each available job's status to running both in the export table's status column and in the raw export job record JSON.
     UPDATE dbo.ExportJob
     SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = REPLACE(RawJobRecord, '"status":1', '"status":2')
     OUTPUT inserted.RawJobRecord, inserted.JobVersion

@@ -797,41 +797,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        private class ExportJobTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<ExportJobTableTypeRow>
-        {
-            internal ExportJobTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.ExportJobTableType_1")
-            {
-            }
-
-            internal readonly VarCharColumn Id = new VarCharColumn("Id", 64, "Latin1_General_100_CS_AS");
-            internal readonly BinaryColumn JobVersion = new BinaryColumn("JobVersion", 8);
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, JobVersion};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ExportJobTableTypeRow rowData)
-            {
-                Id.Set(record, 0, rowData.Id);
-                JobVersion.Set(record, 1, rowData.JobVersion);
-            }
-        }
-
-        internal struct ExportJobTableTypeRow
-        {
-            internal ExportJobTableTypeRow(System.String Id, System.Byte[] JobVersion)
-            {
-                this.Id = Id;
-                this.JobVersion = JobVersion;
-            }
-
-            internal System.String Id
-            {
-                get;
-            }
-
-            internal System.Byte[] JobVersion
-            {
-                get;
-            }
-        }
-
         private class NumberSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<NumberSearchParamTableTypeRow>
         {
             internal NumberSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.NumberSearchParamTableType_1")
