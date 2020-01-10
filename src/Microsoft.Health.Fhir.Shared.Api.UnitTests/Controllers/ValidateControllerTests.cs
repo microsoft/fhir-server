@@ -56,8 +56,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async void GivenAValidationRequest_WhenPassedAModeQueryParameter_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
         {
             Resource payload = new Observation();
-            string profile = "profile";
-            string mode = null;
+            string profile = null;
+            string mode = "mode";
             OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
 
             CheckOperationOutcomeIssue(
