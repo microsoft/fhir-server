@@ -35,11 +35,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static TokenTextTable TokenText = new TokenTextTable();
         internal readonly static TokenTokenCompositeSearchParamTable TokenTokenCompositeSearchParam = new TokenTokenCompositeSearchParamTable();
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
+        internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
-        internal readonly static UpdateExportJobsProcedure UpdateExportJobs = new UpdateExportJobsProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
         internal class ClaimTypeTable : Table
@@ -390,6 +390,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
+        internal class AcquireExportJobsProcedure : StoredProcedure
+        {
+            internal AcquireExportJobsProcedure(): base("dbo.AcquireExportJobs")
+            {
+            }
+
+            private readonly ParameterDefinition<System.DateTimeOffset> _expirationDateTime = new ParameterDefinition<System.DateTimeOffset>("@expirationDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            private readonly ParameterDefinition<System.Int32> _maximumNumberOfConcurrentJobsAllowed = new ParameterDefinition<System.Int32>("@maximumNumberOfConcurrentJobsAllowed", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.DateTimeOffset> _heartbeatDateTime = new ParameterDefinition<System.DateTimeOffset>("@heartbeatDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.DateTimeOffset expirationDateTime, System.Int32 maximumNumberOfConcurrentJobsAllowed, System.DateTimeOffset heartbeatDateTime)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.AcquireExportJobs";
+                _expirationDateTime.AddParameter(command.Parameters, expirationDateTime);
+                _maximumNumberOfConcurrentJobsAllowed.AddParameter(command.Parameters, maximumNumberOfConcurrentJobsAllowed);
+                _heartbeatDateTime.AddParameter(command.Parameters, heartbeatDateTime);
+            }
+        }
+
         internal class CreateExportJobProcedure : StoredProcedure
         {
             internal CreateExportJobProcedure(): base("dbo.CreateExportJob")
@@ -457,57 +476,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.SelectCurrentSchemaVersion";
-            }
-        }
-
-        internal class UpdateExportJobsProcedure : StoredProcedure
-        {
-            internal UpdateExportJobsProcedure(): base("dbo.UpdateExportJobs")
-            {
-            }
-
-            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
-            private readonly ParameterDefinition<System.DateTimeOffset> _heartbeatDateTime = new ParameterDefinition<System.DateTimeOffset>("@heartbeatDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
-            private readonly ExportJobTableTypeTableValuedParameterDefinition _jobsToUpdate = new ExportJobTableTypeTableValuedParameterDefinition("@jobsToUpdate");
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String status, System.DateTimeOffset heartbeatDateTime, global::System.Collections.Generic.IEnumerable<ExportJobTableTypeRow> jobsToUpdate)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpdateExportJobs";
-                _status.AddParameter(command.Parameters, status);
-                _heartbeatDateTime.AddParameter(command.Parameters, heartbeatDateTime);
-                _jobsToUpdate.AddParameter(command.Parameters, jobsToUpdate);
-            }
-
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String status, System.DateTimeOffset heartbeatDateTime, UpdateExportJobsTableValuedParameters tableValuedParameters)
-            {
-                PopulateCommand(command, status: status, heartbeatDateTime: heartbeatDateTime, jobsToUpdate: tableValuedParameters.JobsToUpdate);
-            }
-        }
-
-        internal class UpdateExportJobsTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpdateExportJobsTableValuedParameters>
-        {
-            public UpdateExportJobsTvpGenerator(ITableValuedParameterRowGenerator<TInput, ExportJobTableTypeRow> ExportJobTableTypeRowGenerator)
-            {
-                this.ExportJobTableTypeRowGenerator = ExportJobTableTypeRowGenerator;
-            }
-
-            private readonly ITableValuedParameterRowGenerator<TInput, ExportJobTableTypeRow> ExportJobTableTypeRowGenerator;
-            public UpdateExportJobsTableValuedParameters Generate(TInput input)
-            {
-                return new UpdateExportJobsTableValuedParameters(ExportJobTableTypeRowGenerator.GenerateRows(input));
-            }
-        }
-
-        internal struct UpdateExportJobsTableValuedParameters
-        {
-            internal UpdateExportJobsTableValuedParameters(global::System.Collections.Generic.IEnumerable<ExportJobTableTypeRow> JobsToUpdate)
-            {
-                this.JobsToUpdate = JobsToUpdate;
-            }
-
-            internal global::System.Collections.Generic.IEnumerable<ExportJobTableTypeRow> JobsToUpdate
-            {
-                get;
             }
         }
 

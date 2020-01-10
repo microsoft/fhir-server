@@ -1327,35 +1327,56 @@ AS
     COMMIT TRANSACTION
 GO
 
---
 -- STORED PROCEDURE
---     Updates export jobs.
+--     Acquires export jobs.
 --
 -- DESCRIPTION
---     Timestamps the specified export jobs and sets their statuses.
+--     Timestamps the available export jobs and sets their statuses to running.
 --
 -- PARAMETERS
---     @status
---         * The new status of the export jobs
+--     @expirationDateTime
+--         * The time before which an export job is considered stale
+--     @maximumNumberOfConcurrentJobsAllowed
+--         * The maximum number of running jobs we can have at once
 --     @heartbeatDateTime
---         * The new heartbeat timestamp of the export jobs
---     @jobsToUpdate
---         * A list of IDs of export jobs to update and their corresponding row version values
+--         * The time to be stamped on the newly running export jobs
 --
-CREATE PROCEDURE dbo.UpdateExportJobs
-    @status varchar(10),
-    @heartbeatDateTime datetimeoffset(7),
-    @jobsToUpdate dbo.ExportJobTableType_1 READONLY
+-- RETURN VALUE
+--     The updated jobs that are now running.
+--
+CREATE PROCEDURE dbo.AcquireExportJobs
+    @expirationDateTime datetimeoffset(7),
+    @maximumNumberOfConcurrentJobsAllowed int,
+    @heartbeatDateTime datetimeoffset(7)
 AS
     SET NOCOUNT ON
-
     SET XACT_ABORT ON
+
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    -- Update each export job's status both in the dbo.ExportJob table Status column and in the raw export job record JSON.
+    -- Get the number of jobs that are running and not stale.
+    DECLARE @numberOfRunningJobs int
+    SELECT @numberOfRunningJobs = COUNT(*) FROM dbo.ExportJob WITH (TABLOCKX) WHERE Status = 'Running' AND HeartbeatDateTime > @expirationDateTime
+
+    -- Determine how many available jobs we can pick up.
+    DECLARE @limit int = @maximumNumberOfConcurrentJobsAllowed - @numberOfRunningJobs;
+
+    DECLARE @availableJobs TABLE (Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL, JobVersion binary(8) NOT NULL)
+
+    -- Get the available jobs, which are export jobs that are queued or stale.
+    INSERT INTO @availableJobs
+    SELECT TOP (@limit) Id, JobVersion
+    FROM dbo.ExportJob
+    WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= @expirationDateTime))
+    ORDER BY HeartbeatDateTime, QueuedDateTime
+
+    -- Update each available job's status to running both in the dbo.ExportJob table's Status column and in the raw export job record JSON.
     UPDATE dbo.ExportJob
-    SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = REPLACE(RawJobRecord, '"status":1', '"status":2') -- TODO: Pass in this info as parameters.
-    WHERE Id IN (SELECT Id FROM @jobsToUpdate) AND JobVersion IN (SELECT JobVersion from @jobsToUpdate)
+    SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = REPLACE(RawJobRecord, '"status":1', '"status":2')
+    WHERE Id IN (SELECT Id FROM @availableJobs) AND JobVersion IN (SELECT JobVersion from @availableJobs)
+
+    SELECT * FROM dbo.ExportJob WHERE Id IN (SELECT Id FROM @availableJobs) AND JobVersion IN (SELECT JobVersion from @availableJobs)
 
     COMMIT TRANSACTION
 GO
