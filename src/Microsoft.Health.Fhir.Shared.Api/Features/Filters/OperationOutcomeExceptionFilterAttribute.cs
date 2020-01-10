@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         if (context.ActionDescriptor is ControllerActionDescriptor)
                         {
                             var controllerDescriptor = (ControllerActionDescriptor)context.ActionDescriptor;
-                            if (controllerDescriptor.ControllerName == "ValidateController")
+                            if (controllerDescriptor.ControllerName == "Validate")
                             {
                                 operationOutcomeResult.StatusCode = HttpStatusCode.OK;
                                 break;
