@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -100,12 +101,12 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     node = node.WithBody(Block(ExpressionStatement(invocation), ReturnStatement(ThisExpression())));
                 }
 
-                if (methodName.StartsWith("Append"))
+                if (methodName.StartsWith("Append", StringComparison.OrdinalIgnoreCase))
                 {
                     // Add a call to AppendIndent at the start of the body
                     BlockSyntax body = node.Body.WithStatements(node.Body.Statements.Insert(0, ExpressionStatement(InvocationExpression(IdentifierName("AppendIndent")))));
 
-                    if (methodName.EndsWith("Line"))
+                    if (methodName.EndsWith("Line", StringComparison.OrdinalIgnoreCase))
                     {
                         // before returning, set _indentPending to true
                         ExpressionStatementSyntax updatePendingStatement = ExpressionStatement(AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, IdentifierName("_indentPending"), LiteralExpression(SyntaxKind.TrueLiteralExpression)));

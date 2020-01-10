@@ -1,0 +1,35 @@
+﻿{
+    "resourceType": "Bundle",
+    "id": "bundle-transaction",
+    "meta": {
+        "lastUpdated": "2014-08-18T01:43:30Z"
+    },
+    "type": "transaction",
+    "entry": [
+        {
+            "request": {
+                "method": "DELETE",
+                "url": "Patient?identifier=123456"
+            }
+        },
+        {
+            "fullUrl": "urn:uuid:79378cb8-8f58-48e8-a5e8-60ac2755b674",
+            "resource": {
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "coding",
+                        "valueCoding": {
+                            "system": "http://loinc.org",
+                            "code": "1963-8"
+                        }
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "ValueSet/$lookup"
+            }
+        }
+    ]
+}

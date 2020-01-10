@@ -1,0 +1,48 @@
+﻿{
+    "resourceType": "Bundle",
+    "id": "bundle-transaction",
+    "meta": {
+        "lastUpdated": "2014-08-18T01:43:30Z"
+    },
+    "type": "transaction",
+    "entry": [
+        {
+            "fullUrl": "urn:uuid:4a089b8a-b0a0-46a9-92da-c8b653aa2e72",
+            "resource": {
+                "resourceType": "Observation",
+                "id": "4a089b8a-b0a0-46a9-92da-c8b653aa2e72",
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "vital-signs",
+                                "display": "vital-signs"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "8331-1",
+                            "display": "Oral temperature"
+                        }
+                    ],
+                    "text": "Oral temperature"
+                },
+                "subject": {
+                    "reference": "urn:uuid:4a089b8a-b0a0-46a9-92da-c8b653aa2e73"
+                },
+                "effectiveDateTime": "2009-07-23T10:04:56-07:00",
+                "issued": "2009-07-23T10:04:56.206-07:00"
+            },
+            "request": {
+                "method": "POST",
+                "url": "Observation"
+            }
+        }
+    ]
+}

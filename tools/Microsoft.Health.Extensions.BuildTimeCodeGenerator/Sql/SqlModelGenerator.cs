@@ -46,7 +46,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     .OrderBy(m => m, MemberSorting.Comparer)
                     .ToArray());
 
-            return (classDeclaration, new UsingDirectiveSyntax[0]);
+            return (classDeclaration, System.Array.Empty<UsingDirectiveSyntax>());
         }
 
         private TSqlFragment ParseSqlFile()
