@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Type { get; set; }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Need to set in builder")]
         public ICollection<string> Profile { get; set; }
 
         public ICollection<ResourceInteractionComponent> Interaction { get; }

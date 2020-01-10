@@ -137,10 +137,6 @@ csharp_preserve_single_line_blocks = true
 csharp_preserve_single_line_statements = false
 
 # C++ Files
-
-# CA2227: Collection properties should be read only
-dotnet_diagnostic.CA2227.severity = silent
-
 [*.{cpp,h,in}]
 curly_bracket_next_line = true
 indent_brace_style = Allman
