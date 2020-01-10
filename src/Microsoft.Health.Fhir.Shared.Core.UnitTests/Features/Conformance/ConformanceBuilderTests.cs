@@ -15,7 +15,10 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
-    public class ConformanceBuilderTests
+    /// <summary>
+    /// shared conformance tests
+    /// </summary>
+    public partial class ConformanceBuilderTests
     {
         private readonly ICapabilityStatementBuilder _builder;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -118,18 +121,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             object typeName = statement.Scalar($"{ResourceQuery("Account")}.searchParam.where(name = '_type').name");
 
             Assert.Null(typeName);
-        }
-
-        [Fact]
-        public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenProfileIsAddedAtResource()
-        {
-            _builder.AddDefaultResourceInteractions();
-
-            ITypedElement statement = _builder.Build();
-
-            bool hasProfile = (bool)statement.Scalar($"{ResourceQuery("Account")}.profile.exists()");
-
-            Assert.True(hasProfile);
         }
 
         private static string ResourceQuery(string resource)
