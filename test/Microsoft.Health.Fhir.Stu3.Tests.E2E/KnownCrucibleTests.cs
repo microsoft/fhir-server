@@ -425,12 +425,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "testscript-example-search/02-PatientSearchDynamic",
             "testscript-example-search/SETUP",
             "testscript-example-update/SETUP",
-            "transactionandbatchtest/XFER0",
+            "transactionandbatchtest/XFER4",
+            "transactionandbatchtest/XFER6",
+            "transactionandbatchtest/XFER7",
             "transactionandbatchtest/XFER10",
         };
 
         public static readonly string[] KnownCosmosDbFailures =
         {
+            "transactionandbatchtest/XFER0",
             "search001/SE05.5P",
             "search001/SE05.5G",
         };
