@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(features, nameof(features));
+            EnsureArg.IsNotNull(features.Value, nameof(features));
 
             _mediator = mediator;
             _features = features.Value;
