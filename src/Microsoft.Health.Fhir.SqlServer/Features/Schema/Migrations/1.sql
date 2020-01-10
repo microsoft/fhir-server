@@ -1356,6 +1356,7 @@ AS
     BEGIN TRANSACTION
 
     -- Get the number of jobs that are running and not stale.
+    -- Acquire a table lock, which will be held for the entire transaction.
     DECLARE @numberOfRunningJobs int
     SELECT @numberOfRunningJobs = COUNT(*) FROM dbo.ExportJob WITH (TABLOCKX) WHERE Status = 'Running' AND HeartbeatDateTime > @expirationDateTime
 
@@ -1371,12 +1372,17 @@ AS
     WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= @expirationDateTime))
     ORDER BY HeartbeatDateTime, QueuedDateTime
 
+    DECLARE @updatedJobs TABLE (RawJobRecord varchar(max) NOT NULL, JobVersion binary(8) NOT NULL)
+
     -- Update each available job's status to running both in the dbo.ExportJob table's Status column and in the raw export job record JSON.
     UPDATE dbo.ExportJob
     SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = REPLACE(RawJobRecord, '"status":1', '"status":2')
-    WHERE Id IN (SELECT Id FROM @availableJobs) AND JobVersion IN (SELECT JobVersion from @availableJobs)
+    OUTPUT inserted.RawJobRecord, inserted.JobVersion
+    INTO @updatedJobs
+    WHERE Id IN (SELECT Id FROM @availableJobs) AND JobVersion IN (SELECT JobVersion FROM @availableJobs)
 
-    SELECT * FROM dbo.ExportJob WHERE Id IN (SELECT Id FROM @availableJobs) AND JobVersion IN (SELECT JobVersion from @availableJobs)
+    -- Return information about the updated jobs.
+    SELECT * FROM @updatedJobs
 
     COMMIT TRANSACTION
 GO

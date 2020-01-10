@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Data;
 using System.Data.SqlClient;
 using System.Net;
 using System.Threading;
@@ -42,21 +43,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // We will consider a job to be stale if its timestamp is smaller than or equal to this.
             DateTimeOffset expirationTime = Clock.UtcNow - jobHeartbeatTimeoutThreshold;
 
+            // We will timestamp the jobs when we mark them as running to track stale jobs.
+            DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
+
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
-
                 V1.AcquireExportJobs.PopulateCommand(
                     sqlCommand,
                     expirationTime,
                     maximumNumberOfConcurrentJobsAllowed,
                     heartbeatTimeStamp);
 
-                await sqlCommand.ExecuteReaderAsync(cancellationToken); // TODO: Capture result from this.
+                var acquiredJobs = new List<ExportJobOutcome>();
 
-                ////return new ReadOnlyCollection<ExportJobOutcome>(acquiredJobs);
-                return new ReadOnlyCollection<ExportJobOutcome>(new List<ExportJobOutcome>());
+                using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                {
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
+                    {
+                        (string rawJobRecord, byte[] rowVersionAsBytes) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
+
+                        var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
+
+                        if (BitConverter.IsLittleEndian)
+                        {
+                            Array.Reverse(rowVersionAsBytes);
+                        }
+
+                        const int startIndex = 0;
+                        var rowVersionAsDecimalString = BitConverter.ToInt32(rowVersionAsBytes, startIndex).ToString();
+
+                        acquiredJobs.Add(new ExportJobOutcome(exportJobRecord, WeakETag.FromVersionId(rowVersionAsDecimalString)));
+                    }
+                }
+
+                return new ReadOnlyCollection<ExportJobOutcome>(acquiredJobs);
             }
         }
 
