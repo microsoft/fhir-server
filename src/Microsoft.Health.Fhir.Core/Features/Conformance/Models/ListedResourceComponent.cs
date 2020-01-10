@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
     {
         public ListedResourceComponent()
         {
-            Profile = new ReferenceObjectHashSet<string>();
+            Profile = new CanonicalObjectHashSet<string>();
             Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
             SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
             Versioning = new DefaultOptionHashSet<string>("versioned", StringComparer.Ordinal);

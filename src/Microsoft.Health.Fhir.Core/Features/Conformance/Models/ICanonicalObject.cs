@@ -5,8 +5,8 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
-    internal interface IReferenceObject
+    internal interface ICanonicalObject
     {
-        object ReferenceObject { get; }
+        object CanonicalObject { get; }
     }
 }

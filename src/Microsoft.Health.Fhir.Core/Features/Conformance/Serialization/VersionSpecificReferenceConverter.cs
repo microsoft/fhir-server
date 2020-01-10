@@ -27,16 +27,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
             EnsureArg.IsNotNull(writer, nameof(writer));
             EnsureArg.IsNotNull(serializer, nameof(serializer));
 
-            if (value is IReferenceObject obj)
+            if (value is ICanonicalObject obj)
             {
-                // Base system profile for all uses of resouce is not supported in STU3
                 if (_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
                 {
-                    serializer.Serialize(writer, new ReferenceComponent(obj.ReferenceObject.ToString()));
+                    serializer.Serialize(writer, new ReferenceComponent(obj.CanonicalObject.ToString()));
                 }
                 else
                 {
-                    serializer.Serialize(writer, obj.ReferenceObject);
+                    serializer.Serialize(writer, obj.CanonicalObject);
                 }
             }
         }
@@ -51,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
             EnsureArg.IsNotNull(objectType, nameof(objectType));
 
             return objectType.IsGenericType &&
-                   objectType.GetGenericTypeDefinition().IsAssignableFrom(typeof(ReferenceObjectHashSet<>));
+                   objectType.GetGenericTypeDefinition().IsAssignableFrom(typeof(CanonicalObjectHashSet<>));
         }
     }
 }

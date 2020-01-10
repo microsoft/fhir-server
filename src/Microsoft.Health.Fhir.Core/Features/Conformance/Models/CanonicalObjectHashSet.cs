@@ -8,30 +8,30 @@ using System.Collections.Generic;
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Should be consistent with base type.")]
-    internal class ReferenceObjectHashSet<T> : HashSet<T>, IReferenceObject
+    internal class CanonicalObjectHashSet<T> : HashSet<T>, ICanonicalObject
     {
-        public ReferenceObjectHashSet(T referenceObject)
+        public CanonicalObjectHashSet(T canonicalObject)
         {
-            ReferenceObject = referenceObject;
+            CanonicalObject = canonicalObject;
         }
 
-        public ReferenceObjectHashSet()
+        public CanonicalObjectHashSet()
         {
         }
 
-        public ReferenceObjectHashSet(T referenceObject, IEqualityComparer<T> comparer)
+        public CanonicalObjectHashSet(T canonicalObject, IEqualityComparer<T> comparer)
             : base(comparer)
         {
-            ReferenceObject = referenceObject;
+            CanonicalObject = canonicalObject;
         }
 
-        public T ReferenceObject { get; set;  }
+        public T CanonicalObject { get; set;  }
 
-        object IReferenceObject.ReferenceObject
+        object ICanonicalObject.CanonicalObject
         {
             get
             {
-                return ReferenceObject;
+                return CanonicalObject;
             }
         }
     }

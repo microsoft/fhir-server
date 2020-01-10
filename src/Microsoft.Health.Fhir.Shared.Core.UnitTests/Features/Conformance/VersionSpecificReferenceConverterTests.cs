@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAReferenceObject_WhenConvertingToJsonInStu3_ThenOneOptionIsSerializedAsPerStu3InsteadOfAList()
+        public void GivenACanonicalObject_WhenConvertingToJsonInStu3_ThenOneOptionIsSerializedAsPerStu3InsteadOfAList()
         {
             _modelInfoProvider.Version.Returns(FhirSpecification.R4);
             var json = GetJson("B");
@@ -33,18 +33,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAReferenceObject_WhenConvertingToJsonInR4_ThenOneOptionIsSerializedAsPerR4InsteadOfAList()
+        public void GivenACanonicalObject_WhenConvertingToJsonInR4_ThenOneOptionIsSerializedAsPerR4InsteadOfAList()
         {
             var json = GetJson("B");
 
             Assert.Equal("{\"prop1\":{\"reference\":\"B\"}}", json);
         }
 
-        private string GetJson(string referenceObject)
+        private string GetJson(string canonicalObject)
         {
             var obj = new
             {
-                Prop1 = new ReferenceObjectHashSet<string>(referenceObject)
+                Prop1 = new CanonicalObjectHashSet<string>(canonicalObject)
                 {
                     "A",
                     "B",
