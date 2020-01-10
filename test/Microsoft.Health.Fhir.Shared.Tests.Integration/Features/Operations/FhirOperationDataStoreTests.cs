@@ -134,21 +134,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(3, 2)]
         public async Task GivenNumberOfRunningJobs_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
-            await InsertNewExportJobRecordAsync();
-            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync();
+            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(); // Queued
+            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
-            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync();
+            ExportJobRecord jobRecord3 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
 
-            // Set the oldest queued jobs to 'Running', and update its timestamp. This job shouldn't be returned next time we acquire.
-            await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
+            // Set the one of the queued jobs to 'Running', and update its timestamp. This job shouldn't be returned next time we acquire.
+            IReadOnlyCollection<ExportJobOutcome> runningJobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
 
-            ExportJobRecord[] expectedJobRecords = new[] { jobRecord1, jobRecord2 };
+            Assert.NotNull(runningJobs);
+            Assert.Equal(1, runningJobs.Count);
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
+            ExportJobOutcome runningJob = runningJobs.FirstOrDefault();
 
-            Assert.NotNull(jobs);
+            // Remove the running job from the list of jobs that are expected to be returned next acquire.
+            var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2, jobRecord3 };
+            ExportJobRecord runningJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == runningJob?.JobRecord.Id);
+            expectedJobRecords.Remove(runningJobRecord);
+
+            IReadOnlyCollection<ExportJobOutcome> acquiredJobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
+
+            Assert.NotNull(acquiredJobs);
 
             Action<ExportJobOutcome>[] validators = expectedJobRecords
                 .Take(expectedNumberOfJobsReturned)
@@ -161,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 })).ToArray();
 
             Assert.Collection(
-                jobs,
+                acquiredJobs,
                 validators);
         }
 
