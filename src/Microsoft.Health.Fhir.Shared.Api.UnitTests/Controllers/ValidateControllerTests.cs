@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             ValidateController disabledValidateController = GetController(false);
             Resource payload = new Observation();
 
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(() => disabledValidateController.Validate(payload, null, null));
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(() => disabledValidateController.Validate(payload, profile: null, mode: null));
 
             CheckOperationOutcomeIssue(
                 ex,
@@ -40,7 +40,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async void GivenAValidationRequest_WhenPassedAProfileQueryParameter_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
         {
             Resource payload = new Observation();
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, "profile", null));
+            string profile = "profile";
+            string mode = null;
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
 
             CheckOperationOutcomeIssue(
                 ex,
@@ -54,7 +56,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async void GivenAValidationRequest_WhenPassedAModeQueryParameter_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
         {
             Resource payload = new Observation();
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, null, "mode"));
+            string profile = "profile";
+            string mode = null;
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
 
             CheckOperationOutcomeIssue(
                 ex,
@@ -68,7 +72,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async void GivenAValidationRequest_WhenPassedAParametersResource_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
         {
             Resource payload = new Parameters();
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, null, null));
+            string profile = null;
+            string mode = null;
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
 
             CheckOperationOutcomeIssue(
                 ex,
