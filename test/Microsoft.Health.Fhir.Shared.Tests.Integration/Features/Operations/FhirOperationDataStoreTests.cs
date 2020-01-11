@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             ExportJobRecord jobRecord3 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
 
-            // Set the one of the queued jobs to 'Running', and update its timestamp. This job shouldn't be returned next time we acquire.
+            // Set the one of the queued jobs to running, and update its timestamp. This job shouldn't be returned next time we acquire.
             IReadOnlyCollection<ExportJobOutcome> runningJobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
 
             Assert.NotNull(runningJobs);
@@ -149,28 +149,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
             ExportJobOutcome runningJob = runningJobs.FirstOrDefault();
 
-            // Remove the running job from the list of jobs that are expected to be returned next acquire.
+            Assert.NotNull(runningJob);
+
             var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2, jobRecord3 };
-            ExportJobRecord runningJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == runningJob?.JobRecord.Id);
+
+            // Remove the running job from the list of jobs that are expected to be returned next acquire.
+            ExportJobRecord runningJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == runningJob.JobRecord.Id);
             expectedJobRecords.Remove(runningJobRecord);
 
-            IReadOnlyCollection<ExportJobOutcome> acquiredJobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
+            IReadOnlyCollection<ExportJobOutcome> readonlyAcquiredJobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
+            var acquiredJobOutcomes = new List<ExportJobOutcome>(readonlyAcquiredJobOutcomes).OrderBy(job => job.JobRecord.Id).ToList();
 
-            Assert.NotNull(acquiredJobs);
+            Assert.NotNull(acquiredJobOutcomes);
+            Assert.Equal(expectedNumberOfJobsReturned, acquiredJobOutcomes.Count);
 
-            Action<ExportJobOutcome>[] validators = expectedJobRecords
-                .Take(expectedNumberOfJobsReturned)
-                .Select(expectedJobRecord => new Action<ExportJobOutcome>(job =>
+            // Sort both lists by ID to ensure we are comparing the correct jobs with each other.
+            expectedJobRecords = expectedJobRecords.OrderBy(job => job.Id).ToList();
+            acquiredJobOutcomes = acquiredJobOutcomes.OrderBy(job => job.JobRecord.Id).ToList();
+
+            if (expectedJobRecords.Count > 0 && acquiredJobOutcomes.Count > 0)
+            {
+                for (int i = 0; i < Math.Min(expectedJobRecords.Count, acquiredJobOutcomes.Count); i++)
                 {
                     // The job should be marked as running now since it's acquired.
-                    expectedJobRecord.Status = OperationStatus.Running;
+                    expectedJobRecords[i].Status = OperationStatus.Running;
 
-                    ValidateExportJobOutcome(expectedJobRecord, job.JobRecord);
-                })).ToArray();
-
-            Assert.Collection(
-                acquiredJobs,
-                validators);
+                    ValidateExportJobOutcome(expectedJobRecords[i], acquiredJobOutcomes[i].JobRecord);
+                }
+            }
         }
 
         [Fact]
