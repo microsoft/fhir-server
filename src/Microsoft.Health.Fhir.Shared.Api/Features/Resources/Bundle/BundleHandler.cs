@@ -281,7 +281,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (reference.Reference.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
                 {
                     string[] versionedReference = reference.Reference.Split("/_history/");
-                    reference.Reference = versionedReference[0];
                     versionId = versionedReference[1];
                 }
 
@@ -292,9 +291,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
                     }
-                    else if (referenceInformation.versionId == versionId)
+                    else
                     {
-                        reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{referenceInformation.versionId}";
+                        var version = await _transactionBundleValidator.GetLatestVersionId(new ResourceKey(referenceInformation.resourceType, referenceInformation.resourceId), cancellationToken);
+
+                        if (version != null)
+                        {
+                            versionId = (int.Parse(version) + 1).ToString();
+                        }
+
+                        reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{versionId}";
                     }
                 }
                 else
@@ -318,9 +324,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
 
                         string resourceId = results[0].Resource.ResourceId;
-                        versionId = results[0].Resource.Version;
 
-                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType, versionId));
+                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType, null));
 
                         reference.Reference = $"{resourceType}/{resourceId}";
                     }
@@ -449,7 +454,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             foreach (EntryComponent entry in bundleEntries)
             {
-                var versionId = entry.Resource?.Meta?.VersionId;
+                var versionId = string.Empty;
+
+                if (entry.FullUrl != null && entry.FullUrl.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] versionedReference = entry.FullUrl.Split("/_history/");
+                    versionId = versionedReference[1];
+                }
+
                 var requestUrl = entry.Request?.Url;
 
                 if (entry.Request.Method == HTTPVerb.POST)
@@ -461,13 +473,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         var insertId = _resourceIdProvider.Create();
                         entry.Resource.Id = insertId;
 
-                        // Use 1 as a version if meta.version is not present.
-                        var version = versionId ?? "1";
-
-                        idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName, version));
+                        // Use 1 as a default version
+                        idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName, "1"));
                     }
                 }
-                else if (versionId != null && requestUrl != null && !string.IsNullOrWhiteSpace(entry.FullUrl))
+                else if (!string.IsNullOrWhiteSpace(versionId) && requestUrl != null && !string.IsNullOrWhiteSpace(entry.FullUrl))
                 {
                     // Extract resourceId from requestUrl.
                     var resourceId = IsRequestUrlContainsResourceId(requestUrl) ? requestUrl.Split("/")[1] : null;

@@ -137,6 +137,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return await Search(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken);
         }
 
+        public async Task<string> GetLatestVersionId(ResourceKey key, CancellationToken cancellationToken)
+        {
+            var currectResource = await FhirDataStore.GetAsync(key, cancellationToken);
+
+            if (currectResource != null)
+            {
+                return currectResource.Version;
+            }
+
+            return null;
+        }
+
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
         {
             string requestUrl = entry.Request.Url;
