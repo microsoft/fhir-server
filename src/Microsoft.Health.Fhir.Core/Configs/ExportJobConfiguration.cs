@@ -15,6 +15,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public bool Enabled { get; set; }
 
+        /// <summary>
+        /// Determines the type of the default storage account that will be used to export data to.
+        /// </summary>
+        public string DefaultStorageAccountType { get; set; }
+
+        /// <summary>
+        /// Determines the default storage account that will be used to export data to.
+        /// </summary>
+        public string DefaultStorageAccountConnection { get; set; }
+
         public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
 
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);

@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Storage;
+using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -46,7 +47,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             string decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
             if (!CloudStorageAccount.TryParse(decodedConnectionString, out CloudStorageAccount cloudAccount))
             {
-                throw new DestinationConnectionException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
+                _logger.LogWarning($"Unable to connect to client using connection string: {decodedConnectionString}");
+
+                // trying to use another way
+                var tokenCredential = new TokenCredential(connectionSettings);
+                StorageCredentials storageCred = new StorageCredentials(tokenCredential);
+                cloudAccount = new CloudStorageAccount(storageCred, useHttps: true);
+
+                _logger.LogInformation($"Successfully connected to client using token credentials from connection string: {decodedConnectionString}");
             }
 
             _blobClient = cloudAccount.CreateCloudBlobClient();

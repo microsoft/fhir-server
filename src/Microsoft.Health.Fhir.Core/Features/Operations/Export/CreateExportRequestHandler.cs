@@ -72,14 +72,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 var jobRecord = new ExportJobRecord(uriBuilder.Uri, request.ResourceType, hash, requestorClaims);
 
-                // Store the destination secret.
-                try
+                Uri destinationUri;
+                if (Uri.TryCreate(request.DestinationInfo.DestinationConnectionString, UriKind.RelativeOrAbsolute, out destinationUri))
                 {
-                    await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInfo.ToJson(), cancellationToken);
+                    // we are dealing with a case where storage account info is present in config.
+                    jobRecord.DestinationType = request.DestinationInfo.DestinationType;
+                    jobRecord.StorageAccountUri = destinationUri;
                 }
-                catch (SecretStoreException sse)
+                else
                 {
-                    throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, sse.Message), sse.ResponseStatusCode);
+                    // Store the destination secret.
+                    try
+                    {
+                        await _secretStore.SetSecretAsync(jobRecord.SecretName, request.DestinationInfo.ToJson(), cancellationToken);
+                    }
+                    catch (SecretStoreException sse)
+                    {
+                        throw new OperationFailedException(string.Format(Resources.OperationFailed, OperationsConstants.Export, sse.Message), sse.ResponseStatusCode);
+                    }
                 }
 
                 outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);

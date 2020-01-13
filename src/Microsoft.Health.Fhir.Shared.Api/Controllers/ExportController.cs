@@ -87,6 +87,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
             }
 
+            if (string.IsNullOrWhiteSpace(destinationType) && string.IsNullOrWhiteSpace(destinationConnectionString))
+            {
+                destinationType = _exportConfig.DefaultStorageAccountType;
+                destinationConnectionString = _exportConfig.DefaultStorageAccountConnection;
+            }
+
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, destinationType, destinationConnectionString, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();
