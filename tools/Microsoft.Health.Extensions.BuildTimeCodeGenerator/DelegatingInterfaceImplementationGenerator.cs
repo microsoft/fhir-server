@@ -44,7 +44,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
                     FieldDeclaration(VariableDeclaration(_interfacesToImplement[0].ToTypeSyntax()).AddVariables(VariableDeclarator(FieldName.Identifier))).AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.ReadOnlyKeyword)),
                     GetConstructor(typeName))
                 .AddMembers(GetPropertiesAndMethods().ToArray());
-            return (classDeclarration, new UsingDirectiveSyntax[0]);
+            return (classDeclarration, Array.Empty<UsingDirectiveSyntax>());
         }
 
         private ConstructorDeclarationSyntax GetConstructor(string className)
