@@ -3,7 +3,7 @@
     "type": "transaction",
     "entry": [
         {
-            "fullUrl": "Patient/b338216e-081b-49e3-a809-e2d662b6e0e3",
+            "fullUrl": "Patient/b338216e-081b-49e3-a809-e2d662b6e0e3/_history/1",
             "resource": {
                 "resourceType": "Patient",
                 "id": "b338216e-081b-49e3-a809-e2d662b6e0e3",

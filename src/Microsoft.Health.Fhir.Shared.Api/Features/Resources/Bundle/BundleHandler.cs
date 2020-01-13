@@ -276,18 +276,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     continue;
                 }
 
-                string versionId = string.Empty;
-
-                if (reference.Reference.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
-                {
-                    string[] versionedReference = reference.Reference.Split("/_history/");
-                    versionId = versionedReference[1];
-                }
-
                 // Checks to see if this reference has already been assigned an Id
                 if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceInformation))
                 {
-                    if (string.IsNullOrWhiteSpace(versionId))
+                    if (!reference.Reference.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
                     {
                         reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
                     }
@@ -295,12 +287,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         var version = await _transactionBundleValidator.GetLatestVersionId(new ResourceKey(referenceInformation.resourceType, referenceInformation.resourceId), cancellationToken);
 
+                        string updatedVersionId = "1";
+
+                        // updates version after this transaction is complete.
+                        // if this is a new resource, version will be null during transaction and therefore will default to 1 after transaction.
                         if (version != null)
                         {
-                            versionId = (int.Parse(version) + 1).ToString();
+                            if (int.TryParse(version, out int versionId))
+                            {
+                                updatedVersionId = (versionId + 1).ToString();
+                            }
                         }
 
-                        reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{versionId}";
+                        reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{updatedVersionId}";
                     }
                 }
                 else

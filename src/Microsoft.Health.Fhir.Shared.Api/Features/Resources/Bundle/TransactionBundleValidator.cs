@@ -140,13 +140,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public async Task<string> GetLatestVersionId(ResourceKey key, CancellationToken cancellationToken)
         {
             var currectResource = await FhirDataStore.GetAsync(key, cancellationToken);
-
-            if (currectResource != null)
-            {
-                return currectResource.Version;
-            }
-
-            return null;
+            return currectResource?.Version;
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
