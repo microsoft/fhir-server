@@ -11,8 +11,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -31,12 +33,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
         private readonly IExportDestinationClientFactory _exportDestinationClientFactory = Substitute.For<IExportDestinationClientFactory>();
         private readonly ValidateExportRequestFilterAttribute _filter;
+        private readonly ExportJobConfiguration _exportJobConfiguration;
 
         public ValidateExportRequestFilterAttributeTests()
         {
             _exportDestinationClientFactory.IsSupportedDestinationType(SupportedDestinationType).Returns(true);
+            _exportJobConfiguration = new ExportJobConfiguration();
 
-            _filter = new ValidateExportRequestFilterAttribute(_exportDestinationClientFactory);
+            IOptions<OperationsConfiguration> operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfig.Value.Export.Returns(_exportJobConfiguration);
+
+            _filter = new ValidateExportRequestFilterAttribute(_exportDestinationClientFactory, operationsConfig);
         }
 
         [Theory]
@@ -90,10 +97,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GiveARequestWithValidAcceptAndPreferHeader_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
-            var context = CreateContextWithParams();
-
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            var context = CreateContextWithParams(addAcceptAndPreferHeaders: true);
 
             _filter.OnActionExecuting(context);
         }
@@ -106,10 +110,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 { KnownQueryParameterNames.DestinationConnectionSettings, "destination" },
             };
 
-            var context = CreateContextWithParams(queryParams);
-
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -122,10 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 { KnownQueryParameterNames.DestinationType, SupportedDestinationType },
             };
 
-            var context = CreateContextWithParams(queryParams);
-
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -139,10 +137,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 { KnownQueryParameterNames.DestinationConnectionSettings, "destination" },
             };
 
-            var context = CreateContextWithParams(queryParams);
-
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -156,7 +151,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 { KnownQueryParameterNames.DestinationConnectionSettings, "***nonbase64encoded****" },
             };
 
-            var context = CreateContextWithParams(queryParams);
+            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
 
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
@@ -174,15 +169,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 { KnownQueryParameterNames.Since, "forever" },
             };
 
-            var context = CreateContextWithParams(queryParams);
-
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        private static ActionExecutingContext CreateContextWithParams(Dictionary<string, StringValues> queryParams = null)
+        private static ActionExecutingContext CreateContextWithParams(Dictionary<string, StringValues> queryParams = null, bool addAcceptAndPreferHeaders = false)
         {
             var context = new ActionExecutingContext(
                 new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
@@ -198,6 +190,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             }
 
             context.HttpContext.Request.Query = new QueryCollection(queryParams);
+
+            if (addAcceptAndPreferHeaders)
+            {
+                context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+                context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            }
+
             return context;
         }
     }
