@@ -284,6 +284,7 @@
   </data>
   <data name="ValidationNotSupported" xml:space="preserve">
     <value>$validate is not a supported endpoint.</value>
+    <comment>{NumberedPlaceHolder="$validate"}</comment>
   </data>
   <data name="ValidateWithProfileNotSupported" xml:space="preserve">
     <value>Validation against a profile is not supported.</value>

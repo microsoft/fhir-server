@@ -314,6 +314,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return await CreateResponseAsync<Bundle>(response);
         }
 
+        public async Task<OperationOutcome> ValidateAsync(string uri, string resource)
+        {
+            // resource is a string instead of a Resource object because the validate endpoint is frequently sent invalid resources that couldn't be parsed.
+
+            var message = new HttpRequestMessage(HttpMethod.Post, uri);
+            message.Content = new StringContent(resource, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<OperationOutcome>(response);
+        }
+
         private StringContent CreateStringContent(Resource resource)
         {
             return new StringContent(_serialize(resource, SummaryType.False), Encoding.UTF8, _contentType);
