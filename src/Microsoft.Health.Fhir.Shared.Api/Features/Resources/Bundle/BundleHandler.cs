@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private int _requestCount;
         private readonly HTTPVerb[] _verbExecutionOrder;
         private readonly List<int> _emptyRequestsOrder;
-        private readonly Dictionary<string, (string resourceId, string resourceType, string versionId)> _referenceIdDictionary;
+        private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private BundleType? _bundleType;
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
             _emptyRequestsOrder = new List<int>();
-            _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType, string versionId)>();
+            _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
         private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                     {
-                        if (_referenceIdDictionary.TryGetValue(entry.FullUrl, out (string resourceId, string resourceType, string versionId) value))
+                        if (_referenceIdDictionary.TryGetValue(entry.FullUrl, out (string resourceId, string resourceType) value))
                         {
                             persistedId = value.resourceId;
                         }
@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType, string versionId)> referenceIdDictionary, CancellationToken cancellationToken)
+        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
 
@@ -324,7 +324,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         string resourceId = results[0].Resource.ResourceId;
 
-                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType, null));
+                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
 
                         reference.Reference = $"{resourceType}/{resourceId}";
                     }
@@ -449,41 +449,44 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType, string versionId)> idDictionary)
+        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
         {
             foreach (EntryComponent entry in bundleEntries)
             {
                 var versionId = string.Empty;
 
-                if (entry.FullUrl != null && entry.FullUrl.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(entry.FullUrl))
                 {
-                    string[] versionedReference = entry.FullUrl.Split("/_history/");
-                    versionId = versionedReference[1];
-                }
-
-                var requestUrl = entry.Request?.Url;
-
-                if (entry.Request.Method == HTTPVerb.POST)
-                {
-                    // We've already come across this ID
-                    if (!string.IsNullOrWhiteSpace(entry.FullUrl) && !idDictionary.ContainsKey(entry.FullUrl))
+                    if (entry.FullUrl.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
                     {
-                        // This id is new to us
-                        var insertId = _resourceIdProvider.Create();
-                        entry.Resource.Id = insertId;
-
-                        // Use 1 as a default version
-                        idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName, "1"));
+                        string[] versionedReference = entry.FullUrl.Split("/_history/");
+                        versionId = versionedReference[1];
                     }
-                }
-                else if (!string.IsNullOrWhiteSpace(versionId) && requestUrl != null && !string.IsNullOrWhiteSpace(entry.FullUrl))
-                {
-                    // Extract resourceId from requestUrl.
-                    var resourceId = IsRequestUrlContainsResourceId(requestUrl) ? requestUrl.Split("/")[1] : null;
 
-                    if (resourceId != null)
+                    var requestUrl = entry.Request?.Url;
+
+                    if (entry.Request.Method == HTTPVerb.POST)
                     {
-                        idDictionary.Add(entry.FullUrl, (resourceId, entry.Resource.TypeName, versionId));
+                        // We've already come across this ID
+                        if (!idDictionary.ContainsKey(entry.FullUrl))
+                        {
+                            // This id is new to us
+                            var insertId = _resourceIdProvider.Create();
+                            entry.Resource.Id = insertId;
+
+                            // Use 1 as a default version
+                            idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(versionId) && requestUrl != null)
+                    {
+                        // Extract resourceId from requestUrl.
+                        var resourceId = IsRequestUrlContainsResourceId(requestUrl) ? requestUrl.Split("/")[1] : null;
+
+                        if (resourceId != null)
+                        {
+                            idDictionary.Add(entry.FullUrl, (resourceId, entry.Resource.TypeName));
+                        }
                     }
                 }
             }
