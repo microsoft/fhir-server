@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported..
+        ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported for this operation..
         /// </summary>
         public static string InvalidBundleType {
             get {
