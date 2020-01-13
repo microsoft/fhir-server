@@ -65,12 +65,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, CancellationToken cancellationToken)
-        {
-            var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-            await ResolveBundleReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, cancellationToken);
-        }
-
         private static string BuildRequestUrlForConditionalQueries(EntryComponent entry, string conditionalCreateQuery)
         {
             return string.IsNullOrWhiteSpace(conditionalCreateQuery) ? entry.Request.Url : entry.Request.Url + "?" + conditionalCreateQuery;

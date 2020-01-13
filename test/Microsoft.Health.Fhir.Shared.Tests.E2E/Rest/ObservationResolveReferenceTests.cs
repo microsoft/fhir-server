@@ -43,15 +43,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             observation.Subject.Reference = $"Patient?identifier={uniqueIdentifier}";
 
-            FhirResponse<Observation> updateResponse = await Client.CreateAsync(
+            FhirResponse<Observation> createResponse = await Client.CreateAsync(
                 observation);
 
-            Assert.Equal(HttpStatusCode.Created, updateResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-            Observation updatedResource = updateResponse.Resource;
+            Observation createdResource = createResponse.Resource;
 
-            Assert.NotNull(updatedResource);
-            Assert.NotNull(updatedResource.Id);
+            Assert.NotNull(createdResource);
+            Assert.NotNull(createdResource.Id);
         }
 
         [Fact]

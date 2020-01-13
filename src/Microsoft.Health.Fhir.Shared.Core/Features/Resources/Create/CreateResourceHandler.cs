@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             // If an Id is supplied on create it should be removed/ignored
             resource.Id = null;
 
-            await ResolveBundleReferencesAsync(resource, _referenceIdDictionary, resource.ResourceType.ToString(), cancellationToken);
+            await ResolveReferencesAsync(resource, _referenceIdDictionary, resource.ResourceType.ToString(), cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
 

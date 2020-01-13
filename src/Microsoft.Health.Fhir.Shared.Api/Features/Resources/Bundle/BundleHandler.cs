@@ -214,7 +214,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // For resources within a transaction, we need to resolve any intrabundle references and potentially persist any internally assigned ids
                 if (_bundleType == BundleType.Transaction && entry.Resource != null)
                 {
-                    await _transactionBundleValidator.ResolveBundleReferences(entry, _referenceIdDictionary, cancellationToken);
+                    var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
+                    await _transactionBundleValidator.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, cancellationToken);
 
                     if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                     {
