@@ -6,22 +6,19 @@
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Validate)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ValidateTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly Common.FhirClient _client;
-        private readonly JsonSerializer _serializer;
 
         public ValidateTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.FhirClient;
-            _serializer = JsonSerializer.Create();
         }
 
         [Theory]
