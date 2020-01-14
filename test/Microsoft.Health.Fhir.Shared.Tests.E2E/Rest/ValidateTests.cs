@@ -36,6 +36,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "All OK");
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Xml)]
+        [Theory]
+        [InlineData("Observation/$validate", "<Observation xmlns=\"http://hl7.org/fhir\"><status value=\"final\"/><code><coding><system value=\"system\"/><code value=\"code\"/></coding></code></Observation>")]
+        public async void GivenAValidateRequestInXML_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string payload)
+        {
+            OperationOutcome outcome = await _client.ValidateAsync(path, payload, true);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Information,
+                OperationOutcome.IssueType.Informational,
+                "All OK");
+        }
+
         [Theory]
         [InlineData(
             "Patient/$validate",
