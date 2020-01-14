@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
+        private readonly IAccessTokenProvider _accessTokenProvider;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -49,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClientFactory exportDestinationClientFactory,
+            IAccessTokenProvider accessTokenProvider,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -57,6 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
+            EnsureArg.IsNotNull(accessTokenProvider, nameof(accessTokenProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -65,6 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClientFactory = exportDestinationClientFactory;
+            _accessTokenProvider = accessTokenProvider;
             _logger = logger;
         }
 
@@ -211,16 +215,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
+        private async Task GetAccessTokenAndConnect(Uri resourceUri, CancellationToken cancellationToken)
+        {
+            var accessToken = _accessTokenProvider.GetAccessTokenForResource(resourceUri);
+            _logger.LogInformation($"Access token got from provider: {accessToken}");
+
+            _exportDestinationClient = _exportDestinationClientFactory.Create("azure-block-blob");
+
+            try
+            {
+                await _exportDestinationClient.ConnectAsync(accessToken, cancellationToken, _exportJobRecord.Id);
+            }
+            catch (DestinationConnectionException dce)
+            {
+                _logger.LogWarning(dce, "Failed to connect to export destination client");
+            }
+        }
+
         // Get destination info from secret store, create appropriate export client and connect to destination.
         private async Task GetDestinationInfoAndConnectAsync(CancellationToken cancellationToken)
         {
-            SecretWrapper secret = await _secretStore.GetSecretAsync(_exportJobRecord.SecretName, cancellationToken);
+            if (_exportJobRecord.StorageAccountUri != null)
+            {
+                await GetAccessTokenAndConnect(new Uri(_exportJobConfiguration.DefaultStorageAccountConnection), cancellationToken);
+            }
+            else
+            {
+                SecretWrapper secret = await _secretStore.GetSecretAsync(_exportJobRecord.SecretName, cancellationToken);
 
-            DestinationInfo destinationInfo = JsonConvert.DeserializeObject<DestinationInfo>(secret.SecretValue);
+                DestinationInfo destinationInfo = JsonConvert.DeserializeObject<DestinationInfo>(secret.SecretValue);
 
-            _exportDestinationClient = _exportDestinationClientFactory.Create(destinationInfo.DestinationType);
+                _exportDestinationClient = _exportDestinationClientFactory.Create(destinationInfo.DestinationType);
 
-            await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
+                await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
+            }
         }
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
