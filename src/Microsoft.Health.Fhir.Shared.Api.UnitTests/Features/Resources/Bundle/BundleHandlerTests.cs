@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
@@ -44,6 +46,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ISearchService _searchService;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
+        private readonly BundleConfiguration _bundleConfiguration;
 
         public BundleHandlerTests()
         {
@@ -91,6 +94,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
 
+            _bundleConfiguration = new BundleConfiguration();
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+            bundleOptions.Value.Returns(_bundleConfiguration);
+
             _bundleHandler = new BundleHandler(
                 _httpContextAccessor,
                 _fhirRequestContextAccessor,
@@ -101,6 +108,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 _resourceIdProvider,
                 transactionBundleValidator,
                 _auditEventTypeMapping,
+                bundleOptions,
                 NullLogger<BundleHandler>.Instance);
         }
 
@@ -215,7 +223,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal("404", bundleResource.Entry[1].Response.Status);
             Assert.Equal("200", bundleResource.Entry[2].Response.Status);
         }
-
+      
         private void RouteAsyncFunction(CallInfo callInfo)
         {
             var routeContext = callInfo.Arg<RouteContext>();
