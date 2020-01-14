@@ -474,7 +474,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             var insertId = _resourceIdProvider.Create();
                             entry.Resource.Id = insertId;
 
-                            // Use 1 as a default version
                             idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
                         }
                     }
