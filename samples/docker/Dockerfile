@@ -5,9 +5,10 @@ ARG FHIR_VERSION=R4
 WORKDIR /build
 
 COPY ./*.* ./
-COPY ./samples/docker/docker_global.json ./global.json
 COPY ./src/ ./src/
 COPY ./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/ ./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/
+
+RUN rm ./global.json
 
 RUN dotnet add "./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/Microsoft.Health.Extensions.BuildTimeCodeGenerator.csproj" package Microsoft.CodeAnalysis.Analyzers  --version 2.9.4
 

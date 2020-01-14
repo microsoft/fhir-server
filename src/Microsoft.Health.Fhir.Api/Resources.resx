@@ -144,7 +144,7 @@
     <value>Transaction was failed while processing the request.</value>
   </data>
   <data name="InvalidBundleType" xml:space="preserve">
-    <value>Bundles of type '{0}' are not supported.</value>
+    <value>Bundles of type '{0}' are not supported for this operation.</value>
     <comment>{0) is the given bundle type.</comment>
   </data>
   <data name="InvalidCompoundCode" xml:space="preserve">
@@ -278,5 +278,9 @@
   <data name="ResourceNotSupported" xml:space="preserve">
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>
+  </data>
+  <data name="BundleEntryLimitExceeded" xml:space="preserve">
+    <value>The number of entries in the bundle exceeded the configured limit of {0}.</value>
+    <comment>{0} is the number of entries allowed.</comment>
   </data>
 </root>

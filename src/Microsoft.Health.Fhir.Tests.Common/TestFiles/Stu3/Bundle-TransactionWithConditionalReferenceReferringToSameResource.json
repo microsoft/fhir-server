@@ -17,7 +17,7 @@
                 "identifier": [
                     {
                         "system": "http:/example.org/fhir/ids",
-                        "value": "234259"
+                        "value": "234234"
                     }
                 ],
                 "active": true,
@@ -36,7 +36,7 @@
             },
             "request": {
                 "method": "PUT",
-                "url": "Patient?identifier=http:/example.org/fhir/ids|234259"
+                "url": "Patient?identifier=http:/example.org/fhir/ids|234234"
             }
         },
         {
@@ -69,7 +69,7 @@
             "request": {
                 "method": "POST",
                 "url": "Patient",
-                "ifNoneExist": "identifier=http:/example.org/fhir/ids|234259"
+                "ifNoneExist": "identifier=http:/example.org/fhir/ids|234234"
             }
         }
     ]
