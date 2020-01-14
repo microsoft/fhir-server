@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
@@ -12,7 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
     {
         public ListedResourceComponent()
         {
-            Profile = new CanonicalObjectHashSet<string>();
             Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
             SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
             Versioning = new DefaultOptionHashSet<string>("versioned", StringComparer.Ordinal);
@@ -36,8 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Type { get; set; }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Need to set in builder")]
-        public ICollection<string> Profile { get; set; }
+        public IReferenceComponent Profile { get; set; }
 
         public ICollection<ResourceInteractionComponent> Interaction { get; }
 

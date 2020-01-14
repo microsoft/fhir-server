@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -24,31 +23,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenACanonicalObject_WhenConvertingToJsonInStu3_ThenOneOptionIsSerializedAsPerStu3InsteadOfAList()
+        public void GivenAReferenceObject_WhenConvertingToJsonInStu3_ThenOneOptionIsSerializedAsPerStu3()
+        {
+            _modelInfoProvider.Version.Returns(FhirSpecification.Stu3);
+            var json = GetJson("B");
+
+            Assert.Equal("{\"reference\":\"http://hl7.org/fhir/StructureDefinition/Account\"}", json);
+        }
+
+        [Fact]
+        public void GivenAReferenceObject_WhenConvertingToJsonInR4_ThenOneOptionIsSerializedAsPerR4()
         {
             _modelInfoProvider.Version.Returns(FhirSpecification.R4);
             var json = GetJson("B");
 
-            Assert.Equal("{\"prop1\":\"B\"}", json);
-        }
-
-        [Fact]
-        public void GivenACanonicalObject_WhenConvertingToJsonInR4_ThenOneOptionIsSerializedAsPerR4InsteadOfAList()
-        {
-            var json = GetJson("B");
-
-            Assert.Equal("{\"prop1\":{\"reference\":\"B\"}}", json);
+            Assert.Equal("\"http://hl7.org/fhir/StructureDefinition/Account\"", json);
         }
 
         private string GetJson(string canonicalObject)
         {
-            var obj = new
+            var obj = new ReferenceComponentImpl()
             {
-                Prop1 = new CanonicalObjectHashSet<string>(canonicalObject)
+                RefComponent = new ReferenceComponent()
                 {
-                    "A",
-                    "B",
-                    "C",
+                    Reference = "http://hl7.org/fhir/StructureDefinition/Account",
                 },
             };
 

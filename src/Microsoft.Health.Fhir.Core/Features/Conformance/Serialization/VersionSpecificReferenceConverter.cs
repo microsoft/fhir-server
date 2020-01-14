@@ -5,7 +5,6 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
@@ -27,15 +26,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
             EnsureArg.IsNotNull(writer, nameof(writer));
             EnsureArg.IsNotNull(serializer, nameof(serializer));
 
-            if (value is ICanonicalObject obj)
+            if (value is IReferenceComponent obj)
             {
                 if (_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
                 {
-                    serializer.Serialize(writer, new ReferenceComponent(obj.CanonicalObject.ToString()));
+                    serializer.Serialize(writer, obj.ReferenceComponent);
                 }
                 else
                 {
-                    serializer.Serialize(writer, obj.CanonicalObject);
+                    serializer.Serialize(writer, obj.ReferenceComponent.Reference);
                 }
             }
         }
@@ -49,8 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
         {
             EnsureArg.IsNotNull(objectType, nameof(objectType));
 
-            return objectType.IsGenericType &&
-                   objectType.GetGenericTypeDefinition().IsAssignableFrom(typeof(CanonicalObjectHashSet<>));
+            return typeof(IReferenceComponent).IsAssignableFrom(objectType);
         }
     }
 }

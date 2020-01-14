@@ -5,13 +5,16 @@
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
-    public class ReferenceComponent
+    public class ReferenceComponentImpl : IReferenceComponent
     {
-        public string Reference { get; set; }
+        public ReferenceComponent RefComponent { get; set; }
 
-        public override string ToString()
+        ReferenceComponent IReferenceComponent.ReferenceComponent
         {
-            return "reference: " + Reference;
+            get
+            {
+                return RefComponent;
+            }
         }
     }
 }
