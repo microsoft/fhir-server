@@ -1371,7 +1371,7 @@ AS
 
     -- Update each available job's status to running both in the export table's status column and in the raw export job record JSON.
     UPDATE dbo.ExportJob
-    SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = REPLACE(RawJobRecord, '"status":1', '"status":2')
+    SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = JSON_MODIFY(RawJobRecord,'$.status', 2)
     OUTPUT inserted.RawJobRecord, inserted.JobVersion
     INTO @updatedJobs
     WHERE Id IN (SELECT Id FROM @availableJobs) AND JobVersion IN (SELECT JobVersion FROM @availableJobs)
