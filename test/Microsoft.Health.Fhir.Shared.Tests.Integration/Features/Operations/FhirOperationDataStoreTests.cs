@@ -157,25 +157,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             ExportJobRecord runningJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == runningJob.JobRecord.Id);
             expectedJobRecords.Remove(runningJobRecord);
 
-            IReadOnlyCollection<ExportJobOutcome> readonlyAcquiredJobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
-            var acquiredJobOutcomes = new List<ExportJobOutcome>(readonlyAcquiredJobOutcomes).OrderBy(job => job.JobRecord.Id).ToList();
+            IReadOnlyCollection<ExportJobOutcome> acquiredJobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
 
             Assert.NotNull(acquiredJobOutcomes);
             Assert.Equal(expectedNumberOfJobsReturned, acquiredJobOutcomes.Count);
 
-            // Sort both lists by ID to ensure we are comparing the correct jobs with each other.
-            expectedJobRecords = expectedJobRecords.OrderBy(job => job.Id).ToList();
-            acquiredJobOutcomes = acquiredJobOutcomes.OrderBy(job => job.JobRecord.Id).ToList();
-
-            if (expectedJobRecords.Count > 0 && acquiredJobOutcomes.Count > 0)
+            foreach (ExportJobOutcome acquiredJobOutcome in acquiredJobOutcomes)
             {
-                for (int i = 0; i < Math.Min(expectedJobRecords.Count, acquiredJobOutcomes.Count); i++)
-                {
-                    // The job should be marked as running now since it's acquired.
-                    expectedJobRecords[i].Status = OperationStatus.Running;
+                ExportJobRecord acquiredJobRecord = acquiredJobOutcome.JobRecord;
+                ExportJobRecord expectedJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == acquiredJobRecord.Id);
 
-                    ValidateExportJobOutcome(expectedJobRecords[i], acquiredJobOutcomes[i].JobRecord);
-                }
+                Assert.NotNull(expectedJobRecord);
+
+                // The job should be marked as running now since it's acquired.
+                expectedJobRecord.Status = OperationStatus.Running;
+
+                ValidateExportJobOutcome(expectedJobRecord, acquiredJobRecord);
             }
         }
 
