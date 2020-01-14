@@ -1374,8 +1374,8 @@ AS
     SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = JSON_MODIFY(RawJobRecord,'$.status', 2)
     OUTPUT inserted.RawJobRecord, inserted.JobVersion
     INTO @updatedJobs
-    WHERE Id IN (SELECT Id FROM @availableJobs) AND JobVersion IN (SELECT JobVersion FROM @availableJobs)
-
+    FROM dbo.ExportJob job INNER JOIN @availableJobs availableJob ON job.Id = availableJob.Id AND job.JobVersion = availableJob.JobVersion
+   
     -- Return information about the updated jobs.
     SELECT * FROM @updatedJobs
 
