@@ -8,6 +8,9 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
+    /// <summary>
+    /// This adapts the Json.net IArrayPool to the .NET ArrayPool
+    /// </summary>
     internal class JsonArrayPool : IArrayPool<char>
     {
         private readonly ArrayPool<char> _inner;
