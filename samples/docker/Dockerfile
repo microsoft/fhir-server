@@ -4,15 +4,11 @@ ARG FHIR_VERSION=R4
 
 WORKDIR /build
 
-COPY ./*.* ./
-COPY ./src/ ./src/
-COPY ./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/ ./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/
-
+COPY ./ ./
 RUN rm ./global.json
 
-RUN dotnet add "./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/Microsoft.Health.Extensions.BuildTimeCodeGenerator.csproj" package Microsoft.CodeAnalysis.Analyzers  --version 2.9.4
-
-RUN dotnet publish "./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj" -c Release -o "/build"
+RUN dotnet build --configuration Release
+RUN dotnet publish "./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj" -c Release -o "/build" --no-build
 
 FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine AS runtime
 
