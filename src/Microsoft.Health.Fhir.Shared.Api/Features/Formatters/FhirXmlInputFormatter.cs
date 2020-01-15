@@ -4,13 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Task = System.Threading.Tasks.Task;
 
@@ -45,21 +48,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         /// <remarks>
         /// Reference implementation: https://github.com/aspnet/Mvc/blob/dev/src/Microsoft.AspNetCore.Mvc.Formatters.Xml/XmlDataContractSerializerInputFormatter.cs
         /// </remarks>
-        public override Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context, Encoding encoding)
+        public override async Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context, Encoding encoding)
         {
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(encoding, nameof(encoding));
 
             context.HttpContext.AllowSynchronousIO();
 
-            var request = context.HttpContext.Request;
+            HttpRequest request = context.HttpContext.Request;
+
+            if (!request.Body.CanSeek)
+            {
+                request.EnableBuffering();
+                await request.Body.DrainAsync(context.HttpContext.RequestAborted);
+                request.Body.Seek(0L, SeekOrigin.Begin);
+            }
 
             try
             {
                 using (var textReader = XmlDictionaryReader.CreateTextReader(request.Body, encoding, XmlDictionaryReaderQuotas.Max, onClose: null))
                 {
                     var model = _parser.Parse<Resource>(textReader);
-                    return Task.FromResult(InputFormatterResult.Success(model));
+                    return InputFormatterResult.Success(model);
                 }
             }
             catch (Exception ex)
@@ -67,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 context.ModelState.TryAddModelError(string.Empty, ex.Message);
             }
 
-            return Task.FromResult(InputFormatterResult.Failure());
+            return InputFormatterResult.Failure();
         }
     }
 }
