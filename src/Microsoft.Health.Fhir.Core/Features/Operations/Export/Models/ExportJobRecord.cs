@@ -89,10 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.FailureDetails)]
         public ExportJobFailureDetails FailureDetails { get; set; }
 
-        [JsonProperty(JobRecordProperties.StorageAccountUri)]
-        public Uri StorageAccountUri { get; set; }
-
-        [JsonProperty(JobRecordProperties.DestinationType)]
-        public string DestinationType { get; set; }
+        [JsonProperty(JobRecordProperties.UseConfig)]
+        public bool UseConfig { get; set; }
     }
 }

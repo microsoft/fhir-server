@@ -61,26 +61,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (outcome == null)
             {
-                // Remove the connection settings from the request URI before we store it in the secret store.
-                NameValueCollection queryParameters = HttpUtility.ParseQueryString(request.RequestUri.Query);
-
-                queryParameters.Remove(KnownQueryParameterNames.DestinationType);
-                queryParameters.Remove(KnownQueryParameterNames.DestinationConnectionSettings);
-
-                var uriBuilder = new UriBuilder(request.RequestUri);
-                uriBuilder.Query = queryParameters.ToString();
-
-                var jobRecord = new ExportJobRecord(uriBuilder.Uri, request.ResourceType, hash, requestorClaims);
-
-                Uri destinationUri;
-                if (Uri.TryCreate(request.DestinationInfo.DestinationConnectionString, UriKind.RelativeOrAbsolute, out destinationUri))
+                ExportJobRecord jobRecord;
+                if (request.UseConfigFlag)
                 {
-                    // we are dealing with a case where storage account info is present in config.
-                    jobRecord.DestinationType = request.DestinationInfo.DestinationType;
-                    jobRecord.StorageAccountUri = destinationUri;
+                    // The storage account settings are present in the config and not in the request.
+                    jobRecord = new ExportJobRecord(request.RequestUri, request.ResourceType, hash, requestorClaims);
                 }
                 else
                 {
+                    // Remove the connection settings from the request URI before we store it in the secret store.
+                    NameValueCollection queryParameters = HttpUtility.ParseQueryString(request.RequestUri.Query);
+
+                    queryParameters.Remove(KnownQueryParameterNames.DestinationType);
+                    queryParameters.Remove(KnownQueryParameterNames.DestinationConnectionSettings);
+
+                    var uriBuilder = new UriBuilder(request.RequestUri);
+                    uriBuilder.Query = queryParameters.ToString();
+
+                    jobRecord = new ExportJobRecord(uriBuilder.Uri, request.ResourceType, hash, requestorClaims);
+
                     // Store the destination secret.
                     try
                     {

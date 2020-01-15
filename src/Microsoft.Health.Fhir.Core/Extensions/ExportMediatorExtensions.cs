@@ -23,10 +23,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-            EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
-            EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString, nameof(destinationConnectionString));
 
-            var request = new CreateExportRequest(requestUri, destinationType, destinationConnectionString);
+            CreateExportRequest request;
+            if (string.IsNullOrWhiteSpace(destinationType))
+            {
+                request = new CreateExportRequest(requestUri, destinationType, destinationConnectionString, useConfig: true);
+            }
+            else
+            {
+                request = new CreateExportRequest(requestUri, destinationType, destinationConnectionString);
+            }
 
             var response = await mediator.Send(request, cancellationToken);
             return response;

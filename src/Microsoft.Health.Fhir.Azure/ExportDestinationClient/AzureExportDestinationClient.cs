@@ -47,16 +47,24 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             string decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
             if (!CloudStorageAccount.TryParse(decodedConnectionString, out CloudStorageAccount cloudAccount))
             {
-                _logger.LogWarning($"Unable to connect to client using connection string: {decodedConnectionString}");
-
-                // trying to use another way
-                var tokenCredential = new TokenCredential(connectionSettings);
-                StorageCredentials storageCred = new StorageCredentials(tokenCredential);
-                cloudAccount = new CloudStorageAccount(storageCred, useHttps: true);
-
-                _logger.LogInformation($"Successfully connected to client using token credentials from connection string: {decodedConnectionString}");
+                throw new DestinationConnectionException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
+            await CreateBlobClientAndContainer(cloudAccount, containerId);
+        }
+
+        public async Task ConnectWithAccessTokenAsync(string accessToken, CancellationToken cancellationToken, string containerId = null)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(accessToken, nameof(accessToken));
+
+            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
+            var cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+
+            await CreateBlobClientAndContainer(cloudAccount, containerId);
+        }
+
+        private async Task CreateBlobClientAndContainer(CloudStorageAccount cloudAccount, string containerId)
+        {
             _blobClient = cloudAccount.CreateCloudBlobClient();
 
             // Use root container if no container id has been provided.
