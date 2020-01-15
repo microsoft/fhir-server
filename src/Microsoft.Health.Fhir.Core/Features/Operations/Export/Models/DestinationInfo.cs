@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
@@ -12,9 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     {
         public DestinationInfo(string destinationType, string destinationConnectionString)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
-            EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString, nameof(destinationConnectionString));
-
             DestinationType = destinationType;
             DestinationConnectionString = destinationConnectionString;
         }

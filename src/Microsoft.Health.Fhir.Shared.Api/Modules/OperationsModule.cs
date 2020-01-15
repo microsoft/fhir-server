@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsFactory();
 
-            services.Add<DefaultAccessTokenProvider>()
+            services.Add<ManagedIdentityAccessTokenProvider>()
                 .Singleton()
                 .AsService<IAccessTokenProvider>();
 

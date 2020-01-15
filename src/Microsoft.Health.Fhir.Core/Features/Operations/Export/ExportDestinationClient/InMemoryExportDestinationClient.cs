@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
             await Task.CompletedTask;
         }
 
+        public async Task ConnectWithAccessTokenAsync(string accessToken, CancellationToken cancellationToken, string containerId = null)
+        {
+            await Task.CompletedTask;
+        }
+
         public async Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(fileName, nameof(fileName));
