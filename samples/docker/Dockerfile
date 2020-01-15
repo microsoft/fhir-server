@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:2.2-bionic AS build
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1-bionic AS build
 
 ARG FHIR_VERSION=R4
 
@@ -14,7 +14,7 @@ RUN dotnet add "./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/Micro
 
 RUN dotnet publish "./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj" -c Release -o "/build"
 
-FROM mcr.microsoft.com/dotnet/core/aspnet:2.2-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine AS runtime
 
 ARG FHIR_VERSION=R4
 
