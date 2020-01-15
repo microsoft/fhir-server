@@ -2,7 +2,7 @@
   <Import Project="..\..\tools\Microsoft.Health.Extensions.BuildTimeCodeGenerator\BuildTimeCodeGenerator.targets" />
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
 
