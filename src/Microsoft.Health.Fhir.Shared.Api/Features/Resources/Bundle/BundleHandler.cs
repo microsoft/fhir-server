@@ -22,10 +22,13 @@ using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -63,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private BundleType? _bundleType;
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
+        private readonly BundleConfiguration _bundleConfiguration;
 
         public BundleHandler(
             IHttpContextAccessor httpContextAccessor,
@@ -74,6 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceIdProvider resourceIdProvider,
             TransactionBundleValidator transactionBundleValidator,
             IAuditEventTypeMapping auditEventTypeMapping,
+            IOptions<BundleConfiguration> bundleConfiguration,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -86,6 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
             EnsureArg.IsNotNull(transactionBundleValidator, nameof(transactionBundleValidator));
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
+            EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -96,6 +102,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _resourceIdProvider = resourceIdProvider;
             _transactionBundleValidator = transactionBundleValidator;
             _auditEventTypeMapping = auditEventTypeMapping;
+            _bundleConfiguration = bundleConfiguration.Value;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -191,6 +198,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
         {
+            if (_bundleConfiguration.EntryLimit != default && bundleEntries.Count > _bundleConfiguration.EntryLimit)
+            {
+                throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, _bundleConfiguration.EntryLimit));
+            }
+
             int order = 0;
             _requestCount = bundleEntries.Count;
 

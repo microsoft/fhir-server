@@ -425,12 +425,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "testscript-example-search/02-PatientSearchDynamic",
             "testscript-example-search/SETUP",
             "testscript-example-update/SETUP",
-            "transactionandbatchtest/XFER0",
+            "transactionandbatchtest/XFER4",
+            "transactionandbatchtest/XFER6",
+            "transactionandbatchtest/XFER7",
             "transactionandbatchtest/XFER10",
         };
 
         public static readonly string[] KnownCosmosDbFailures =
         {
+            "transactionandbatchtest/XFER0",
             "search001/SE05.5P",
             "search001/SE05.5G",
         };
@@ -448,7 +451,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "argonautproviderconnectathontest/APCT02",
             "connectathonschedulingtracktest/CST01",
             "readtest/R005",
-            "resourcetest_devicerequest/X030_DeviceRequest", // Open issue: https://github.com/fhir-crucible/plan_executor/issues/136
             "resourcetest_questionnaire/X010_Questionnaire", // Open issue: https://github.com/fhir-crucible/plan_executor/issues/138
             "resourcetest_questionnaire/X020_Questionnaire", // Same issue as: https://github.com/fhir-crucible/plan_executor/issues/138
             "connectathon-15-patient-base-client-id-json/Step5-PatientDelete",
