@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
             var jwtBearerOptions = new JwtBearerOptions();
             var options = Substitute.For<IOptionsMonitor<JwtBearerOptions>>();
             options.CurrentValue.Returns(jwtBearerOptions);
+            options.Get(Arg.Any<string>()).Returns(jwtBearerOptions);
             var logger = NullLoggerFactory.Instance;
             var encoder = UrlEncoder.Default;
             var clock = Substitute.For<ISystemClock>();
