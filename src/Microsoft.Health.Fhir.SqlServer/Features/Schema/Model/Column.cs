@@ -445,7 +445,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     public class TimestampColumn : Column<byte[]>
     {
         public TimestampColumn(string name)
-            : base(name, SqlDbType.Timestamp, true)
+            : base(name, SqlDbType.Timestamp, nullable: false) // Values in the rowversion column can never be null.
         {
         }
 
