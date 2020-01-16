@@ -83,17 +83,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // We will consider a job to be stale if its timestamp is smaller than or equal to this.
             DateTimeOffset expirationTime = Clock.UtcNow - jobHeartbeatTimeoutThreshold;
 
-            // We will timestamp the jobs when we mark them as running to track stale jobs.
-            DateTimeOffset heartbeatTimeStamp = Clock.UtcNow;
-
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
                 V1.AcquireExportJobs.PopulateCommand(
                     sqlCommand,
                     expirationTime,
-                    maximumNumberOfConcurrentJobsAllowed,
-                    heartbeatTimeStamp);
+                    maximumNumberOfConcurrentJobsAllowed);
 
                 var acquiredJobs = new List<ExportJobOutcome>();
 

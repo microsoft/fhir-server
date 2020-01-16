@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly VarCharColumn Id = new VarCharColumn("Id", 64, "Latin1_General_100_CS_AS");
             internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
-            internal readonly NullableDateTimeOffsetColumn HeartbeatDateTime = new NullableDateTimeOffsetColumn("HeartbeatDateTime", 7);
+            internal readonly NullableDateTime2Column HeartbeatDateTime = new NullableDateTime2Column("HeartbeatDateTime", 7);
             internal readonly DateTimeOffsetColumn QueuedDateTime = new DateTimeOffsetColumn("QueuedDateTime", 7);
             internal readonly VarCharColumn RawJobRecord = new VarCharColumn("RawJobRecord", -1);
             internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
@@ -398,14 +398,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             private readonly ParameterDefinition<System.DateTimeOffset> _expirationDateTime = new ParameterDefinition<System.DateTimeOffset>("@expirationDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
             private readonly ParameterDefinition<System.Int32> _maximumNumberOfConcurrentJobsAllowed = new ParameterDefinition<System.Int32>("@maximumNumberOfConcurrentJobsAllowed", global::System.Data.SqlDbType.Int, false);
-            private readonly ParameterDefinition<System.DateTimeOffset> _heartbeatDateTime = new ParameterDefinition<System.DateTimeOffset>("@heartbeatDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.DateTimeOffset expirationDateTime, System.Int32 maximumNumberOfConcurrentJobsAllowed, System.DateTimeOffset heartbeatDateTime)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.DateTimeOffset expirationDateTime, System.Int32 maximumNumberOfConcurrentJobsAllowed)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.AcquireExportJobs";
                 _expirationDateTime.AddParameter(command.Parameters, expirationDateTime);
                 _maximumNumberOfConcurrentJobsAllowed.AddParameter(command.Parameters, maximumNumberOfConcurrentJobsAllowed);
-                _heartbeatDateTime.AddParameter(command.Parameters, heartbeatDateTime);
             }
         }
 

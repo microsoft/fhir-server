@@ -1755,7 +1755,7 @@ CREATE TABLE dbo.ExportJob
 (
     Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
-    HeartbeatDateTime datetimeoffset(7) NULL,
+    HeartbeatDateTime datetime2(7) NULL,
     QueuedDateTime datetimeoffset(7) NOT NULL,
     RawJobRecord varchar(max) NOT NULL,
     JobVersion rowversion NOT NULL
@@ -1771,7 +1771,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Status_HeartbeatDateTime_QueuedDat
     Status,
     HeartbeatDateTime,
     QueuedDateTime
-) -- TODO: Modify indexes as needed when implementing remaining sql export methods.
+)
 
 GO
 
@@ -1831,16 +1831,13 @@ GO
 --         * The time before which an export job is considered stale
 --     @maximumNumberOfConcurrentJobsAllowed
 --         * The maximum number of running jobs we can have at once
---     @heartbeatDateTime
---         * The time to be stamped on the newly running export jobs
 --
 -- RETURN VALUE
 --     The updated jobs that are now running.
 --
 CREATE PROCEDURE dbo.AcquireExportJobs
     @expirationDateTime datetimeoffset(7),
-    @maximumNumberOfConcurrentJobsAllowed int,
-    @heartbeatDateTime datetimeoffset(7)
+    @maximumNumberOfConcurrentJobsAllowed int
 AS
     SET NOCOUNT ON
     SET XACT_ABORT ON
@@ -1864,6 +1861,8 @@ AS
     FROM dbo.ExportJob
     WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= @expirationDateTime))
     ORDER BY HeartbeatDateTime, QueuedDateTime
+
+    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
     -- Update each available job's status to running both in the export table's status column and in the raw export job record JSON.
     UPDATE dbo.ExportJob
