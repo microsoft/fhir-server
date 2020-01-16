@@ -1865,17 +1865,11 @@ AS
     WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= @expirationDateTime))
     ORDER BY HeartbeatDateTime, QueuedDateTime
 
-    DECLARE @updatedJobs TABLE (RawJobRecord varchar(max) NOT NULL, JobVersion binary(8) NOT NULL)
-
     -- Update each available job's status to running both in the export table's status column and in the raw export job record JSON.
     UPDATE dbo.ExportJob
     SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = JSON_MODIFY(RawJobRecord,'$.status', 2)
     OUTPUT inserted.RawJobRecord, inserted.JobVersion
-    INTO @updatedJobs
     FROM dbo.ExportJob job INNER JOIN @availableJobs availableJob ON job.Id = availableJob.Id AND job.JobVersion = availableJob.JobVersion
    
-    -- Return information about the updated jobs.
-    SELECT * FROM @updatedJobs
-
     COMMIT TRANSACTION
 GO
