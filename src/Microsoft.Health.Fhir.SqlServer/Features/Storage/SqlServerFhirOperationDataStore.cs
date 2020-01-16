@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         const int startIndex = 0;
-                        var rowVersionAsDecimalString = BitConverter.ToInt32(rowVersionAsBytes, startIndex).ToString();
+                        var rowVersionAsDecimalString = BitConverter.ToInt64(rowVersionAsBytes, startIndex).ToString();
 
                         acquiredJobs.Add(new ExportJobOutcome(exportJobRecord, WeakETag.FromVersionId(rowVersionAsDecimalString)));
                     }
