@@ -18,3 +18,16 @@ jobs:
   - template: build.yml
     parameters:
       packageArtifacts: false
+
+- job: Docker
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - task: DockerCompose@0
+    displayName: Build FHIR Server Image
+    inputs:
+      action: Build services
+      dockerComposeFile: samples/docker/docker-compose.yaml 
+      projectName: fhirserverforazure
+      qualifyImageNames: true
+      additionalImageTags: pr$(system.pullRequest.pullRequestNumber)
