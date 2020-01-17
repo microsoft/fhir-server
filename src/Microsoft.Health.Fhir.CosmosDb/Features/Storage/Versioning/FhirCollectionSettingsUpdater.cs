@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Index = Microsoft.Azure.Documents.Index;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                         new IncludedPath
                         {
                             Path = "/*",
-                            Indexes = new Collection<Azure.Documents.Index>
+                            Indexes = new Collection<Index>
                             {
                                 new RangeIndex(DataType.Number, -1),
                                 new RangeIndex(DataType.String, -1),

@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             DotNetAttributeValidation.Validate(operationOutcome, true);
         }
 
-        public class StartupWithThrowingMiddleware : StartupTestBase
+        public class StartupWithThrowingMiddleware : StartupBaseForCustomProviders
         {
             public StartupWithThrowingMiddleware(IConfiguration configuration)
                 : base(configuration)

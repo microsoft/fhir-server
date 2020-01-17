@@ -10,9 +10,9 @@ using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E
 {
-    public class StartupTestBase : Startup
+    public class StartupBaseForCustomProviders : Startup
     {
-        public StartupTestBase(IConfiguration configuration)
+        public StartupBaseForCustomProviders(IConfiguration configuration)
             : base(configuration)
         {
         }
