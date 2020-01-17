@@ -393,6 +393,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         {
             var batch = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
+            await _client.UpdateAsync(batch.Entry[2].Resource as Patient);
+
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("batch", string.Empty, HttpStatusCode.OK, ResourceType.Bundle),
