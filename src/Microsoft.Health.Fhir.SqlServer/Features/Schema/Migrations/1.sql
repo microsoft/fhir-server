@@ -1827,8 +1827,8 @@ GO
 --     Timestamps the available export jobs and sets their statuses to running.
 --
 -- PARAMETERS
---     @expirationDateTime
---         * The time before which an export job is considered stale
+--     @jobHeartbeatTimeoutThresholdInSeconds
+--         * The number of seconds that must pass before an export job is considered stale
 --     @maximumNumberOfConcurrentJobsAllowed
 --         * The maximum number of running jobs we can have at once
 --
@@ -1836,7 +1836,7 @@ GO
 --     The updated jobs that are now running.
 --
 CREATE PROCEDURE dbo.AcquireExportJobs
-    @expirationDateTime datetimeoffset(7),
+    @jobHeartbeatTimeoutThresholdInSeconds bigint,
     @maximumNumberOfConcurrentJobsAllowed int
 AS
     SET NOCOUNT ON
@@ -1844,6 +1844,10 @@ AS
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
+
+    -- We will consider a job to be stale if its timestamp is smaller than or equal to this.
+    DECLARE @expirationDateTime dateTime2(7)
+    SELECT @expirationDateTime = DATEADD(second, -@jobHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME())
 
     -- Get the number of jobs that are running and not stale.
     -- Acquire and hold an exclusive table lock for the entire transaction to prevent jobs from being created, updated or deleted during acquisitions.

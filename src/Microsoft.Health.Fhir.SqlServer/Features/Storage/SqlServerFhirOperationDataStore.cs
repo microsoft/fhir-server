@@ -13,7 +13,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -80,15 +79,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            // We will consider a job to be stale if its timestamp is smaller than or equal to this.
-            DateTimeOffset expirationTime = Clock.UtcNow - jobHeartbeatTimeoutThreshold;
-
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
+                var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt64(jobHeartbeatTimeoutThreshold.TotalSeconds);
+
                 V1.AcquireExportJobs.PopulateCommand(
                     sqlCommand,
-                    expirationTime,
+                    jobHeartbeatTimeoutThresholdInSeconds,
                     maximumNumberOfConcurrentJobsAllowed);
 
                 var acquiredJobs = new List<ExportJobOutcome>();

@@ -396,13 +396,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            private readonly ParameterDefinition<System.DateTimeOffset> _expirationDateTime = new ParameterDefinition<System.DateTimeOffset>("@expirationDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            private readonly ParameterDefinition<System.Int64> _jobHeartbeatTimeoutThresholdInSeconds = new ParameterDefinition<System.Int64>("@jobHeartbeatTimeoutThresholdInSeconds", global::System.Data.SqlDbType.BigInt, false);
             private readonly ParameterDefinition<System.Int32> _maximumNumberOfConcurrentJobsAllowed = new ParameterDefinition<System.Int32>("@maximumNumberOfConcurrentJobsAllowed", global::System.Data.SqlDbType.Int, false);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.DateTimeOffset expirationDateTime, System.Int32 maximumNumberOfConcurrentJobsAllowed)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int64 jobHeartbeatTimeoutThresholdInSeconds, System.Int32 maximumNumberOfConcurrentJobsAllowed)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.AcquireExportJobs";
-                _expirationDateTime.AddParameter(command.Parameters, expirationDateTime);
+                _jobHeartbeatTimeoutThresholdInSeconds.AddParameter(command.Parameters, jobHeartbeatTimeoutThresholdInSeconds);
                 _maximumNumberOfConcurrentJobsAllowed.AddParameter(command.Parameters, maximumNumberOfConcurrentJobsAllowed);
             }
         }
