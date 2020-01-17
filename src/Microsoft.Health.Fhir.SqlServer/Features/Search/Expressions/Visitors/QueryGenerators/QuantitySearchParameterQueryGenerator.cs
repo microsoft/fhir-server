@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            context.StringBuilder.Append(nullCheckColumn, context.TableAlias).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
+            AppendColumnName(context, nullCheckColumn, expression).Append(" IS NOT NULL AND ");
             return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
         }
 
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.QuantityCodeId, expression.ComponentIndex, quantityCodeId);
                     }
 
-                    context.StringBuilder.Append(V1.QuantitySearchParam.QuantityCodeId, context.TableAlias)
+                    AppendColumnName(context, V1.QuantitySearchParam.QuantityCodeId, expression)
                         .Append(" IN (SELECT ")
                         .Append(V1.QuantityCode.QuantityCodeId, null)
                         .Append(" FROM ").Append(V1.QuantityCode)
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.SystemId, expression.ComponentIndex, systemId);
                     }
 
-                    context.StringBuilder.Append(V1.QuantitySearchParam.SystemId, context.TableAlias)
+                    AppendColumnName(context, V1.QuantitySearchParam.SystemId, expression)
                         .Append(" IN (SELECT ")
                         .Append(V1.System.SystemId, null)
                         .Append(" FROM ").Append(V1.System)
