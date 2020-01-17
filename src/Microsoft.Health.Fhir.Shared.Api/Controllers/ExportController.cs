@@ -87,6 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
             }
 
+            _logger.LogInformation($"Export request details. Destination Type: {destinationType} Destination Connection: {destinationConnectionString}");
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, destinationType, destinationConnectionString, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();

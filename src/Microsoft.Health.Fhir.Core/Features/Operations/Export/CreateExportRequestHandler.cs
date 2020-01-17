@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     // The storage account settings are present in the config and not in the request.
                     jobRecord = new ExportJobRecord(request.RequestUri, request.ResourceType, hash, requestorClaims);
+                    jobRecord.UseConfig = true;
                 }
                 else
                 {

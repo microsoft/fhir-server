@@ -229,10 +229,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportDestinationClient = _exportDestinationClientFactory.Create(_exportJobConfiguration.DefaultStorageAccountType);
 
                 // Check whether the config contains a uri to a storage account or a connection string.
-                if (Uri.TryCreate(_exportJobConfiguration.DefaultStorageAccountConnection, UriKind.RelativeOrAbsolute, out Uri resultUri))
+                if (Uri.TryCreate(_exportJobConfiguration.DefaultStorageAccountConnection, UriKind.Absolute, out Uri resultUri))
                 {
                     // We need to get the corresponding access token.
-                    string accessToken = _accessTokenProvider.GetAccessTokenForResource(resultUri);
+                    _logger.LogInformation($"Extracted uri for export job is {resultUri.AbsoluteUri} from input: {_exportJobConfiguration.DefaultStorageAccountConnection}");
+
+                    string accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resultUri);
                     if (string.IsNullOrWhiteSpace(accessToken))
                     {
                         throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);

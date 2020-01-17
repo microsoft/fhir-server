@@ -4,11 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public interface IAccessTokenProvider
     {
-        string GetAccessTokenForResource(Uri resourceUri);
+        Task<string> GetAccessTokenForResourceAsync(Uri resourceUri);
     }
 }

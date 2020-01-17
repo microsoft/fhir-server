@@ -57,10 +57,27 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             EnsureArg.IsNotNullOrWhiteSpace(accessToken, nameof(accessToken));
 
-            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
-            var cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+            // string decodedAccessToken = Encoding.UTF8.GetString(Convert.FromBase64String(accessToken));
+            // _logger.LogInformation($"Decoded access token: {decodedAccessToken}");
 
-            await CreateBlobClientAndContainer(cloudAccount, containerId);
+            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
+            var baseUri = new Uri("https://narsiexporttest.blob.core.windows.net/");
+
+            _blobClient = new CloudBlobClient(baseUri, storageCredentials);
+
+            // var cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+            // await CreateBlobClientAndContainer(cloudAccount, containerId);
+
+            if (string.IsNullOrWhiteSpace(containerId))
+            {
+                _blobContainer = _blobClient.GetRootContainerReference();
+            }
+            else
+            {
+                _blobContainer = _blobClient.GetContainerReference(containerId);
+            }
+
+            await _blobContainer.CreateIfNotExistsAsync();
         }
 
         private async Task CreateBlobClientAndContainer(CloudStorageAccount cloudAccount, string containerId)
@@ -162,7 +179,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 return;
             }
 
-            var blob = new CloudBlockBlob(fileUri, _blobClient.Credentials);
+            var blob = new CloudBlockBlob(fileUri, _blobClient);
 
             // We are going to consider only committed blocks.
             IEnumerable<ListBlockItem> result = await blob.DownloadBlockListAsync(
