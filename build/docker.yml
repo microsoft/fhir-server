@@ -1,0 +1,13 @@
+parameters:
+    # Default values
+    additionalImageTags: 'latest'
+
+steps:
+- task: DockerCompose@0
+  displayName: Build FHIR Server Image
+  inputs:
+    action: Build services
+    dockerComposeFile: samples/docker/docker-compose.yaml 
+    projectName: fhirserverforazure
+    qualifyImageNames: false
+    additionalImageTags: ${{parameters.additionalImageTags}}

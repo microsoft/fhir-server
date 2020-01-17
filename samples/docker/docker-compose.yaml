@@ -5,7 +5,7 @@ services:
       context: ./../../
       dockerfile: ./samples/docker/Dockerfile
       args:
-        FHIR_VERSION: Stu3
+        FHIR_VERSION: R4
     restart: on-failure
     environment:
       FHIRServer__Security__Enabled: "false"
