@@ -455,19 +455,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             const int length = 8;
 
             byte[] bytes = new byte[length];
-            long fieldOffset = 0;
-            int bufferOffset = 0;
 
-            reader.GetBytes(Metadata.Name, ordinal, fieldOffset, bytes, bufferOffset, length);
+            reader.GetBytes(Metadata.Name, ordinal, fieldOffset: 0, bytes, bufferOffset: 0, length);
             return bytes;
         }
 
         public override void Set(SqlDataRecord record, int ordinal, byte[] value)
         {
-            long fieldOffset = 0;
-            int bufferOffset = 0;
-
-            record.SetBytes(ordinal, fieldOffset, value, bufferOffset, value.Length);
+            record.SetBytes(ordinal, fieldOffset: 0, value, bufferOffset: 0, value.Length);
         }
     }
 
@@ -484,8 +479,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         public override byte[] Read(SqlDataReader reader, int ordinal)
         {
             byte[] bytes = new byte[Length];
-            long fieldOffset = 0;
-            int bufferOffset = 0;
 
             if (Nullable && reader.IsDBNull(ordinal))
             {
@@ -493,7 +486,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
             else
             {
-                reader.GetBytes(Metadata.Name, ordinal, fieldOffset, bytes, bufferOffset, Length);
+                reader.GetBytes(Metadata.Name, ordinal, fieldOffset: 0, bytes, bufferOffset: 0, Length);
                 return bytes;
             }
         }
@@ -502,10 +495,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         {
             if (value != null)
             {
-                long fieldOffset = 0;
-                int bufferOffset = 0;
-
-                record.SetBytes(ordinal, fieldOffset, value, bufferOffset, value.Length);
+                record.SetBytes(ordinal, fieldOffset: 0, value, bufferOffset: 0, value.Length);
             }
             else
             {
