@@ -5,8 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -26,6 +29,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private static readonly Regex WwwAuthenticatePattern = new Regex(@".*authorization_uri\s*=\s*(?<authorization_uri>[^\s,]*)?, resource_id=\""*(?<resource_id>[^""]+)\""*, realm=\""*(?<realm>[^""]+)\""*", RegexOptions.IgnoreCase);
+
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
         private const string UnauthorizedMessage = "Unauthorized: Authentication failed.";
         private const string Invalidtoken = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNmNWRmMGExNzY5ZWIzZTFkOGRiNWIxMGZiOWY3ZTk0IiwidHlwIjoiSldUIn0.eyJuYmYiOjE1NDQ2ODQ1NzEsImV4cCI6MTU0NDY4ODE3MSwiaXNzIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgiLCJhdWQiOlsiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgvcmVzb3VyY2VzIiwiZmhpci1haSJdLCJjbGllbnRfaWQiOiJzZXJ2aWNlY2xpZW50Iiwicm9sZXMiOiJhZG1pbiIsImFwcGlkIjoic2VydmljZWNsaWVudCIsInNjb3BlIjpbImZoaXItYWkiXX0.SKSvy6Jxzwsv1ZSi0PO4Pdq6QDZ6mBJIRxUPgoPlz2JpiB6GMXu5u0n1IpS6zOXihGkGhegjtcqj-6TKE6Ou5uhQ0VTnmf-NxcYKFl48aDihcGem--qa2V8GC7na549Ctj1PLXoYUbovV4LB27Kj3X83sZVnWdHqg_G0AKo4xm7hr23VUvJ1D73lEcYaGd5K9GXHNgUrJO5v288y0uCXZ5ByNDJ-K6Xi7_68dLdshlIiHaeIBuC3rhchSf2hdglkQgOyo4g4gT_HfKjwdrrpGzepNXOPQEwtUs_o2uriXAd7FfbL_Q4ORiDWPXkmwBXqo7uUfg-2SnT3DApc3PuA0";
@@ -144,6 +149,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
+
+            var wwwAuthenticationHeaderValues = fhirException.Headers.WwwAuthenticate.Where(h => h.Scheme == "Bearer").ToList<AuthenticationHeaderValue>();
+            Assert.Single(wwwAuthenticationHeaderValues);
+
+            Match matchResults = WwwAuthenticatePattern.Match(wwwAuthenticationHeaderValues.First().Parameter);
+
+            Assert.Single(matchResults.Groups["authorization_uri"].Captures);
+            var authorizationUri = matchResults.Groups["authorization_uri"].Captures[0].Value;
+            Assert.Single(matchResults.Groups["realm"].Captures);
+            var realm = matchResults.Groups["realm"].Captures[0].Value;
+            Assert.Single(matchResults.Groups["resource_id"].Captures);
+            var resourceId = matchResults.Groups["resource_id"].Captures[0].Value;
+
+            Assert.Equal(AuthenticationSettings.Resource, realm);
+            Assert.Equal(realm, resourceId);
+
+            // We can only verify that this is a URI since a server with SmartOnFHIR enabled will not report the actual authorization server anywhere else.
+            Assert.True(Uri.TryCreate(authorizationUri, UriKind.Absolute, out _));
         }
 
         [Fact]

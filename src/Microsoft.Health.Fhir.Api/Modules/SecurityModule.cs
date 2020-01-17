@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         options.Authority = _securityConfiguration.Authentication.Authority;
                         options.Audience = _securityConfiguration.Authentication.Audience;
                         options.RequireHttpsMetadata = true;
-                        options.Challenge = $"Bearer authorization_uri={_securityConfiguration.Authentication.Authority}, resource_id={_securityConfiguration.Authentication.Audience}";
+                        options.Challenge = $"Bearer authorization_uri={_securityConfiguration.Authentication.Authority}, resource_id={_securityConfiguration.Authentication.Audience}, realm={_securityConfiguration.Authentication.Audience}";
                     });
 
                 services.AddAuthorization(options => options.AddPolicy(PolicyNames.FhirPolicy, builder =>
