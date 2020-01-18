@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.SqlClient;
 using System.Net;
@@ -13,11 +12,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -25,6 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
+        private readonly JsonSerializerSettings _jsonSerializerSettings;
 
         public SqlServerFhirOperationDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -35,6 +37,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+
+            _jsonSerializerSettings = new JsonSerializerSettings
+            {
+                ContractResolver = new CamelCasePropertyNamesContractResolver(),
+                Converters = new List<JsonConverter>
+                {
+                    new EnumLiteralJsonConverter(),
+                },
+            };
         }
 
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
@@ -47,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     jobRecord.Id,
                     jobRecord.Status.ToString(),
                     jobRecord.QueuedTime,
-                    JsonConvert.SerializeObject(jobRecord));
+                    JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings));
 
                 var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
 
@@ -97,7 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         (string rawJobRecord, byte[] rowVersionAsBytes) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
 
-                        var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
+                        var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
 
                         if (BitConverter.IsLittleEndian)
                         {
