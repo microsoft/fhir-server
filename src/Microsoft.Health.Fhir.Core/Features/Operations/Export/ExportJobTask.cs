@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
-        private readonly IAccessTokenProvider _accessTokenProvider;
+        private readonly IAccessTokenProviderFactory _accessTokenProviderFactory;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
         private IExportDestinationClient _exportDestinationClient;
+        private IAccessTokenProvider _accessTokenProvider;
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClientFactory exportDestinationClientFactory,
-            IAccessTokenProvider accessTokenProvider,
+            IAccessTokenProviderFactory accessTokenProviderFactory,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
-            EnsureArg.IsNotNull(accessTokenProvider, nameof(accessTokenProvider));
+            EnsureArg.IsNotNull(accessTokenProviderFactory, nameof(accessTokenProviderFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClientFactory = exportDestinationClientFactory;
-            _accessTokenProvider = accessTokenProvider;
+            _accessTokenProviderFactory = accessTokenProviderFactory;
             _logger = logger;
         }
 
@@ -227,6 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 _exportDestinationClient = _exportDestinationClientFactory.Create(_exportJobConfiguration.DefaultStorageAccountType);
+                _accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.DefaultStorageAccountType);
 
                 // Check whether the config contains a uri to a storage account or a connection string.
                 if (Uri.TryCreate(_exportJobConfiguration.DefaultStorageAccountConnection, UriKind.Absolute, out Uri resultUri))
@@ -234,13 +236,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // We need to get the corresponding access token.
                     _logger.LogInformation($"Extracted uri for export job is {resultUri.AbsoluteUri} from input: {_exportJobConfiguration.DefaultStorageAccountConnection}");
 
-                    string accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resultUri);
+                    string accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resultUri, cancellationToken);
                     if (string.IsNullOrWhiteSpace(accessToken))
                     {
                         throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
                     }
 
-                    await _exportDestinationClient.ConnectWithAccessTokenAsync(accessToken, cancellationToken, _exportJobRecord.Id);
+                    await _exportDestinationClient.ConnectWithAccessTokenAsync(accessToken, _exportJobConfiguration.DefaultStorageAccountConnection, cancellationToken, _exportJobRecord.Id);
                 }
                 else
                 {

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Services.AppAuthentication;
@@ -11,12 +12,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
-    public class ManagedIdentityAccessTokenProvider : IAccessTokenProvider
+    public class AzureAccessTokenProvider : IAccessTokenProvider
     {
         private readonly AzureServiceTokenProvider _azureTokenProvider;
-        private readonly ILogger<ManagedIdentityAccessTokenProvider> _logger;
+        private readonly ILogger<AzureAccessTokenProvider> _logger;
 
-        public ManagedIdentityAccessTokenProvider(ILogger<ManagedIdentityAccessTokenProvider> logger)
+        public AzureAccessTokenProvider(ILogger<AzureAccessTokenProvider> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -24,12 +25,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
         }
 
-        public async Task<string> GetAccessTokenForResourceAsync(Uri resourceUri)
+        public string DestinationType => "azure-block-blob";
+
+        public async Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
             _logger.LogInformation($"Received request to get access token for uri: {resourceUri}");
-            string accessToken = await _azureTokenProvider.GetAccessTokenAsync("https://storage.azure.com/");
+            string accessToken = await _azureTokenProvider.GetAccessTokenAsync(resourceUri.ToString(), cancellationToken: cancellationToken);
 
             _logger.LogInformation($"Access token received: {accessToken}");
             return accessToken;

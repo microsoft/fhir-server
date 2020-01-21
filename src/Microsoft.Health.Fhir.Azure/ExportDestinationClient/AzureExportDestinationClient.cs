@@ -53,15 +53,17 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             await CreateBlobClientAndContainer(cloudAccount, containerId);
         }
 
-        public async Task ConnectWithAccessTokenAsync(string accessToken, CancellationToken cancellationToken, string containerId = null)
+        public async Task ConnectWithAccessTokenAsync(string accessToken, string storagAccountUri, CancellationToken cancellationToken, string containerId = null)
         {
             EnsureArg.IsNotNullOrWhiteSpace(accessToken, nameof(accessToken));
+            EnsureArg.IsNotNullOrWhiteSpace(storagAccountUri, nameof(storagAccountUri));
 
             // string decodedAccessToken = Encoding.UTF8.GetString(Convert.FromBase64String(accessToken));
             // _logger.LogInformation($"Decoded access token: {decodedAccessToken}");
+            _logger.LogInformation($"Connecting to {storagAccountUri} with access token");
 
             var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
-            var baseUri = new Uri("https://narsiexporttest.blob.core.windows.net/");
+            var baseUri = new Uri(storagAccountUri);
 
             _blobClient = new CloudBlobClient(baseUri, storageCredentials);
 
