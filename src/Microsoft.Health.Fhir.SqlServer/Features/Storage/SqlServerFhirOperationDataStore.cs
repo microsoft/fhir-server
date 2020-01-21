@@ -94,10 +94,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
+        public async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
         {
-            // TODO: Implement this method (returning null for now to allow the create method to run).
-            return Task.FromResult<ExportJobOutcome>(null);
+            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
+
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                V1.GetExportJobByHash.PopulateCommand(sqlCommand, hash);
+
+                using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                {
+                    if (!sqlDataReader.Read())
+                    {
+                        return null;
+                    }
+
+                    (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
+
+                    return CreateExportJobOutcome(rawJobRecord, rowVersion);
+                }
+            }
         }
 
         public Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)

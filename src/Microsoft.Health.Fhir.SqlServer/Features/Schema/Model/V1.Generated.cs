@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
         internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
+        internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
@@ -98,6 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal readonly VarCharColumn Id = new VarCharColumn("Id", 64, "Latin1_General_100_CS_AS");
+            internal readonly VarCharColumn Hash = new VarCharColumn("Hash", 64, "Latin1_General_100_CS_AS");
             internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
             internal readonly NullableDateTime2Column HeartbeatDateTime = new NullableDateTime2Column("HeartbeatDateTime", 7);
             internal readonly DateTimeOffsetColumn QueuedDateTime = new DateTimeOffsetColumn("QueuedDateTime", 7);
@@ -426,6 +428,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _status.AddParameter(command.Parameters, status);
                 _queuedDateTime.AddParameter(command.Parameters, queuedDateTime);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
+            }
+        }
+
+        internal class GetExportJobByHashProcedure : StoredProcedure
+        {
+            internal GetExportJobByHashProcedure(): base("dbo.GetExportJobByHash")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _hash = new ParameterDefinition<System.String>("@hash", global::System.Data.SqlDbType.VarChar, false, 64);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String hash)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetExportJobByHash";
+                _hash.AddParameter(command.Parameters, hash);
             }
         }
 

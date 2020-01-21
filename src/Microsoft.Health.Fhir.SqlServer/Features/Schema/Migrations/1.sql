@@ -1754,6 +1754,7 @@ GO
 CREATE TABLE dbo.ExportJob
 (
     Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Hash varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
     HeartbeatDateTime datetime2(7) NULL,
     QueuedDateTime datetimeoffset(7) NOT NULL,
@@ -1766,8 +1767,9 @@ CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob
     Id
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Status_HeartbeatDateTime_QueuedDateTime ON dbo.ExportJob
+CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime_QueuedDateTime ON dbo.ExportJob
 (
+    Hash,
     Status,
     HeartbeatDateTime,
     QueuedDateTime
@@ -1850,6 +1852,36 @@ GO
 
 --
 -- STORED PROCEDURE
+--     Gets an export job given the hash of its ID.
+--
+-- DESCRIPTION
+--     Retrieves the export job record from the ExportJob table that has the matching hash.
+--
+-- PARAMETERS
+--     @hash
+--         * The SHA256 hash of the export job record ID
+--
+-- RETURN VALUE
+--     The matching export job.
+--
+CREATE PROCEDURE dbo.GetExportJobByHash
+    @hash varchar(64)
+AS
+    SET NOCOUNT ON
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    SELECT TOP(1) RawJobRecord, JobVersion
+    FROM dbo.ExportJob
+    WHERE Hash = @hash AND (Status = 'Queued' OR Status = 'Running')
+    ORDER BY HeartbeatDateTime, QueuedDateTime ASC
+
+    COMMIT TRANSACTION
+GO
+
+--
+-- STORED PROCEDURE
 --     Acquires export jobs.
 --
 -- DESCRIPTION
@@ -1889,8 +1921,9 @@ AS
     DECLARE @availableJobs TABLE (Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL, JobVersion binary(8) NOT NULL)
 
     -- Get the available jobs, which are export jobs that are queued or stale.
+    -- Queued jobs will be prioritized over running jobs, and older jobs will be prioritized over newer ones.
     INSERT INTO @availableJobs
-    SELECT TOP (@limit) Id, JobVersion
+    SELECT TOP(@limit) Id, JobVersion
     FROM dbo.ExportJob
     WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= @expirationDateTime))
     ORDER BY HeartbeatDateTime, QueuedDateTime
