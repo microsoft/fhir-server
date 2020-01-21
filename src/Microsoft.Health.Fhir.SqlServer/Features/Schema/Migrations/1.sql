@@ -1885,6 +1885,49 @@ GO
 
 --
 -- STORED PROCEDURE
+--     Updates an export job.
+--
+-- DESCRIPTION
+--     Modifies an existing job in the ExportJob table.
+--
+-- PARAMETERS
+--     @id
+--         * The ID of the export job record
+--     @status
+--         * The status of the export job
+--     @queuedDateTime
+--         * The time the export job is queued
+--     @rawJobRecord
+--         * A JSON document
+--
+-- RETURN VALUE
+--     The row version of the updated export job.
+--
+CREATE PROCEDURE dbo.UpdateExportJob
+    @id varchar(64),
+    @status varchar(10),
+    @queuedDateTime datetimeoffset(7),
+    @rawJobRecord varchar(max)
+AS
+    SET NOCOUNT ON
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    -- We will timestamp the jobs when we update them to track stale jobs.
+    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
+
+    UPDATE dbo.ExportJob
+    SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, QueuedDateTime = @queuedDateTime, RawJobRecord = @rawJobRecord
+    WHERE Id = @id
+  
+    SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
+
+    COMMIT TRANSACTION
+GO
+
+--
+-- STORED PROCEDURE
 --     Acquires export jobs.
 --
 -- DESCRIPTION

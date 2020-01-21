@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -118,10 +119,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        public async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
         {
-            // TODO: Implement this method.
-            return Task.FromResult(new ExportJobOutcome(jobRecord, eTag));
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                V1.UpdateExportJob.PopulateCommand(
+                    sqlCommand,
+                    jobRecord.Id,
+                    jobRecord.Status.ToString(),
+                    jobRecord.QueuedTime,
+                    JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings));
+
+                var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
+
+                if (rowVersion == null)
+                {
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
+                }
+
+                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
+            }
         }
 
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)

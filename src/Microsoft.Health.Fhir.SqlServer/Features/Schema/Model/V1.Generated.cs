@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
+        internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
         internal class ClaimTypeTable : Table
@@ -509,6 +510,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.SelectCurrentSchemaVersion";
+            }
+        }
+
+        internal class UpdateExportJobProcedure : StoredProcedure
+        {
+            internal UpdateExportJobProcedure(): base("dbo.UpdateExportJob")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
+            private readonly ParameterDefinition<System.DateTimeOffset> _queuedDateTime = new ParameterDefinition<System.DateTimeOffset>("@queuedDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            private readonly ParameterDefinition<System.String> _rawJobRecord = new ParameterDefinition<System.String>("@rawJobRecord", global::System.Data.SqlDbType.VarChar, false, -1);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String status, System.DateTimeOffset queuedDateTime, System.String rawJobRecord)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpdateExportJob";
+                _id.AddParameter(command.Parameters, id);
+                _status.AddParameter(command.Parameters, status);
+                _queuedDateTime.AddParameter(command.Parameters, queuedDateTime);
+                _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
             }
         }
 
