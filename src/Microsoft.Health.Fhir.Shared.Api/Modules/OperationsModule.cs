@@ -42,9 +42,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsFactory();
 
-            services.Add<ManagedIdentityAccessTokenProvider>()
+            services.Add<AccessTokenProviderFactory>()
                 .Singleton()
-                .AsService<IAccessTokenProvider>();
+                .AsService<IAccessTokenProviderFactory>();
+
+            services.Add<DefaultAccessTokenProvider>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<Func<IAccessTokenProvider>>(sp => () => sp.GetRequiredService<DefaultAccessTokenProvider>())
+                .Transient()
+                .AsSelf();
 
             services.Add<ExportJobWorker>()
                 .Singleton()

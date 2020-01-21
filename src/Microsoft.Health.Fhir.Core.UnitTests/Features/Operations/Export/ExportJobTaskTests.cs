@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
-        private readonly IAccessTokenProvider _accessTokenProvider = Substitute.For<IAccessTokenProvider>();
+        private readonly IAccessTokenProviderFactory _accessTokenProviderFactory = Substitute.For<IAccessTokenProviderFactory>();
 
         private readonly ExportJobTask _exportJobTask;
 
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _accessTokenProvider,
+                _accessTokenProviderFactory,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -355,7 +355,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _accessTokenProvider,
+                _accessTokenProviderFactory,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -428,7 +428,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _accessTokenProvider,
+                _accessTokenProviderFactory,
                 NullLogger<ExportJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;

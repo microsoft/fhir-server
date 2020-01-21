@@ -140,7 +140,7 @@
             "minLength": 3,
             "maxLength": 24,
             "metadata": {
-                "description": "Name of storage account to be used for exporting data. If left empty, a name will be generated."
+                "description": "Name of storage account to be used for exporting data."
             }
         }
     },
@@ -155,7 +155,6 @@
         "deploySourceCode": "[and(not(empty(parameters('repositoryUrl'))),not(empty(parameters('repositoryBranch'))))]",
         "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
-        "storageAccountResourceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
         "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
         "staticFhirServerConfigProperties": {
             "APPINSIGHTS_PORTALINFO": "ASP.NETCORE",
@@ -171,7 +170,7 @@
             "DataStore": "CosmosDb",
             "FhirServer:Operations:Export:Enabled": "true",
             "FhirServer:Operations:Export:DefaultStorageAccountType": "azure-block-blob",
-            "FhirServer:Operations:Export:DefaultStorageAccountConnection": "[variables('storageAccountResourceId')]"
+            "FhirServer:Operations:Export:DefaultStorageAccountConnection": "[concat('https://', parameters('storageAccountName'), '.blob.core.windows.net')]"
         },
         "emptyFhirServerConfigProperties": {},
         "kuduFhirServerConfigProperties": {
@@ -375,7 +374,7 @@
             "name": "[concat(parameters('storageAccountName'), '/Microsoft.Authorization/', guid(uniqueString(parameters('storageAccountName'))))]",
             "dependsOn": [
                 "[parameters('storageAccountName')]",
-                "[variables('appServiceResourceId')]"
+                "[variables('serviceName')]"
             ],
             "properties": {
                 "roleDefinitionId": "[variables('roleDefinitionId')]",
