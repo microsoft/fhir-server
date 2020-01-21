@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
         internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
+        internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
@@ -425,6 +426,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _status.AddParameter(command.Parameters, status);
                 _queuedDateTime.AddParameter(command.Parameters, queuedDateTime);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
+            }
+        }
+
+        internal class GetExportJobByIdProcedure : StoredProcedure
+        {
+            internal GetExportJobByIdProcedure(): base("dbo.GetExportJobById")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetExportJobById";
+                _id.AddParameter(command.Parameters, id);
             }
         }
 

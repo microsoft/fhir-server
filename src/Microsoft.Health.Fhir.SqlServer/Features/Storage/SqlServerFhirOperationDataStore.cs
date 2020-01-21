@@ -71,9 +71,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
+        public async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
+
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                V1.GetExportJobById.PopulateCommand(sqlCommand, id);
+
+                using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                {
+                    if (!sqlDataReader.Read())
+                    {
+                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+                    }
+
+                    (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
+
+                    return CreateExportJobOutcome(rawJobRecord, rowVersion);
+                }
+            }
         }
 
         public Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
@@ -106,23 +124,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
-                        (string rawJobRecord, byte[] rowVersionAsBytes) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
+                        (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
 
-                        var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
-
-                        if (BitConverter.IsLittleEndian)
-                        {
-                            Array.Reverse(rowVersionAsBytes);
-                        }
-
-                        var rowVersionAsDecimalString = BitConverter.ToInt64(rowVersionAsBytes, startIndex: 0).ToString();
-
-                        acquiredJobs.Add(new ExportJobOutcome(exportJobRecord, WeakETag.FromVersionId(rowVersionAsDecimalString)));
+                        acquiredJobs.Add(CreateExportJobOutcome(rawJobRecord, rowVersion));
                     }
                 }
 
                 return acquiredJobs;
             }
+        }
+
+        private static ExportJobOutcome CreateExportJobOutcome(string rawJobRecord, byte[] rowVersionAsBytes)
+        {
+            var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(rowVersionAsBytes);
+            }
+
+            const int startIndex = 0;
+            var rowVersionAsDecimalString = BitConverter.ToInt64(rowVersionAsBytes, startIndex).ToString();
+
+            return new ExportJobOutcome(exportJobRecord, WeakETag.FromVersionId(rowVersionAsDecimalString));
         }
     }
 }
