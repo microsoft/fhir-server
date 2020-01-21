@@ -1790,6 +1790,8 @@ GO
 -- PARAMETERS
 --     @id
 --         * The ID of the export job record
+--     @hash
+--         * The SHA256 hash of the export job record ID
 --     @status
 --         * The status of the export job
 --     @queuedDateTime
@@ -1802,6 +1804,7 @@ GO
 --
 CREATE PROCEDURE dbo.CreateExportJob
     @id varchar(64),
+    @hash varchar(64),
     @status varchar(10),
     @queuedDateTime datetimeoffset(7),
     @rawJobRecord varchar(max)
@@ -1812,9 +1815,9 @@ AS
     BEGIN TRANSACTION
 
     INSERT INTO dbo.ExportJob
-        (Id, Status, QueuedDateTime, RawJobRecord)
+        (Id, Hash, Status, QueuedDateTime, RawJobRecord)
     VALUES
-        (@id, @status, @queuedDateTime, @rawJobRecord)
+        (@id, @hash, @status, @queuedDateTime, @rawJobRecord)
   
     SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
 

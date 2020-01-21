@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 V1.CreateExportJob.PopulateCommand(
                     sqlCommand,
                     jobRecord.Id,
+                    jobRecord.Hash,
                     jobRecord.Status.ToString(),
                     jobRecord.QueuedTime,
                     JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings));
