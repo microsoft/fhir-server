@@ -1251,33 +1251,6 @@ WITH (DATA_COMPRESSION = PAGE)
 GO
 
 /*************************************************************
-    Export Job
-**************************************************************/
-CREATE TABLE dbo.ExportJob
-(
-    Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status varchar(10) NOT NULL,
-    HeartbeatDateTime datetimeoffset(7) NULL,
-    QueuedDateTime datetimeoffset(7) NOT NULL,
-    RawJobRecord varbinary(max) NOT NULL,
-    JobVersion rowversion NOT NULL
-)
-
-CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob
-(
-    Id
-)
-
-CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Status_HeartbeatDateTime_QueuedDateTime ON dbo.ExportJob
-(
-    Status,
-    HeartbeatDateTime,
-    QueuedDateTime
-) -- TODO: Modify indexes as needed when implementing remaining sql export methods.
-
-GO
-
-/*************************************************************
     Sequence for generating unique 12.5ns "tick" components that are added
     to a base ID based on the timestamp to form a unique resource surrogate ID
 **************************************************************/
@@ -1290,50 +1263,6 @@ CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
         MAXVALUE 79999
         CYCLE
         CACHE 1000000
-GO
-
-/*************************************************************
-    Stored procedure for exporting
-**************************************************************/
---
--- STORED PROCEDURE
---     Creates an export job.
---
--- DESCRIPTION
---     Creates a new row to the ExportJob table, adding a new job to the queue of jobs to be processed.
---
--- PARAMETERS
---     @id
---         * The ID of the export job record
---     @status
---         * The status of the export job
---     @queuedDateTime
---         * The time the export job is queued
---     @rawJobRecord
---         * A compressed UTF16-encoded JSON document
---
--- RETURN VALUE
---     The row version of the created export job.
---
-CREATE PROCEDURE dbo.CreateExportJob
-    @id varchar(64),
-    @status varchar(10),
-    @queuedDateTime datetimeoffset(7),
-    @rawJobRecord varbinary(max)
-AS
-    SET NOCOUNT ON
-
-    SET XACT_ABORT ON
-    BEGIN TRANSACTION
-
-    INSERT INTO dbo.ExportJob
-        (Id, Status, QueuedDateTime, RawJobRecord)
-    VALUES
-        (@id, @status, @queuedDateTime, @rawJobRecord)
-  
-    SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
-
-    COMMIT TRANSACTION
 GO
 
 /*************************************************************
@@ -1816,5 +1745,134 @@ AS
     DELETE FROM dbo.TokenNumberNumberCompositeSearchParam
     WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
 
+    COMMIT TRANSACTION
+GO
+
+/*************************************************************
+    Export Job
+**************************************************************/
+CREATE TABLE dbo.ExportJob
+(
+    Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Status varchar(10) NOT NULL,
+    HeartbeatDateTime datetime2(7) NULL,
+    QueuedDateTime datetimeoffset(7) NOT NULL,
+    RawJobRecord varchar(max) NOT NULL,
+    JobVersion rowversion NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob
+(
+    Id
+)
+
+CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Status_HeartbeatDateTime_QueuedDateTime ON dbo.ExportJob
+(
+    Status,
+    HeartbeatDateTime,
+    QueuedDateTime
+)
+
+GO
+
+/*************************************************************
+    Stored procedures for exporting
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     Creates an export job.
+--
+-- DESCRIPTION
+--     Creates a new row to the ExportJob table, adding a new job to the queue of jobs to be processed.
+--
+-- PARAMETERS
+--     @id
+--         * The ID of the export job record
+--     @status
+--         * The status of the export job
+--     @queuedDateTime
+--         * The time the export job is queued
+--     @rawJobRecord
+--         * A JSON document
+--
+-- RETURN VALUE
+--     The row version of the created export job.
+--
+CREATE PROCEDURE dbo.CreateExportJob
+    @id varchar(64),
+    @status varchar(10),
+    @queuedDateTime datetimeoffset(7),
+    @rawJobRecord varchar(max)
+AS
+    SET NOCOUNT ON
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    INSERT INTO dbo.ExportJob
+        (Id, Status, QueuedDateTime, RawJobRecord)
+    VALUES
+        (@id, @status, @queuedDateTime, @rawJobRecord)
+  
+    SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
+
+    COMMIT TRANSACTION
+GO
+
+--
+-- STORED PROCEDURE
+--     Acquires export jobs.
+--
+-- DESCRIPTION
+--     Timestamps the available export jobs and sets their statuses to running.
+--
+-- PARAMETERS
+--     @jobHeartbeatTimeoutThresholdInSeconds
+--         * The number of seconds that must pass before an export job is considered stale
+--     @maximumNumberOfConcurrentJobsAllowed
+--         * The maximum number of running jobs we can have at once
+--
+-- RETURN VALUE
+--     The updated jobs that are now running.
+--
+CREATE PROCEDURE dbo.AcquireExportJobs
+    @jobHeartbeatTimeoutThresholdInSeconds bigint,
+    @maximumNumberOfConcurrentJobsAllowed int
+AS
+    SET NOCOUNT ON
+    SET XACT_ABORT ON
+
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+    BEGIN TRANSACTION
+
+    -- We will consider a job to be stale if its timestamp is smaller than or equal to this.
+    DECLARE @expirationDateTime dateTime2(7)
+    SELECT @expirationDateTime = DATEADD(second, -@jobHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME())
+
+    -- Get the number of jobs that are running and not stale.
+    -- Acquire and hold an exclusive table lock for the entire transaction to prevent jobs from being created, updated or deleted during acquisitions.
+    DECLARE @numberOfRunningJobs int
+    SELECT @numberOfRunningJobs = COUNT(*) FROM dbo.ExportJob WITH (TABLOCKX) WHERE Status = 'Running' AND HeartbeatDateTime > @expirationDateTime
+
+    -- Determine how many available jobs we can pick up.
+    DECLARE @limit int = @maximumNumberOfConcurrentJobsAllowed - @numberOfRunningJobs;
+
+    DECLARE @availableJobs TABLE (Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL, JobVersion binary(8) NOT NULL)
+
+    -- Get the available jobs, which are export jobs that are queued or stale.
+    INSERT INTO @availableJobs
+    SELECT TOP (@limit) Id, JobVersion
+    FROM dbo.ExportJob
+    WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= @expirationDateTime))
+    ORDER BY HeartbeatDateTime, QueuedDateTime
+
+    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
+
+    -- Update each available job's status to running both in the export table's status column and in the raw export job record JSON.
+    UPDATE dbo.ExportJob
+    SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = JSON_MODIFY(RawJobRecord,'$.status', 'Running')
+    OUTPUT inserted.RawJobRecord, inserted.JobVersion
+    FROM dbo.ExportJob job INNER JOIN @availableJobs availableJob ON job.Id = availableJob.Id AND job.JobVersion = availableJob.JobVersion
+   
     COMMIT TRANSACTION
 GO

@@ -98,7 +98,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsNoRunningJob_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned()
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
@@ -119,7 +118,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
         [InlineData(OperationStatus.Running)]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenJobIsNotInQueuedState_WhenAcquiringJobs_ThenNoJobShouldBeReturned(OperationStatus operationStatus)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
@@ -134,55 +132,70 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(1, 0)]
         [InlineData(2, 1)]
         [InlineData(3, 2)]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenNumberOfRunningJobs_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
-            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync();
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
+            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(); // Queued
+            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
-            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync();
+            ExportJobRecord jobRecord3 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
 
-            ExportJobRecord[] expectedJobRecords = new[] { jobRecord1, jobRecord2 };
+            // Set the one of the queued jobs to running, and update its timestamp. This job shouldn't be returned next time we acquire.
+            IReadOnlyCollection<ExportJobOutcome> runningJobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
+            Assert.NotNull(runningJobs);
+            Assert.Equal(1, runningJobs.Count);
 
-            Assert.NotNull(jobs);
+            ExportJobOutcome runningJob = runningJobs.FirstOrDefault();
 
-            Action<ExportJobOutcome>[] validators = expectedJobRecords
-                .Take(expectedNumberOfJobsReturned)
-                .Select(expectedJobRecord => new Action<ExportJobOutcome>(job =>
-                {
-                    // The job should be marked as running now since it's acquired.
-                    expectedJobRecord.Status = OperationStatus.Running;
+            Assert.NotNull(runningJob);
 
-                    ValidateExportJobOutcome(expectedJobRecord, job.JobRecord);
-                })).ToArray();
+            var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2, jobRecord3 };
 
-            Assert.Collection(
-                jobs,
-                validators);
+            // Remove the running job from the list of jobs that are expected to be returned next acquire.
+            ExportJobRecord runningJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == runningJob.JobRecord.Id);
+            expectedJobRecords.Remove(runningJobRecord);
+
+            IReadOnlyCollection<ExportJobOutcome> acquiredJobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
+
+            Assert.NotNull(acquiredJobOutcomes);
+            Assert.Equal(expectedNumberOfJobsReturned, acquiredJobOutcomes.Count);
+
+            foreach (ExportJobOutcome acquiredJobOutcome in acquiredJobOutcomes)
+            {
+                ExportJobRecord acquiredJobRecord = acquiredJobOutcome.JobRecord;
+                ExportJobRecord expectedJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == acquiredJobRecord.Id);
+
+                Assert.NotNull(expectedJobRecord);
+
+                // The job should be marked as running now since it's acquired.
+                expectedJobRecord.Status = OperationStatus.Running;
+
+                ValidateExportJobOutcome(expectedJobRecord, acquiredJobRecord);
+            }
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsRunningJobThatExpired_WhenAcquiringJobs_ThenTheExpiredJobShouldBeReturned()
         {
-            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
+            // Create a job and set it to running.
+            await InsertNewExportJobRecordAsync();
+            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
+
+            ExportJobOutcome jobOutcome = jobs.First();
 
             await Task.Delay(1200);
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
+            IReadOnlyCollection<ExportJobOutcome> expiredJobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
 
-            Assert.NotNull(jobs);
+            Assert.NotNull(expiredJobs);
             Assert.Collection(
-                jobs,
-                job => ValidateExportJobOutcome(jobRecord, job.JobRecord));
+                expiredJobs,
+                expiredJobOutcome => ValidateExportJobOutcome(jobOutcome.JobRecord, expiredJobOutcome.JobRecord));
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereAreQueuedJobs_WhenSimultaneouslyAcquiringJobs_ThenCorrectJobsShouldBeReturned()
         {
             ExportJobRecord[] jobRecords = new[]
