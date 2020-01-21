@@ -56,7 +56,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAMatchingJob_WhenGettingById_ThenTheMatchingJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
@@ -67,7 +66,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenNoMatchingJob_WhenGettingById_ThehJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
