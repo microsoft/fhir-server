@@ -40,6 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// <inheritdoc />
         public bool IsSupportedDestinationType(string destinationType)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
+
             return _registeredTypes.TryGetValue(destinationType, out Func<IExportDestinationClient> _);
         }
     }

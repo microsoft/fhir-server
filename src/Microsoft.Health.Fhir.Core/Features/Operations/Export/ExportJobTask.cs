@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
-using System.Text;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -34,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
         private readonly IAccessTokenProviderFactory _accessTokenProviderFactory;
+        private readonly IExportJobConfigurationValidator _exportJobConfigurationValidator;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClientFactory exportDestinationClientFactory,
             IAccessTokenProviderFactory accessTokenProviderFactory,
+            IExportJobConfigurationValidator exportJobConfigurationValidator,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -63,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
             EnsureArg.IsNotNull(accessTokenProviderFactory, nameof(accessTokenProviderFactory));
+            EnsureArg.IsNotNull(exportJobConfigurationValidator, nameof(exportJobConfigurationValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -72,6 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClientFactory = exportDestinationClientFactory;
             _accessTokenProviderFactory = accessTokenProviderFactory;
+            _exportJobConfigurationValidator = exportJobConfigurationValidator;
             _logger = logger;
         }
 
@@ -85,6 +88,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
+                // Validate whether the export job configuration is valid.
+                _exportJobConfigurationValidator.ValidateExportJobConfig();
+
                 // Get destination type from secret store and connect to the destination using appropriate client.
                 await GetDestinationInfoAndConnectAsync(cancellationToken);
 
@@ -168,6 +174,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _logger.LogWarning(ex, "Failed to delete the secret.");
                 }
             }
+            catch (ExportJobConfigValidationException ex)
+            {
+                _logger.LogError(ex, "Invalid export job configuration.");
+
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(ex.Message, ex.StatusCode);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (JobConflictException)
             {
                 // The export job was updated externally. There might be some additional resources that were exported
@@ -235,14 +248,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 if (Uri.TryCreate(_exportJobConfiguration.DefaultStorageAccountConnection, UriKind.Absolute, out Uri resultUri))
                 {
                     // We need to get the corresponding access token.
-                    _logger.LogInformation($"Extracted uri for export job is {resultUri.AbsoluteUri} from input: {_exportJobConfiguration.DefaultStorageAccountConnection}");
-
-                    if (!_accessTokenProviderFactory.IsSupportedAccessTokenProviderType(_exportJobConfiguration.AccessTokenProviderType))
-                    {
-                        throw new DestinationConnectionException(string.Format(Resources.UnsupportedAccessTokenProvider, _exportJobConfiguration.AccessTokenProviderType), HttpStatusCode.BadRequest);
-                    }
-
                     _accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.AccessTokenProviderType);
+
+                    _logger.LogInformation($"Using {_exportJobConfiguration.AccessTokenProviderType} access token provider to get access token");
+
                     string accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resultUri, cancellationToken);
                     if (string.IsNullOrWhiteSpace(accessToken))
                     {
@@ -253,16 +262,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 else
                 {
-                    try
-                    {
-                        Encoding.UTF8.GetString(Convert.FromBase64String(_exportJobConfiguration.DefaultStorageAccountConnection));
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Unable to parse connection string");
-                        throw new DestinationConnectionException(Resources.InvalidConnectionString, HttpStatusCode.BadRequest);
-                    }
-
+                    // Use the connection string to connect to the export destination.
                     await _exportDestinationClient.ConnectAsync(_exportJobConfiguration.DefaultStorageAccountConnection, cancellationToken, _exportJobRecord.Id);
                 }
             }

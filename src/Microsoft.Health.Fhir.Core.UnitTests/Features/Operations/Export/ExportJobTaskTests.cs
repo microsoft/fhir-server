@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
         private readonly IAccessTokenProviderFactory _accessTokenProviderFactory = Substitute.For<IAccessTokenProviderFactory>();
+        private readonly IExportJobConfigurationValidator _exportJobConfigurationValidator = Substitute.For<IExportJobConfigurationValidator>();
 
         private readonly ExportJobTask _exportJobTask;
 
@@ -81,6 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
                 _accessTokenProviderFactory,
+                _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -357,6 +359,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
                 _accessTokenProviderFactory,
+                _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -430,6 +433,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
                 _accessTokenProviderFactory,
+                _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;
@@ -437,6 +441,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
             Assert.Equal("23", exportedIds);
+        }
+
+        [Fact]
+        public async Task GivenAccessTokenProviderNotSupported_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            // Setup export destination client.
+            string connectionFailure = "failedToConnectToDestination";
+            IExportDestinationClient mockExportDestinationClient = Substitute.For<IExportDestinationClient>();
+            mockExportDestinationClient.ConnectAsync(Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
+                .Returns<Task>(x => throw new DestinationConnectionException(connectionFailure, HttpStatusCode.BadRequest));
+
+            _exportDestinationClientFactory.Create("in-memory").Returns(mockExportDestinationClient);
+
+            var exportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                _secretStore,
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _resourceToByteArraySerializer,
+                _exportDestinationClientFactory,
+                _accessTokenProviderFactory,
+                _exportJobConfigurationValidator,
+                NullLogger<ExportJobTask>.Instance);
+
+            await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
