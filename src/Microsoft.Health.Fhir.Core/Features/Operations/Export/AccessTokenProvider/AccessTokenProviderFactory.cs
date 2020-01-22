@@ -7,9 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider
 {
     public class AccessTokenProviderFactory : IAccessTokenProviderFactory
     {
@@ -19,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(accessTokenProviderFactories, nameof(accessTokenProviderFactories));
 
-            _registeredTypes = accessTokenProviderFactories.ToDictionary(factory => factory().DestinationType, StringComparer.Ordinal);
+            _registeredTypes = accessTokenProviderFactories.ToDictionary(factory => factory().AccessTokenProviderType, StringComparer.Ordinal);
         }
 
         /// <inheritdoc />
@@ -32,7 +31,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 return factory();
             }
 
-            throw new UnsupportedDestinationTypeException(destinationType);
+            throw new UnsupportedAccessTokenProviderException(destinationType);
+        }
+
+        public bool IsSupportedAccessTokenProviderType(string destinationType)
+        {
+            return _registeredTypes.ContainsKey(destinationType);
         }
     }
 }

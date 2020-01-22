@@ -39,10 +39,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _exportDestinationClientFactory.IsSupportedDestinationType(SupportedDestinationType).Returns(true);
             _exportJobConfiguration = new ExportJobConfiguration();
 
-            IOptions<OperationsConfiguration> operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfig.Value.Export.Returns(_exportJobConfiguration);
+            IOptions<ExportJobConfiguration> exportJobConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
+            exportJobConfig.Value.Returns(_exportJobConfiguration);
 
-            _filter = new ValidateExportRequestFilterAttribute(_exportDestinationClientFactory, operationsConfig);
+            _filter = new ValidateExportRequestFilterAttribute(_exportDestinationClientFactory, exportJobConfig);
         }
 
         [Theory]
@@ -151,9 +151,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             };
 
             var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
-
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }

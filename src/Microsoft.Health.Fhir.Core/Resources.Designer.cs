@@ -367,6 +367,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The provided connection string is invalid.
+        /// </summary>
+        internal static string InvalidConnectionString {
+            get {
+                return ResourceManager.GetString("InvalidConnectionString", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The continuation token is invalid..
         /// </summary>
         internal static string InvalidContinuationToken {
@@ -804,6 +813,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UnknownError {
             get {
                 return ResourceManager.GetString("UnknownError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The access token provider type &apos;{0}&apos; is not supported..
+        /// </summary>
+        internal static string UnsupportedAccessTokenProvider {
+            get {
+                return ResourceManager.GetString("UnsupportedAccessTokenProvider", resourceCulture);
             }
         }
         

@@ -38,13 +38,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         // to the capabilities statement, we can derive this list from there (via the ConformanceProvider).
         private readonly HashSet<string> _supportedQueryParams;
 
-        public ValidateExportRequestFilterAttribute(IExportDestinationClientFactory exportDestinationClientFactory, IOptions<OperationsConfiguration> operationsConfig)
+        public ValidateExportRequestFilterAttribute(IExportDestinationClientFactory exportDestinationClientFactory, IOptions<ExportJobConfiguration> exportJobConfig)
         {
             EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
-            EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
+            EnsureArg.IsNotNull(exportJobConfig?.Value, nameof(exportJobConfig));
 
             _exportDestinationClientFactory = exportDestinationClientFactory;
-            _exportJobConfiguration = operationsConfig.Value.Export;
+            _exportJobConfiguration = exportJobConfig.Value;
 
             _supportedQueryParams = new HashSet<string>(StringComparer.Ordinal)
             {

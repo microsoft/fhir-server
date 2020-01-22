@@ -55,6 +55,12 @@ namespace Microsoft.Extensions.DependencyInjection
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
+            if (string.IsNullOrEmpty(fhirServerConfiguration.Operations?.Export?.DefaultStorageAccountType))
+            {
+                fhirServerConfiguration.Operations.Export.DefaultStorageAccountType = "in-memory";
+                fhirServerConfiguration.Operations.Export.DefaultStorageAccountConnection = "base64encodeddummyConnectionString";
+            }
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));

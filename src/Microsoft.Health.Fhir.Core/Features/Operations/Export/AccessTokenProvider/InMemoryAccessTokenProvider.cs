@@ -8,11 +8,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider
 {
-    public class DefaultAccessTokenProvider : IAccessTokenProvider
+    public class InMemoryAccessTokenProvider : IAccessTokenProvider
     {
-        public string DestinationType => "in-memory";
+        public string AccessTokenProviderType => "in-memory";
 
         public Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken)
         {
