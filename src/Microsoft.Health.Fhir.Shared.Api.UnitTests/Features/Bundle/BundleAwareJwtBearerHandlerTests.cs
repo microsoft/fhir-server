@@ -7,7 +7,6 @@ using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -32,16 +31,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
             var jwtBearerOptions = new JwtBearerOptions();
             var options = Substitute.For<IOptionsMonitor<JwtBearerOptions>>();
             options.CurrentValue.Returns(jwtBearerOptions);
+            options.Get(Arg.Any<string>()).Returns(jwtBearerOptions);
             var logger = NullLoggerFactory.Instance;
             var encoder = UrlEncoder.Default;
-            var dataProtection = Substitute.For<IDataProtectionProvider>();
             var clock = Substitute.For<ISystemClock>();
             _bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
             _httpContext = new DefaultHttpContext();
             _auditHelper = Substitute.For<IAuditHelper>();
             _claimsExtractor = Substitute.For<IClaimsExtractor>();
 
-            _bundleAwareJwtBearerHandler = new BundleAwareJwtBearerHandler(options, logger, encoder, dataProtection, clock, _bundleHttpContextAccessor, _auditHelper, _claimsExtractor);
+            _bundleAwareJwtBearerHandler = new BundleAwareJwtBearerHandler(options, logger, encoder, clock, _bundleHttpContextAccessor, _auditHelper, _claimsExtractor);
             _bundleAwareJwtBearerHandler.InitializeAsync(new AuthenticationScheme("jwt", "jwt", typeof(BundleAwareJwtBearerHandler)), _httpContext);
         }
 

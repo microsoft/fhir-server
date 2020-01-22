@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
 
             Exception ex = Assert.Throws<ArgumentException>(paramName, () => _builder.ToPartialDateTime());
 
-            string expectedMessage = $"The {paramName} portion of a date cannot be specified if the {firstNullParamName} portion is not specified.{Environment.NewLine}Parameter name: {paramName}";
+            string expectedMessage = $"The {paramName} portion of a date cannot be specified if the {firstNullParamName} portion is not specified. (Parameter '{paramName}')";
 
             Assert.Equal(expectedMessage, ex.Message);
         }
