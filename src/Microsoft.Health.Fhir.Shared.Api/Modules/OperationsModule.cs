@@ -22,6 +22,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            services.Add<ExportJobConfigurationValidator>()
+                .Singleton()
+                .AsService<IExportJobConfigurationValidator>();
+
             services.Add<ExportDestinationClientFactory>()
                 .Singleton()
                 .AsService<IExportDestinationClientFactory>();

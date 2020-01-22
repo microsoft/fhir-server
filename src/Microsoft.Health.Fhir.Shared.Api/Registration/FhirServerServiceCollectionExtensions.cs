@@ -5,6 +5,7 @@
 
 using System;
 using System.Reflection;
+using System.Text;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -58,7 +59,7 @@ namespace Microsoft.Extensions.DependencyInjection
             if (string.IsNullOrEmpty(fhirServerConfiguration.Operations?.Export?.DefaultStorageAccountType))
             {
                 fhirServerConfiguration.Operations.Export.DefaultStorageAccountType = "in-memory";
-                fhirServerConfiguration.Operations.Export.DefaultStorageAccountConnection = "base64encodeddummyConnectionString";
+                fhirServerConfiguration.Operations.Export.DefaultStorageAccountConnection = Convert.ToBase64String(Encoding.ASCII.GetBytes("in-memory"));
             }
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));

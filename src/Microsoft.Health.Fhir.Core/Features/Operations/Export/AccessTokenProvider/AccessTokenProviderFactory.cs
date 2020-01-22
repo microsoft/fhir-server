@@ -22,21 +22,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvi
         }
 
         /// <inheritdoc />
-        public IAccessTokenProvider Create(string destinationType)
+        public IAccessTokenProvider Create(string accessTokenProviderType)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
+            EnsureArg.IsNotNullOrWhiteSpace(accessTokenProviderType, nameof(accessTokenProviderType));
 
-            if (_registeredTypes.TryGetValue(destinationType, out Func<IAccessTokenProvider> factory))
+            if (_registeredTypes.TryGetValue(accessTokenProviderType, out Func<IAccessTokenProvider> factory))
             {
                 return factory();
             }
 
-            throw new UnsupportedAccessTokenProviderException(destinationType);
+            throw new UnsupportedAccessTokenProviderException(accessTokenProviderType);
         }
 
-        public bool IsSupportedAccessTokenProviderType(string destinationType)
+        public bool IsSupportedAccessTokenProviderType(string accessTokenProviderType)
         {
-            return _registeredTypes.ContainsKey(destinationType);
+            EnsureArg.IsNotNullOrWhiteSpace(accessTokenProviderType, nameof(accessTokenProviderType));
+
+            return _registeredTypes.ContainsKey(accessTokenProviderType);
         }
     }
 }
