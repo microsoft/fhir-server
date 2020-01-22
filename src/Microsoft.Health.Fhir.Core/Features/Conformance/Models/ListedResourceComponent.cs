@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Type { get; set; }
 
-        public IReferenceComponent Profile { get; set; }
+        public ReferenceComponent Profile { get; set; }
 
         public ICollection<ResourceInteractionComponent> Interaction { get; }
 

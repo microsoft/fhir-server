@@ -13,11 +13,11 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
-    public class VersionSpecificReferenceConverterTests
+    public class ProfileReferenceConverterTests
     {
         private readonly IModelInfoProvider _modelInfoProvider;
 
-        public VersionSpecificReferenceConverterTests()
+        public ProfileReferenceConverterTests()
         {
             _modelInfoProvider = Substitute.For<IModelInfoProvider>();
         }
@@ -42,12 +42,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
         private string GetJson(string canonicalObject)
         {
-            var obj = new ReferenceComponentImpl()
+            var obj = new ReferenceComponent()
             {
-                RefComponent = new ReferenceComponent()
-                {
                     Reference = "http://hl7.org/fhir/StructureDefinition/Account",
-                },
             };
 
             return JsonConvert.SerializeObject(obj, new JsonSerializerSettings
@@ -55,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 Converters = new List<JsonConverter>
                 {
-                    new VersionSpecificReferenceConverter(_modelInfoProvider),
+                    new ProfileReferenceConverter(_modelInfoProvider),
                 },
                 NullValueHandling = NullValueHandling.Ignore,
             });

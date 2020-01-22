@@ -7,14 +7,16 @@ using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 {
-    internal class VersionSpecificReferenceConverter : JsonConverter
+    internal class ProfileReferenceConverter : JsonConverter
     {
         private IModelInfoProvider _modelInfoProvider;
 
-        public VersionSpecificReferenceConverter(IModelInfoProvider modelInfoProvider)
+        public ProfileReferenceConverter(IModelInfoProvider modelInfoProvider)
         {
             _modelInfoProvider = modelInfoProvider;
         }
@@ -26,15 +28,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
             EnsureArg.IsNotNull(writer, nameof(writer));
             EnsureArg.IsNotNull(serializer, nameof(serializer));
 
-            if (value is IReferenceComponent obj)
+            if (value is ReferenceComponent obj)
             {
                 if (_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
                 {
-                    serializer.Serialize(writer, obj.ReferenceComponent);
+                    serializer = new JsonSerializer()
+                    {
+                        ContractResolver = new CamelCasePropertyNamesContractResolver(),
+                    };
+                    var token = JToken.FromObject(obj, serializer);
+
+                    token.WriteTo(writer);
                 }
                 else
                 {
-                    serializer.Serialize(writer, obj.ReferenceComponent.Reference);
+                    serializer.Serialize(writer, obj.Reference);
                 }
             }
         }
@@ -48,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
         {
             EnsureArg.IsNotNull(objectType, nameof(objectType));
 
-            return typeof(IReferenceComponent).IsAssignableFrom(objectType);
+            return typeof(ReferenceComponent).IsAssignableFrom(objectType);
         }
     }
 }
