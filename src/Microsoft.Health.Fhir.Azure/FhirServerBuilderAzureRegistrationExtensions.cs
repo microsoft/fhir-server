@@ -13,7 +13,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Azure.KeyVault;
 using Microsoft.Health.Fhir.Azure.KeyVault.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -33,14 +33,6 @@ namespace Microsoft.Health.Fhir.Azure
                 .AsSelf();
 
             fhirServerBuilder.Services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<AzureExportDestinationClient>())
-                .Transient()
-                .AsSelf();
-
-            fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
-                .Transient()
-                .AsSelf();
-
-            fhirServerBuilder.Services.Add<Func<IAccessTokenProvider>>(sp => () => sp.GetRequiredService<AzureAccessTokenProvider>())
                 .Transient()
                 .AsSelf();
 
@@ -77,6 +69,21 @@ namespace Microsoft.Health.Fhir.Azure
                     .Singleton()
                     .AsService<ISecretStore>();
             }
+
+            return fhirServerBuilder;
+        }
+
+        public static IFhirServerBuilder AddAzureAccessTokenProvider(this IFhirServerBuilder fhirServerBuilder)
+        {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
+            fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
+                .Transient()
+                .AsSelf();
+
+            fhirServerBuilder.Services.Add<Func<IAccessTokenProvider>>(sp => () => sp.GetRequiredService<AzureAccessTokenProvider>())
+                .Transient()
+                .AsSelf();
 
             return fhirServerBuilder;
         }

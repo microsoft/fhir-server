@@ -25,6 +25,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public string DefaultStorageAccountConnection { get; set; }
 
+        /// <summary>
+        /// Determines the default access token provider type that will be used to get an access token to
+        /// the storage account used for exporting data.
+        /// </summary>
+        public string AccessTokenProviderType { get; set; }
+
         public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
 
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);

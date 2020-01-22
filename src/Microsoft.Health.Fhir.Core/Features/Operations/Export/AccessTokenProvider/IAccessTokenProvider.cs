@@ -7,14 +7,14 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider
 {
     public interface IAccessTokenProvider
     {
         /// <summary>
         /// Gets the supported destination type.
         /// </summary>
-        string DestinationType { get; }
+        string AccessTokenProviderType { get; }
 
         Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken);
     }

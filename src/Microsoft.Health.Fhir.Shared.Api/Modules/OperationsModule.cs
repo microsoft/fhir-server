@@ -8,6 +8,7 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -46,11 +47,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsService<IAccessTokenProviderFactory>();
 
-            services.Add<DefaultAccessTokenProvider>()
+            services.Add<InMemoryAccessTokenProvider>()
                 .Transient()
                 .AsSelf();
 
-            services.Add<Func<IAccessTokenProvider>>(sp => () => sp.GetRequiredService<DefaultAccessTokenProvider>())
+            services.Add<Func<IAccessTokenProvider>>(sp => () => sp.GetRequiredService<InMemoryAccessTokenProvider>())
                 .Transient()
                 .AsSelf();
 

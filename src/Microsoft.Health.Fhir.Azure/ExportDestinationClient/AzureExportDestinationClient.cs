@@ -43,57 +43,40 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             EnsureArg.IsNotNullOrWhiteSpace(connectionSettings, nameof(connectionSettings));
 
-            // We have already validated that the connection string is base64 encoded when we received the export request.
+            // We have already validated that the connection string is base64 encoded.
             string decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
             if (!CloudStorageAccount.TryParse(decodedConnectionString, out CloudStorageAccount cloudAccount))
             {
                 throw new DestinationConnectionException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
-            await CreateBlobClientAndContainer(cloudAccount, containerId);
-        }
-
-        public async Task ConnectWithAccessTokenAsync(string accessToken, string storagAccountUri, CancellationToken cancellationToken, string containerId = null)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(accessToken, nameof(accessToken));
-            EnsureArg.IsNotNullOrWhiteSpace(storagAccountUri, nameof(storagAccountUri));
-
-            // string decodedAccessToken = Encoding.UTF8.GetString(Convert.FromBase64String(accessToken));
-            // _logger.LogInformation($"Decoded access token: {decodedAccessToken}");
-            _logger.LogInformation($"Connecting to {storagAccountUri} with access token");
-
-            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
-            var baseUri = new Uri(storagAccountUri);
-
-            _blobClient = new CloudBlobClient(baseUri, storageCredentials);
-
-            // var cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-            // await CreateBlobClientAndContainer(cloudAccount, containerId);
-
-            if (string.IsNullOrWhiteSpace(containerId))
-            {
-                _blobContainer = _blobClient.GetRootContainerReference();
-            }
-            else
-            {
-                _blobContainer = _blobClient.GetContainerReference(containerId);
-            }
-
-            await _blobContainer.CreateIfNotExistsAsync();
-        }
-
-        private async Task CreateBlobClientAndContainer(CloudStorageAccount cloudAccount, string containerId)
-        {
             _blobClient = cloudAccount.CreateCloudBlobClient();
 
+            await CreateContainer(_blobClient, containerId);
+        }
+
+        public async Task ConnectWithAccessTokenAsync(string accessToken, string storageAccountUri, CancellationToken cancellationToken, string containerId = null)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(accessToken, nameof(accessToken));
+            EnsureArg.IsNotNullOrWhiteSpace(storageAccountUri, nameof(storageAccountUri));
+
+            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
+            var baseUri = new Uri(storageAccountUri);
+
+            _blobClient = new CloudBlobClient(baseUri, storageCredentials);
+            await CreateContainer(_blobClient, containerId);
+        }
+
+        private async Task CreateContainer(CloudBlobClient blobClient, string containerId)
+        {
             // Use root container if no container id has been provided.
             if (string.IsNullOrWhiteSpace(containerId))
             {
-                _blobContainer = _blobClient.GetRootContainerReference();
+                _blobContainer = blobClient.GetRootContainerReference();
             }
             else
             {
-                _blobContainer = _blobClient.GetContainerReference(containerId);
+                _blobContainer = blobClient.GetContainerReference(containerId);
             }
 
             await _blobContainer.CreateIfNotExistsAsync();

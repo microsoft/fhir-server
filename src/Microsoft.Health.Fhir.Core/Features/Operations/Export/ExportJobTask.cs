@@ -7,12 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
+using System.Text;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -228,7 +230,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 _exportDestinationClient = _exportDestinationClientFactory.Create(_exportJobConfiguration.DefaultStorageAccountType);
-                _accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.DefaultStorageAccountType);
 
                 // Check whether the config contains a uri to a storage account or a connection string.
                 if (Uri.TryCreate(_exportJobConfiguration.DefaultStorageAccountConnection, UriKind.Absolute, out Uri resultUri))
@@ -236,6 +237,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // We need to get the corresponding access token.
                     _logger.LogInformation($"Extracted uri for export job is {resultUri.AbsoluteUri} from input: {_exportJobConfiguration.DefaultStorageAccountConnection}");
 
+                    if (!_accessTokenProviderFactory.IsSupportedAccessTokenProviderType(_exportJobConfiguration.AccessTokenProviderType))
+                    {
+                        throw new DestinationConnectionException(string.Format(Resources.UnsupportedAccessTokenProvider, _exportJobConfiguration.AccessTokenProviderType), HttpStatusCode.BadRequest);
+                    }
+
+                    _accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.AccessTokenProviderType);
                     string accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resultUri, cancellationToken);
                     if (string.IsNullOrWhiteSpace(accessToken))
                     {
@@ -246,6 +253,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 else
                 {
+                    try
+                    {
+                        Encoding.UTF8.GetString(Convert.FromBase64String(_exportJobConfiguration.DefaultStorageAccountConnection));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Unable to parse connection string");
+                        throw new DestinationConnectionException(Resources.InvalidConnectionString, HttpStatusCode.BadRequest);
+                    }
+
                     await _exportDestinationClient.ConnectAsync(_exportJobConfiguration.DefaultStorageAccountConnection, cancellationToken, _exportJobRecord.Id);
                 }
             }

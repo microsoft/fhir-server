@@ -9,8 +9,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
+namespace Microsoft.Health.Fhir.Azure
 {
     public class AzureAccessTokenProvider : IAccessTokenProvider
     {
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
         }
 
-        public string DestinationType => "azure-block-blob";
+        public string AccessTokenProviderType => "azure";
 
         public async Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken)
         {

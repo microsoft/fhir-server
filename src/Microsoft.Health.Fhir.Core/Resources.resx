@@ -225,6 +225,9 @@
   <data name="InvalidConfigSetting" xml:space="preserve">
     <value>Value '{0}' is not supported. Please select from the following list of supported capabilities: [{1}].</value>
   </data>
+  <data name="InvalidConnectionString" xml:space="preserve">
+    <value>The provided connection string is invalid</value>
+  </data>
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The continuation token is invalid.</value>
   </data>
@@ -375,6 +378,10 @@
   </data>
   <data name="UnknownError" xml:space="preserve">
     <value>Unknown Error.</value>
+  </data>
+  <data name="UnsupportedAccessTokenProvider" xml:space="preserve">
+    <value>The access token provider type '{0}' is not supported.</value>
+    <comment>{0} is the access token provider type (E.g., azure).</comment>
   </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>

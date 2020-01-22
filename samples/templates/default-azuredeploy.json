@@ -168,9 +168,9 @@
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
             "DataStore": "CosmosDb",
-            "FhirServer:Operations:Export:Enabled": "true",
             "FhirServer:Operations:Export:DefaultStorageAccountType": "azure-block-blob",
-            "FhirServer:Operations:Export:DefaultStorageAccountConnection": "[concat('https://', parameters('storageAccountName'), '.blob.core.windows.net')]"
+            "FhirServer:Operations:Export:DefaultStorageAccountConnection": "[concat('https://', parameters('storageAccountName'), '.blob.core.windows.net')]",
+            "FhirServer:Operations:Export:AccessTokenProviderType": "azure"
         },
         "emptyFhirServerConfigProperties": {},
         "kuduFhirServerConfigProperties": {
