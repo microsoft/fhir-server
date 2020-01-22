@@ -13,7 +13,6 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -100,7 +99,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
             var formatter = new FhirXmlInputFormatter(new FhirXmlParser());
 
-            var metaData = new DefaultModelMetadata(new EmptyModelMetadataProvider(), new DefaultCompositeMetadataDetailsProvider(new IMetadataDetailsProvider[0]), new DefaultMetadataDetails(ModelMetadataIdentity.ForType(typeof(Observation)), ModelAttributes.GetAttributesForType(typeof(Observation))));
+            var metaData = new DefaultModelMetadata(
+                new EmptyModelMetadataProvider(),
+                Substitute.For<ICompositeMetadataDetailsProvider>(),
+                new DefaultMetadataDetails(ModelMetadataIdentity.ForType(typeof(Observation)), ModelAttributes.GetAttributesForType(typeof(Observation))));
             var defaultHttpContext = new DefaultHttpContext();
 
             defaultHttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(sampleXml));
