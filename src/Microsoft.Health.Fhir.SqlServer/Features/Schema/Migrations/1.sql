@@ -1843,14 +1843,9 @@ CREATE PROCEDURE dbo.GetExportJobById
 AS
     SET NOCOUNT ON
 
-    SET XACT_ABORT ON
-    BEGIN TRANSACTION
-
     SELECT RawJobRecord, JobVersion
     FROM dbo.ExportJob
     WHERE Id = @id
-
-    COMMIT TRANSACTION
 GO
 
 --
@@ -1872,15 +1867,10 @@ CREATE PROCEDURE dbo.GetExportJobByHash
 AS
     SET NOCOUNT ON
 
-    SET XACT_ABORT ON
-    BEGIN TRANSACTION
-
     SELECT TOP(1) RawJobRecord, JobVersion
     FROM dbo.ExportJob
     WHERE Hash = @hash AND (Status = 'Queued' OR Status = 'Running')
     ORDER BY HeartbeatDateTime, QueuedDateTime ASC
-
-    COMMIT TRANSACTION
 GO
 
 --
