@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
-    <DebugType>Full</DebugType>
+    <DebugType>Portable</DebugType>
     <LangVersion>7.3</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
     <EnableSourceLink Condition="$([MSBuild]::IsOSPlatform('osx'))">false</EnableSourceLink>
