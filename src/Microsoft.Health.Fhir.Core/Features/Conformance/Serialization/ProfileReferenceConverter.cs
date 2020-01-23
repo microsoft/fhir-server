@@ -15,10 +15,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
     internal class ProfileReferenceConverter : JsonConverter
     {
         private IModelInfoProvider _modelInfoProvider;
+        private JsonSerializer _camelCaseSerializer;
 
         public ProfileReferenceConverter(IModelInfoProvider modelInfoProvider)
         {
             _modelInfoProvider = modelInfoProvider;
+            _camelCaseSerializer = new JsonSerializer()
+            {
+                ContractResolver = new CamelCasePropertyNamesContractResolver(),
+            };
         }
 
         public override bool CanRead => false;
@@ -32,11 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
             {
                 if (_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
                 {
-                    serializer = new JsonSerializer()
-                    {
-                        ContractResolver = new CamelCasePropertyNamesContractResolver(),
-                    };
-                    var token = JToken.FromObject(obj, serializer);
+                    var token = JToken.FromObject(obj, _camelCaseSerializer);
 
                     token.WriteTo(writer);
                 }
