@@ -324,7 +324,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
          */
         public async Task<OperationOutcome> ValidateAsync(string uri, string resource, bool xml = false)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, uri);
+            var message = new HttpRequestMessage(HttpMethod.Post, xml ? uri + "?_format=xml" : uri);
             message.Content = new StringContent(resource, Encoding.UTF8, xml ? ContentType.XML_CONTENT_HEADER : ContentType.JSON_CONTENT_HEADER);
 
             HttpResponseMessage response = await HttpClient.SendAsync(message);

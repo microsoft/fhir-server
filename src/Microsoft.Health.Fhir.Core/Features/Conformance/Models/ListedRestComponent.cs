@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             Resource = new HashSet<ListedResourceComponent>(new PropertyEqualityComparer<ListedResourceComponent>(x => x.Type));
             Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
             SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
-            Operation = new HashSet<OperationComponent>(new PropertyEqualityComparer<OperationComponent>(x => x.Name, x => x.Definition));
+            Operation = new HashSet<OperationComponentR4>(new PropertyEqualityComparer<OperationComponentR4>(x => x.Name, x => x.Definition));
         }
 
         public string Documentation { get; set; }
@@ -29,6 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public ICollection<SearchParamComponent> SearchParam { get; }
 
-        public ICollection<OperationComponent> Operation { get; }
+        public ICollection<OperationComponentR4> Operation { get; }
     }
 }

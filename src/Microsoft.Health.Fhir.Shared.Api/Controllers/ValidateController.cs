@@ -62,12 +62,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new OperationNotImplementedException(Resources.ValidateWithParametersNotSupported);
             }
 
-            if (profile != null)
+            if (!string.IsNullOrEmpty(profile))
             {
                 throw new OperationNotImplementedException(Resources.ValidateWithProfileNotSupported);
             }
 
-            if (mode != null)
+            if (!string.IsNullOrEmpty(mode))
             {
                 throw new OperationNotImplementedException(Resources.ValidationModesNotSupported);
             }
