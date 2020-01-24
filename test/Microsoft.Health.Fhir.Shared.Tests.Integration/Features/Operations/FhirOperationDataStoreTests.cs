@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenNoMatchingJob_WhenGettingById_ThehJobNotFoundExceptionShouldBeThrown()
+        public async Task GivenNoMatchingJob_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
@@ -130,28 +131,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(3, 2)]
         public async Task GivenNumberOfRunningJobs_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
+            await CreateRunningJob();
             ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(); // Queued
-            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
-            ExportJobRecord jobRecord3 = await InsertNewExportJobRecordAsync(); // Queued
+            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
 
-            // Set the one of the queued jobs to running, and update its timestamp. This job shouldn't be returned next time we acquire.
-            IReadOnlyCollection<ExportJobOutcome> runningJobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
-
-            Assert.NotNull(runningJobs);
-            Assert.Equal(1, runningJobs.Count);
-
-            ExportJobOutcome runningJob = runningJobs.FirstOrDefault();
-
-            Assert.NotNull(runningJob);
-
-            var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2, jobRecord3 };
-
-            // Remove the running job from the list of jobs that are expected to be returned next acquire.
-            ExportJobRecord runningJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == runningJob.JobRecord.Id);
-            expectedJobRecords.Remove(runningJobRecord);
+            // The running job should not be acquired.
+            var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2 };
 
             IReadOnlyCollection<ExportJobOutcome> acquiredJobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
 
@@ -175,11 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenThereIsRunningJobThatExpired_WhenAcquiringJobs_ThenTheExpiredJobShouldBeReturned()
         {
-            // Create a job and set it to running.
-            await InsertNewExportJobRecordAsync();
-            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
-
-            ExportJobOutcome jobOutcome = jobs.First();
+            ExportJobOutcome jobOutcome = await CreateRunningJob();
 
             await Task.Delay(1200);
 
@@ -229,21 +213,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenARunningJob_WhenUpdatingJob_ThenTheJobShouldBeUpdated()
+        public async Task GivenARunningJob_WhenUpdatingTheJob_ThenTheJobShouldBeUpdated()
         {
-            // Create a queued job and set it to running.
-            await InsertNewExportJobRecordAsync();
-            IReadOnlyCollection<ExportJobOutcome> jobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
-
-            Assert.NotNull(jobOutcomes);
-            Assert.Equal(1, jobOutcomes.Count);
-
-            ExportJobOutcome jobOutcome = jobOutcomes.FirstOrDefault();
-            ExportJobRecord job = jobOutcome?.JobRecord;
-
-            Assert.NotNull(jobOutcome);
-            Assert.NotNull(job);
-            Assert.Equal(OperationStatus.Running, job.Status);
+            ExportJobOutcome jobOutcome = await CreateRunningJob();
+            ExportJobRecord job = jobOutcome.JobRecord;
 
             job.Status = OperationStatus.Completed;
 
@@ -251,6 +224,41 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             ExportJobOutcome updatedJobOutcome = await _operationDataStore.GetExportJobByIdAsync(job.Id, CancellationToken.None);
 
             ValidateExportJobOutcome(job, updatedJobOutcome?.JobRecord);
+        }
+
+        [Fact]
+        public async Task GivenAnOldVersionOfAJob_WhenUpdatingTheJob_ThenJobConflictExceptionShouldBeThrown()
+        {
+            ExportJobOutcome jobOutcome = await CreateRunningJob();
+            ExportJobRecord job = jobOutcome.JobRecord;
+
+            // Update the job for a first time. This should not fail.
+            job.Status = OperationStatus.Completed;
+            WeakETag jobVersion = jobOutcome.ETag;
+            await _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None);
+
+            // Attempt to update the job a second time with the old version.
+            await Assert.ThrowsAsync<JobConflictException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
+        }
+
+        private async Task<ExportJobOutcome> CreateRunningJob()
+        {
+            // Create a queued job.
+            await InsertNewExportJobRecordAsync();
+
+            // Acquire the job. This will timestamp it and set it to running.
+            IReadOnlyCollection<ExportJobOutcome> jobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
+
+            Assert.NotNull(jobOutcomes);
+            Assert.Equal(1, jobOutcomes.Count);
+
+            ExportJobOutcome jobOutcome = jobOutcomes.FirstOrDefault();
+
+            Assert.NotNull(jobOutcome);
+            Assert.NotNull(jobOutcome.JobRecord);
+            Assert.Equal(OperationStatus.Running, jobOutcome.JobRecord.Status);
+
+            return jobOutcome;
         }
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)

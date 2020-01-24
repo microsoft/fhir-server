@@ -12,7 +12,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -123,6 +122,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
+            byte[] rowVersionAsBytes = GetRowVersionAsBytes(eTag);
+
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
@@ -131,16 +132,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     jobRecord.Id,
                     jobRecord.Status.ToString(),
                     jobRecord.QueuedTime,
-                    JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings));
+                    JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings),
+                    rowVersionAsBytes);
 
-                var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
-
-                if (rowVersion == null)
+                try
                 {
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
-                }
+                    var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
 
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
+                    if (rowVersion == null)
+                    {
+                        throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
+                    }
+
+                    return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
+                }
+                catch (SqlException e)
+                {
+                    if (e.Number == SqlErrorCodes.PreconditionFailed)
+                    {
+                        throw new JobConflictException();
+                    }
+                    else
+                    {
+                        // TODO: make this error message a resource?
+                        _logger.LogError(e, "Error from SQL database on export job update");
+                        throw;
+                    }
+                }
             }
         }
 
@@ -176,6 +194,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
 
+            WeakETag etag = GetRowVersionAsEtag(rowVersionAsBytes);
+
+            return new ExportJobOutcome(exportJobRecord, etag);
+        }
+
+        private static WeakETag GetRowVersionAsEtag(byte[] rowVersionAsBytes)
+        {
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(rowVersionAsBytes);
@@ -183,7 +208,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var rowVersionAsDecimalString = BitConverter.ToInt64(rowVersionAsBytes, startIndex: 0).ToString();
 
-            return new ExportJobOutcome(exportJobRecord, WeakETag.FromVersionId(rowVersionAsDecimalString));
+            return WeakETag.FromVersionId(rowVersionAsDecimalString);
+        }
+
+        private static byte[] GetRowVersionAsBytes(WeakETag eTag)
+        {
+            // The SQL rowversion data type is 8 bytes in length.
+            var versionAsBytes = new byte[8];
+
+            BitConverter.TryWriteBytes(versionAsBytes, int.Parse(eTag.VersionId));
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(versionAsBytes);
+            }
+
+            return versionAsBytes;
         }
     }
 }

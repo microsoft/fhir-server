@@ -1889,6 +1889,8 @@ GO
 --         * The time the export job is queued
 --     @rawJobRecord
 --         * A JSON document
+--     @jobVersion
+--         * The version of the job to update must match this
 --
 -- RETURN VALUE
 --     The row version of the updated export job.
@@ -1897,12 +1899,23 @@ CREATE PROCEDURE dbo.UpdateExportJob
     @id varchar(64),
     @status varchar(10),
     @queuedDateTime datetimeoffset(7),
-    @rawJobRecord varchar(max)
+    @rawJobRecord varchar(max),
+    @jobVersion binary(8)
 AS
     SET NOCOUNT ON
 
     SET XACT_ABORT ON
     BEGIN TRANSACTION
+
+    DECLARE @currentJobVersion binary(8)
+
+    SELECT @currentJobVersion = JobVersion
+    FROM dbo.ExportJob -- WITH (UPDLOCK, HOLDLOCK) -- TODO: Add locks, add test for locks
+    WHERE Id = @id
+
+    IF (@jobVersion <> @currentJobVersion) BEGIN
+        THROW 50412, 'Precondition failed', 1;
+    END
 
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
