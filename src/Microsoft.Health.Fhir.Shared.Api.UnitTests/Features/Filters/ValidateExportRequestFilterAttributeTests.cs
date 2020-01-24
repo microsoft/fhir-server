@@ -11,15 +11,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Net.Http.Headers;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
@@ -29,21 +24,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private const string CorrectAcceptHeaderValue = ContentType.JSON_CONTENT_HEADER;
         private const string CorrectPreferHeaderValue = "respond-async";
         private const string PreferHeaderName = "Prefer";
-        private const string SupportedDestinationType = "AnySupportedDestinationType";
 
-        private readonly IExportDestinationClientFactory _exportDestinationClientFactory = Substitute.For<IExportDestinationClientFactory>();
         private readonly ValidateExportRequestFilterAttribute _filter;
-        private readonly ExportJobConfiguration _exportJobConfiguration;
 
         public ValidateExportRequestFilterAttributeTests()
         {
-            _exportDestinationClientFactory.IsSupportedDestinationType(SupportedDestinationType).Returns(true);
-            _exportJobConfiguration = new ExportJobConfiguration();
-
-            IOptions<ExportJobConfiguration> exportJobConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
-            exportJobConfig.Value.Returns(_exportJobConfiguration);
-
-            _filter = new ValidateExportRequestFilterAttribute(_exportDestinationClientFactory, exportJobConfig);
+            _filter = new ValidateExportRequestFilterAttribute();
         }
 
         [Theory]
@@ -54,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("*/*")]
         public void GiveARequestWithInvalidAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string acceptHeader)
         {
-            var context = CreateContextWithParams();
+            var context = CreateContext();
 
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, acceptHeader);
 
@@ -64,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GiveARequestWithNoAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var context = CreateContextWithParams();
+            var context = CreateContext();
 
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
@@ -77,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("*")]
         public void GiveARequestWithInvalidPreferHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string preferHeader)
         {
-            var context = CreateContextWithParams();
+            var context = CreateContext();
 
             context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
 
@@ -85,9 +71,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GiveARequestWithNoPreferHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
+        public void GivenARequestWithNoPreferHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var context = CreateContextWithParams();
+            var context = CreateContext();
 
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
 
@@ -95,104 +81,38 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GiveARequestWithValidAcceptAndPreferHeader_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
+        public void GivenARequestWithCorrectHeadersAndQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
-            var context = CreateContextWithParams(addAcceptAndPreferHeaders: true);
+            var context = CreateContext();
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            var queryParams = new Dictionary<string, StringValues>()
+            {
+                { "queryParam", "paramValue" },
+            };
+            context.HttpContext.Request.Query = new QueryCollection(queryParams);
+
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
+        }
+
+        [Fact]
+        public void GiveARequestWithValidAcceptAndPreferHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
             _filter.OnActionExecuting(context);
         }
 
-        [Fact]
-        public void GivenARequestWithCorrectHeadersAndMissingDestinationTypeParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
-        {
-            var queryParams = new Dictionary<string, StringValues>()
-            {
-                { KnownQueryParameterNames.DestinationConnectionSettings, "destination" },
-            };
-
-            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        [Fact]
-        public void GivenARequestWithCorrectHeadersAndMissingDestinationConnectionParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
-        {
-            var queryParams = new Dictionary<string, StringValues>()
-            {
-                { KnownQueryParameterNames.DestinationType, SupportedDestinationType },
-            };
-
-            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        [Fact]
-        public void GivenARequestWithCorrectHeadersAndDestinationTypeThatIsNotSupported_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
-        {
-            var queryParams = new Dictionary<string, StringValues>()
-            {
-                { KnownQueryParameterNames.DestinationType, "Azure" },
-                { KnownQueryParameterNames.DestinationConnectionSettings, "destination" },
-            };
-
-            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        [Fact]
-        public void GivenARequestWithCorrectHeadersAndDestinationConnectionThatIsNotBase64Encoded_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
-        {
-            var queryParams = new Dictionary<string, StringValues>()
-            {
-                { KnownQueryParameterNames.DestinationType, SupportedDestinationType },
-                { KnownQueryParameterNames.DestinationConnectionSettings, "***nonbase64encoded****" },
-            };
-
-            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        [Fact]
-        public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParameter_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
-        {
-            var queryParams = new Dictionary<string, StringValues>()
-            {
-                { KnownQueryParameterNames.DestinationType, SupportedDestinationType },
-                { KnownQueryParameterNames.DestinationConnectionSettings, "destination" },
-                { KnownQueryParameterNames.Since, "forever" },
-            };
-
-            var context = CreateContextWithParams(queryParams, addAcceptAndPreferHeaders: true);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        private static ActionExecutingContext CreateContextWithParams(Dictionary<string, StringValues> queryParams = null, bool addAcceptAndPreferHeaders = false)
+        private static ActionExecutingContext CreateContext()
         {
             var context = new ActionExecutingContext(
                 new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object>(),
                 FilterTestsHelper.CreateMockExportController());
-
-            if (queryParams == null)
-            {
-                queryParams = new Dictionary<string, StringValues>();
-                queryParams.Add(KnownQueryParameterNames.DestinationType, SupportedDestinationType);
-                queryParams.Add(KnownQueryParameterNames.DestinationConnectionSettings, "connectionString");
-            }
-
-            context.HttpContext.Request.Query = new QueryCollection(queryParams);
-
-            if (addAcceptAndPreferHeaders)
-            {
-                context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-                context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
-            }
 
             return context;
         }
