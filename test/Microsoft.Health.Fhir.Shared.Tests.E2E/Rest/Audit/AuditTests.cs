@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using IdentityModel.Client;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -391,6 +392,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
         {
             var batch = Samples.GetDefaultBatch().ToPoco<Bundle>();
+
+            await _client.UpdateAsync(batch.Entry[2].Resource as Patient);
 
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {

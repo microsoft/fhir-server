@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -93,6 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case BadRequestException _:
                     case RequestNotValidException _:
+                    case BundleEntryLimitExceededException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
                     case ResourceConflictException _:

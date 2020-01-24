@@ -5,15 +5,14 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Health.Fhir.Api.Features.Audit;
-using Microsoft.Health.Fhir.Shared.Tests.E2E;
+using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Web;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
+namespace Microsoft.Health.Fhir.Shared.Tests.E2E
 {
-    public class StartupWithTraceAuditLogger : StartupBaseForCustomProviders
+    public class StartupBaseForCustomProviders : Startup
     {
-        public StartupWithTraceAuditLogger(IConfiguration configuration)
+        public StartupBaseForCustomProviders(IConfiguration configuration)
             : base(configuration)
         {
         }
@@ -22,7 +21,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         {
             base.ConfigureServices(services);
 
-            services.Replace(new ServiceDescriptor(typeof(IAuditLogger), typeof(TraceAuditLogger), ServiceLifetime.Singleton));
+            // When using custom Startup classes from a different assembly the
+            // FHIR controllers from the API assemblies are not automatically registered.
+            services.AddMvc()
+                .AddApplicationPart(typeof(FhirController).Assembly)
+                .AddApplicationPart(typeof(AadSmartOnFhirProxyController).Assembly);
         }
     }
 }
