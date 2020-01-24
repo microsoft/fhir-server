@@ -3,20 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Models;
+using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
 {
-    public class UnsupportedDestinationTypeException : FhirException
+    public class UnsupportedDestinationTypeException : Exception
     {
         public UnsupportedDestinationTypeException(string destinationType)
-            : base(string.Format(Resources.UnsupportedDestinationTypeMessage, destinationType))
+            : base(string.Format(Resources.UnsupportedDestinationType, destinationType))
         {
-            Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.NotFound,
-                Message));
         }
     }
 }

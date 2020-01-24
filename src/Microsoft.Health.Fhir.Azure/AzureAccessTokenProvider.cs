@@ -15,14 +15,14 @@ namespace Microsoft.Health.Fhir.Azure
 {
     public class AzureAccessTokenProvider : IAccessTokenProvider
     {
-        private readonly AzureServiceTokenProvider _azureTokenProvider;
+        private readonly AzureServiceTokenProvider _azureServiceTokenProvider;
         private readonly ILogger<AzureAccessTokenProvider> _logger;
 
         public AzureAccessTokenProvider(ILogger<AzureAccessTokenProvider> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _azureTokenProvider = new AzureServiceTokenProvider();
+            _azureServiceTokenProvider = new AzureServiceTokenProvider();
             _logger = logger;
         }
 
@@ -32,10 +32,16 @@ namespace Microsoft.Health.Fhir.Azure
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            _logger.LogInformation($"Received request to get access token for uri: {resourceUri}");
-            string accessToken = await _azureTokenProvider.GetAccessTokenAsync(resourceUri.ToString(), cancellationToken: cancellationToken);
+            string accessToken = await _azureServiceTokenProvider.GetAccessTokenAsync(resourceUri.ToString(), cancellationToken: cancellationToken);
+            if (accessToken == null)
+            {
+                _logger.LogWarning("Failed to retrieve access token");
+            }
+            else
+            {
+                _logger.LogInformation("Successfully retrieved access token");
+            }
 
-            _logger.LogInformation($"Access token received: {accessToken}");
             return accessToken;
         }
     }

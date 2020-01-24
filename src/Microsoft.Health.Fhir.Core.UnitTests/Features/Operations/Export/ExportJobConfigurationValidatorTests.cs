@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public void GivenUnsupportedDestinationType_WhenValidateExportJobConfig_ThenThrowsException()
         {
             string destinationType = "unsupportedDestination";
-            _exportJobConfiguration.DefaultStorageAccountType = destinationType;
+            _exportJobConfiguration.StorageAccountType = destinationType;
 
             _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Is(destinationType)).Returns(false);
 
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData("   ")]
         public void GivenInvalidDestinationType_WhenValidateExportJobConfig_ThenThrowsException(string destinationType)
         {
-            _exportJobConfiguration.DefaultStorageAccountType = destinationType;
+            _exportJobConfiguration.StorageAccountType = destinationType;
 
             var ex = Assert.Throws<ExportJobConfigValidationException>(() => _exportJobConfigurationValidator.ValidateExportJobConfig());
             Assert.Contains("destination type", ex.Message);
@@ -66,9 +66,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public void GivenDestinationConnectionIsUriAndAccessTokenProviderNotSupported_WhenValidateExportJobConfig_ThenThrowsException()
         {
-            _exportJobConfiguration.DefaultStorageAccountType = "supportedDestination";
+            _exportJobConfiguration.StorageAccountType = "supportedDestination";
             string destinationConnection = "https://localhost/uri";
-            _exportJobConfiguration.DefaultStorageAccountConnection = destinationConnection;
+            _exportJobConfiguration.StorageAccountConnection = destinationConnection;
             string accessTokenProviderType = "accessTokenProvider";
             _exportJobConfiguration.AccessTokenProviderType = accessTokenProviderType;
 
@@ -85,10 +85,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public void GivenDestinationConnectionIsUriAndInvalidAccessTokenProviderType_WhenValidateExportJobConfig_ThenThrowsException(string accessTokenProviderType)
         {
             string destinationConnection = "https://localhost/uri";
-            _exportJobConfiguration.DefaultStorageAccountConnection = destinationConnection;
+            _exportJobConfiguration.StorageAccountConnection = destinationConnection;
             _exportJobConfiguration.AccessTokenProviderType = accessTokenProviderType;
 
-            _exportJobConfiguration.DefaultStorageAccountType = "supportedDestination";
+            _exportJobConfiguration.StorageAccountType = "supportedDestination";
             _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Any<string>()).Returns(true);
 
             var ex = Assert.Throws<ExportJobConfigValidationException>(() => _exportJobConfigurationValidator.ValidateExportJobConfig());
@@ -99,24 +99,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public void GivenDestinationConnectionIsUriAndAccessTokenProviderIsSupported_WhenValidateExportJobConfig_ThenCompletesSuccessfully()
         {
             string destinationConnection = "https://localhost/uri";
-            _exportJobConfiguration.DefaultStorageAccountConnection = destinationConnection;
+            _exportJobConfiguration.StorageAccountConnection = destinationConnection;
             string accessTokenProviderType = "accessTokenProvider";
             _exportJobConfiguration.AccessTokenProviderType = accessTokenProviderType;
 
-            _exportJobConfiguration.DefaultStorageAccountType = "supportedDestination";
+            _exportJobConfiguration.StorageAccountType = "supportedDestination";
             _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Any<string>()).Returns(true);
             _accessTokenProviderFactory.IsSupportedAccessTokenProviderType(Arg.Is(accessTokenProviderType)).Returns(true);
 
-            _exportJobConfigurationValidator.ValidateExportJobConfig();
+            Assert.True(_exportJobConfigurationValidator.ValidateExportJobConfig());
         }
 
         [Fact]
         public void GivenDestinationConnectionIsNotAnUri_WhenValidateExportJobConfig_ThenWeDontCallAccessTokenProviderFactory()
         {
             string destinationConnection = "nonUri";
-            _exportJobConfiguration.DefaultStorageAccountConnection = destinationConnection;
+            _exportJobConfiguration.StorageAccountConnection = destinationConnection;
 
-            _exportJobConfiguration.DefaultStorageAccountType = "supportedDestination";
+            _exportJobConfiguration.StorageAccountType = "supportedDestination";
             _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Any<string>()).Returns(true);
 
             _accessTokenProviderFactory.DidNotReceive().IsSupportedAccessTokenProviderType(Arg.Any<string>());
@@ -126,9 +126,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public void GivenDestinationConnectionIsNonBase64EncodedString_WhenValidateExportJobConfig_ThenThrowsException()
         {
             string destinationConnection = "***nonbase64EncodedString***";
-            _exportJobConfiguration.DefaultStorageAccountConnection = destinationConnection;
+            _exportJobConfiguration.StorageAccountConnection = destinationConnection;
 
-            _exportJobConfiguration.DefaultStorageAccountType = "supportedDestination";
+            _exportJobConfiguration.StorageAccountType = "supportedDestination";
             _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Any<string>()).Returns(true);
 
             var ex = Assert.Throws<ExportJobConfigValidationException>(() => _exportJobConfigurationValidator.ValidateExportJobConfig());
@@ -139,12 +139,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public void GivenDestinationConnectionIsBase64EncodedString_WhenValidateExportJobConfig_ThenCompletesSuccessfully()
         {
             string destinationConnection = Convert.ToBase64String(Encoding.ASCII.GetBytes("base64encodedstring"));
-            _exportJobConfiguration.DefaultStorageAccountConnection = destinationConnection;
+            _exportJobConfiguration.StorageAccountConnection = destinationConnection;
 
-            _exportJobConfiguration.DefaultStorageAccountType = "supportedDestination";
+            _exportJobConfiguration.StorageAccountType = "supportedDestination";
             _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Any<string>()).Returns(true);
 
-            _exportJobConfigurationValidator.ValidateExportJobConfig();
+            Assert.True(_exportJobConfigurationValidator.ValidateExportJobConfig());
         }
     }
 }

@@ -16,18 +16,19 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool Enabled { get; set; }
 
         /// <summary>
-        /// Determines the type of the default storage account that will be used to export data to.
+        /// Determines the type of the storage account that will be used to export data to.
         /// </summary>
-        public string DefaultStorageAccountType { get; set; }
+        public string StorageAccountType { get; set; }
 
         /// <summary>
-        /// Determines the default storage account that will be used to export data to.
+        /// Determines the storage account connection that will be used to export data to.
+        /// Can either be a connection string or a uri.
         /// </summary>
-        public string DefaultStorageAccountConnection { get; set; }
+        public string StorageAccountConnection { get; set; }
 
         /// <summary>
-        /// Determines the default access token provider type that will be used to get an access token to
-        /// the storage account used for exporting data.
+        /// Determines the access token provider type that will be used (if required) to get an access token to
+        /// the above <see cref="StorageAccountType"/>.
         /// </summary>
         public string AccessTokenProviderType { get; set; }
 

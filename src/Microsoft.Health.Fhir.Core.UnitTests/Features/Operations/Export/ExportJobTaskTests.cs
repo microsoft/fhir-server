@@ -71,8 +71,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
 
             // Setup export job configuration correctly
-            _exportJobConfiguration.DefaultStorageAccountType = "in-memory";
-            _exportJobConfiguration.DefaultStorageAccountConnection = Convert.ToBase64String(Encoding.ASCII.GetBytes("connectionString"));
+            _exportJobConfiguration.StorageAccountType = "in-memory";
+            _exportJobConfiguration.StorageAccountConnection = Convert.ToBase64String(Encoding.ASCII.GetBytes("connectionString"));
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),

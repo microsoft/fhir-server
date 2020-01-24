@@ -238,10 +238,6 @@
     <value>The "{0}" parameter is not supported.</value>
     <comment>{0} is the parameter name.</comment>
   </data>
-  <data name="UnsupportedParameterValue" xml:space="preserve">
-    <value>The supplied value for "{0}" paramter is invalid.</value>
-    <comment>{0} is parameter name</comment>
-  </data>
   <data name="UnsupportedResourceType" xml:space="preserve">
     <value>Requested operation does not support resource type: {0}.</value>
     <comment>{0} is the resource type.</comment>
