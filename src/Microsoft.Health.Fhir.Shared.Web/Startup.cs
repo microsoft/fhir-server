@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.Web
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddExportWorker()
-                .AddKeyVaultSecretStore(Configuration)
                 .AddAzureExportDestinationClient()
                 .AddAzureAccessTokenProvider();
 

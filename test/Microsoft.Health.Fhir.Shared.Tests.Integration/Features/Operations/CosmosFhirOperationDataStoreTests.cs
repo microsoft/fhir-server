@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         private IFhirOperationDataStore _operationDataStore;
         private IFhirStorageTestHelper _testHelper;
 
-        private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), "destinationType", "destinationConnection");
+        private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"));
 
         public CosmosFhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {

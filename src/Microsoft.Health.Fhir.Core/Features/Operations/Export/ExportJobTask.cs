@@ -18,8 +18,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.SecretStore;
-using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -27,7 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportJobTask : IExportJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly ISecretStore _secretStore;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
@@ -48,7 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
-            ISecretStore secretStore,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
@@ -58,7 +54,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
-            EnsureArg.IsNotNull(secretStore, nameof(secretStore));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
@@ -68,7 +63,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
-            _secretStore = secretStore;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
@@ -163,16 +157,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
-
-                try
-                {
-                    // Best effort to delete the secret. If it fails to delete, then move on.
-                    await _secretStore.DeleteSecretAsync(_exportJobRecord.SecretName, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete the secret.");
-                }
             }
             catch (ExportJobConfigValidationException ex)
             {
@@ -186,13 +170,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // The export job was updated externally. There might be some additional resources that were exported
                 // but we will not be updating the job record.
                 _logger.LogTrace("The job was updated by another process.");
-            }
-            catch (SecretStoreException sse)
-            {
-                _logger.LogError(sse, "Secret store error. The job will be marked as failed.");
-
-                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(sse.Message, sse.ResponseStatusCode);
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (DestinationConnectionException dce)
             {
@@ -231,50 +208,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
-        // Get destination info from secret store, create appropriate export client and connect to destination.
+        // Get destination information, create appropriate export client and connect to destination.
         private async Task GetDestinationInfoAndConnectAsync(CancellationToken cancellationToken)
         {
-            if (_exportJobRecord.UseConfig)
+            // We are assuming that the export configuration details have already been validated.
+            _exportDestinationClient = _exportDestinationClientFactory.Create(_exportJobConfiguration.DefaultStorageAccountType);
+
+            // Check whether the config contains a uri to a storage account or a connection string.
+            if (Uri.TryCreate(_exportJobConfiguration.DefaultStorageAccountConnection, UriKind.Absolute, out Uri resultUri))
             {
-                // await GetAccessTokenAndConnect(new Uri(_exportJobConfiguration.DefaultStorageAccountConnection), cancellationToken);
-                if (!_exportDestinationClientFactory.IsSupportedDestinationType(_exportJobConfiguration.DefaultStorageAccountType))
+                // We need to get the corresponding access token.
+                _accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.AccessTokenProviderType);
+
+                _logger.LogInformation($"Using {_exportJobConfiguration.AccessTokenProviderType} access token provider to get access token");
+
+                string accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resultUri, cancellationToken);
+                if (string.IsNullOrWhiteSpace(accessToken))
                 {
-                    throw new DestinationConnectionException(string.Format(Resources.UnsupportedDestinationTypeMessage, _exportJobConfiguration.DefaultStorageAccountType), HttpStatusCode.BadRequest);
+                    throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
                 }
 
-                _exportDestinationClient = _exportDestinationClientFactory.Create(_exportJobConfiguration.DefaultStorageAccountType);
-
-                // Check whether the config contains a uri to a storage account or a connection string.
-                if (Uri.TryCreate(_exportJobConfiguration.DefaultStorageAccountConnection, UriKind.Absolute, out Uri resultUri))
-                {
-                    // We need to get the corresponding access token.
-                    _accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.AccessTokenProviderType);
-
-                    _logger.LogInformation($"Using {_exportJobConfiguration.AccessTokenProviderType} access token provider to get access token");
-
-                    string accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(resultUri, cancellationToken);
-                    if (string.IsNullOrWhiteSpace(accessToken))
-                    {
-                        throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
-                    }
-
-                    await _exportDestinationClient.ConnectWithAccessTokenAsync(accessToken, _exportJobConfiguration.DefaultStorageAccountConnection, cancellationToken, _exportJobRecord.Id);
-                }
-                else
-                {
-                    // Use the connection string to connect to the export destination.
-                    await _exportDestinationClient.ConnectAsync(_exportJobConfiguration.DefaultStorageAccountConnection, cancellationToken, _exportJobRecord.Id);
-                }
+                await _exportDestinationClient.ConnectWithAccessTokenAsync(accessToken, _exportJobConfiguration.DefaultStorageAccountConnection, cancellationToken, _exportJobRecord.Id);
             }
             else
             {
-                SecretWrapper secret = await _secretStore.GetSecretAsync(_exportJobRecord.SecretName, cancellationToken);
-
-                DestinationInfo destinationInfo = JsonConvert.DeserializeObject<DestinationInfo>(secret.SecretValue);
-
-                _exportDestinationClient = _exportDestinationClientFactory.Create(destinationInfo.DestinationType);
-
-                await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
+                // Use the connection string to connect to the export destination.
+                await _exportDestinationClient.ConnectAsync(_exportJobConfiguration.DefaultStorageAccountConnection, cancellationToken, _exportJobRecord.Id);
             }
         }
 
