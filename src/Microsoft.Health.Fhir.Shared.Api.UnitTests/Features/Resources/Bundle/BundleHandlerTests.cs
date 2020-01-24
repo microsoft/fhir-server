@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -26,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
@@ -222,6 +224,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal("403", bundleResource.Entry[0].Response.Status);
             Assert.Equal("404", bundleResource.Entry[1].Response.Status);
             Assert.Equal("200", bundleResource.Entry[2].Response.Status);
+        }
+
+        [Fact]
+        public async Task GivenAConfigurationEntryLimit_WhenExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
+        {
+            _bundleConfiguration.EntryLimit = 1;
+            var requestBundle = Samples.GetDefaultBatch();
+            var bundleRequest = new BundleRequest(requestBundle);
+
+            var expectedMessage = "The number of entries in the bundle exceeded the configured limit of 1.";
+
+            var exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(async () => await _bundleHandler.Handle(bundleRequest, CancellationToken.None));
+            Assert.Equal(exception.Message, expectedMessage);
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)
