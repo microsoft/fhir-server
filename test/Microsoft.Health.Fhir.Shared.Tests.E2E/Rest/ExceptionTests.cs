@@ -9,6 +9,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Health.Fhir.Shared.Tests.E2E;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             DotNetAttributeValidation.Validate(operationOutcome, true);
         }
 
-        public class StartupWithThrowingMiddleware : Startup
+        public class StartupWithThrowingMiddleware : StartupBaseForCustomProviders
         {
             public StartupWithThrowingMiddleware(IConfiguration configuration)
                 : base(configuration)

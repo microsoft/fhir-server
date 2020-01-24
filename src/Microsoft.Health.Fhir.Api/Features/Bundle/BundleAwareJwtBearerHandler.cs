@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Audit;
@@ -31,12 +30,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
             IOptionsMonitor<JwtBearerOptions> options,
             ILoggerFactory logger,
             UrlEncoder encoder,
-            IDataProtectionProvider dataProtection,
             ISystemClock clock,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             IAuditHelper auditHelper,
             IClaimsExtractor claimsExtractor)
-            : base(options, logger, encoder, dataProtection, clock)
+            : base(options, logger, encoder, clock)
         {
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
             EnsureArg.IsNotNull(auditHelper, nameof(auditHelper));

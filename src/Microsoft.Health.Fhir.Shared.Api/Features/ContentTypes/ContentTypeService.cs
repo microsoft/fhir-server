@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             }
             else
             {
-                if (acceptHeaders != null && acceptHeaders.All(a => a.MediaType != "*/*"))
+                if (acceptHeaders?.Any() == true && acceptHeaders.All(a => a.MediaType != "*/*"))
                 {
                     var isAcceptHeaderValid = false;
 
