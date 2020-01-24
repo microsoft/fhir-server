@@ -5,10 +5,10 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
-    public class OperationComponentR4
+    public class OperationComponent
     {
         public string Name { get; set; }
 
-        public string Definition { get; set; }
+        public object Definition { get; set; }
     }
 }

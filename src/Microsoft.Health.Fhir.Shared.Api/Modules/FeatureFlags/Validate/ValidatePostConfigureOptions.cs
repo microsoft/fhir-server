@@ -44,22 +44,23 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.Validate
                     {
                         if (_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
                         {
-                            // Need to put definition in a resource object
-                            //x.Rest.Server().Operation.Add(new OperationComponentR4()
-                            //{
-                            //    Name = OperationTypes.Validate,
-                            //    Definition = OperationTypes.ValidateUri,
-                            //});
+                            x.Rest.Server().Operation.Add(new OperationComponent()
+                            {
+                                Name = OperationTypes.Validate,
+                                Definition = new ReferenceComponent()
+                                {
+                                    Reference = OperationTypes.ValidateUri,
+                                },
+                            });
                         }
                         else
                         {
-                            x.Rest.Server().Operation.Add(new OperationComponentR4()
+                            x.Rest.Server().Operation.Add(new OperationComponent()
                             {
                                 Name = OperationTypes.Validate,
                                 Definition = OperationTypes.ValidateUri,
                             });
                         }
-
                     });
             }
         }
