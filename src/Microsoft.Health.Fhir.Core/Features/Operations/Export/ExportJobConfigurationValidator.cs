@@ -41,14 +41,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public bool ValidateExportJobConfig()
         {
-            if (string.IsNullOrWhiteSpace(_exportJobConfiguration.DefaultStorageAccountType) ||
-                !_exportDestinationClientFactory.IsSupportedDestinationType(_exportJobConfiguration.DefaultStorageAccountType))
+            if (string.IsNullOrWhiteSpace(_exportJobConfiguration.StorageAccountType) ||
+                !_exportDestinationClientFactory.IsSupportedDestinationType(_exportJobConfiguration.StorageAccountType))
             {
-                throw new ExportJobConfigValidationException(string.Format(Resources.UnsupportedDestinationTypeMessage, _exportJobConfiguration.DefaultStorageAccountType), HttpStatusCode.BadRequest);
+                throw new ExportJobConfigValidationException(string.Format(Resources.UnsupportedDestinationType, _exportJobConfiguration.StorageAccountType), HttpStatusCode.BadRequest);
             }
 
             // Check whether the config contains a uri to a storage account or a connection string.
-            if (Uri.TryCreate(_exportJobConfiguration.DefaultStorageAccountConnection, UriKind.Absolute, out Uri resultUri))
+            if (Uri.TryCreate(_exportJobConfiguration.StorageAccountConnection, UriKind.Absolute, out Uri resultUri))
             {
                 // We need to validate whether we support the corresponding access token provider.
                 if (string.IsNullOrWhiteSpace(_exportJobConfiguration.AccessTokenProviderType) ||
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 try
                 {
-                    Encoding.UTF8.GetString(Convert.FromBase64String(_exportJobConfiguration.DefaultStorageAccountConnection));
+                    Encoding.UTF8.GetString(Convert.FromBase64String(_exportJobConfiguration.StorageAccountConnection));
                 }
                 catch (Exception ex)
                 {

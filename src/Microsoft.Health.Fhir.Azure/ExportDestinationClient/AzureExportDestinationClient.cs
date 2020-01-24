@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
             _blobClient = cloudAccount.CreateCloudBlobClient();
 
-            await CreateContainer(_blobClient, containerId);
+            await CreateContainerAsync(_blobClient, containerId);
         }
 
         public async Task ConnectWithAccessTokenAsync(string accessToken, string storageAccountUri, CancellationToken cancellationToken, string containerId = null)
@@ -64,10 +64,10 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             var baseUri = new Uri(storageAccountUri);
 
             _blobClient = new CloudBlobClient(baseUri, storageCredentials);
-            await CreateContainer(_blobClient, containerId);
+            await CreateContainerAsync(_blobClient, containerId);
         }
 
-        private async Task CreateContainer(CloudBlobClient blobClient, string containerId)
+        private async Task CreateContainerAsync(CloudBlobClient blobClient, string containerId)
         {
             // Use root container if no container id has been provided.
             if (string.IsNullOrWhiteSpace(containerId))

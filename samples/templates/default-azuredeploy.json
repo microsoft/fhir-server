@@ -126,7 +126,7 @@
         },
         "fhirVersion": {
             "type": "string",
-            "defaultValue": "Stu3",
+            "defaultValue": "R4",
             "allowedValues": [
                 "Stu3",
                 "R4"
@@ -168,8 +168,8 @@
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
             "DataStore": "CosmosDb",
-            "FhirServer:Operations:Export:DefaultStorageAccountType": "azure-block-blob",
-            "FhirServer:Operations:Export:DefaultStorageAccountConnection": "[concat('https://', parameters('storageAccountName'), '.blob.core.windows.net')]",
+            "FhirServer:Operations:Export:StorageAccountType": "azure-block-blob",
+            "FhirServer:Operations:Export:StorageAccountConnection": "[concat('https://', parameters('storageAccountName'), '.blob.core.windows.net')]",
             "FhirServer:Operations:Export:AccessTokenProviderType": "azure"
         },
         "emptyFhirServerConfigProperties": {},

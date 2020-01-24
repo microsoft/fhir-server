@@ -3,20 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Models;
+using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider
 {
-    public class UnsupportedAccessTokenProviderException : FhirException
+    public class UnsupportedAccessTokenProviderException : Exception
     {
         public UnsupportedAccessTokenProviderException(string accessTokenProviderType)
             : base(string.Format(Resources.UnsupportedAccessTokenProvider, accessTokenProviderType))
         {
-            Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.NotFound,
-                Message));
         }
     }
 }

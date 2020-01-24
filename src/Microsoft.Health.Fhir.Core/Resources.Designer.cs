@@ -837,9 +837,9 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to The destination type &apos;{0}&apos; is not supported..
         /// </summary>
-        internal static string UnsupportedDestinationTypeMessage {
+        internal static string UnsupportedDestinationType {
             get {
-                return ResourceManager.GetString("UnsupportedDestinationTypeMessage", resourceCulture);
+                return ResourceManager.GetString("UnsupportedDestinationType", resourceCulture);
             }
         }
         
