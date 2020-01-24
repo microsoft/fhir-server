@@ -78,8 +78,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 resourceComponent = new ListedResourceComponent
                 {
                     Type = resourceType,
-                    Profile = new ReferenceComponent()
-                    { Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}", },
+                    Profile = new ReferenceComponent
+                    {
+                        Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}",
+                    },
                 };
                 listedRestComponent.Resource.Add(resourceComponent);
             }

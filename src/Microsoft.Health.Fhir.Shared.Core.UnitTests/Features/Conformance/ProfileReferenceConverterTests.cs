@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public void GivenAReferenceObject_WhenConvertingToJsonInStu3_ThenOneOptionIsSerializedAsPerStu3()
         {
             _modelInfoProvider.Version.Returns(FhirSpecification.Stu3);
-            var json = GetJson("B");
+            var json = GetJson();
 
             Assert.Equal("{\"reference\":\"http://hl7.org/fhir/StructureDefinition/Account\"}", json);
         }
@@ -35,12 +35,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public void GivenAReferenceObject_WhenConvertingToJsonInR4_ThenOneOptionIsSerializedAsPerR4()
         {
             _modelInfoProvider.Version.Returns(FhirSpecification.R4);
-            var json = GetJson("B");
+            var json = GetJson();
 
             Assert.Equal("\"http://hl7.org/fhir/StructureDefinition/Account\"", json);
         }
 
-        private string GetJson(string canonicalObject)
+        private string GetJson()
         {
             var obj = new ReferenceComponent()
             {
