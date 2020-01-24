@@ -1909,8 +1909,10 @@ AS
 
     DECLARE @currentJobVersion binary(8)
 
+    -- Acquire and hold an update lock on a row in the ExportJob table for the entire transaction.
+    -- This ensures the version check and update occur atomically.
     SELECT @currentJobVersion = JobVersion
-    FROM dbo.ExportJob -- WITH (UPDLOCK, HOLDLOCK) -- TODO: Add locks, add test for locks
+    FROM dbo.ExportJob WITH (UPDLOCK, HOLDLOCK)
     WHERE Id = @id
 
     IF (@jobVersion <> @currentJobVersion) BEGIN

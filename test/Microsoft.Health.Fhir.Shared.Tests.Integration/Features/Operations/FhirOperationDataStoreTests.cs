@@ -241,6 +241,33 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             await Assert.ThrowsAsync<JobConflictException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
         }
 
+        [Fact]
+        public async Task GivenThereIsARunningJob_WhenSimultaneousUpdateCallsOccur_ThenJobConflictExceptionShouldBeThrown()
+        {
+            ExportJobOutcome runningJobOutcome = await CreateRunningJob();
+
+            var completionSource = new TaskCompletionSource<bool>();
+
+            Task<ExportJobOutcome>[] tasks = new[]
+            {
+                WaitAndUpdateExportJobAsync(runningJobOutcome),
+                WaitAndUpdateExportJobAsync(runningJobOutcome),
+                WaitAndUpdateExportJobAsync(runningJobOutcome),
+            };
+
+            completionSource.SetResult(true);
+
+            await Assert.ThrowsAsync<JobConflictException>(() => Task.WhenAll(tasks));
+
+            async Task<ExportJobOutcome> WaitAndUpdateExportJobAsync(ExportJobOutcome jobOutcome)
+            {
+                await completionSource.Task;
+
+                jobOutcome.JobRecord.Status = OperationStatus.Completed;
+                return await _operationDataStore.UpdateExportJobAsync(jobOutcome.JobRecord, jobOutcome.ETag, CancellationToken.None);
+            }
+        }
+
         private async Task<ExportJobOutcome> CreateRunningJob()
         {
             // Create a queued job.
