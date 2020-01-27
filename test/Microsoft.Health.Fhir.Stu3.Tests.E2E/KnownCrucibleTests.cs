@@ -422,13 +422,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "history001/HI02",
             "history001/HI06",
             "history001/HI08",
-            "connectathon-15-patient-base-server-id-json/Step2-UpdatePatient",
-            "connectathon-15-patient-base-server-id-xml/Step2-UpdatePatient",
-            "connectathon-15-patient-bonus-server-id-json/Step2a-Bonus1-UpdatePatient",
-            "connectathon-15-patient-fhirserver-02-update-server-id-json/01-UpdatePatient",
-            "connectathon-15-patient-fhirserver-02-update-server-id-xml/01-UpdatePatient",
-            "connectathon-15-patient-fhirserver-05-vread-server-id-json/SETUP",
-            "connectathon-15-patient-fhirserver-05-vread-server-id-xml/01-VersionReadCreatedPatient",
         };
 
         public static readonly string[] KnownBroken =
