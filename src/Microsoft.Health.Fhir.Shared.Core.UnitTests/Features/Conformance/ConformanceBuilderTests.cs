@@ -15,7 +15,10 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
-    public class ConformanceBuilderTests
+    /// <summary>
+    /// shared conformance tests
+    /// </summary>
+    public partial class ConformanceBuilderTests
     {
         private readonly ICapabilityStatementBuilder _builder;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;

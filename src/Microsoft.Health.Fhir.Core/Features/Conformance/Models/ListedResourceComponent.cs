@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Type { get; set; }
 
-        public string Profile { get; set; }
+        public ReferenceComponent Profile { get; set; }
 
         public ICollection<ResourceInteractionComponent> Interaction { get; }
 
