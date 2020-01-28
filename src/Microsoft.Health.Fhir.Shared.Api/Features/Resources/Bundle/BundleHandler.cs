@@ -163,20 +163,60 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     Type = BundleType.TransactionResponse,
                 };
 
-                return await ExecuteTransactionForAllRequests(responseBundle);
+                return await ExecuteTransactionForAllRequests(bundleResource, responseBundle, cancellationToken);
             }
 
             throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
         }
 
-        private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
+        private async Task ResolveVersionedReferencesAsync(Hl7.Fhir.Model.Bundle requestBundle, Hl7.Fhir.Model.Bundle responseBundle, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, CancellationToken cancellationToken)
+        {
+            // this will track the corresponding entry in request bundle.
+            int iterator = 0;
+
+            foreach (EntryComponent entry in responseBundle.Entry)
+            {
+                if (requestBundle.Entry[iterator].Request.Method == HTTPVerb.POST || requestBundle.Entry[iterator].Request.Method == HTTPVerb.PUT)
+                {
+                    IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+
+                    foreach (ResourceReference reference in references)
+                    {
+                        if (referenceIdDictionary.ContainsKey(reference.Reference) && IsVersionedUrl(reference.Reference))
+                        {
+                            // Extract the referencedResourceUrl from versionedReferenceUrl
+                            string referencedResourceUrl = reference.Reference.Split("/_history/")[0];
+                            string[] referencedResourceInformation = referencedResourceUrl.Split("/");
+                            string referencedResourceType = referencedResourceInformation[0];
+                            string referencedResourceId = referencedResourceInformation[1];
+
+                            // Get the updated version of the referencedUrl from current transaction
+                            string version = await _transactionBundleValidator.GetLatestVersionId(new ResourceKey(referencedResourceType, referencedResourceId), cancellationToken);
+
+                            // Update the reference version in the response bundle
+                            if (!string.IsNullOrWhiteSpace(version))
+                            {
+                                reference.Reference = $"{referencedResourceUrl}/_history/{version}";
+
+                                // Update the referenced resource version in datastore
+                                await _transactionBundleValidator.UpdateVersionedReference(entry.Resource, cancellationToken);
+                            }
+                        }
+                    }
+                }
+
+                iterator++;
+            }
+        }
+
+        private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle requestBundle, Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
         {
             try
             {
                 using (var transaction = _transactionHandler.BeginTransaction())
                 {
                     await ExecuteAllRequests(responseBundle);
-
+                    await ResolveVersionedReferencesAsync(requestBundle, responseBundle, _referenceIdDictionary, cancellationToken);
                     transaction.Complete();
                 }
             }
@@ -187,6 +227,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return new BundleResponse(responseBundle.ToResourceElement());
+        }
+
+        private static bool IsVersionedUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return false;
+            }
+
+            return url.Contains("_history", StringComparison.Ordinal);
         }
 
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
@@ -279,27 +329,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // Checks to see if this reference has already been assigned an Id
                 if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceInformation))
                 {
-                    if (!reference.Reference.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
+                    if (!IsVersionedUrl(reference.Reference))
                     {
                         reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
                     }
                     else
                     {
-                        var version = await _transactionBundleValidator.GetLatestVersionId(new ResourceKey(referenceInformation.resourceType, referenceInformation.resourceId), cancellationToken);
+                        string existingVersion = reference.Reference.Split("/_history/")[1];
+                        reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{existingVersion}";
 
-                        string updatedVersionId = "1";
-
-                        // updates version after this transaction is complete.
-                        // if this is a new resource, version will be null during transaction and therefore will default to 1 after transaction.
-                        if (version != null)
+                        if (!referenceIdDictionary.ContainsKey(reference.Reference))
                         {
-                            if (int.TryParse(version, out int versionId))
-                            {
-                                updatedVersionId = (versionId + 1).ToString();
-                            }
+                            referenceIdDictionary.Add(reference.Reference, (referenceInformation.resourceId, referenceInformation.resourceType));
                         }
-
-                        reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}/_history/{updatedVersionId}";
                     }
                 }
                 else
@@ -453,47 +495,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             foreach (EntryComponent entry in bundleEntries)
             {
-                var versionId = string.Empty;
-
-                if (!string.IsNullOrWhiteSpace(entry.FullUrl))
+                if (!string.IsNullOrWhiteSpace(entry.FullUrl) && !idDictionary.ContainsKey(entry.FullUrl))
                 {
-                    if (entry.FullUrl.Contains("/_history/", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string[] versionedReference = entry.FullUrl.Split("/_history/");
-                        versionId = versionedReference[1];
-                    }
-
-                    var requestUrl = entry.Request?.Url;
-
                     if (entry.Request.Method == HTTPVerb.POST)
                     {
-                        // We've already come across this ID
-                        if (!idDictionary.ContainsKey(entry.FullUrl))
-                        {
-                            // This id is new to us
-                            var insertId = _resourceIdProvider.Create();
-                            entry.Resource.Id = insertId;
+                        // This id is new to us
+                        var insertId = _resourceIdProvider.Create();
+                        entry.Resource.Id = insertId;
 
-                            idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
-                        }
+                        idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
                     }
-                    else if (!string.IsNullOrWhiteSpace(versionId) && requestUrl != null)
+                    else if (entry.Request.Method == HTTPVerb.PUT && IsVersionedUrl(entry.FullUrl))
                     {
-                        // Extract resourceId from requestUrl.
-                        var resourceId = IsRequestUrlContainsResourceId(requestUrl) ? requestUrl.Split("/")[1] : null;
-
-                        if (resourceId != null)
-                        {
-                            idDictionary.Add(entry.FullUrl, (resourceId, entry.Resource.TypeName));
-                        }
+                        idDictionary.Add(entry.FullUrl, (entry.Resource.Id, entry.Resource.TypeName));
                     }
                 }
             }
-        }
-
-        private static bool IsRequestUrlContainsResourceId(string requestUrl)
-        {
-            return requestUrl.Contains("/", StringComparison.Ordinal) && !requestUrl.Contains("?", StringComparison.Ordinal);
         }
 
         private static OperationOutcome CreateOperationOutcome(OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, string diagnostics)

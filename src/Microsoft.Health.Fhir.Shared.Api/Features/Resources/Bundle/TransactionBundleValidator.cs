@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// </summary>
         /// <param name="bundle"> The input bundle</param>
         /// <param name="cancellationToken"> The cancellation token</param>
-        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, CancellationToken cancellationToken)
+        public async System.Threading.Tasks.Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
@@ -141,6 +142,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             var currectResource = await FhirDataStore.GetAsync(key, cancellationToken);
             return currectResource?.Version;
+        }
+
+        public async System.Threading.Tasks.Task UpdateVersionedReference(Resource resource, CancellationToken cancellationToken)
+        {
+            ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
+            await FhirDataStore.UpsertAsync(resourceWrapper, null, true, true, cancellationToken);
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
