@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -30,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private static readonly Regex WwwAuthenticatePattern = new Regex(@"authorization_uri=(?<authorization_uri>[^\s,]+)+, resource_id=(?<resource_id>[^\s,]+)+, realm=(?<realm>[^\s,]+)+", RegexOptions.IgnoreCase);
+        private static readonly Regex WwwAuthenticatePattern = new Regex(@"authorization_uri=\""(?<authorization_uri>[^\s,]+)+\"", resource_id=\""(?<resource_id>[^\s,]+)+\"", realm=\""(?<realm>[^\s,]+)+\""", RegexOptions.IgnoreCase);
 
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
         private const string UnauthorizedMessage = "Unauthorized: Authentication failed.";
