@@ -47,7 +47,9 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             {
                 if (!_initializationOperation.IsInitialized)
                 {
+#pragma warning disable CA1065
                     throw new InvalidOperationException($"{nameof(DocumentClientProvider)} has not been initialized.");
+#pragma warning restore CA1065
                 }
 
                 return _documentClient;
