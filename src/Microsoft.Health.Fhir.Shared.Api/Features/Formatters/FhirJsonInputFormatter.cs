@@ -11,7 +11,6 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Mvc.Formatters.Json.Internal;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
@@ -21,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     internal class FhirJsonInputFormatter : TextInputFormatter
     {
         private readonly FhirJsonParser _parser;
-        private readonly JsonArrayPool<char> _charPool;
+        private readonly IArrayPool<char> _charPool;
 
         public FhirJsonInputFormatter(FhirJsonParser parser, ArrayPool<char> charPool)
         {
@@ -29,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(charPool, nameof(charPool));
 
             _parser = parser;
-            _charPool = new JsonArrayPool<char>(charPool);
+            _charPool = new JsonArrayPool(charPool);
 
             SupportedEncodings.Add(UTF8EncodingWithoutBOM);
             SupportedEncodings.Add(UTF16EncodingLittleEndian);
@@ -56,6 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(encoding, nameof(encoding));
 
+            context.HttpContext.AllowSynchronousIO();
             var request = context.HttpContext.Request;
 
             using (var streamReader = context.ReaderFactory(request.Body, encoding))

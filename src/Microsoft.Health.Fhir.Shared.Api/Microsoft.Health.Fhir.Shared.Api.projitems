@@ -33,6 +33,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FormatterExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\HtmlOutputFormatter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\HttpContextExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\JsonArrayPool.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\NonFhirResourceXmlOutputFormatter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\KnownFhirHeaders.cs" />

@@ -10,5 +10,5 @@ steps:
     inputs:
       command: publish
       projects: '${{parameters.csproj}}'
-      arguments: '--runtime win10-x64 --output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildnumber)'
+      arguments: '--output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildnumber)'
       publishWebProjects: false
