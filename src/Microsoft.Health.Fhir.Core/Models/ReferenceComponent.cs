@@ -8,5 +8,10 @@ namespace Microsoft.Health.Fhir.Core.Models
     public class ReferenceComponent
     {
         public string Reference { get; set; }
+
+        public override string ToString()
+        {
+            return Reference;
+        }
     }
 }
