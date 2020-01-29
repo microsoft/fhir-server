@@ -3,12 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
+namespace Microsoft.Health.Fhir.Core.Models
 {
-    public class OperationComponent
+    public class ReferenceComponent
     {
-        public string Name { get; set; }
+        public string Reference { get; set; }
 
-        public object Definition { get; set; }
+        public override string ToString()
+        {
+            return Reference;
+        }
     }
 }

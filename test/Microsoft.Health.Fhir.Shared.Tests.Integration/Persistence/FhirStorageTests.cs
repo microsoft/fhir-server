@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(observation);
             Assert.NotNull(observation.Value);
 
-            SimpleQuantity sq = Assert.IsType<SimpleQuantity>(observation.Value);
+            Quantity sq = Assert.IsType<Quantity>(observation.Value);
 
             Assert.Equal(67, sq.Value);
         }
@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(oldObservation);
             Assert.NotNull(oldObservation.Value);
 
-            SimpleQuantity sq = Assert.IsType<SimpleQuantity>(oldObservation.Value);
+            Quantity sq = Assert.IsType<Quantity>(oldObservation.Value);
 
             Assert.Equal(67, sq.Value);
         }

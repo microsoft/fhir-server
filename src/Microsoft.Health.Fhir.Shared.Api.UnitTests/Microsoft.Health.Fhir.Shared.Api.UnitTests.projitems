@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHeaderReaderTests.cs" />
