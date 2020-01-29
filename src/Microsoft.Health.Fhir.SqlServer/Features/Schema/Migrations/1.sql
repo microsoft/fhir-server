@@ -1924,7 +1924,7 @@ AS
     SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = @rawJobRecord
     WHERE Id = @id
   
-    SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
+    SELECT MIN_ACTIVE_ROWVERSION()
 
     COMMIT TRANSACTION
 GO

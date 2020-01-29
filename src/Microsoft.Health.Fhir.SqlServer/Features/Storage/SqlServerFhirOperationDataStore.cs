@@ -135,14 +135,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
+                    var rowVersion = (byte[])await sqlCommand.ExecuteScalarAsync(cancellationToken);
 
-                    if (rowVersion == null)
+                    if (rowVersion.NullIfEmpty() == null)
                     {
                         throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
                     }
 
-                    return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
+                    return new ExportJobOutcome(jobRecord, GetRowVersionAsEtag(rowVersion));
                 }
                 catch (SqlException e)
                 {
