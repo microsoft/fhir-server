@@ -63,18 +63,11 @@
                 "description": "Enable Azure AAD SMART on FHIR Proxy"
             }
         },
-        "repositoryUrl": {
+        "msdeployPackageUrl": {
             "type": "string",
-            "defaultValue": "https://github.com/Microsoft/fhir-server",
+            "defaultValue": "",
             "metadata": {
-                "description": "Respository to pull source code from. If blank, source code will not be deployed."
-            }
-        },
-        "repositoryBranch": {
-            "type": "string",
-            "defaultValue": "master",
-            "metadata": {
-                "description": "Source code branch to deploy."
+                "description": "Webdeploy package to use as depoyment code. If blank, the latest code package will be deployed."
             }
         },
         "cosmosDbAccountConsistencyPolicy": {
@@ -132,11 +125,12 @@
                 "R4"
             ],
             "metadata": {
-                "description": "Only applies when specifying Repository Url"
+                "description": "Only applies when MsdeployPackageUrl is not specified."
             }
         }
     },
     "variables": {
+        "defaultMsdeployPackageUrl": "[concat('https://fhirserverforazure.blob.core.windows.net/builds/ci/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web.zip')]",
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
         "serviceName": "[toLower(parameters('serviceName'))]",
         "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
@@ -144,7 +138,7 @@
         "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
         "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
         "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
-        "deploySourceCode": "[and(not(empty(parameters('repositoryUrl'))),not(empty(parameters('repositoryBranch'))))]",
+        "msdeployPackageUrlToUse": "[if(empty(parameters('msdeployPackageUrl')),variables('defaultMsdeployPackageUrl'),parameters('msdeployPackageUrl'))]",
         "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "staticFhirServerConfigProperties": {
@@ -160,11 +154,7 @@
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
             "DataStore": "CosmosDb"
         },
-        "emptyFhirServerConfigProperties": {},
-        "kuduFhirServerConfigProperties": {
-            "PROJECT": "[concat('src/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web/Microsoft.Health.Fhir.', parameters('fhirVersion'), '.Web.csproj')]"
-        },
-        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), if(variables('deploySourceCode'), variables('kuduFhirServerConfigProperties'), variables('emptyFhirServerConfigProperties')))]"
+        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]"
     },
     "resources": [
         {
@@ -230,17 +220,13 @@
                 },
                 {
                     "apiVersion": "2015-08-01",
-                    "name": "web",
-                    "type": "sourcecontrols",
-                    "condition": "[variables('deploySourceCode')]",
+                    "type": "extensions",
+                    "name": "MSDeploy",
                     "dependsOn": [
-                        "[variables('appServiceResourceId')]",
-                        "[resourceId('Microsoft.Web/Sites/config', variables('serviceName'), 'appsettings')]"
+                        "[variables('appServiceResourceId')]"
                     ],
                     "properties": {
-                        "RepoUrl": "[parameters('repositoryUrl')]",
-                        "branch": "[parameters('repositoryBranch')]",
-                        "IsManualIntegration": true
+                        "packageUri": "[variables('msdeployPackageUrlToUse')]"
                     }
                 }
             ]

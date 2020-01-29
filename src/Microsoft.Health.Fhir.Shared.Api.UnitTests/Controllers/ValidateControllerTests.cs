@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             ValidateController disabledValidateController = GetController(false);
             Resource payload = new Observation();
 
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(() => disabledValidateController.Validate(payload, null, null, "Observation"));
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(() => disabledValidateController.Validate(payload, profile: null, mode: null));
 
             CheckOperationOutcomeIssue(
                 ex,
@@ -40,7 +40,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async void GivenAValidationRequest_WhenPassedAProfileQueryParameter_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
         {
             Resource payload = new Observation();
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, "profile", null));
+            string profile = "profile";
+            string mode = null;
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
 
             CheckOperationOutcomeIssue(
                 ex,
@@ -54,13 +56,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async void GivenAValidationRequest_WhenPassedAModeQueryParameter_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
         {
             Resource payload = new Observation();
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, null, "mode"));
+            string profile = null;
+            string mode = "mode";
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
 
             CheckOperationOutcomeIssue(
                 ex,
                 OperationOutcome.IssueSeverity.Error,
                 OperationOutcome.IssueType.NotSupported,
                 Resources.ValidationModesNotSupported);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetValidationFunctions))]
+        public async void GivenAValidationRequest_WhenPassedAParametersResource_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
+        {
+            Resource payload = new Parameters();
+            string profile = null;
+            string mode = null;
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
+
+            CheckOperationOutcomeIssue(
+                ex,
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.NotSupported,
+                Resources.ValidateWithParametersNotSupported);
         }
 
         private void CheckOperationOutcomeIssue(
@@ -82,8 +102,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public static IEnumerable<object[]> GetValidationFunctions()
         {
             ValidateController validateController = GetController(true);
-            yield return new object[] { new Func<Resource, string, string, Func<System.Threading.Tasks.Task>>((Resource payload, string profile, string mode) => new Func<System.Threading.Tasks.Task>(() => validateController.Validate(payload, profile, mode, payload.TypeName))) };
-            yield return new object[] { new Func<Resource, string, string, Func<System.Threading.Tasks.Task>>((Resource payload, string profile, string mode) => new Func<System.Threading.Tasks.Task>(() => validateController.ValidateById(payload, profile, mode, payload.TypeName, payload.Id))) };
+            yield return new object[] { new Func<Resource, string, string, Func<System.Threading.Tasks.Task>>((Resource payload, string profile, string mode) => new Func<System.Threading.Tasks.Task>(() => validateController.Validate(payload, profile, mode))) };
+            yield return new object[] { new Func<Resource, string, string, Func<System.Threading.Tasks.Task>>((Resource payload, string profile, string mode) => new Func<System.Threading.Tasks.Task>(() => validateController.ValidateById(payload, profile, mode))) };
         }
 
         private static ValidateController GetController(bool enableValidate)

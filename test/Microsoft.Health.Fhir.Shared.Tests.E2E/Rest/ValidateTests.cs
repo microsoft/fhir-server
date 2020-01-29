@@ -3,30 +3,23 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Net;
-using System.Net.Http;
-using System.Text;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Validate)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ValidateTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private readonly HttpClient _client;
-        private readonly JsonSerializer _serializer;
+        private const string Success = "All OK";
+        private readonly Common.FhirClient _client;
 
         public ValidateTests(HttpIntegrationTestFixture fixture)
         {
-            _client = fixture.HttpClient;
-            _serializer = JsonSerializer.Create();
+            _client = fixture.FhirClient;
         }
 
         [Theory]
@@ -34,16 +27,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Observation/$validate", "{\"resourceType\":\"Observation\",\"status\":\"registered\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}")]
         public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string payload)
         {
-            HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage(path, payload));
+            OperationOutcome outcome = await _client.ValidateAsync(path, payload);
 
-            var contentString = await response.Content.ReadAsStringAsync();
-
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Single(outcome.Issue);
             CheckOperationOutcomeIssue(
-                contentString,
+                outcome.Issue[0],
                 OperationOutcome.IssueSeverity.Information,
                 OperationOutcome.IssueType.Informational,
-                "All OK");
+                Success);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Xml)]
+        [Theory]
+        [InlineData("Observation/$validate", "<Observation xmlns=\"http://hl7.org/fhir\"><status value=\"final\"/><code><coding><system value=\"system\"/><code value=\"code\"/></coding></code></Observation>")]
+        public async void GivenAValidateRequestInXML_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string payload)
+        {
+            OperationOutcome outcome = await _client.ValidateAsync(path, payload, true);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Information,
+                OperationOutcome.IssueType.Informational,
+                Success);
         }
 
         [Theory]
@@ -51,19 +57,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             "Patient/$validate",
             "{\"resourceType\":\"Patient\",\"name\":\"test, one\"}",
             "Type checking the data: Since type HumanName is not a primitive, it cannot have a value (at Resource.name[0])")]
-        [InlineData(
-            "Observation/$validate",
-            "{\"resourceType\":\"Observation\",\"status\":\"new\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
-            "While building a POCO: Literal 'new' is not a valid value for enumeration 'ObservationStatus' (at Resource.status[0])")]
         public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload, string expectedIssue)
         {
-            HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage(path, payload));
+            OperationOutcome outcome = await _client.ValidateAsync(path, payload);
 
-            var contentString = await response.Content.ReadAsStringAsync();
-
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Single(outcome.Issue);
             CheckOperationOutcomeIssue(
-                    contentString,
+                    outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Invalid,
                     expectedIssue);
@@ -82,33 +82,81 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             "TypeName")]
         public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorWithLocationsIsReturned(string path, string payload, string expectedIssue, string location)
         {
-            HttpResponseMessage response = await _client.SendAsync(GenerateValidateMessage(path, payload));
+            OperationOutcome outcome = await _client.ValidateAsync(path, payload);
 
-            var contentString = await response.Content.ReadAsStringAsync();
-
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(location, ExtractFromJson(contentString, "location", true));
+            Assert.Single(outcome.Issue);
             CheckOperationOutcomeIssue(
-                    contentString,
+                    outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Invalid,
-                    expectedIssue);
+                    expectedIssue,
+                    location);
+        }
+
+        [Fact]
+        public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Information,
+                OperationOutcome.IssueType.Informational,
+                Success);
+        }
+
+        [Fact]
+        public async void GivenAValidateByIdRequest_WhenTheResourceIdDoesNotMatch_ThenADetailedErrorIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Patient\", \"id\": \"456\"}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                "Id in the URL must match id in the resource.",
+                "Patient.id");
+        }
+
+        [Fact]
+        public async void GivenAValidateByIdRequest_WhenTheResourceIdIsMissing_ThenADetailedErrorIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Patient\"}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                "Id must be specified in the resource.",
+                "Patient.id");
         }
 
         private void CheckOperationOutcomeIssue(
-            string issue,
+            OperationOutcome.IssueComponent issue,
             OperationOutcome.IssueSeverity? expectedSeverity,
             OperationOutcome.IssueType? expectedCode,
-            string expectedMessage)
+            string expectedMessage,
+            string expectedLocation = null)
         {
-            var severity = ExtractFromJson(issue, "severity");
-            var code = ExtractFromJson(issue, "code");
-            var diagnostics = ExtractFromJson(issue, "diagnostics");
-
             // Check expected outcome
-            Assert.Equal(expectedSeverity.ToString().ToLowerInvariant(), severity);
-            Assert.Equal(expectedCode.ToString().ToLowerInvariant(), code);
-            Assert.Equal(expectedMessage, diagnostics);
+            Assert.Equal(expectedSeverity, issue.Severity);
+            Assert.Equal(expectedCode, issue.Code);
+            Assert.Equal(expectedMessage, issue.Diagnostics);
+
+            if (expectedLocation != null)
+            {
+                Assert.Single(issue.LocationElement);
+                Assert.Equal(expectedLocation, issue.LocationElement[0].ToString());
+            }
         }
 
         private string ExtractFromJson(string json, string property, bool isArray = false)
@@ -118,19 +166,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var end = json.IndexOf("\"", start);
 
             return json.Substring(start, end - start);
-        }
-
-        private HttpRequestMessage GenerateValidateMessage(string path, string body)
-        {
-            var request = new HttpRequestMessage
-            {
-                Method = HttpMethod.Post,
-            };
-
-            request.RequestUri = new Uri(_client.BaseAddress, path);
-            request.Content = new StringContent(body, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
-
-            return request;
         }
     }
 }
