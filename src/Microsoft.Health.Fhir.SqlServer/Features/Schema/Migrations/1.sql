@@ -1757,7 +1757,6 @@ CREATE TABLE dbo.ExportJob
     Hash varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
     HeartbeatDateTime datetime2(7) NULL,
-    QueuedDateTime datetimeoffset(7) NOT NULL,
     RawJobRecord varchar(max) NOT NULL,
     JobVersion rowversion NOT NULL
 )
@@ -1767,12 +1766,11 @@ CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob
     Id
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime_QueuedDateTime ON dbo.ExportJob
+CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime ON dbo.ExportJob
 (
     Hash,
     Status,
-    HeartbeatDateTime,
-    QueuedDateTime
+    HeartbeatDateTime
 )
 
 GO
@@ -1794,8 +1792,6 @@ GO
 --         * The SHA256 hash of the export job record ID
 --     @status
 --         * The status of the export job
---     @queuedDateTime
---         * The time the export job is queued
 --     @rawJobRecord
 --         * A JSON document
 --
@@ -1806,7 +1802,6 @@ CREATE PROCEDURE dbo.CreateExportJob
     @id varchar(64),
     @hash varchar(64),
     @status varchar(10),
-    @queuedDateTime datetimeoffset(7),
     @rawJobRecord varchar(max)
 AS
     SET NOCOUNT ON
@@ -1814,10 +1809,12 @@ AS
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
+    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
+
     INSERT INTO dbo.ExportJob
-        (Id, Hash, Status, QueuedDateTime, RawJobRecord)
+        (Id, Hash, Status, HeartbeatDateTime, RawJobRecord)
     VALUES
-        (@id, @hash, @status, @queuedDateTime, @rawJobRecord)
+        (@id, @hash, @status, @heartbeatDateTime, @rawJobRecord)
   
     SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
 
@@ -1870,7 +1867,7 @@ AS
     SELECT TOP(1) RawJobRecord, JobVersion
     FROM dbo.ExportJob
     WHERE Hash = @hash AND (Status = 'Queued' OR Status = 'Running')
-    ORDER BY HeartbeatDateTime, QueuedDateTime ASC
+    ORDER BY HeartbeatDateTime ASC
 GO
 
 --
@@ -1885,8 +1882,6 @@ GO
 --         * The ID of the export job record
 --     @status
 --         * The status of the export job
---     @queuedDateTime
---         * The time the export job is queued
 --     @rawJobRecord
 --         * A JSON document
 --     @jobVersion
@@ -1898,7 +1893,6 @@ GO
 CREATE PROCEDURE dbo.UpdateExportJob
     @id varchar(64),
     @status varchar(10),
-    @queuedDateTime datetimeoffset(7),
     @rawJobRecord varchar(max),
     @jobVersion binary(8)
 AS
@@ -1923,7 +1917,7 @@ AS
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
     UPDATE dbo.ExportJob
-    SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, QueuedDateTime = @queuedDateTime, RawJobRecord = @rawJobRecord
+    SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = @rawJobRecord
     WHERE Id = @id
   
     SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
@@ -1972,12 +1966,12 @@ AS
     DECLARE @availableJobs TABLE (Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL, JobVersion binary(8) NOT NULL)
 
     -- Get the available jobs, which are export jobs that are queued or stale.
-    -- Queued jobs will be prioritized over running jobs, and older jobs will be prioritized over newer ones.
+    -- Older jobs will be prioritized over newer ones.
     INSERT INTO @availableJobs
     SELECT TOP(@limit) Id, JobVersion
     FROM dbo.ExportJob
     WHERE (Status = 'Queued' OR (Status = 'Running' AND HeartbeatDateTime <= @expirationDateTime))
-    ORDER BY HeartbeatDateTime, QueuedDateTime
+    ORDER BY HeartbeatDateTime
 
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 

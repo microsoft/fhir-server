@@ -8,12 +8,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
@@ -290,7 +293,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, "Patient", "hash");
+            // Generate a unique hash
+            var hashObject = new
+            {
+                _exportRequest.RequestUri,
+                Clock.UtcNow,
+            };
+
+            string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
+
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, "Patient", hash);
 
             jobRecordCustomizer?.Invoke(jobRecord);
 

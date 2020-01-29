@@ -103,7 +103,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly VarCharColumn Hash = new VarCharColumn("Hash", 64, "Latin1_General_100_CS_AS");
             internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
             internal readonly NullableDateTime2Column HeartbeatDateTime = new NullableDateTime2Column("HeartbeatDateTime", 7);
-            internal readonly DateTimeOffsetColumn QueuedDateTime = new DateTimeOffsetColumn("QueuedDateTime", 7);
             internal readonly VarCharColumn RawJobRecord = new VarCharColumn("RawJobRecord", -1);
             internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
         }
@@ -420,16 +419,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
             private readonly ParameterDefinition<System.String> _hash = new ParameterDefinition<System.String>("@hash", global::System.Data.SqlDbType.VarChar, false, 64);
             private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
-            private readonly ParameterDefinition<System.DateTimeOffset> _queuedDateTime = new ParameterDefinition<System.DateTimeOffset>("@queuedDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
             private readonly ParameterDefinition<System.String> _rawJobRecord = new ParameterDefinition<System.String>("@rawJobRecord", global::System.Data.SqlDbType.VarChar, false, -1);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String hash, System.String status, System.DateTimeOffset queuedDateTime, System.String rawJobRecord)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String hash, System.String status, System.String rawJobRecord)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.CreateExportJob";
                 _id.AddParameter(command.Parameters, id);
                 _hash.AddParameter(command.Parameters, hash);
                 _status.AddParameter(command.Parameters, status);
-                _queuedDateTime.AddParameter(command.Parameters, queuedDateTime);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
             }
         }
@@ -521,16 +518,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
             private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
-            private readonly ParameterDefinition<System.DateTimeOffset> _queuedDateTime = new ParameterDefinition<System.DateTimeOffset>("@queuedDateTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
             private readonly ParameterDefinition<System.String> _rawJobRecord = new ParameterDefinition<System.String>("@rawJobRecord", global::System.Data.SqlDbType.VarChar, false, -1);
             private readonly ParameterDefinition<System.Byte[]> _jobVersion = new ParameterDefinition<System.Byte[]>("@jobVersion", global::System.Data.SqlDbType.Binary, false, 8);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String status, System.DateTimeOffset queuedDateTime, System.String rawJobRecord, System.Byte[] jobVersion)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String status, System.String rawJobRecord, System.Byte[] jobVersion)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpdateExportJob";
                 _id.AddParameter(command.Parameters, id);
                 _status.AddParameter(command.Parameters, status);
-                _queuedDateTime.AddParameter(command.Parameters, queuedDateTime);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
                 _jobVersion.AddParameter(command.Parameters, jobVersion);
             }

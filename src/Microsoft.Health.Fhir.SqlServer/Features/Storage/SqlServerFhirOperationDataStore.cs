@@ -58,7 +58,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     jobRecord.Id,
                     jobRecord.Hash,
                     jobRecord.Status.ToString(),
-                    jobRecord.QueuedTime,
                     JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings));
 
                 var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
@@ -131,7 +130,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommand,
                     jobRecord.Id,
                     jobRecord.Status.ToString(),
-                    jobRecord.QueuedTime,
                     JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings),
                     rowVersionAsBytes);
 
