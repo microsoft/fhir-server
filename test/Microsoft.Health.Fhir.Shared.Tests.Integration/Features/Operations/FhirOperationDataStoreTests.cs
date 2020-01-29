@@ -245,6 +245,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        public async Task GivenANonexistentJob_WhenUpdatingTheJob_ThenJobNotFoundExceptionShouldBeThrown()
+        {
+            ExportJobOutcome jobOutcome = await CreateRunningJob();
+
+            ExportJobRecord job = jobOutcome.JobRecord;
+            WeakETag jobVersion = jobOutcome.ETag;
+
+            await _testHelper.DeleteAllExportJobRecordsAsync();
+
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
+        }
+
+        [Fact]
         public async Task GivenThereIsARunningJob_WhenSimultaneousUpdateCallsOccur_ThenJobConflictExceptionShouldBeThrown()
         {
             ExportJobOutcome runningJobOutcome = await CreateRunningJob();
