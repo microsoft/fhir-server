@@ -11,6 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             public const string Error = "Error";
             public const string Fatal = "Fatal";
+            public const string Information = "Information";
         }
 
         public static class IssueType
@@ -25,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             public const string Conflict = "Conflict";
             public const string Exception = "Exception";
             public const string Structure = "Structure";
+            public const string Informational = "Informational";
         }
     }
 }

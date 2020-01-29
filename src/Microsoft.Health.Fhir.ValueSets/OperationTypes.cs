@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
+namespace Microsoft.Health.Fhir.ValueSets
 {
-    public class OperationComponent
+    public static class OperationTypes
     {
-        public string Name { get; set; }
+        public const string Validate = "validate";
 
-        public object Definition { get; set; }
+        public const string ValidateUri = "http://hl7.org/fhir/OperationDefinition/Resource-validate";
     }
 }

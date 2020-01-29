@@ -389,6 +389,10 @@
   <data name="UserRequestedCancellation" xml:space="preserve">
     <value>User requested cancellation of operation.</value>
   </data>
+  <data name="ValidationPassed" xml:space="preserve">
+    <value>All OK</value>
+    <comment>{NumberedPlaceHolder="All OK"}</comment>
+  </data>
   <data name="VersionIdFormatNotETag" xml:space="preserve">
     <value>VersionId should not be in the weak ETag format.</value>
   </data>
