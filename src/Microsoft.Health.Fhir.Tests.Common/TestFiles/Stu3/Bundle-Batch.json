@@ -41,6 +41,12 @@
                     "status": "generated",
                     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
                 },
+                "identifier": [
+                    {
+                        "system": "http:/example.org/fhir/ids",
+                        "value": "234234"
+                    }
+                ],
                 "active": true,
                 "name": [
                     {
@@ -58,7 +64,7 @@
             "request": {
                 "method": "POST",
                 "url": "Patient",
-                "ifNoneExist": "identifier=234234"
+                "ifNoneExist": "identifier=http:/example.org/fhir/ids|234234"
             }
         },
         {
@@ -97,6 +103,12 @@
                     "status": "generated",
                     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
                 },
+                "identifier": [
+                    {
+                        "system": "http:/example.org/fhir/ids",
+                        "value": "456456"
+                    }
+                ],
                 "active": true,
                 "name": [
                     {
@@ -113,14 +125,14 @@
             },
             "request": {
                 "method": "PUT",
-                "url": "Patient?identifier=234234"
+                "url": "Patient?identifier=http:/example.org/fhir/ids|456456"
             }
         },
         {
-            "fullUrl": "http://example.org/fhir/Patient/123a",
+            "fullUrl": "http://example.org/fhir/Patient/123",
             "resource": {
                 "resourceType": "Patient",
-                "id": "123a",
+                "id": "123",
                 "text": {
                     "status": "generated",
                     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
@@ -141,8 +153,8 @@
             },
             "request": {
                 "method": "PUT",
-                "url": "Patient/123a",
-                "ifMatch": "W/\"2\""
+                "url": "Patient/123",
+                "ifMatch": "W/\"3a\""
             }
         },
         {
@@ -186,7 +198,7 @@
             "request": {
                 "method": "GET",
                 "url": "Patient/12334",
-                "ifNoneMatch": "W/\"4\"",
+                "ifNoneMatch": "W/\"4a\"",
                 "ifModifiedSince": "2015-08-31T08:14:33+10:00"
             }
         }

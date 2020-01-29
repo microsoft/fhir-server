@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            context.StringBuilder.Append(nullCheckColumn, context.TableAlias).Append(expression.ComponentIndex + 1).Append(" IS NOT NULL AND ");
+            AppendColumnName(context, nullCheckColumn, expression).Append(" IS NOT NULL AND ");
             return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
         }
     }

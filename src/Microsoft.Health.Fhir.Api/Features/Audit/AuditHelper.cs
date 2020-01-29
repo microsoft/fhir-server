@@ -6,7 +6,6 @@
 using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 
@@ -18,57 +17,51 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     public class AuditHelper : IAuditHelper
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly IAuditLogger _auditLogger;
-        private readonly ILogger<AuditHelper> _logger;
         private readonly IAuditHeaderReader _auditHeaderReader;
 
         public AuditHelper(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IAuditEventTypeMapping auditEventTypeMapping,
             IAuditLogger auditLogger,
-            ILogger<AuditHelper> logger,
             IAuditHeaderReader auditHeaderReader)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
-            EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(auditHeaderReader, nameof(auditHeaderReader));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _auditEventTypeMapping = auditEventTypeMapping;
             _auditLogger = auditLogger;
-            _logger = logger;
             _auditHeaderReader = auditHeaderReader;
         }
 
         /// <inheritdoc />
-        public void LogExecuting(string controllerName, string actionName, HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        public void LogExecuting(HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-            Log(AuditAction.Executing, controllerName, actionName, statusCode: null, resourceType: null, httpContext, claimsExtractor);
+            Log(AuditAction.Executing, statusCode: null, resourceType: null, httpContext, claimsExtractor);
         }
 
         /// <inheritdoc />
-        public void LogExecuted(string controllerName, string actionName, string responseResultType, HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-            Log(AuditAction.Executed, controllerName, actionName, (HttpStatusCode)httpContext.Response.StatusCode, responseResultType, httpContext, claimsExtractor);
+            string resourceType = _fhirRequestContextAccessor.FhirRequestContext.ResourceType;
+
+            Log(AuditAction.Executed, (HttpStatusCode)httpContext.Response.StatusCode, resourceType, httpContext, claimsExtractor);
         }
 
-        private void Log(AuditAction auditAction, string controllerName, string actionName, HttpStatusCode? statusCode, string resourceType, HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, string resourceType, HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-            // fhirRequestContext.AuditEventType will not be set in the case of an unauthorized call because the filter that sets it will not be executed
-            string auditEventType = string.IsNullOrWhiteSpace(fhirRequestContext.AuditEventType) ? _auditEventTypeMapping.GetAuditEventType(controllerName, actionName) : fhirRequestContext.AuditEventType;
+            string auditEventType = fhirRequestContext.AuditEventType;
 
             // Audit the call if an audit event type is associated with the action.
-            if (auditEventType != null)
+            if (!string.IsNullOrEmpty(auditEventType))
             {
                 _auditLogger.LogAudit(
                     auditAction,

@@ -8,9 +8,10 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Bundle
 {
@@ -22,13 +23,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
     public class BundleAwareJwtBearerHandler : JwtBearerHandler
     {
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
+        private readonly IAuditHelper _auditHelper;
+        private readonly IClaimsExtractor _claimsExtractor;
 
-        public BundleAwareJwtBearerHandler(IOptionsMonitor<JwtBearerOptions> options, ILoggerFactory logger, UrlEncoder encoder, IDataProtectionProvider dataProtection, ISystemClock clock, IBundleHttpContextAccessor bundleHttpContextAccessor)
-            : base(options, logger, encoder, dataProtection, clock)
+        public BundleAwareJwtBearerHandler(
+            IOptionsMonitor<JwtBearerOptions> options,
+            ILoggerFactory logger,
+            UrlEncoder encoder,
+            ISystemClock clock,
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            IAuditHelper auditHelper,
+            IClaimsExtractor claimsExtractor)
+            : base(options, logger, encoder, clock)
         {
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(auditHelper, nameof(auditHelper));
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
 
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
+            _auditHelper = auditHelper;
+            _claimsExtractor = claimsExtractor;
         }
 
         /// <summary>
@@ -41,6 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
             if (_bundleHttpContextAccessor.HttpContext != null)
             {
                 _bundleHttpContextAccessor.HttpContext.Response.StatusCode = 403;
+                _auditHelper.LogExecuted(_bundleHttpContextAccessor.HttpContext, _claimsExtractor);
             }
 
             await base.HandleForbiddenAsync(properties);

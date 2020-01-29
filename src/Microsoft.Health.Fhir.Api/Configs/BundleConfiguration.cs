@@ -3,10 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.ActionResults
+namespace Microsoft.Health.Fhir.Api.Configs
 {
-    public interface IBaseActionResult
+    public class BundleConfiguration
     {
-        string GetResultTypeName();
+        public int EntryLimit { get; set; }
     }
 }

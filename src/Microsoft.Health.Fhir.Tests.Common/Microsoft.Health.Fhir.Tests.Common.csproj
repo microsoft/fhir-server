@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>true</IsPackable>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
@@ -56,8 +56,19 @@
     <None Remove="TestFiles\R4\BloodPressure.json" />
     <None Remove="TestFiles\R4\Bundle-Batch.json" />
     <None Remove="TestFiles\R4\Bundle-Transaction.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionForRollBack.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithAllValidRoutes.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithInvalidProcessingRoutes.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithInvalidResourceType.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <None Remove="TestFiles\R4\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithReferenceInResourceBody.json" />
+    <None Remove="TestFiles\R4\Bundle-TransactionWithValidBundleEntry.json" />
+    <None Remove="TestFiles\R4\Bundle-TypeMissing.json" />
     <None Remove="TestFiles\R4\Condition-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\Device-d1.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-002.json" />
@@ -85,19 +96,32 @@
     <None Remove="TestFiles\R4\Patient-f001.json" />
     <None Remove="TestFiles\R4\Patient.json" />
     <None Remove="TestFiles\R4\Patient.xml" />
+    <None Remove="TestFiles\R4\PatientWithMinimalData.json" />
     <None Remove="TestFiles\R4\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\Weight.json" />
     <None Remove="TestFiles\R4\WeightInGrams.json" />
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
     <None Remove="TestFiles\Stu3\Bundle-Batch.json" />
     <None Remove="TestFiles\Stu3\Bundle-Transaction.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionForRollBack.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithAllValidRoutes.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithInvalidProcessingRoutes.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithInvalidResourceType.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithReferenceInResourceBody.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithValidBundleEntry.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TypeMissing.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-002.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-003.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example.json" />
     <None Remove="TestFiles\Stu3\Location-example-hq.json" />
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
+    <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
@@ -123,8 +147,19 @@
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R4\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\R4\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-Batch.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionForRollBack.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithAllValidRoutes.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithInvalidProcessingRoutes.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithInvalidResourceType.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithValidBundleEntry.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-Transaction.json" />
     <EmbeddedResource Include="TestFiles\R4\Condition-For-Patient-f001.json" />
@@ -152,6 +187,7 @@
     <EmbeddedResource Include="TestFiles\R4\ObservationWithTPMTHaplotypeOne.json" />
     <EmbeddedResource Include="TestFiles\R4\Organization.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R4\PatientWithMinimalData.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient.json" />
     <EmbeddedResource Include="TestFiles\R4\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
@@ -162,9 +198,20 @@
     <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-Batch.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionForRollBack.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithInvalidProcessingRoutes.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithInvalidResourceType.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithAllValidRoutes.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithValidBundleEntry.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-Transaction.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DeviceComponent-For-Device-d1.json" />
@@ -189,6 +236,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWithNoCode.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Organization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\PatientWithMinimalData.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\ResourceWrapperNoVersion.json" />

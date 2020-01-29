@@ -70,11 +70,29 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The number of entries in the bundle exceeded the configured limit of {0}..
+        /// </summary>
+        public static string BundleEntryLimitExceeded {
+            get {
+                return ResourceManager.GetString("BundleEntryLimitExceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The route for &quot;{0}&quot; was not found..
         /// </summary>
         public static string BundleNotFound {
             get {
                 return ResourceManager.GetString("BundleNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough for query parameter &apos;{0}&apos;..
+        /// </summary>
+        public static string ConditionalOperationInBundleNotSelectiveEnough {
+            get {
+                return ResourceManager.GetString("ConditionalOperationInBundleNotSelectiveEnough", resourceCulture);
             }
         }
         
@@ -93,6 +111,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string CustomAuditHeaderTooLarge {
             get {
                 return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed while running health check..
+        /// </summary>
+        public static string FailedHealthCheckMessage {
+            get {
+                return ResourceManager.GetString("FailedHealthCheckMessage", resourceCulture);
             }
         }
         
@@ -124,7 +151,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Requested operation does not support {0} interaction using {1}..
+        ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is not supported using {1}..
         /// </summary>
         public static string InvalidBundleEntry {
             get {
@@ -133,7 +160,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported..
+        ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported for this operation..
         /// </summary>
         public static string InvalidBundleType {
             get {
@@ -147,6 +174,24 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InvalidCompoundCode {
             get {
                 return ResourceManager.GetString("InvalidCompoundCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
+        /// </summary>
+        public static string InvalidConditionalReference {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type and query parameter must be present in a given request &apos;{0}&apos;..
+        /// </summary>
+        public static string InvalidConditionalReferenceParameters {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReferenceParameters", resourceCulture);
             }
         }
         
@@ -277,7 +322,16 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bundle contains multiple resources with the same url value &apos;{0}&apos;..
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
+        /// </summary>
+        public static string ResourceNotSupported {
+            get {
+                return ResourceManager.GetString("ResourceNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bundle contains multiple entries that refers to the same resource &apos;{0}&apos;..
         /// </summary>
         public static string ResourcesMustBeUnique {
             get {

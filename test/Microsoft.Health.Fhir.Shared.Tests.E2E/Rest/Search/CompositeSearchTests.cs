@@ -49,6 +49,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("combo-code-value-quantity=85354-9$107")] // Not match: Observation.code against Observation.component[0].valueQuantity
         [InlineData("combo-code-value-quantity=8480-6$107", ObservationWithBloodPressure)] // Match: Observation.component[0].code against Observation.component[0].valueQuantity
         [InlineData("combo-code-value-quantity=8480-6$60")] // Not match: Observation.component[0].code against Observation.component[1].valueQuantity
+        [InlineData("code-value-quantity=unknownSystem|443849008$10")]
+        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$eq10|unknownSystem|{score}")]
+        [InlineData("code-value-quantity=http://snomed.info/sct|443849008$eq10|http://unitsofmeasure.org|unknownQuantityId")]
         public async Task GivenACompositeSearchParameterWithTokenAndQuantity_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
             await SearchAndValidateObservations(queryValue, expectedObservationNames);

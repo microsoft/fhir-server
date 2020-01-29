@@ -291,6 +291,9 @@
   <data name="ResourcePermissionEmpty" xml:space="preserve">
     <value>Role must have one or more resource permissions.</value>
   </data>
+  <data name="ResourceTooLarge" xml:space="preserve">
+    <value>The requested resource exceeded the backing database's size limit.</value>
+  </data>
   <data name="ResourceVersionConflict" xml:space="preserve">
     <value>The supplied version '{0}' did not match.</value>
     <comment>{0}: ETag</comment>
@@ -354,6 +357,9 @@
   </data>
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
+  </data>
+  <data name="TypeNotPresent" xml:space="preserve">
+    <value>Bundle type is not present. Possible values are: transaction or batch</value>
   </data>
   <data name="UnableToDeleteSecret" xml:space="preserve">
     <value>Unable to delete secret from SecretStore</value>

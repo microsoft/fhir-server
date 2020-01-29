@@ -6,6 +6,7 @@
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -31,6 +32,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<ISearchService>>();
             services.AddFactory<IScoped<IFhirDataStore>>();
             services.AddFactory<IScoped<IFhirOperationDataStore>>();
+
+            services.AddScoped<TransactionBundleValidator>();
         }
     }
 }

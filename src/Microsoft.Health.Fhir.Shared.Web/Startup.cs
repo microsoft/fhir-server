@@ -48,8 +48,6 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public virtual void Configure(IApplicationBuilder app)
         {
-            app.UseApiNotifications();
-
             app.UseFhirServer();
 
             app.UseDevelopmentIdentityProvider();

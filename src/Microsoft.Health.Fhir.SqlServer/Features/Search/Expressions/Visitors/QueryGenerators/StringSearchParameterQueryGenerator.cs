@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            context.StringBuilder.Append(V1.StringSearchParam.TextOverflow, context.TableAlias).Append(expression.ComponentIndex + 1);
+            AppendColumnName(context, V1.StringSearchParam.TextOverflow, expression);
 
             StringColumn column;
             switch (expression.FieldName)

@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -59,9 +58,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _metricHandler?.ResetCount();
 
             await ExecuteAndValidate(
-                () => _client.HttpClient.GetAsync(FhirServerApplicationBuilderExtensions.HealthCheckPath),
+                () => _client.HttpClient.GetAsync("/health/check"),
                 (type: typeof(ApiResponseNotification), count: 0, resourceType: (string)null),
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: (string)null));
+        }
+
+        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Priority, Priority.One)]
+        [Fact]
+        public async Task GivenABatch_WhenInvokedAtCosmosDb_MetricNotificationsShouldBeEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 10, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Priority, Priority.One)]
+        [Fact]
+        public async Task GivenABatch_WhenInvokedAtSqlServer_MetricNotificationsShouldBeEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            await ExecuteAndValidate(
+                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+        }
+
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [Trait(Traits.Category, Categories.Transaction)]
+        [Trait(Traits.Priority, Priority.One)]
+        [Fact]
+        public async Task GivenATransaction_WhenInvoked_MetricNotificationsShouldBeEmitted()
+        {
+            _metricHandler?.ResetCount();
+
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry").ToPoco<Hl7.Fhir.Model.Bundle>();
+
+            await ExecuteAndValidate(
+                () => _client.PostBundleAsync(requestBundle),
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: requestBundle.ResourceType.ToString()));
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)
@@ -94,6 +134,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                     foreach (var notification in _metricHandler.NotificationMapping[expectedNotification.type])
                     {
                         var casted = notification as CosmosStorageRequestMetricsNotification;
+                        Assert.Equal(expectedNotification.resourceType, casted.ResourceType);
+                    }
+                }
+
+                if (result != null && expectedNotification.type == typeof(ApiResponseNotification))
+                {
+                    foreach (var notification in _metricHandler.NotificationMapping[expectedNotification.type])
+                    {
+                        var casted = notification as ApiResponseNotification;
                         Assert.Equal(expectedNotification.resourceType, casted.ResourceType);
                     }
                 }
