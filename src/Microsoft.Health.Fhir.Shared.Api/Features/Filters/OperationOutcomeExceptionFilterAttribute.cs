@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     internal class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
     {
         private const string RetryAfterHeaderName = "x-ms-retry-after-ms";
+        private const string ValidateController = "Validate";
 
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case ResourceNotValidException _:
                         if (context.ActionDescriptor is ControllerActionDescriptor controllerDescriptor)
                         {
-                            if (controllerDescriptor.ControllerName.Equals("Validate", StringComparison.OrdinalIgnoreCase))
+                            if (controllerDescriptor.ControllerName.Equals(ValidateController, StringComparison.OrdinalIgnoreCase))
                             {
                                 operationOutcomeResult.StatusCode = HttpStatusCode.OK;
                                 break;

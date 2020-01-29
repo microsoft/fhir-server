@@ -280,7 +280,8 @@
     <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
   <data name="ValidateWithParametersNotSupported" xml:space="preserve">
-    <value>Resources of type Parameters are not supported by this endpoint.</value>
+    <value>Resources of type 'Parameters' are not supported by this endpoint.</value>
+    <comment>{NumberedPlaceHolder="Parameters"}</comment>
   </data>
   <data name="ValidationNotSupported" xml:space="preserve">
     <value>$validate is not a supported endpoint.</value>

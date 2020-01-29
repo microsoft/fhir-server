@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resources of type Parameters are not supported by this endpoint..
+        ///   Looks up a localized string similar to Resources of type &apos;Parameters&apos; are not supported by this endpoint..
         /// </summary>
         public static string ValidateWithParametersNotSupported {
             get {

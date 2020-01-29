@@ -315,14 +315,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        /**
-         * <summary>
-         * Calls the $validate endpoint.
-         * </summary>
-         * <param name="uri">The URL to call</param>
-         * <param name="resource">The resource to be validated. The resource parameter is a string instead of a Resource object because the validate endpoint is frequently sent invalid resources that couldn't be parsed.</param>
-         * <param name="xml">Whether the resource is in JSON or XML formal</param>
-         */
+        /// <summary>
+        /// Calls the $validate endpoint.
+        /// </summary>
+        /// <param name="uri">The URL to call</param>
+        /// <param name="resource">The resource to be validated. The resource parameter is a string instead of a Resource object because the validate endpoint is frequently sent invalid resources that couldn't be parsed.</param>
+        /// <param name="xml">Whether the resource is in JSON or XML formal</param>
         public async Task<OperationOutcome> ValidateAsync(string uri, string resource, bool xml = false)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, xml ? uri + "?_format=xml" : uri);

@@ -14,6 +14,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ValidateTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private const string Success = "All OK";
         private readonly Common.FhirClient _client;
 
         public ValidateTests(HttpIntegrationTestFixture fixture)
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 outcome.Issue[0],
                 OperationOutcome.IssueSeverity.Information,
                 OperationOutcome.IssueType.Informational,
-                "All OK");
+                Success);
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Xml)]
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 outcome.Issue[0],
                 OperationOutcome.IssueSeverity.Information,
                 OperationOutcome.IssueType.Informational,
-                "All OK");
+                Success);
         }
 
         [Theory]
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 outcome.Issue[0],
                 OperationOutcome.IssueSeverity.Information,
                 OperationOutcome.IssueType.Informational,
-                "All OK");
+                Success);
         }
 
         [Fact]

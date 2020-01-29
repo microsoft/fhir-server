@@ -13,6 +13,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ValidateOperationHandler : IRequestHandler<ValidateOperationRequest, ValidateOperationResponse>
     {
+        /// <summary>
+        /// Handles validation requests that produced no errors. All validation is preformed before this is called.
+        /// </summary>
+        /// <param name="request">The request</param>
+        /// <param name="cancellationToken">The CancellationToken</param>
         public Task<ValidateOperationResponse> Handle(ValidateOperationRequest request, CancellationToken cancellationToken)
         {
             return Task.FromResult(new ValidateOperationResponse(
