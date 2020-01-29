@@ -754,6 +754,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Bundle type is not present. Possible values are: transaction or batch.
+        /// </summary>
+        internal static string TypeNotPresent {
+            get {
+                return ResourceManager.GetString("TypeNotPresent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
         /// </summary>
         internal static string UnableToDeleteSecret {

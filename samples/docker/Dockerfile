@@ -1,19 +1,15 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:2.2-bionic AS build
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1.100-bionic AS build
 
 ARG FHIR_VERSION=R4
 
 WORKDIR /build
 
-COPY ./*.* ./
-COPY ./samples/docker/docker_global.json ./global.json
-COPY ./src/ ./src/
-COPY ./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/ ./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/
+COPY ./ ./
 
-RUN dotnet add "./tools/Microsoft.Health.Extensions.BuildTimeCodeGenerator/Microsoft.Health.Extensions.BuildTimeCodeGenerator.csproj" package Microsoft.CodeAnalysis.Analyzers  --version 2.9.4
+RUN dotnet build --configuration Release
+RUN dotnet publish "./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj" -c Release -o "/build" --no-build
 
-RUN dotnet publish "./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj" -c Release -o "/build"
-
-FROM mcr.microsoft.com/dotnet/core/aspnet:2.2-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine AS runtime
 
 ARG FHIR_VERSION=R4
 

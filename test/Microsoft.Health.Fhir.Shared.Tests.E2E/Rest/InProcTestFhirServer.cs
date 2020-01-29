@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -56,7 +57,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     // use a message handler for the test server
                     serviceCollection
                         .AddHttpClient(Options.DefaultName)
-                        .ConfigurePrimaryHttpMessageHandler(() => _messageHandler);
+                        .ConfigurePrimaryHttpMessageHandler(() => _messageHandler)
+                        .SetHandlerLifetime(Timeout.InfiniteTimeSpan); // So that it is not disposed after 2 minutes;
 
                     serviceCollection.PostConfigure<JwtBearerOptions>(
                         JwtBearerDefaults.AuthenticationScheme,

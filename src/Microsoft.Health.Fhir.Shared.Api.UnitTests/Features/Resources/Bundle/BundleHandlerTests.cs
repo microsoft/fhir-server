@@ -14,8 +14,11 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
@@ -48,6 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ISearchService _searchService;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
+        private readonly BundleConfiguration _bundleConfiguration;
 
         public BundleHandlerTests()
         {
@@ -95,6 +99,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
 
+            _bundleConfiguration = new BundleConfiguration();
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+            bundleOptions.Value.Returns(_bundleConfiguration);
+
             _bundleHandler = new BundleHandler(
                 _httpContextAccessor,
                 _fhirRequestContextAccessor,
@@ -105,6 +113,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 _resourceIdProvider,
                 transactionBundleValidator,
                 _auditEventTypeMapping,
+                bundleOptions,
                 NullLogger<BundleHandler>.Instance);
         }
 
@@ -321,6 +330,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _bundleHandler.ResolveBundleReferences(entry, referenceIdDictionary, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
+        }
+
+        [Fact]
+        public async Task GivenAConfigurationEntryLimit_WhenExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
+        {
+            _bundleConfiguration.EntryLimit = 1;
+            var requestBundle = Samples.GetDefaultBatch();
+            var bundleRequest = new BundleRequest(requestBundle);
+
+            var expectedMessage = "The number of entries in the bundle exceeded the configured limit of 1.";
+
+            var exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(async () => await _bundleHandler.Handle(bundleRequest, CancellationToken.None));
+            Assert.Equal(exception.Message, expectedMessage);
         }
 
         private static SearchResultEntry GetMockSearchEntry(string resourceId, string resourceType)

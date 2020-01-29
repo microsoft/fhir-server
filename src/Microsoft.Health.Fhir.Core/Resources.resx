@@ -358,6 +358,9 @@
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
   </data>
+  <data name="TypeNotPresent" xml:space="preserve">
+    <value>Bundle type is not present. Possible values are: transaction or batch</value>
+  </data>
   <data name="UnableToDeleteSecret" xml:space="preserve">
     <value>Unable to delete secret from SecretStore</value>
   </data>

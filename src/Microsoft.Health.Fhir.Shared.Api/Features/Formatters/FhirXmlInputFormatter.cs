@@ -52,7 +52,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(encoding, nameof(encoding));
 
-            var request = context.HttpContext.Request;
+            context.HttpContext.AllowSynchronousIO();
+
+            HttpRequest request = context.HttpContext.Request;
 
             if (!request.Body.CanSeek)
             {

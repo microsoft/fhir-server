@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features;
 
@@ -56,6 +57,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
 
             return false;
+        }
+
+        public static void AllowSynchronousIO(this HttpContext context)
+        {
+            var bodyControlFeature = context.Features.Get<IHttpBodyControlFeature>();
+            if (bodyControlFeature != null)
+            {
+                bodyControlFeature.AllowSynchronousIO = true;
+            }
         }
     }
 }
