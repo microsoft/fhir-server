@@ -745,15 +745,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error from SQL database on export job update..
-        /// </summary>
-        internal static string SqlErrorOnExportUpdate {
-            get {
-                return ResourceManager.GetString("SqlErrorOnExportUpdate", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
         /// </summary>
         internal static string UnableToDeleteSecret {

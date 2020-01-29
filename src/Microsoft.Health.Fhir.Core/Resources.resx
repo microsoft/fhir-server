@@ -355,9 +355,6 @@
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
   </data>
-  <data name="SqlErrorOnExportUpdate" xml:space="preserve">
-    <value>Error from SQL database on export job update.</value>
-  </data>
   <data name="UnableToDeleteSecret" xml:space="preserve">
     <value>Unable to delete secret from SecretStore</value>
   </data>
