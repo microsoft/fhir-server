@@ -28,5 +28,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
+
+        [Fact]
+        public async Task WhenStartingTheFhirServer_GivenAHealthEndpoint_ThenResponseContainsDescription()
+        {
+            var response = await _client.GetAsync("health/check");
+            string responseContent = await response.Content.ReadAsStringAsync();
+
+            Assert.Contains("description", responseContent);
+        }
     }
 }

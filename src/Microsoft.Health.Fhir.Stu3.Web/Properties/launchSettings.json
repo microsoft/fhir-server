@@ -1,25 +1,34 @@
 {
-  "profiles": {
-    "CosmosDb": {
-      "commandName": "Project",
-      "environmentVariables": {
-        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-        "DataStore": "CosmosDb",
-        "ASPNETCORE_ENVIRONMENT": "development"
-      },
-      "applicationUrl": "https://localhost:44348/"
-    },
-    "SqlServer": {
-      "commandName": "Project",
-      "environmentVariables": {
-        "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3;Integrated Security=true",
-        "SqlServer:Initialize": "true",
-        "SqlServer:AllowDatabaseCreation": "true",
-        "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-        "DataStore": "SqlServer",
-        "ASPNETCORE_ENVIRONMENT": "development"
-      },
-      "applicationUrl": "https://localhost:44348/"
+    "profiles": {
+        "Default": {
+            "commandName": "Project",
+            "environmentVariables": {
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "DataStore": "CosmosDb",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        },
+        "CosmosDb": {
+            "commandName": "Project",
+            "environmentVariables": {
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "DataStore": "CosmosDb",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        },
+        "SqlServer": {
+            "commandName": "Project",
+            "environmentVariables": {
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3;Integrated Security=true",
+                "SqlServer:Initialize": "true",
+                "SqlServer:AllowDatabaseCreation": "true",
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "DataStore": "SqlServer",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        }
     }
-  }
 }

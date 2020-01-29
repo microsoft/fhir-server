@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         private readonly IUrlHelperFactory _urlHelperFactory = Substitute.For<IUrlHelperFactory>();
         private readonly IHttpContextAccessor _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
         private readonly IActionContextAccessor _actionContextAccessor = Substitute.For<IActionContextAccessor>();
+        private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
 
         private readonly IUrlHelper _urlHelper = Substitute.For<IUrlHelper>();
         private readonly DefaultHttpContext _httpContext = new DefaultHttpContext();
@@ -50,7 +52,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 _fhirRequestContextAccessor,
                 _urlHelperFactory,
                 _httpContextAccessor,
-                _actionContextAccessor);
+                _actionContextAccessor,
+                _bundleHttpContextAccessor);
 
             _fhirRequestContextAccessor.FhirRequestContext.RouteName = DefaultRouteName;
 
@@ -67,6 +70,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             _urlHelperFactory.GetUrlHelper(_actionContext).Returns(_urlHelper);
 
             _urlHelper.RouteUrl(Arg.Any<UrlRouteContext>()).Returns($"{Scheme}://{Host}");
+
+            _bundleHttpContextAccessor.HttpContext.Returns((HttpContext)null);
         }
 
         [Fact]
@@ -286,6 +291,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             const string opName = "import";
 
             Assert.Throws<OperationNotImplementedException>(() => _urlResolver.ResolveOperationResultUrl(opName, id));
+        }
+
+        [Fact]
+        public void GivenABundleBeingProcessed_WhenUrlIsResolvedWithQuery_ThenTheCorrectValueIsReturned()
+        {
+            string inputQueryString = "?param1=value1&param2=value2";
+            Tuple<string, string>[] unsupportedSearchParams = null;
+            string continuationToken = "continue";
+            var expectedRouteValues = new Dictionary<string, object>()
+            {
+                { "param3", new StringValues("value3") },
+                { "param4", new StringValues("value4") },
+                { ContinuationTokenQueryParamName, continuationToken },
+            };
+
+            var bundleHttpContext = new DefaultHttpContext();
+            bundleHttpContext.Request.QueryString = new QueryString("?param3=value3&param4=value4");
+            bundleHttpContext.Request.Scheme = Scheme;
+            bundleHttpContext.Request.Host = new HostString(Host);
+            _bundleHttpContextAccessor.HttpContext.Returns(bundleHttpContext);
+
+            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, unsupportedSortingParameters: null, continuationToken, expectedRouteValues);
         }
 
         private void TestAndValidateRouteWithQueryParameter(

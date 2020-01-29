@@ -51,6 +51,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
+            context.HttpContext.AllowSynchronousIO();
+
             HttpResponse response = context.HttpContext.Response;
             using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
             using (var writer = new XmlTextWriter(textWriter))

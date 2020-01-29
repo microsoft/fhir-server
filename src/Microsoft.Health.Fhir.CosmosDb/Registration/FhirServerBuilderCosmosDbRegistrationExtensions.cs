@@ -56,6 +56,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<CosmosTransactionHandler>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<FhirCollectionUpgradeManager>()
                 .Singleton()
                 .AsSelf()
@@ -109,6 +114,11 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<FhirDocumentClientInitializer>()
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();
+
+            services.Add<CosmosResponseProcessor>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             return fhirServerBuilder;
         }

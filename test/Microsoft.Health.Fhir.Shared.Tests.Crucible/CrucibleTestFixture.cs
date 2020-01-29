@@ -7,11 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CrucibleTestFixture : IClassFixture<CrucibleDataSource>
     {
         private readonly CrucibleDataSource _dataSource;
@@ -37,12 +40,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 
             if (findTest != null)
             {
+                bool isCosmosDb = string.Equals(CrucibleDataSource.GetDataStore().ToString(), DataStore.CosmosDb.ToString(), StringComparison.OrdinalIgnoreCase);
+                var knownFailures = KnownCrucibleTests.KnownCommonFailures.Concat(isCosmosDb ? KnownCrucibleTests.KnownCosmosDbFailures : KnownCrucibleTests.KnownSqlServerFailures).ToArray();
                 var failures = findTest.Result
                     .Where(x =>
                     {
                         var testName = $"{x.TestId ?? findTest.TestId}/{x.Id}";
-                        return x.Status == "fail" && !KnownCrucibleTests.KnownFailures.Contains(testName) && !KnownCrucibleTests.KnownBroken.Contains(testName)
-                               && !x.Message.ToString().Contains(KnownCrucibleTests.BundleCountFilter);
+                        return x.Status == "fail" && !knownFailures.Contains(testName) && !KnownCrucibleTests.KnownBroken.Contains(testName) && !x.Message.ToString().Contains(KnownCrucibleTests.BundleCountFilter);
                     })
                     .ToArray();
 
@@ -69,9 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                     }
                 }
 
-                var shouldBeFailing = findTest.Result
-                    .Where(x => x.Status == "pass" && KnownCrucibleTests.KnownFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}"))
-                    .ToArray();
+                var shouldBeFailing = findTest.Result.Where(x => x.Status == "pass" && knownFailures.Contains($"{x.TestId ?? findTest.TestId}/{x.Id}")).ToArray();
 
                 if (shouldBeFailing.Any())
                 {

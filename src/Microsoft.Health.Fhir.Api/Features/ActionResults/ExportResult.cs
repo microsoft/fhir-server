@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     /// <summary>
     /// Used to return the result of an export operation.
     /// </summary>
-    public class ExportResult : BaseActionResult<ExportJobResult>
+    public class ExportResult : ResourceActionResult<ExportJobResult>
     {
         public ExportResult(HttpStatusCode statusCode)
             : base(null, statusCode)

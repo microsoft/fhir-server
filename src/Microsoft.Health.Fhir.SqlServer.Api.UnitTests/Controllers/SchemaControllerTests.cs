@@ -30,9 +30,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenAScriptRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
+        public void GivenAScriptRequest_WhenSchemaIdFound_ThenReturnScriptSuccess()
         {
-            Assert.Throws<NotImplementedException>(() => _schemaController.SqlScript(0));
+            ActionResult result = _schemaController.SqlScript(1);
+            string script = result.ToString();
+            Assert.NotNull(script);
         }
 
         [Fact]

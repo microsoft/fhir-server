@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 
             var codableConceptInfo = new Core.Models.CodableConceptInfo();
             security.Service.Add(codableConceptInfo);
-            codableConceptInfo.Coding.Add(Constants.RestfulSecurityServiceOAuth.ToCoding());
+            codableConceptInfo.Coding.Add(Constants.RestfulSecurityServiceOAuth);
 
             Uri tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
             Uri authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 
             var codableConceptInfo = new Core.Models.CodableConceptInfo();
             security.Service.Add(codableConceptInfo);
-            codableConceptInfo.Coding.Add(Constants.RestfulSecurityServiceOAuth.ToCoding());
+            codableConceptInfo.Coding.Add(Constants.RestfulSecurityServiceOAuth);
 
             var openIdConfigurationUrl = $"{authority}/.well-known/openid-configuration";
 

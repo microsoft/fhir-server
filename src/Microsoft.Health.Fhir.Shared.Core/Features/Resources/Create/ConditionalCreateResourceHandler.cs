@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -15,13 +14,11 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
-    public class ConditionalCreateResourceHandler : BaseResourceHandler, IRequestHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
+    public class ConditionalCreateResourceHandler : BaseConditionalHandler, IRequestHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
     {
-        private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
 
         public ConditionalCreateResourceHandler(
@@ -29,13 +26,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
-            IMediator mediator)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory)
+            IMediator mediator,
+            ResourceIdProvider resourceIdProvider)
+            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
         {
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            _searchService = searchService;
             _mediator = mediator;
         }
 
@@ -43,9 +39,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            SearchResult results = await _searchService.SearchAsync(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
+            SearchResultEntry[] matchedResults = await Search(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
 
-            int count = results.Results.Count();
+            int count = matchedResults.Length;
             if (count == 0)
             {
                 // No matches: The server creates the resource

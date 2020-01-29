@@ -10,6 +10,9 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
 {
+    /// <summary>
+    /// Middleware that runs after authentication middleware so that it can retrieved authenticated user claims.
+    /// </summary>
     public class FhirRequestContextAfterAuthenticationMiddleware
     {
         private readonly RequestDelegate _next;
@@ -21,16 +24,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public async Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
-            // Set the user again to pick up anything that was set during authentication, e.g. claims.
+            // Now the authentication is completed successfully, sets the user.
             if (context.User != null)
             {
                 fhirRequestContextAccessor.FhirRequestContext.Principal = context.User;
             }
 
             // Call the next delegate/middleware in the pipeline
-            return _next(context);
+            await _next(context);
         }
     }
 }

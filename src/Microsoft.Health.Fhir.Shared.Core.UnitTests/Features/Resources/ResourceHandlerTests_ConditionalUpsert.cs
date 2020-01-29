@@ -131,11 +131,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<UpsertResourceResponse>(message));
         }
 
-        private ConditionalUpsertResourceRequest SetupConditionalUpdate(SaveOutcomeType outcomeType, ResourceElement requestResource, params SearchResultEntry[] searchResults)
+        private ConditionalUpsertResourceRequest SetupConditionalUpdate(
+            SaveOutcomeType outcomeType,
+            ResourceElement requestResource,
+            params SearchResultEntry[] searchResults)
         {
             IReadOnlyList<Tuple<string, string>> list = new[] { Tuple.Create("_tag", Guid.NewGuid().ToString()) };
 
-            _searchService.SearchAsync(Arg.Any<string>(), list, CancellationToken.None)
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None)
                 .Returns(new SearchResult(searchResults, Enumerable.Empty<Tuple<string, string>>().ToArray(), Enumerable.Empty<(string, string)>().ToArray(), null));
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())

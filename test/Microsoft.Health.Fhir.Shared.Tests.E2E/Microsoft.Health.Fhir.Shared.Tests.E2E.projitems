@@ -33,6 +33,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExceptionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\InProcTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MetadataTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\StartupWithMetricHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\OperationVersionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\PatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
@@ -67,6 +71,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)StartupBaseForCustomProviders.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />

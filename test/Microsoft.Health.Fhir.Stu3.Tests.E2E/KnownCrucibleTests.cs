@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
     public class KnownCrucibleTests
     {
-        public static readonly string[] KnownFailures =
+        public static readonly string[] KnownCommonFailures =
         {
             "argonautproviderconnectathontest/APCT03",
             "argonautproviderconnectathontest/APCT04",
@@ -177,8 +177,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "search001/SE05.3P",
             "search001/SE05.4G",
             "search001/SE05.4P",
-            "search001/SE05.5G",
-            "search001/SE05.5P",
             "search001/SE05.6G",
             "search001/SE05.6P",
             "search001/SE06G",
@@ -427,10 +425,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "testscript-example-search/02-PatientSearchDynamic",
             "testscript-example-search/SETUP",
             "testscript-example-update/SETUP",
-            "transactionandbatchtest/XFER0",
+            "transactionandbatchtest/XFER4",
+            "transactionandbatchtest/XFER6",
+            "transactionandbatchtest/XFER7",
             "transactionandbatchtest/XFER10",
-            "transactionandbatchtest/XFER11",
-            "transactionandbatchtest/XFER12",
+        };
+
+        public static readonly string[] KnownCosmosDbFailures =
+        {
+            "transactionandbatchtest/XFER0",
+            "search001/SE05.5P",
+            "search001/SE05.5G",
+        };
+
+        public static readonly string[] KnownSqlServerFailures =
+        {
+            "history001/HI01",
+            "history001/HI02",
+            "history001/HI06",
+            "history001/HI08",
         };
 
         public static readonly string[] KnownBroken =
@@ -438,7 +451,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "argonautproviderconnectathontest/APCT02",
             "connectathonschedulingtracktest/CST01",
             "readtest/R005",
-            "resourcetest_devicerequest/X030_DeviceRequest", // Open issue: https://github.com/fhir-crucible/plan_executor/issues/136
             "resourcetest_questionnaire/X010_Questionnaire", // Open issue: https://github.com/fhir-crucible/plan_executor/issues/138
             "resourcetest_questionnaire/X020_Questionnaire", // Same issue as: https://github.com/fhir-crucible/plan_executor/issues/138
             "connectathon-15-patient-base-client-id-json/Step5-PatientDelete",

@@ -28,13 +28,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static readonly string ValidConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly int? _continuationTokenSizeLimitInKb;
+        private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
-        public FhirDocumentClient(IDocumentClient inner, IFhirRequestContextAccessor fhirRequestContextAccessor, int? continuationTokenSizeLimitInKb)
+        public FhirDocumentClient(IDocumentClient inner, IFhirRequestContextAccessor fhirRequestContextAccessor, int? continuationTokenSizeLimitInKb, ICosmosResponseProcessor cosmosResponseProcessor)
             : this(inner)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(cosmosResponseProcessor, nameof(cosmosResponseProcessor));
+
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _continuationTokenSizeLimitInKb = continuationTokenSizeLimitInKb;
+            _cosmosResponseProcessor = cosmosResponseProcessor;
         }
 
         private RequestOptions UpdateOptions(RequestOptions options)
@@ -153,28 +157,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private T ProcessResponse<T>(T response)
+        private async Task<T> ProcessResponse<T>(T response)
             where T : ResourceResponseBase
         {
-            _fhirRequestContextAccessor.FhirRequestContext.UpdateFhirRequestContext(response);
+            await _cosmosResponseProcessor.ProcessResponse(response);
             return response;
         }
 
-        private FeedResponse<T> ProcessResponse<T>(FeedResponse<T> response)
+        private async Task<FeedResponse<T>> ProcessResponse<T>(FeedResponse<T> response)
         {
-            _fhirRequestContextAccessor.FhirRequestContext.UpdateFhirRequestContext(response);
+            await _cosmosResponseProcessor.ProcessResponse(response);
             return response;
         }
 
-        private StoredProcedureResponse<T> ProcessResponse<T>(StoredProcedureResponse<T> response)
+        private async Task<StoredProcedureResponse<T>> ProcessResponse<T>(StoredProcedureResponse<T> response)
         {
-            _fhirRequestContextAccessor.FhirRequestContext.UpdateFhirRequestContext(response);
+            await _cosmosResponseProcessor.ProcessResponse(response);
             return response;
         }
 
-        private void ProcessException(Exception ex)
+        private async Task ProcessException(Exception ex)
         {
-            _fhirRequestContextAccessor.FhirRequestContext.ProcessException(ex);
+            await _cosmosResponseProcessor.ProcessException(ex);
         }
 
         Task<StoredProcedureResponse<TValue>> IDocumentClient.ExecuteStoredProcedureAsync<TValue>(string storedProcedureLink, params object[] procedureParams)

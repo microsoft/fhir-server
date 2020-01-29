@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASearchResultWithContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
             string encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(_continuationToken));
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters, encodedContinuationToken).Returns(_nextUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters, encodedContinuationToken, true).Returns(_nextUrl);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
 
             var searchResult = new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters, _unsupportedSortingParameters, _continuationToken);

@@ -45,13 +45,33 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                var totalSearchResult = await ExecuteSearchAsync(
-                    _queryBuilder.BuildSqlQuerySpec(searchOptions, true),
-                    searchOptions,
-                    cancellationToken,
-                    true);
+                // If this is the first page and there aren't any more pages
+                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
+                {
+                    // Count the results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count();
+                }
+                else
+                {
+                    try
+                    {
+                        // Otherwise, indicate that we'd like to get the count
+                        searchOptions.CountOnly = true;
 
-                searchResult.TotalCount = totalSearchResult.TotalCount;
+                        // And perform a second read.
+                        var totalSearchResult = await ExecuteSearchAsync(
+                            _queryBuilder.BuildSqlQuerySpec(searchOptions),
+                            searchOptions,
+                            cancellationToken);
+
+                        searchResult.TotalCount = totalSearchResult.TotalCount;
+                    }
+                    finally
+                    {
+                        // Ensure search options is set to its original state.
+                        searchOptions.CountOnly = false;
+                    }
+                }
             }
 
             return searchResult;
@@ -70,17 +90,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private async Task<SearchResult> ExecuteSearchAsync(
             SqlQuerySpec sqlQuerySpec,
             SearchOptions searchOptions,
-            CancellationToken cancellationToken,
-            bool calculateTotalCount = false)
+            CancellationToken cancellationToken)
         {
             var feedOptions = new FeedOptions
             {
                 EnableCrossPartitionQuery = true,
                 MaxItemCount = searchOptions.MaxItemCount,
-                RequestContinuation = searchOptions.ContinuationToken,
+                RequestContinuation = searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
             };
 
-            if (searchOptions.CountOnly || calculateTotalCount)
+            if (searchOptions.CountOnly)
             {
                 return new SearchResult(
                     (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, cancellationToken)).Single(),

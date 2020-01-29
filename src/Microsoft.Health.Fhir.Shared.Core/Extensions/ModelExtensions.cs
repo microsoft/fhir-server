@@ -23,13 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             ModelInfoProvider.SetProvider(new VersionSpecificModelInfoProvider());
         }
 
-        public static CodeableConcept ToPoco(this CodingInfo model)
-        {
-            EnsureArg.IsNotNull(model, nameof(model));
-
-            return new CodeableConcept(model.System, model.Code);
-        }
-
         public static OperationOutcome.IssueComponent ToPoco(this OperationOutcomeIssue issue)
         {
             EnsureArg.IsNotNull(issue, nameof(issue));

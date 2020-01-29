@@ -15,7 +15,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Common;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -38,9 +37,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly StringOverflowRewriter _stringOverflowRewriter;
-        private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -49,74 +48,79 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
-            SqlServerDataStoreConfiguration configuration,
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _stringOverflowRewriter = stringOverflowRewriter;
-            _configuration = configuration;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            SearchResult searchResult;
+
+            // If we should include the total count of matching search results
+            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                connection.Open();
+                searchResult = await SearchImpl(searchOptions, false, cancellationToken);
 
-                SearchResult searchResult;
-
-                // If we should include the total count of matching search results
-                if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+                // If this is the first page and there aren't any more pages
+                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
-                    // Begin a transaction so we can perform two atomic reads.
-                    using (var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
-                    {
-                        searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction);
-
-                        // Perform a second read to get the count.
-                        var countOnlySearchResult = await SearchImpl(searchOptions, false, connection, cancellationToken, transaction, true);
-
-                        searchResult.TotalCount = countOnlySearchResult.TotalCount;
-
-                        transaction.Commit();
-                    }
+                    // Count the results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count();
                 }
                 else
                 {
-                    searchResult = await SearchImpl(searchOptions, false, connection, cancellationToken);
-                }
+                    try
+                    {
+                        // Otherwise, indicate that we'd like to get the count
+                        searchOptions.CountOnly = true;
 
-                return searchResult;
+                        // And perform a second read.
+                        var countOnlySearchResult = await SearchImpl(searchOptions, false, cancellationToken);
+
+                        searchResult.TotalCount = countOnlySearchResult.TotalCount;
+                    }
+                    finally
+                    {
+                        // Ensure search options is set to its original state.
+                        searchOptions.CountOnly = false;
+                    }
+                }
             }
+            else
+            {
+                searchResult = await SearchImpl(searchOptions, false, cancellationToken);
+            }
+
+            return searchResult;
         }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
-            {
-                connection.Open();
-
-                return await SearchImpl(searchOptions, true, connection, cancellationToken);
-            }
+            return await SearchImpl(searchOptions, true, cancellationToken);
         }
 
-        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, SqlConnection connection, CancellationToken cancellationToken, SqlTransaction transaction = null, bool calculateTotalCount = false)
+        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, CancellationToken cancellationToken)
         {
             await _model.EnsureInitialized();
 
             Expression searchExpression = searchOptions.Expression;
 
             // AND in the continuation token
-            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken))
+            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
@@ -134,7 +138,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
-                                               .AcceptVisitor(TableExpressionCombiner.Instance)
                                                .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
                                                .AcceptVisitor(NormalizedPredicateReorderer.Instance)
                                                .AcceptVisitor(_chainFlatteningRewriter)
@@ -147,29 +150,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
-            using (SqlCommand sqlCommand = connection.CreateCommand())
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                // If we are sending multiple search queries in one transaction
-                if (transaction != null)
-                {
-                    sqlCommand.Transaction = transaction;
-                }
-
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
-                EnableTimeAndIoMessageLogging(stringBuilder, connection);
+                EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
-                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch, calculateTotalCount);
+                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch);
 
                 expression.AcceptVisitor(queryGenerator, searchOptions);
 
                 sqlCommand.CommandText = stringBuilder.ToString();
 
-                LogSqlComand(sqlCommand);
+                LogSqlCommand(sqlCommand);
 
                 using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    if (searchOptions.CountOnly || calculateTotalCount)
+                    if (searchOptions.CountOnly)
                     {
                         await reader.ReadAsync(cancellationToken);
                         return new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
@@ -251,19 +249,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         [Conditional("DEBUG")]
-        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnection connection)
+        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnectionWrapper sqlConnectionWrapper)
         {
             stringBuilder.AppendLine("SET STATISTICS IO ON;");
             stringBuilder.AppendLine("SET STATISTICS TIME ON;");
             stringBuilder.AppendLine();
-            connection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
+            sqlConnectionWrapper.SqlConnection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
         }
 
         /// <summary>
         /// Logs the parameter declarations and command text of a SQL command
         /// </summary>
         [Conditional("DEBUG")]
-        private void LogSqlComand(SqlCommand sqlCommand)
+        private void LogSqlCommand(SqlCommand sqlCommand)
         {
             var sb = new StringBuilder();
             foreach (SqlParameter p in sqlCommand.Parameters)

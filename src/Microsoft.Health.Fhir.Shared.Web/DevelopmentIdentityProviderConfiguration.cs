@@ -11,6 +11,7 @@ namespace Microsoft.Health.Fhir.Web
     {
         public const string Audience = "fhir-api";
         public const string LastModifiedClaim = "appid";
+        public const string ClientIdClaim = "client_id";
 
         public bool Enabled { get; set; }
 
