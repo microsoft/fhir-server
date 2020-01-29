@@ -1909,6 +1909,10 @@ AS
     FROM dbo.ExportJob WITH (UPDLOCK, HOLDLOCK)
     WHERE Id = @id
 
+    IF (@currentJobVersion IS NULL) BEGIN
+        THROW 50404, 'Export job record not found', 1;
+    END
+
     IF (@jobVersion <> @currentJobVersion) BEGIN
         THROW 50412, 'Precondition failed', 1;
     END

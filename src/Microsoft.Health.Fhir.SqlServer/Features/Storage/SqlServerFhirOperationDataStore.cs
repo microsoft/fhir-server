@@ -150,6 +150,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         throw new JobConflictException();
                     }
+                    else if (e.Number == SqlErrorCodes.NotFound)
+                    {
+                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+                    }
                     else
                     {
                         _logger.LogError(e, "Error from SQL database on export job update.");
