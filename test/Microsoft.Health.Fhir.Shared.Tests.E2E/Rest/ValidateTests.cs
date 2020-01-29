@@ -22,6 +22,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.FhirClient;
         }
 
+        // Add an example for each that uses parameter syntax
+        // Add an example that uses the DELETE mode
+
         [Theory]
         [InlineData("Patient/$validate", "{\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}")]
         [InlineData("Observation/$validate", "{\"resourceType\":\"Observation\",\"status\":\"registered\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}")]

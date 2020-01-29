@@ -24,13 +24,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var actionModelType) &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                if (!string.Equals((string)actionModelType, ((Base)parsedModel).TypeName, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new ResourceNotValidException(new List<ValidationFailure>
+                ValidateType((Resource)parsedModel, (string)actionModelType);
+            }
+        }
+
+        public static void ValidateType(Resource resource, string expectedType)
+        {
+            if (!string.Equals(expectedType, resource.TypeName, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ResourceNotValidException(new List<ValidationFailure>
                     {
                         new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceTypeMismatch),
                     });
-                }
             }
         }
     }

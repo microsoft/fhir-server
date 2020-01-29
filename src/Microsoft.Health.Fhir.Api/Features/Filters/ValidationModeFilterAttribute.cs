@@ -42,11 +42,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             switch (mode.ToUpperInvariant())
             {
                 case "CREATE":
-                    throw new OperationNotImplementedException(Resources.ValidationModesNotSupported);
+                    throw new OperationNotImplementedException(string.Format(Resources.ValidationModeNotSupported, mode));
                 case "UPDATE":
                     if (idMode)
                     {
-                        throw new OperationNotImplementedException(Resources.ValidationModesNotSupported);
+                        throw new OperationNotImplementedException(string.Format(Resources.ValidationModeNotSupported, mode));
                     }
 
                     throw new BadRequestException(Resources.ValidationForUpdateAndDeleteNotSupported);

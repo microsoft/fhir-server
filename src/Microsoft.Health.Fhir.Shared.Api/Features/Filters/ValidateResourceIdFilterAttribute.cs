@@ -25,22 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
                 var resource = (Resource)parsedModel;
-                var location = $"{resource.TypeName}.id";
-                if (string.IsNullOrWhiteSpace(resource.Id))
-                {
-                    throw new ResourceNotValidException(new List<ValidationFailure>
-                    {
-                        new ValidationFailure(location, Api.Resources.ResourceIdRequired),
-                    });
-                }
-
-                if (!string.Equals((string)actionId, resource.Id, StringComparison.Ordinal))
-                {
-                    throw new ResourceNotValidException(new List<ValidationFailure>
-                    {
-                        new ValidationFailure(location, Api.Resources.UrlResourceIdMismatch),
-                    });
-                }
+                ValidateId(resource, (string)actionId);
             }
             else
             {
@@ -48,6 +33,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceAndIdRequired),
                 });
+            }
+        }
+
+        public static void ValidateId(Resource resource, string expectedId)
+        {
+            var location = $"{resource.TypeName}.id";
+            if (string.IsNullOrWhiteSpace(resource.Id))
+            {
+                throw new ResourceNotValidException(new List<ValidationFailure>
+                    {
+                        new ValidationFailure(location, Api.Resources.ResourceIdRequired),
+                    });
+            }
+
+            if (!string.Equals(expectedId, resource.Id, StringComparison.Ordinal))
+            {
+                throw new ResourceNotValidException(new List<ValidationFailure>
+                    {
+                        new ValidationFailure(location, Api.Resources.UrlResourceIdMismatch),
+                    });
             }
         }
     }

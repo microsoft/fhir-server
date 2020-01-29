@@ -10,8 +10,10 @@ using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
@@ -26,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             ValidateController disabledValidateController = GetController(false);
             Resource payload = new Observation();
 
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(() => disabledValidateController.Validate(payload, profile: null, mode: null));
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(() => disabledValidateController.Validate(payload, profile: null, mode: null, payload.TypeName));
 
             CheckOperationOutcomeIssue(
                 ex,
@@ -53,38 +55,69 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [MemberData(nameof(GetValidationFunctions))]
-        public async void GivenAValidationRequest_WhenPassedAModeQueryParameter_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
+        public async void GivenAValidationRequest_WhenPassedAnInvlaidModeQueryParameter_ThenANotRecognizedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
         {
             Resource payload = new Observation();
             string profile = null;
             string mode = "mode";
-            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
+            BadRequestException ex = await Assert.ThrowsAsync<BadRequestException>(validate(payload, profile, mode));
 
             CheckOperationOutcomeIssue(
                 ex,
                 OperationOutcome.IssueSeverity.Error,
-                OperationOutcome.IssueType.NotSupported,
-                Resources.ValidationModesNotSupported);
+                OperationOutcome.IssueType.Invalid,
+                string.Format(Resources.ValidationModeNotRecognized, mode));
         }
 
         [Theory]
         [MemberData(nameof(GetValidationFunctions))]
-        public async void GivenAValidationRequest_WhenPassedAParametersResource_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
+        public async void GivenAValidationRequest_WhenPassedTheCreateModeQueryParameter_ThenANotSupportedErrorIsReturned(Func<Resource, string, string, Func<System.Threading.Tasks.Task>> validate)
         {
-            Resource payload = new Parameters();
+            Resource payload = new Observation();
             string profile = null;
-            string mode = null;
+            string mode = "create";
             OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(validate(payload, profile, mode));
 
             CheckOperationOutcomeIssue(
                 ex,
                 OperationOutcome.IssueSeverity.Error,
                 OperationOutcome.IssueType.NotSupported,
-                Resources.ValidateWithParametersNotSupported);
+                string.Format(Resources.ValidationModeNotSupported, mode));
+        }
+
+        [Fact]
+        public async void GivenAValidationRequest_WhenPassedARequestByIdWithTheUpdateModeQueryParameter_ThenANotSupportedErrorIsReturned()
+        {
+            ValidateController validateController = GetController(true);
+            Resource payload = new Observation();
+            string mode = "update";
+            OperationNotImplementedException ex = await Assert.ThrowsAsync<OperationNotImplementedException>(() => validateController.ValidateById(payload, profile: null, mode, payload.TypeName, payload.Id));
+
+            CheckOperationOutcomeIssue(
+                ex,
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.NotSupported,
+                string.Format(Resources.ValidationModeNotSupported, mode));
+        }
+
+        [Theory]
+        [InlineData("update")]
+        [InlineData("delete")]
+        public async void GivenAValidationRequest_WhenPassedADefaultRequestWithAModeQueryParameter_ThanABadRequestIsReturned(string mode)
+        {
+            ValidateController validateController = GetController(true);
+            Resource payload = new Observation();
+            BadRequestException ex = await Assert.ThrowsAsync<BadRequestException>(() => validateController.Validate(payload, profile: null, mode, payload.TypeName));
+
+            CheckOperationOutcomeIssue(
+                ex,
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                Resources.ValidationForUpdateAndDeleteNotSupported);
         }
 
         private void CheckOperationOutcomeIssue(
-            OperationNotImplementedException exception,
+            FhirException exception,
             OperationOutcome.IssueSeverity expectedSeverity,
             OperationOutcome.IssueType expectedCode,
             string expectedMessage)
@@ -102,8 +135,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public static IEnumerable<object[]> GetValidationFunctions()
         {
             ValidateController validateController = GetController(true);
-            yield return new object[] { new Func<Resource, string, string, Func<System.Threading.Tasks.Task>>((Resource payload, string profile, string mode) => new Func<System.Threading.Tasks.Task>(() => validateController.Validate(payload, profile, mode))) };
-            yield return new object[] { new Func<Resource, string, string, Func<System.Threading.Tasks.Task>>((Resource payload, string profile, string mode) => new Func<System.Threading.Tasks.Task>(() => validateController.ValidateById(payload, profile, mode))) };
+            yield return new object[] { new Func<Resource, string, string, Func<System.Threading.Tasks.Task>>((Resource payload, string profile, string mode) => new Func<System.Threading.Tasks.Task>(() => validateController.Validate(payload, profile, mode, payload.TypeName))) };
+            yield return new object[] { new Func<Resource, string, string, Func<System.Threading.Tasks.Task>>((Resource payload, string profile, string mode) => new Func<System.Threading.Tasks.Task>(() => validateController.ValidateById(payload, profile, mode, payload.TypeName, payload.Id))) };
         }
 
         private static ValidateController GetController(bool enableValidate)

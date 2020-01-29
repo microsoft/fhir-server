@@ -3,11 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
-using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -23,7 +21,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -56,40 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode, string typeParameter)
         {
-            if (!_features.SupportsValidate)
-            {
-                throw new OperationNotImplementedException(Resources.ValidationNotSupported);
-            }
-
-            if (profile != null)
-            {
-                throw new OperationNotImplementedException(Resources.ValidateWithProfileNotSupported);
-            }
-
-            /*
-             * In order to allow modes (create, update, and delete) I first need to understand what checks are done before performing those actions.
-             * For create it seems to go through the FhirDataStore classes (ex: CosmosFhirDataStore), although what checks are run in addition to normal validation are unclear
-             */
-
-            if (resource.ResourceType == ResourceType.Parameters)
-            {
-                resource = ParseParameters((Parameters)resource, ref profile, ref mode);
-            }
-
-            // This is the same as the filter that is applied in the ValidationModeFilter.
-            // It is needed here to cover the case of the mode being passed as part of a Parameters resource.
-            // It is needed as a filter attribute so that it can perform the filter before the ValidateModelState filter returns an error if the user passed an invalid resource.
-            // This is needed because if a user requests a delete validation it doesn't matter what resource they pass, so the delete validation should run regardless of if the resource is valid.
-            ValidationModeFilterAttribute.ParseMode(mode, false);
-
-            ValidateType(resource, typeParameter);
-
-            var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));
-
-            return FhirResult.Create(new OperationOutcome
-            {
-                Issue = response.Issues.Select(x => x.ToPoco()).ToList(),
-            }.ToResourceElement());
+            return await RunValidationAsync(resource, profile, mode, typeParameter);
         }
 
         [HttpPost]
@@ -97,6 +61,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Read)]
         [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> ValidateById([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode, string typeParameter, string idParameter)
+        {
+            return await RunValidationAsync(resource, profile, mode, typeParameter, idParameter, true);
+        }
+
+        private async Task<IActionResult> RunValidationAsync(Resource resource, string profile, string mode, string typeParameter, string idParameter = null, bool idMode = false)
         {
             if (!_features.SupportsValidate)
             {
@@ -113,24 +82,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 resource = ParseParameters((Parameters)resource, ref profile, ref mode);
             }
 
-            ValidationModeFilterAttribute.ParseMode(mode, true);
+            // This is the same as the filter that is applied in the ValidationModeFilter.
+            // It is needed here to cover the case of the mode being passed as part of a Parameters resource.
+            // It is needed as a filter attribute so that it can perform the filter before the ValidateModelState filter returns an error if the user passed an invalid resource.
+            // This is needed because if a user requests a delete validation it doesn't matter what resource they pass, so the delete validation should run regardless of if the resource is valid.
+            ValidationModeFilterAttribute.ParseMode(mode, idMode);
 
-            ValidateType(resource, typeParameter);
+            ValidateResourceTypeFilterAttribute.ValidateType(resource, typeParameter);
 
-            if (resource.Id == null)
+            if (idMode)
             {
-                throw new ResourceNotValidException(new List<ValidationFailure>
-                    {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceIdRequired),
-                    });
-            }
-
-            if (!resource.Id.Equals(idParameter, System.StringComparison.OrdinalIgnoreCase))
-            {
-                throw new ResourceNotValidException(new List<ValidationFailure>
-                    {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.UrlResourceIdMismatch),
-                    });
+                ValidateResourceIdFilterAttribute.ValidateId(resource, idParameter);
             }
 
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));
@@ -164,17 +126,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             return resource.Parameter.Find(param => param.Name.Equals("resource", System.StringComparison.OrdinalIgnoreCase)).Resource;
-        }
-
-        private static void ValidateType(Resource resource, string expectedType)
-        {
-            if (!resource.TypeName.Equals(expectedType, System.StringComparison.OrdinalIgnoreCase))
-            {
-                throw new ResourceNotValidException(new List<ValidationFailure>
-                    {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceTypeMismatch),
-                    });
-            }
         }
     }
 }

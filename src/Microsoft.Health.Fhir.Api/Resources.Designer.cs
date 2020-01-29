@@ -473,17 +473,6 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("UrlResourceIdMismatch", resourceCulture);
             }
         }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Resources of type &apos;Parameters&apos; are not supported by this endpoint..
-        /// </summary>
-        public static string ValidateWithParametersNotSupported
-        {
-            get
-            {
-                return ResourceManager.GetString("ValidateWithParametersNotSupported", resourceCulture);
-            }
-        }
         
         /// <summary>
         ///   Looks up a localized string similar to Validation against a profile is not supported..
@@ -513,11 +502,11 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Validation modes are not supported..
+        ///   Looks up a localized string similar to {0} is not a supported validation mode..
         /// </summary>
-        public static string ValidationModesNotSupported {
+        public static string ValidationModeNotSupported {
             get {
-                return ResourceManager.GetString("ValidationModesNotSupported", resourceCulture);
+                return ResourceManager.GetString("ValidationModeNotSupported", resourceCulture);
             }
         }
         
