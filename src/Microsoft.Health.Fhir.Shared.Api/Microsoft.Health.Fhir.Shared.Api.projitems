@@ -17,7 +17,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationOutcomeResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ContentTypes\ContentTypeService.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidateFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidatePostConfigureOptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\MvcModule.cs" />

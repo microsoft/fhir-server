@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -41,10 +42,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly CapabilityStatement _conformance;
+        private readonly ISearchService _searchService;
 
         public FhirStorageTests(FhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
+            _searchService = Substitute.For<ISearchService>();
             IFhirDataStore dataStore = fixture.DataStore;
 
             _conformance = CapabilityStatementMock.GetMockedCapabilityStatement();
@@ -80,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var resourceIdProvider = new ResourceIdProvider();
 
-            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider));
+            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, _searchService, resourceIdProvider));
             collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, Deserializers.ResourceDeserializer, resourceIdProvider));
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider));

@@ -219,6 +219,14 @@
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
+  <data name="InvalidConditionalReference" xml:space="preserve">
+    <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
+    <value>Resource type and query parameter must be present in a given request '{0}'.</value>
+    <comment>{0} is the request url.</comment>
+  </data>
   <data name="InvalidConfigSetting" xml:space="preserve">
     <value>Value '{0}' is not supported. Please select from the following list of supported capabilities: [{1}].</value>
   </data>
@@ -272,6 +280,10 @@
   </data>
   <data name="ReadHistoryDisabled" xml:space="preserve">
     <value>ReadHistory is disabled for resources of type '{0}'.</value>
+  </data>
+  <data name="ReferenceResourceTypeNotSupported" xml:space="preserve">
+    <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
+    <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
   <data name="RequestedActionNotAllowed" xml:space="preserve">
     <value>The requested action is not allowed.</value>
