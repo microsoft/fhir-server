@@ -330,6 +330,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public async Task GivenConfigValidationFails_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            string message = "failedValidation";
+            _exportJobConfigurationValidator.ValidateExportJobConfig().Returns(x => throw new ExportJobConfigValidationException(message, HttpStatusCode.BadRequest));
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Contains(message, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        [Fact]
         public async Task GivenAnExportJobToResume_WhenExecuted_ThenItShouldExportAllRecordsAsExpected()
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task

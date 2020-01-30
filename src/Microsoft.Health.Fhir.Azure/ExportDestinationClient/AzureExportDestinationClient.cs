@@ -52,7 +52,34 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
             _blobClient = cloudAccount.CreateCloudBlobClient();
 
-            await CreateContainerAsync(_blobClient, containerId);
+            try
+            {
+                await CreateContainerAsync(_blobClient, containerId);
+            }
+            catch (StorageException se)
+            {
+                _logger.LogWarning(se, se.Message);
+
+                HttpStatusCode responseCode = HttpStatusCode.InternalServerError;
+                if (se.RequestInformation != null)
+                {
+                    _logger.LogWarning($"RequestResult ErrorCode: {se.RequestInformation.ErrorCode}, RequestResult HttpStatusCode: {se.RequestInformation.HttpStatusCode}");
+
+                    try
+                    {
+                        if (Enum.IsDefined(typeof(HttpStatusCode), se.RequestInformation.HttpStatusCode))
+                        {
+                            responseCode = Enum.Parse<HttpStatusCode>(se.RequestInformation.HttpStatusCode.ToString());
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        _logger.LogInformation("Unable to parse httpstatus code information from storage exception");
+                    }
+                }
+
+                throw new DestinationConnectionException(se.Message, responseCode);
+            }
         }
 
         public async Task ConnectWithAccessTokenAsync(string accessToken, string storageAccountUri, CancellationToken cancellationToken, string containerId = null)
