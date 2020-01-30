@@ -18,6 +18,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Deletes the specified export job record from the database.
+        /// </summary>
+        /// <param name="id">The id of the job to delete.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task.</returns>
+        Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gets a token representing the state of the database.
         /// </summary>
         /// <returns>The state token</returns>
