@@ -19,13 +19,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private readonly IDocumentClient _documentClient;
         private readonly Uri _collectionUri;
+        private readonly string _databaseId;
+        private readonly string _collectionId;
 
         public CosmosDbFhirStorageTestHelper(
             IDocumentClient documentClient,
-            Uri collectionUri)
+            string databaseId,
+            string collectionId)
         {
             _documentClient = documentClient;
-            _collectionUri = collectionUri;
+            _databaseId = databaseId;
+            _collectionId = collectionId;
+
+            _collectionUri = UriFactory.CreateDocumentCollectionUri(_databaseId, _collectionId);
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
@@ -45,6 +51,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await _documentClient.DeleteDocumentAsync(doc.SelfLink, new RequestOptions() { PartitionKey = new PartitionKey(ExportJobPartitionKey) }, cancellationToken);
                 }
             }
+        }
+
+        public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        {
+            Uri documentUri = UriFactory.CreateDocumentUri(_databaseId, _collectionId, id);
+            await _documentClient.DeleteDocumentAsync(documentUri, new RequestOptions { PartitionKey = new PartitionKey(ExportJobPartitionKey) }, cancellationToken);
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()

@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             ExportJobRecord job = jobOutcome.JobRecord;
             WeakETag jobVersion = jobOutcome.ETag;
 
-            await _testHelper.DeleteAllExportJobRecordsAsync();
+            await _testHelper.DeleteExportJobRecordAsync(job.Id);
 
             await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
         }

@@ -31,6 +31,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                var command = new SqlCommand("DELETE FROM dbo.ExportJob WHERE Id = @id", connection);
+
+                var parameter = new SqlParameter { ParameterName = "@id", Value = id };
+                command.Parameters.Add(parameter);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
         {
             using (var connection = new SqlConnection(_connectionString))
