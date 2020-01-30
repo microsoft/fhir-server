@@ -17,6 +17,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool keepHistory,
             CancellationToken cancellationToken);
 
+        Task<UpsertOutcome> InplaceUpsertAsync(
+            ResourceWrapper resource,
+            WeakETag weakETag,
+            bool allowCreate,
+            bool keepHistory,
+            bool keepVersion,
+            CancellationToken cancellationToken);
+
         Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken);
 
         Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken);

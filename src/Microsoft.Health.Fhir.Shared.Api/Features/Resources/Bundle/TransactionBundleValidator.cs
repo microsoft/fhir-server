@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public async System.Threading.Tasks.Task UpdateVersionedReference(Resource resource, CancellationToken cancellationToken)
         {
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
-            await FhirDataStore.UpsertAsync(resourceWrapper, null, true, true, cancellationToken);
+            await FhirDataStore.InplaceUpsertAsync(resourceWrapper, null, allowCreate: true, keepHistory: false, keepVersion: true, cancellationToken);
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)

@@ -260,5 +260,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 builder.AddRestInteraction(SystemRestfulInteraction.Batch);
             }
         }
+
+        public Task<UpsertOutcome> InplaceUpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, bool keepVersion, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

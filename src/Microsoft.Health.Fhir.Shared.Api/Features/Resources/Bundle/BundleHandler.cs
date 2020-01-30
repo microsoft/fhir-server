@@ -179,11 +179,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (requestBundle.Entry[iterator].Request.Method == HTTPVerb.POST || requestBundle.Entry[iterator].Request.Method == HTTPVerb.PUT)
                 {
                     IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+                    bool containsVersionedReference = false;
 
                     foreach (ResourceReference reference in references)
                     {
                         if (referenceIdDictionary.ContainsKey(reference.Reference) && IsVersionedUrl(reference.Reference))
                         {
+                            if (!containsVersionedReference)
+                            {
+                                containsVersionedReference = true;
+                            }
+
                             // Extract the referencedResourceUrl from versionedReferenceUrl
                             string referencedResourceUrl = reference.Reference.Split("/_history/")[0];
                             string[] referencedResourceInformation = referencedResourceUrl.Split("/");
@@ -197,11 +203,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             if (!string.IsNullOrWhiteSpace(version))
                             {
                                 reference.Reference = $"{referencedResourceUrl}/_history/{version}";
-
-                                // Update the referenced resource version in datastore
-                                await _transactionBundleValidator.UpdateVersionedReference(entry.Resource, cancellationToken);
                             }
                         }
+                    }
+
+                    if (containsVersionedReference)
+                    {
+                        // Update the referenced resource version in datastore
+                        await _transactionBundleValidator.UpdateVersionedReference(entry.Resource, cancellationToken);
                     }
                 }
 

@@ -75,6 +75,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
         {
+            // Set this flag to off to always increase resource version during update.
+            bool keepVersion = false;
+
+            return await UpsertAsync(resource, weakETag, allowCreate, keepHistory, keepVersion, cancellationToken);
+        }
+
+        private async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, bool keepVersion, CancellationToken cancellationToken)
+        {
             await _model.EnsureInitialized();
 
             int etag = 0;
@@ -110,6 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         allowCreate: allowCreate,
                         isDeleted: resource.IsDeleted,
                         keepHistory: keepHistory,
+                        keepVersion: keepVersion,
                         requestMethod: resource.Request.Method,
                         rawResource: stream,
                         tableValuedParameters: _upsertResourceTvpGenerator.Generate(resourceMetadata));
@@ -254,6 +263,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Transaction supported added in listedCapability
                 builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
+        }
+
+        // Enables updating a resource without increasing its version if keepVersion is set to true
+        public async Task<UpsertOutcome> InplaceUpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, bool keepVersion, CancellationToken cancellationToken)
+        {
+            return await UpsertAsync(resource, weakETag, allowCreate, keepHistory, keepVersion, cancellationToken);
         }
     }
 }

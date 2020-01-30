@@ -1340,6 +1340,7 @@ CREATE PROCEDURE dbo.UpsertResource
     @allowCreate bit,
     @isDeleted bit,
     @keepHistory bit,
+    @keepVersion bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
@@ -1409,7 +1410,13 @@ AS
             RETURN
         END
 
-        SET @version = @previousVersion + 1
+        IF(@keepVersion = 0 ) BEGIN
+            SET @version = @previousVersion + 1
+        END
+
+         IF(@version IS NULL ) BEGIN
+            SET @version = 1
+        END
 
         IF (@keepHistory = 1) BEGIN
 
