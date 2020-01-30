@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public SchemaInformation()
         {
             MinimumSupportedVersion = SchemaVersion.V1;
-            MaximumSupportedVersion = SchemaVersion.V1;
+            MaximumSupportedVersion = SchemaVersion.V2;
         }
 
         public SchemaVersion MinimumSupportedVersion { get; }
