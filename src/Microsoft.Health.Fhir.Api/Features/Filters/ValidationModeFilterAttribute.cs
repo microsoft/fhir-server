@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
         public static void ParseMode(string mode, bool idMode)
         {
-            switch (mode.ToUpperInvariant())
+            switch (mode == null ? null : mode.ToUpperInvariant())
             {
                 case "CREATE":
                     throw new OperationNotImplementedException(string.Format(Resources.ValidationModeNotSupported, mode));
