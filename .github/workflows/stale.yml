@@ -1,0 +1,20 @@
+name: Mark stale issues
+
+on:
+  schedule:
+  - cron: "0 0 * * *"
+
+jobs:
+  stale:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/stale@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        stale-issue-message: 'This issue has been automatically marked as stale because it has not had any activity for 90 days. It will be closed if no further activity occurs within 10 days of this comment. See our Issue Management Policies for more information.'
+        stale-issue-label: 'No-Issue-Activity'
+        exempt-issue-label: 'Bug,Enhancement,Up for grabs'
+        days-before-stale: 90
+        days-before-close: 10
