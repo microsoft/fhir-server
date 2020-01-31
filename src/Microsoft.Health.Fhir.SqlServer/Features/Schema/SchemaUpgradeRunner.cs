@@ -40,7 +40,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             {
                 connection.Open();
                 var server = new Server(new ServerConnection(connection));
-                server.ConnectionContext.ExecuteNonQuery(ScriptProvider.GetMigrationScript(version));
+
+                bool getDiffScript = version != 1;
+                server.ConnectionContext.ExecuteNonQuery(ScriptProvider.GetMigrationScript(version, getDiffScript));
             }
 
             CompleteSchemaVersion(version);

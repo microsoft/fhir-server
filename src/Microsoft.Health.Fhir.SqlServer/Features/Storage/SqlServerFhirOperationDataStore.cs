@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                V1.CreateExportJob.PopulateCommand(
+                V2.CreateExportJob.PopulateCommand(
                     sqlCommand,
                     jobRecord.Id,
                     jobRecord.Hash,
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                V1.GetExportJobById.PopulateCommand(sqlCommand, id);
+                V2.GetExportJobById.PopulateCommand(sqlCommand, id);
 
                 using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
                     }
 
-                    (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
+                    (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V2.ExportJob.RawJobRecord, V2.ExportJob.JobVersion);
 
                     return CreateExportJobOutcome(rawJobRecord, rowVersion);
                 }
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                V1.GetExportJobByHash.PopulateCommand(sqlCommand, hash);
+                V2.GetExportJobByHash.PopulateCommand(sqlCommand, hash);
 
                 using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         return null;
                     }
 
-                    (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
+                    (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V2.ExportJob.RawJobRecord, V2.ExportJob.JobVersion);
 
                     return CreateExportJobOutcome(rawJobRecord, rowVersion);
                 }
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                V1.UpdateExportJob.PopulateCommand(
+                V2.UpdateExportJob.PopulateCommand(
                     sqlCommand,
                     jobRecord.Id,
                     jobRecord.Status.ToString(),
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt64(jobHeartbeatTimeoutThreshold.TotalSeconds);
 
-                V1.AcquireExportJobs.PopulateCommand(
+                V2.AcquireExportJobs.PopulateCommand(
                     sqlCommand,
                     jobHeartbeatTimeoutThresholdInSeconds,
                     maximumNumberOfConcurrentJobsAllowed);
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
-                        (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V1.ExportJob.RawJobRecord, V1.ExportJob.JobVersion);
+                        (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(V2.ExportJob.RawJobRecord, V2.ExportJob.JobVersion);
 
                         acquiredJobs.Add(CreateExportJobOutcome(rawJobRecord, rowVersion));
                     }
