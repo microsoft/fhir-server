@@ -57,7 +57,7 @@ CREATE TABLE dbo.SchemaVersion
 
 INSERT INTO dbo.SchemaVersion
 VALUES
-    (1, 'started')
+    (2, 'started') -- TODO: Should we also insert (1, 'complete')?
 
 GO
 

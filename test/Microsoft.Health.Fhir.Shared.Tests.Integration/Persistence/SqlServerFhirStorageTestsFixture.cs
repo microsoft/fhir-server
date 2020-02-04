@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
-            _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
+            _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString, initialConnectionString, _masterConnectionString);
         }
 
         public string TestConnectionString { get; }
