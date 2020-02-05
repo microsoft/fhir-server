@@ -32,10 +32,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _masterConnectionString = masterConnectionString;
         }
 
-        public async Task CreateAndInitializeDatabase(string databaseName, bool applySqlSchemaSnapshot, CancellationToken cancellationToken = default)
+        public async Task CreateAndInitializeDatabase(string databaseName, bool applySqlSchemaSnapshot, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
-            var schemaInitializer = CreateSchemaInitializer(testConnectionString);
+            schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString);
 
             // Create the database.
             using (var connection = new SqlConnection(_masterConnectionString))
