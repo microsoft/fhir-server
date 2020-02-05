@@ -6,6 +6,7 @@
 using System;
 using System.Data.SqlClient;
 using System.Numerics;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -130,18 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DisposeAsync()
         {
-            using (var connection = new SqlConnection(_masterConnectionString))
-            {
-                await connection.OpenAsync();
-                SqlConnection.ClearAllPools();
-
-                using (SqlCommand command = connection.CreateCommand())
-                {
-                    command.CommandTimeout = 600;
-                    command.CommandText = $"DROP DATABASE IF EXISTS {_databaseName}";
-                    await command.ExecuteNonQueryAsync();
-                }
-            }
+            await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
         }
 
         object IServiceProvider.GetService(Type serviceType)

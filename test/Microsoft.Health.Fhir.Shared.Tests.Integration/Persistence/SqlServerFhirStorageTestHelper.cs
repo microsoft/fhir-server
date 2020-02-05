@@ -32,7 +32,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _masterConnectionString = masterConnectionString;
         }
 
-        // TODO: The code for creating and deleting databases is duplicate code - it already exists in the SqlServerFhirStorageTestFixture class.
         public async Task CreateAndInitializeDatabase(string databaseName, bool applySqlSchemaSnapshot, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
