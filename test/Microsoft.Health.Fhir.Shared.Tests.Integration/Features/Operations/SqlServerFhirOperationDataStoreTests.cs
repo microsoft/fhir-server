@@ -26,19 +26,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
-            var databaseName1 = $"TEST1_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var databaseName2 = $"TEST2_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var diffDatabaseName = $"DIFF_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
 
             // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-            await _testHelper.CreateAndInitializeDatabase(databaseName1, applySqlSchemaSnapshot: true);
+            await _testHelper.CreateAndInitializeDatabase(snapshotDatabaseName, applySqlSchemaSnapshot: true);
 
             // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-            await _testHelper.CreateAndInitializeDatabase(databaseName2, applySqlSchemaSnapshot: false);
+            await _testHelper.CreateAndInitializeDatabase(diffDatabaseName, applySqlSchemaSnapshot: false);
 
-            // TODO: Compare schemas.
+            bool isEqual = _testHelper.CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
 
-            await _testHelper.DeleteDatabase(databaseName1);
-            await _testHelper.DeleteDatabase(databaseName2);
+            await _testHelper.DeleteDatabase(snapshotDatabaseName);
+            await _testHelper.DeleteDatabase(diffDatabaseName);
+
+            Assert.True(isEqual);
         }
     }
 }

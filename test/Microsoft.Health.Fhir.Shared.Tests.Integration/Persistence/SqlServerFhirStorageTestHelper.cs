@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.SqlServer.Dac.Compare;
 using Polly;
 using Xunit;
 
@@ -86,6 +87,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await command.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
+        }
+
+        public bool CompareDatabaseSchemas(string databaseName1, string databaseName2)
+        {
+            var testConnectionString1 = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName1 }.ToString();
+            var testConnectionString2 = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName2 }.ToString();
+
+            var source = new SchemaCompareDatabaseEndpoint(testConnectionString1);
+            var target = new SchemaCompareDatabaseEndpoint(testConnectionString2);
+            var comparison = new SchemaComparison(source, target);
+            SchemaComparisonResult result = comparison.Compare();
+
+            return result.IsEqual;
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
