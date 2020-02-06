@@ -234,7 +234,7 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   >    END OF TERMS AND CONDITIONS
 
-## Hl7.Fhir.STU3 1.3.0
+## Hl7.Fhir.STU3 1.5.0
 * Component Source:   https://github.com/FirelyTeam/fhir-net-api
 * Component Copyright and License:  
   > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
@@ -267,7 +267,7 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## Hl7.Fhir.R4 1.3.0
+## Hl7.Fhir.R4 1.5.0
 * Component Source:   https://github.com/FirelyTeam/fhir-net-api
 * Component Copyright and License:  
   > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
