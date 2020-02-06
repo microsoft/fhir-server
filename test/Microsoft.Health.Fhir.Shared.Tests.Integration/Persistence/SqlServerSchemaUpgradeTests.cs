@@ -7,18 +7,16 @@ using System;
 using System.Numerics;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
+namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    [Collection(FhirOperationTestConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-    public class SqlServerFhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>
+    public class SqlServerSchemaUpgradeTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly ISqlServerFhirStorageTestHelper _testHelper;
 
-        public SqlServerFhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
+        public SqlServerSchemaUpgradeTests(FhirStorageTestsFixture fixture)
         {
             _testHelper = (SqlServerFhirStorageTestHelper)fixture.TestHelper;
         }
