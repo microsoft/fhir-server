@@ -191,9 +191,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private static ExportJobOutcome CreateExportJobOutcome(string rawJobRecord, byte[] rowVersionAsBytes)
+        private ExportJobOutcome CreateExportJobOutcome(string rawJobRecord, byte[] rowVersionAsBytes)
         {
-            var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord);
+            var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
 
             WeakETag etag = GetRowVersionAsEtag(rowVersionAsBytes);
 
