@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             _logger = logger;
         }
 
-        public void Initialize(bool applySqlSchemaSnapshot = false)
+        internal void Initialize(bool applySqlSchemaSnapshot = false)
         {
             if (!CanInitialize())
             {
