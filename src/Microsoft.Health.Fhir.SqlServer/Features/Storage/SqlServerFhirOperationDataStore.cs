@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 if (rowVersion == null)
                 {
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, "Failed to create export job because no row version was returned."), HttpStatusCode.InternalServerError);
                 }
 
                 return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (rowVersion.NullIfEmpty() == null)
                     {
-                        throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, Resources.NullRowVersion), HttpStatusCode.InternalServerError);
+                        throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, "Failed to create export job because no row version was returned."), HttpStatusCode.InternalServerError);
                     }
 
                     return new ExportJobOutcome(jobRecord, GetRowVersionAsEtag(rowVersion));

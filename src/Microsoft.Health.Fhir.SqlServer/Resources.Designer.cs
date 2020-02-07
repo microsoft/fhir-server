@@ -70,15 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The row version should never be null..
-        /// </summary>
-        internal static string NullRowVersion {
-            get {
-                return ResourceManager.GetString("NullRowVersion", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The provided version is unknown..
         /// </summary>
         internal static string ScriptNotFound {
