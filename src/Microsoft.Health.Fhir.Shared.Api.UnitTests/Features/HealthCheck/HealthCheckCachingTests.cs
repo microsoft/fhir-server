@@ -93,16 +93,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.HealthCheck
         }
 
         [Fact]
-        public async Task GivenTheHealthCheckCache_WhenCancellationIsRequested_ThenWeDoNotThrowAndReturnHealthyStatus()
+        public async Task GivenTheHealthCheckCache_WhenCancellationIsRequested_ThenWeDoNotThrowAndReturnLastHealthCheckResult()
         {
+            // Trigger a health check so as to populate lastResult
+            await _cahcedHealthCheck.CheckHealthAsync(_context, CancellationToken.None);
+
             var ctSource = new CancellationTokenSource();
             ctSource.Cancel();
 
             HealthCheckResult result = await _cahcedHealthCheck.CheckHealthAsync(_context, ctSource.Token);
 
-            await _healthCheck.DidNotReceive().CheckHealthAsync(Arg.Any<HealthCheckContext>(), Arg.Any<CancellationToken>());
+            // Confirm we only called CheckHealthAsync once.
+            await _healthCheck.Received(1).CheckHealthAsync(Arg.Any<HealthCheckContext>(), Arg.Any<CancellationToken>());
             Assert.Equal(HealthStatus.Healthy, result.Status);
-            Assert.Contains("Health check was canceled", result.Description);
         }
     }
 }

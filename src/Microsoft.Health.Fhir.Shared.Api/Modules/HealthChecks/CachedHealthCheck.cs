@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.HealthChecks
             catch (OperationCanceledException oce) when (cancellationToken.IsCancellationRequested)
             {
                 _logger.LogInformation(oce, $"Cancellation was requested for {nameof(CheckHealthAsync)}");
-                return HealthCheckResult.Healthy("Health check was canceled before completion.");
+                return _lastResult;
             }
 
             try
