@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _masterConnectionString = masterConnectionString;
         }
 
-        public async Task CreateAndInitializeDatabase(string databaseName, bool applySqlSchemaSnapshot, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
+        public async Task CreateAndInitializeDatabase(string databaseName, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
             schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString);
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 });
 
-            schemaInitializer.Initialize(applySqlSchemaSnapshot);
+            schemaInitializer.Initialize(forceIncrementalSchemaUpgrade);
         }
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)

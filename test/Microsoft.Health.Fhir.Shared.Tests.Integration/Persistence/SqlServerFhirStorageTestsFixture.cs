@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitializeAsync()
         {
-            await _testHelper.CreateAndInitializeDatabase(_databaseName, applySqlSchemaSnapshot: false, _schemaInitializer, CancellationToken.None);
+            await _testHelper.CreateAndInitializeDatabase(_databaseName, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
         }
 
         public async Task DisposeAsync()

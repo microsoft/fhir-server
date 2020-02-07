@@ -27,11 +27,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             _logger = logger;
         }
 
-        public void ApplySchema(int version, bool isSnapshot)
+        public void ApplySchema(int version, bool applyFullSchemaSnapshot)
         {
             _logger.LogInformation("Applying schema {version}", version);
 
-            if (!isSnapshot)
+            if (!applyFullSchemaSnapshot)
             {
                 InsertSchemaVersion(version);
             }
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 connection.Open();
                 var server = new Server(new ServerConnection(connection));
 
-                server.ConnectionContext.ExecuteNonQuery(ScriptProvider.GetMigrationScript(version, !isSnapshot));
+                server.ConnectionContext.ExecuteNonQuery(ScriptProvider.GetMigrationScript(version, applyFullSchemaSnapshot));
             }
 
             CompleteSchemaVersion(version);

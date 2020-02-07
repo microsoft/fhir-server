@@ -30,10 +30,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             try
             {
                 // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-                await _testHelper.CreateAndInitializeDatabase(snapshotDatabaseName, applySqlSchemaSnapshot: true);
+                await _testHelper.CreateAndInitializeDatabase(snapshotDatabaseName, forceIncrementalSchemaUpgrade: false);
 
                 // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-                await _testHelper.CreateAndInitializeDatabase(diffDatabaseName, applySqlSchemaSnapshot: false);
+                await _testHelper.CreateAndInitializeDatabase(diffDatabaseName, forceIncrementalSchemaUpgrade: true);
 
                 bool isEqual = _testHelper.CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
                 Assert.True(isEqual);

@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             _logger = logger;
         }
 
-        internal void Initialize(bool applySqlSchemaSnapshot = false)
+        internal void Initialize(bool forceIncrementalSchemaUpgrade = false)
         {
             if (!CanInitialize())
             {
@@ -51,29 +51,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             // If the stored procedure to get the current schema version doesn't exist
             if (_schemaInformation.Current == null || _sqlServerDataStoreConfiguration.DeleteAllDataOnStartup)
             {
-                // And if we are applying a complete snapshot of the SQL schema
-                if (applySqlSchemaSnapshot)
+                if (forceIncrementalSchemaUpgrade)
                 {
-                    // Apply the maximum supported version. This won't consider the .diff.sql files.
-                    _schemaUpgradeRunner.ApplySchema((int)_schemaInformation.MaximumSupportedVersion, isSnapshot: true);
+                    // Run version 1. We'll use this as a base schema and apply .diff.sql files to upgrade the schema version.
+                    _schemaUpgradeRunner.ApplySchema(version: 1, applyFullSchemaSnapshot: true);
                 }
                 else
                 {
-                    // Otherwise, run version 1. We'll use this as a base schema and apply .diff.sql files to upgrade the schema version.
-                    _schemaUpgradeRunner.ApplySchema(version: 1, isSnapshot: true);
+                    // Apply the maximum supported version. This won't consider the .diff.sql files.
+                    _schemaUpgradeRunner.ApplySchema((int)_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
                 }
 
                 GetCurrentSchemaVersion();
             }
 
-            // If we are looking to apply .diff.sql files and the current schema version needs to be upgraded
-            if (!applySqlSchemaSnapshot && _schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
+            // If the current schema version needs to be upgraded
+            if (_schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
             {
                 // Apply each .diff.sql file one by one.
                 int current = (int?)_schemaInformation.Current ?? 0;
                 for (int i = current + 1; i <= (int)_schemaInformation.MaximumSupportedVersion; i++)
                 {
-                    _schemaUpgradeRunner.ApplySchema(version: i, isSnapshot: false);
+                    _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
                 }
             }
 
