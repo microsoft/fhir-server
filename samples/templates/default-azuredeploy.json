@@ -214,6 +214,7 @@
                     "type": "config",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
+                        "[concat(variables('appServiceResourceId'), '/Extensions/MSDeploy')]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],
                     "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights:InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
