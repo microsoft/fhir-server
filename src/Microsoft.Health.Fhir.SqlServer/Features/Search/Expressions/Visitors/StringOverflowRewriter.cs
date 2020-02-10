@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return false;
                 }
 
-                if (expression.StringOperator == StringOperator.Equals && expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
+                if (expression.StringOperator == StringOperator.Equals && expression.Value.Length <= VLatest.StringSearchParam.Text.Metadata.MaxLength)
                 {
                     // in these cases, we will know for sure that we do not need to consider the overflow column
                     return false;

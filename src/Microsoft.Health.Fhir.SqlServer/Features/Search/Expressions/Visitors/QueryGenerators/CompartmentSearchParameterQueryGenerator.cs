@@ -12,21 +12,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly CompartmentSearchParameterQueryGenerator Instance = new CompartmentSearchParameterQueryGenerator();
 
-        public override Table Table => V1.CompartmentAssignment;
+        public override Table Table => VLatest.CompartmentAssignment;
 
         public override SearchParameterQueryGeneratorContext VisitCompartment(CompartmentSearchExpression expression, SearchParameterQueryGeneratorContext context)
         {
             byte compartmentTypeId = context.Model.GetCompartmentTypeId(expression.CompartmentType);
 
             context.StringBuilder
-                .Append(V1.CompartmentAssignment.CompartmentTypeId, context.TableAlias)
+                .Append(VLatest.CompartmentAssignment.CompartmentTypeId, context.TableAlias)
                 .Append(" = ")
-                .Append(context.Parameters.AddParameter(V1.CompartmentAssignment.CompartmentTypeId, compartmentTypeId))
+                .Append(context.Parameters.AddParameter(VLatest.CompartmentAssignment.CompartmentTypeId, compartmentTypeId))
                 .AppendLine()
                 .Append("AND ")
-                .Append(V1.CompartmentAssignment.ReferenceResourceId, context.TableAlias)
+                .Append(VLatest.CompartmentAssignment.ReferenceResourceId, context.TableAlias)
                 .Append(" = ")
-                .Append(context.Parameters.AddParameter(V1.CompartmentAssignment.ReferenceResourceId, expression.CompartmentId));
+                .Append(context.Parameters.AddParameter(VLatest.CompartmentAssignment.ReferenceResourceId, expression.CompartmentId));
 
             return context;
         }

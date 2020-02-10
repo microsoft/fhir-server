@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             ThrowIfNotInitialized();
 
-            V1.SystemTable systemTable = V1.System;
+            VLatest.SystemTable systemTable = VLatest.System;
             return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
         }
 
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             ThrowIfNotInitialized();
 
-            V1.QuantityCodeTable quantityCodeTable = V1.QuantityCode;
+            VLatest.QuantityCodeTable quantityCodeTable = VLatest.QuantityCode;
             return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
         }
 
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // result set 1
                         while (reader.Read())
                         {
-                            (short id, string resourceTypeName) = reader.ReadRow(V1.ResourceType.ResourceTypeId, V1.ResourceType.Name);
+                            (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
 
                             resourceTypeToId.Add(resourceTypeName, id);
                             resourceTypeIdToTypeName.Add(id, resourceTypeName);
@@ -234,7 +234,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            (string uri, short searchParamId) = reader.ReadRow(V1.SearchParam.Uri, V1.SearchParam.SearchParamId);
+                            (string uri, short searchParamId) = reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
                             searchParamUriToId.Add(new Uri(uri), searchParamId);
                         }
 
@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            (byte id, string claimTypeName) = reader.ReadRow(V1.ClaimType.ClaimTypeId, V1.ClaimType.Name);
+                            (byte id, string claimTypeName) = reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
                             claimNameToId.Add(claimTypeName, id);
                         }
 
@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            (byte id, string compartmentName) = reader.ReadRow(V1.CompartmentType.CompartmentTypeId, V1.CompartmentType.Name);
+                            (byte id, string compartmentName) = reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
                             compartmentTypeToId.Add(compartmentName, id);
                         }
 
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            var (value, systemId) = reader.ReadRow(V1.System.Value, V1.System.SystemId);
+                            var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
                             systemToId.TryAdd(value, systemId);
                         }
 
@@ -270,7 +270,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         while (reader.Read())
                         {
-                            (string value, int quantityCodeId) = reader.ReadRow(V1.QuantityCode.Value, V1.QuantityCode.QuantityCodeId);
+                            (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
                             quantityCodeToId.TryAdd(value, quantityCodeId);
                         }
 

@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
-            SmallIntColumn searchParamIdColumn = V1.SearchParam.SearchParamId;
+            SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             Debug.Assert(!expression.IsMissing, "IsMissing=true expressions should have been rewritten");
 
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
-            SmallIntColumn searchParamIdColumn = V1.SearchParam.SearchParamId;
+            SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)

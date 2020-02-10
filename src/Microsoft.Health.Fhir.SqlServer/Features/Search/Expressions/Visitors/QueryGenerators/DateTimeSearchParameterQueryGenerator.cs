@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly DateTimeSearchParameterQueryGenerator Instance = new DateTimeSearchParameterQueryGenerator();
 
-        public override Table Table => V1.DateTimeSearchParam;
+        public override Table Table => VLatest.DateTimeSearchParam;
 
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
@@ -21,14 +21,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             switch (expression.FieldName)
             {
                 case FieldName.DateTimeStart:
-                    column = V1.DateTimeSearchParam.StartDateTime;
+                    column = VLatest.DateTimeSearchParam.StartDateTime;
                     break;
                 case FieldName.DateTimeEnd:
-                    column = V1.DateTimeSearchParam.EndDateTime;
+                    column = VLatest.DateTimeSearchParam.EndDateTime;
                     break;
                 case SqlFieldName.DateTimeIsLongerThanADay:
                     // we don't want to use a parameter here because we want the query plan to use the filtered index based on this field
-                    AppendColumnName(context, V1.DateTimeSearchParam.IsLongerThanADay, expression).Append(" = ").Append((bool)expression.Value ? '1' : '0');
+                    AppendColumnName(context, VLatest.DateTimeSearchParam.IsLongerThanADay, expression).Append(" = ").Append((bool)expression.Value ? '1' : '0');
                     return context;
                 default:
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
