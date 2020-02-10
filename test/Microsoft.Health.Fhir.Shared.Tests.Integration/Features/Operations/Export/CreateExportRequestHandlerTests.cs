@@ -23,7 +23,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 {
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class CreateExportRequestHandlerTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private static readonly Uri RequestUrl = new Uri("https://localhost/$export/");
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         public Task InitializeAsync()
         {
-            return _fhirStorageTestHelper.DeleteAllExportJobRecordsAsync();
+            return _fhirStorageTestHelper.DeleteAllExportJobRecordsAsync(_cancellationToken);
         }
 
         public Task DisposeAsync()

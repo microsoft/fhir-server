@@ -8,25 +8,29 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-    public class CosmosFhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+    public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
-        private IFhirOperationDataStore _operationDataStore;
-        private IFhirStorageTestHelper _testHelper;
+        private readonly IFhirOperationDataStore _operationDataStore;
+        private readonly IFhirStorageTestHelper _testHelper;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), "destinationType", "destinationConnection");
 
-        public CosmosFhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
+        public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {
             _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
@@ -66,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenNoMatchingJob_WhenGettingById_ThehJobNotFoundExceptionShouldBeThrown()
+        public async Task GivenNoMatchingJob_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
@@ -130,47 +134,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(3, 2)]
         public async Task GivenNumberOfRunningJobs_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
-            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync();
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
+            await CreateRunningJob();
+            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
-            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync();
+            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
 
-            ExportJobRecord[] expectedJobRecords = new[] { jobRecord1, jobRecord2 };
+            // The running job should not be acquired.
+            var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2 };
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
+            IReadOnlyCollection<ExportJobOutcome> acquiredJobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: limit);
 
-            Assert.NotNull(jobs);
+            Assert.NotNull(acquiredJobOutcomes);
+            Assert.Equal(expectedNumberOfJobsReturned, acquiredJobOutcomes.Count);
 
-            Action<ExportJobOutcome>[] validators = expectedJobRecords
-                .Take(expectedNumberOfJobsReturned)
-                .Select(expectedJobRecord => new Action<ExportJobOutcome>(job =>
-                {
-                    // The job should be marked as running now since it's acquired.
-                    expectedJobRecord.Status = OperationStatus.Running;
+            foreach (ExportJobOutcome acquiredJobOutcome in acquiredJobOutcomes)
+            {
+                ExportJobRecord acquiredJobRecord = acquiredJobOutcome.JobRecord;
+                ExportJobRecord expectedJobRecord = expectedJobRecords.SingleOrDefault(job => job.Id == acquiredJobRecord.Id);
 
-                    ValidateExportJobOutcome(expectedJobRecord, job.JobRecord);
-                })).ToArray();
+                Assert.NotNull(expectedJobRecord);
 
-            Assert.Collection(
-                jobs,
-                validators);
+                // The job should be marked as running now since it's acquired.
+                expectedJobRecord.Status = OperationStatus.Running;
+
+                ValidateExportJobOutcome(expectedJobRecord, acquiredJobRecord);
+            }
         }
 
         [Fact]
         public async Task GivenThereIsRunningJobThatExpired_WhenAcquiringJobs_ThenTheExpiredJobShouldBeReturned()
         {
-            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Running);
+            ExportJobOutcome jobOutcome = await CreateRunningJob();
 
             await Task.Delay(1200);
 
-            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
+            IReadOnlyCollection<ExportJobOutcome> expiredJobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
 
-            Assert.NotNull(jobs);
+            Assert.NotNull(expiredJobs);
             Assert.Collection(
-                jobs,
-                job => ValidateExportJobOutcome(jobRecord, job.JobRecord));
+                expiredJobs,
+                expiredJobOutcome => ValidateExportJobOutcome(jobOutcome.JobRecord, expiredJobOutcome.JobRecord));
         }
 
         [Fact]
@@ -210,9 +215,107 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             }
         }
 
+        [Fact]
+        public async Task GivenARunningJob_WhenUpdatingTheJob_ThenTheJobShouldBeUpdated()
+        {
+            ExportJobOutcome jobOutcome = await CreateRunningJob();
+            ExportJobRecord job = jobOutcome.JobRecord;
+
+            job.Status = OperationStatus.Completed;
+
+            await _operationDataStore.UpdateExportJobAsync(job, jobOutcome.ETag, CancellationToken.None);
+            ExportJobOutcome updatedJobOutcome = await _operationDataStore.GetExportJobByIdAsync(job.Id, CancellationToken.None);
+
+            ValidateExportJobOutcome(job, updatedJobOutcome?.JobRecord);
+        }
+
+        [Fact]
+        public async Task GivenAnOldVersionOfAJob_WhenUpdatingTheJob_ThenJobConflictExceptionShouldBeThrown()
+        {
+            ExportJobOutcome jobOutcome = await CreateRunningJob();
+            ExportJobRecord job = jobOutcome.JobRecord;
+
+            // Update the job for a first time. This should not fail.
+            job.Status = OperationStatus.Completed;
+            WeakETag jobVersion = jobOutcome.ETag;
+            await _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None);
+
+            // Attempt to update the job a second time with the old version.
+            await Assert.ThrowsAsync<JobConflictException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenANonexistentJob_WhenUpdatingTheJob_ThenJobNotFoundExceptionShouldBeThrown()
+        {
+            ExportJobOutcome jobOutcome = await CreateRunningJob();
+
+            ExportJobRecord job = jobOutcome.JobRecord;
+            WeakETag jobVersion = jobOutcome.ETag;
+
+            await _testHelper.DeleteExportJobRecordAsync(job.Id);
+
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenThereIsARunningJob_WhenSimultaneousUpdateCallsOccur_ThenJobConflictExceptionShouldBeThrown()
+        {
+            ExportJobOutcome runningJobOutcome = await CreateRunningJob();
+
+            var completionSource = new TaskCompletionSource<bool>();
+
+            Task<ExportJobOutcome>[] tasks = new[]
+            {
+                WaitAndUpdateExportJobAsync(runningJobOutcome),
+                WaitAndUpdateExportJobAsync(runningJobOutcome),
+                WaitAndUpdateExportJobAsync(runningJobOutcome),
+            };
+
+            completionSource.SetResult(true);
+
+            await Assert.ThrowsAsync<JobConflictException>(() => Task.WhenAll(tasks));
+
+            async Task<ExportJobOutcome> WaitAndUpdateExportJobAsync(ExportJobOutcome jobOutcome)
+            {
+                await completionSource.Task;
+
+                jobOutcome.JobRecord.Status = OperationStatus.Completed;
+                return await _operationDataStore.UpdateExportJobAsync(jobOutcome.JobRecord, jobOutcome.ETag, CancellationToken.None);
+            }
+        }
+
+        private async Task<ExportJobOutcome> CreateRunningJob()
+        {
+            // Create a queued job.
+            await InsertNewExportJobRecordAsync();
+
+            // Acquire the job. This will timestamp it and set it to running.
+            IReadOnlyCollection<ExportJobOutcome> jobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
+
+            Assert.NotNull(jobOutcomes);
+            Assert.Equal(1, jobOutcomes.Count);
+
+            ExportJobOutcome jobOutcome = jobOutcomes.FirstOrDefault();
+
+            Assert.NotNull(jobOutcome);
+            Assert.NotNull(jobOutcome.JobRecord);
+            Assert.Equal(OperationStatus.Running, jobOutcome.JobRecord.Status);
+
+            return jobOutcome;
+        }
+
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, "Patient", "hash");
+            // Generate a unique hash
+            var hashObject = new
+            {
+                _exportRequest.RequestUri,
+                Clock.UtcNow,
+            };
+
+            string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
+
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, "Patient", hash);
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
