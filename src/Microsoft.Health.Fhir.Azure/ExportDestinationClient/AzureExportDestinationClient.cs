@@ -16,6 +16,9 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
@@ -28,12 +31,21 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private Dictionary<Uri, CloudBlockBlobWrapper> _uriToBlobMapping = new Dictionary<Uri, CloudBlockBlobWrapper>();
         private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
 
+        private readonly ExportJobConfiguration _exportJobConfiguration;
+        private readonly IAccessTokenProviderFactory _accessTokenProviderFactory;
         private readonly ILogger _logger;
 
-        public AzureExportDestinationClient(ILogger<AzureExportDestinationClient> logger)
+        public AzureExportDestinationClient(
+            IOptions<ExportJobConfiguration> exportJobConfiguration,
+            IAccessTokenProviderFactory accessTokenProviderFactory,
+            ILogger<AzureExportDestinationClient> logger)
         {
+            EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
+            EnsureArg.IsNotNull(accessTokenProviderFactory, nameof(accessTokenProviderFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _exportJobConfiguration = exportJobConfiguration.Value;
+            _accessTokenProviderFactory = accessTokenProviderFactory;
             _logger = logger;
         }
 
@@ -44,42 +56,51 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNullOrWhiteSpace(connectionSettings, nameof(connectionSettings));
 
             // We have already validated that the connection string is base64 encoded.
-            string decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
+            string decodedConnectionString = null;
+            try
+            {
+                decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
+            }
+            catch (Exception)
+            {
+                await ConnectHelperAsync(connectionSettings, cancellationToken, containerId);
+                return;
+            }
+
             if (!CloudStorageAccount.TryParse(decodedConnectionString, out CloudStorageAccount cloudAccount))
             {
                 throw new DestinationConnectionException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
             _blobClient = cloudAccount.CreateCloudBlobClient();
+            await CreateContainerAsync(_blobClient, containerId);
+        }
 
+        public async Task ConnectHelperAsync(string connectionString, CancellationToken cancellationToken, string containerId = null)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(connectionString, nameof(connectionString));
+
+            // Assuming validation happens upstream.
+            var storageAccountUri = new Uri(connectionString);
+            IAccessTokenProvider accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.AccessTokenProviderType);
+
+            string accessToken = null;
             try
             {
-                await CreateContainerAsync(_blobClient, containerId);
+                accessToken = await accessTokenProvider.GetAccessTokenForResourceAsync(storageAccountUri, cancellationToken);
             }
-            catch (StorageException se)
+            catch (AccessTokenProviderException atp)
             {
-                _logger.LogWarning(se, se.Message);
+                _logger.LogError(atp, "Unable to get access token");
 
-                HttpStatusCode responseCode = HttpStatusCode.InternalServerError;
-                if (se.RequestInformation != null)
-                {
-                    _logger.LogWarning($"RequestResult ErrorCode: {se.RequestInformation.ErrorCode}, RequestResult HttpStatusCode: {se.RequestInformation.HttpStatusCode}");
-
-                    try
-                    {
-                        if (Enum.IsDefined(typeof(HttpStatusCode), se.RequestInformation.HttpStatusCode))
-                        {
-                            responseCode = Enum.Parse<HttpStatusCode>(se.RequestInformation.HttpStatusCode.ToString());
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        _logger.LogInformation("Unable to parse httpstatus code information from storage exception");
-                    }
-                }
-
-                throw new DestinationConnectionException(se.Message, responseCode);
+                // TODO: Get better exception message and http status code.
+                throw new DestinationConnectionException("Cannot get access token", HttpStatusCode.Unauthorized);
             }
+
+            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
+
+            _blobClient = new CloudBlobClient(storageAccountUri, storageCredentials);
+            await CreateContainerAsync(_blobClient, containerId);
         }
 
         public async Task ConnectWithAccessTokenAsync(string accessToken, string storageAccountUri, CancellationToken cancellationToken, string containerId = null)
@@ -106,7 +127,17 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 _blobContainer = blobClient.GetContainerReference(containerId);
             }
 
-            await _blobContainer.CreateIfNotExistsAsync();
+            try
+            {
+                await _blobContainer.CreateIfNotExistsAsync();
+            }
+            catch (StorageException se)
+            {
+                _logger.LogWarning(se, se.Message);
+
+                HttpStatusCode responseCode = ParseStorageException(se);
+                throw new DestinationConnectionException(se.Message, responseCode);
+            }
         }
 
         public Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken)
@@ -212,6 +243,31 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 throw new DestinationConnectionException(Resources.DestinationClientNotConnected, HttpStatusCode.InternalServerError);
             }
+        }
+
+        private HttpStatusCode ParseStorageException(StorageException storageException)
+        {
+            EnsureArg.IsNotNull(storageException, nameof(storageException));
+
+            HttpStatusCode responseCode = HttpStatusCode.InternalServerError;
+            if (storageException.RequestInformation != null)
+            {
+                _logger.LogWarning($"RequestResult ErrorCode: {storageException.RequestInformation.ErrorCode}, RequestResult HttpStatusCode: {storageException.RequestInformation.HttpStatusCode}");
+
+                try
+                {
+                    if (Enum.IsDefined(typeof(HttpStatusCode), storageException.RequestInformation.HttpStatusCode))
+                    {
+                        responseCode = Enum.Parse<HttpStatusCode>(storageException.RequestInformation.HttpStatusCode.ToString());
+                    }
+                }
+                catch (Exception)
+                {
+                    _logger.LogInformation("Unable to parse httpstatus code information from storage exception");
+                }
+            }
+
+            return responseCode;
         }
     }
 }

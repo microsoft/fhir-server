@@ -16,7 +16,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -41,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
-        private readonly IAccessTokenProviderFactory _accessTokenProviderFactory = Substitute.For<IAccessTokenProviderFactory>();
         private readonly IExportJobConfigurationValidator _exportJobConfigurationValidator = Substitute.For<IExportJobConfigurationValidator>();
 
         private readonly ExportJobTask _exportJobTask;
@@ -80,7 +78,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _accessTokenProviderFactory,
                 _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
         }
@@ -317,7 +314,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _accessTokenProviderFactory,
                 _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
 
@@ -404,7 +400,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _accessTokenProviderFactory,
                 _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
 
