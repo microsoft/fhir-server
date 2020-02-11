@@ -132,7 +132,7 @@
             "type": "bool",
             "defaultValue": true,
             "metadata": {
-                "description": "Determines whether export will be enabled for this fhir instance. If true, a storage account will be created as part of the deployment."
+                "description": "Determines whether export will be enabled for this fhir instance. If true, a storage account will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
         }
     },
