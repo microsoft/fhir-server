@@ -434,6 +434,76 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         }
     }
 
+    /// <summary>
+    /// Represents a rowversion type column.
+    /// </summary>
+    /// <remarks>
+    /// The timestamp data type is a synonym for the rowversion data type, and its syntax is now deprecated in SQL.
+    /// The rowversion data type is used in the SQL code, and it is translated to timestamp on the C# side because
+    /// the SqlDbType enum only supports timestamp.
+    /// </remarks>
+    public class TimestampColumn : Column<byte[]>
+    {
+        public TimestampColumn(string name)
+            : base(name, SqlDbType.Timestamp, nullable: false) // Values in the rowversion column can never be null.
+        {
+        }
+
+        public override byte[] Read(SqlDataReader reader, int ordinal)
+        {
+            // The rowversion storage size is 8 bytes.
+            const int length = 8;
+
+            byte[] bytes = new byte[length];
+
+            reader.GetBytes(Metadata.Name, ordinal, fieldOffset: 0, bytes, bufferOffset: 0, length);
+            return bytes;
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, byte[] value)
+        {
+            record.SetBytes(ordinal, fieldOffset: 0, value, bufferOffset: 0, value.Length);
+        }
+    }
+
+    public class BinaryColumn : Column<byte[]>
+    {
+        public BinaryColumn(string name, int length)
+            : base(name, SqlDbType.Binary, true, length)
+        {
+            Length = length;
+        }
+
+        public int Length { get; }
+
+        public override byte[] Read(SqlDataReader reader, int ordinal)
+        {
+            byte[] bytes = new byte[Length];
+
+            if (Nullable && reader.IsDBNull(ordinal))
+            {
+                return null;
+            }
+            else
+            {
+                reader.GetBytes(Metadata.Name, ordinal, fieldOffset: 0, bytes, bufferOffset: 0, Length);
+                return bytes;
+            }
+        }
+
+        public override void Set(SqlDataRecord record, int ordinal, byte[] value)
+        {
+            if (value != null)
+            {
+                record.SetBytes(ordinal, fieldOffset: 0, value, bufferOffset: 0, value.Length);
+            }
+            else
+            {
+                record.SetDBNull(ordinal);
+            }
+        }
+    }
+
     public abstract class StringColumn : Column<string>
     {
         public StringColumn(string name, SqlDbType type, bool nullable, int length, string collation = null)

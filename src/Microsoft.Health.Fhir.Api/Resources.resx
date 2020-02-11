@@ -275,6 +275,20 @@
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
+  <data name="ValidateWithParametersNotSupported" xml:space="preserve">
+    <value>Resources of type 'Parameters' are not supported by this endpoint.</value>
+    <comment>{NumberedPlaceHolder="Parameters"}</comment>
+  </data>
+  <data name="ValidationNotSupported" xml:space="preserve">
+    <value>$validate is not a supported endpoint.</value>
+    <comment>{NumberedPlaceHolder="$validate"}</comment>
+  </data>
+  <data name="ValidateWithProfileNotSupported" xml:space="preserve">
+    <value>Validation against a profile is not supported.</value>
+  </data>
+  <data name="ValidationModesNotSupported" xml:space="preserve">
+    <value>Validation modes are not supported.</value>
+  </data>
   <data name="BundleEntryLimitExceeded" xml:space="preserve">
     <value>The number of entries in the bundle exceeded the configured limit of {0}.</value>
     <comment>{0} is the number of entries allowed.</comment>

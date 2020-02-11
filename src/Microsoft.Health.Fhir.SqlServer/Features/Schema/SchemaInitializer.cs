@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             _logger = logger;
         }
 
-        private void Initialize()
+        internal void Initialize(bool forceIncrementalSchemaUpgrade = false)
         {
             if (!CanInitialize())
             {
@@ -48,22 +48,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 
             _logger.LogInformation("Schema version is {version}", _schemaInformation.Current?.ToString() ?? "NULL");
 
-            // GetCurrentVersion doesn't exist, so run version 1.
+            // If the stored procedure to get the current schema version doesn't exist
             if (_schemaInformation.Current == null || _sqlServerDataStoreConfiguration.DeleteAllDataOnStartup)
             {
-                _schemaUpgradeRunner.ApplySchema(1);
+                if (forceIncrementalSchemaUpgrade)
+                {
+                    // Run version 1. We'll use this as a base schema and apply .diff.sql files to upgrade the schema version.
+                    _schemaUpgradeRunner.ApplySchema(version: 1, applyFullSchemaSnapshot: true);
+                }
+                else
+                {
+                    // Apply the maximum supported version. This won't consider the .diff.sql files.
+                    _schemaUpgradeRunner.ApplySchema((int)_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
+                }
+
                 GetCurrentSchemaVersion();
             }
 
+            // If the current schema version needs to be upgraded
             if (_schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
             {
+                // Apply each .diff.sql file one by one.
                 int current = (int?)_schemaInformation.Current ?? 0;
-
                 for (int i = current + 1; i <= (int)_schemaInformation.MaximumSupportedVersion; i++)
                 {
-                    _schemaUpgradeRunner.ApplySchema(i);
+                    _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
                 }
             }
+
+            GetCurrentSchemaVersion();
         }
 
         private void GetCurrentSchemaVersion()
@@ -194,8 +207,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             if (!string.IsNullOrWhiteSpace(_sqlServerDataStoreConfiguration.ConnectionString))
             {
                 Initialize();
-
-                GetCurrentSchemaVersion();
             }
             else
             {

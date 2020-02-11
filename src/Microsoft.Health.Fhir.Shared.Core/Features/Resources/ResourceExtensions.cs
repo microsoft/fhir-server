@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Api.Features.Resources
+namespace Microsoft.Health.Fhir.Core.Features.Resources
 {
     public static class ResourceExtensions
     {

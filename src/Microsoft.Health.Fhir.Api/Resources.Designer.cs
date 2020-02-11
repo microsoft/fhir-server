@@ -448,6 +448,42 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resources of type &apos;Parameters&apos; are not supported by this endpoint..
+        /// </summary>
+        public static string ValidateWithParametersNotSupported {
+            get {
+                return ResourceManager.GetString("ValidateWithParametersNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Validation against a profile is not supported..
+        /// </summary>
+        public static string ValidateWithProfileNotSupported {
+            get {
+                return ResourceManager.GetString("ValidateWithProfileNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Validation modes are not supported..
+        /// </summary>
+        public static string ValidationModesNotSupported {
+            get {
+                return ResourceManager.GetString("ValidationModesNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to $validate is not a supported endpoint..
+        /// </summary>
+        public static string ValidationNotSupported {
+            get {
+                return ResourceManager.GetString("ValidationNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Value cannot be null.  Parameter name: {0}..
         /// </summary>
         public static string ValueCannotBeNull {

@@ -10,9 +10,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
     public static class ScriptProvider
     {
-        public static string GetMigrationScript(int version)
+        public static string GetMigrationScript(int version, bool applyFullSchemaSnapshot)
         {
-            string resourceName = $"{typeof(ScriptProvider).Namespace}.Migrations.{version}.sql";
+            string folder = $"{typeof(ScriptProvider).Namespace}.Migrations";
+            string resourceName = applyFullSchemaSnapshot ? $"{folder}.{version}.sql" : $"{folder}.{version}.diff.sql";
+
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
             {
                 if (stream == null)

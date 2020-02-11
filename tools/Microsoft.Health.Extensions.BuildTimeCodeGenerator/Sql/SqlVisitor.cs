@@ -77,7 +77,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                 case SqlDbType.BigInt:
                     return typeof(long);
                 case SqlDbType.Binary:
-                    break;
+                    return typeof(byte[]);
                 case SqlDbType.Bit:
                     return typeof(bool);
                 case SqlDbType.Char:
@@ -218,7 +218,22 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
 
         protected MemberDeclarationSyntax CreatePropertyForColumn(ColumnDefinition column)
         {
-            string normalizedSqlDbType = Enum.Parse<SqlDbType>(column.DataType.Name.BaseIdentifier.Value, true).ToString();
+            string normalizedSqlDbType = null;
+            var sqlDbTypeToNormalize = column.DataType.Name.BaseIdentifier.Value;
+
+            if (Enum.TryParse(sqlDbTypeToNormalize, true, out SqlDbType sqlDbType))
+            {
+                normalizedSqlDbType = sqlDbType.ToString();
+            }
+            else
+            {
+                if (string.Compare(sqlDbTypeToNormalize, "RowVersion", StringComparison.InvariantCultureIgnoreCase) == 0)
+                {
+                    // The timestamp data type is a synonym for the rowversion data type. Its syntax is now deprecated in SQL.
+                    // We are translating rowversion (used in the SQL code) to timestamp here because the SqlDbType enum only supports timestamp.
+                    normalizedSqlDbType = SqlDbType.Timestamp.ToString();
+                }
+            }
 
             IdentifierNameSyntax typeName = IdentifierName($"{(IsColumnNullable(column) ? "Nullable" : string.Empty)}{normalizedSqlDbType}Column");
 

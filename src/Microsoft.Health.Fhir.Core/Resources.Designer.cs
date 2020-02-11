@@ -358,6 +358,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
+        /// </summary>
+        internal static string InvalidConditionalReference {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type and query parameter must be present in a given request &apos;{0}&apos;..
+        /// </summary>
+        internal static string InvalidConditionalReferenceParameters {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReferenceParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Value &apos;{0}&apos; is not supported. Please select from the following list of supported capabilities: [{1}]..
         /// </summary>
         internal static string InvalidConfigSetting {
@@ -516,6 +534,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReadHistoryDisabled {
             get {
                 return ResourceManager.GetString("ReadHistoryDisabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
+        /// </summary>
+        internal static string ReferenceResourceTypeNotSupported {
+            get {
+                return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
             }
         }
         
@@ -867,6 +894,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UserRequestedCancellation {
             get {
                 return ResourceManager.GetString("UserRequestedCancellation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All OK.
+        /// </summary>
+        internal static string ValidationPassed {
+            get {
+                return ResourceManager.GetString("ValidationPassed", resourceCulture);
             }
         }
         

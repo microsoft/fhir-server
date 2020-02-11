@@ -124,7 +124,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(
                 _documentClient,
-                UriFactory.CreateDocumentCollectionUri(_cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId));
+                _cosmosDataStoreConfiguration.DatabaseId,
+                _cosmosCollectionConfiguration.CollectionId);
         }
 
         public async Task DisposeAsync()
