@@ -135,12 +135,11 @@
                 "description": "Only applies when specifying Repository Url"
             }
         },
-        "storageAccountName": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 24,
+        "enableExport" : {
+            "type": "bool",
+            "defaultValue": true,
             "metadata": {
-                "description": "Name of storage account to be used for exporting data."
+                "description": "Determines whether export will be enabled for this fhir instance. If true, a storage account will be created as part of the deployment."
             }
         }
     },
@@ -168,15 +167,17 @@
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
             "DataStore": "CosmosDb",
-            "FhirServer:Operations:Export:StorageAccountType": "azure-block-blob",
-            "FhirServer:Operations:Export:StorageAccountConnection": "[concat('https://', parameters('storageAccountName'), '.blob.core.windows.net')]",
-            "FhirServer:Operations:Export:AccessTokenProviderType": "azure"
+            "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
+            "FhirServer:Operations:Export:StorageAccountType": "[if(parameters('enableExport'), 'azure-block-blob', 'null')]",
+            "FhirServer:Operations:Export:StorageAccountConnection": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), '.blob.core.windows.net'), 'null')]",
+            "FhirServer:Operations:Export:AccessTokenProviderType": "[if(parameters('enableExport'), 'azure', 'null')]"
         },
         "emptyFhirServerConfigProperties": {},
         "kuduFhirServerConfigProperties": {
             "PROJECT": "[concat('src/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web/Microsoft.Health.Fhir.', parameters('fhirVersion'), '.Web.csproj')]"
         },
-        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), if(variables('deploySourceCode'), variables('kuduFhirServerConfigProperties'), variables('emptyFhirServerConfigProperties')))]"
+        "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'), if(variables('deploySourceCode'), variables('kuduFhirServerConfigProperties'), variables('emptyFhirServerConfigProperties')))]",
+        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(variables('serviceName')))), uniquestring(resourceGroup().id))]"
     },
     "resources": [
         {
@@ -354,13 +355,14 @@
             ]
         },
         {
-            "name": "[parameters('storageAccountName')]",
+            "name": "[variables('storageAccountName')]",
             "type": "Microsoft.Storage/storageAccounts",
             "apiVersion": "2019-06-01",
             "location": "[resourceGroup().location]",
             "properties": {
                 "supportsHttpsTrafficOnly": "true"
             },
+            "condition": "[parameters('enableExport')]",
             "dependsOn": [],
             "sku": {
                 "name": "Standard_LRS"
@@ -371,9 +373,10 @@
         {
             "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
             "apiVersion": "2018-09-01-preview",
-            "name": "[concat(parameters('storageAccountName'), '/Microsoft.Authorization/', guid(uniqueString(parameters('storageAccountName'))))]",
+            "name": "[concat(variables('storageAccountName'), '/Microsoft.Authorization/', guid(uniqueString(variables('storageAccountName'))))]",
+            "condition": "[parameters('enableExport')]",
             "dependsOn": [
-                "[parameters('storageAccountName')]",
+                "[variables('storageAccountName')]",
                 "[variables('serviceName')]"
             ],
             "properties": {
