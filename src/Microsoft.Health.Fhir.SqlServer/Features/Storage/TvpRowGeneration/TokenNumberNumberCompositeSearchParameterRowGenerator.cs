@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class TokenNumberNumberCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3), V1.TokenNumberNumberCompositeSearchParamTableTypeRow>
+    internal class TokenNumberNumberCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3), VLatest.TokenNumberNumberCompositeSearchParamTableTypeRow>
     {
         private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
         private readonly NumberSearchParameterRowGenerator _numberRowGenerator;
@@ -20,14 +20,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _numberRowGenerator = numberRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3) searchValue, out V1.TokenNumberNumberCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3) searchValue, out VLatest.TokenNumberNumberCompositeSearchParamTableTypeRow row)
         {
             if (_tokenRowGenerator.TryGenerateRow(default, searchValue.component1, out var token1Row) &&
                 _numberRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row) &&
                 _numberRowGenerator.TryGenerateRow(default, searchValue.component3, out var token3Row))
             {
                 bool hasRange = token2Row.SingleValue == null || token3Row.SingleValue == null;
-                row = new V1.TokenNumberNumberCompositeSearchParamTableTypeRow(
+                row = new VLatest.TokenNumberNumberCompositeSearchParamTableTypeRow(
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,

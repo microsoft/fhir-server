@@ -8,12 +8,13 @@
 //------------------------------------------------------------------------------
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 {
-    internal class V1
+    internal class VLatest
     {
         internal readonly static ClaimTypeTable ClaimType = new ClaimTypeTable();
         internal readonly static CompartmentAssignmentTable CompartmentAssignment = new CompartmentAssignmentTable();
         internal readonly static CompartmentTypeTable CompartmentType = new CompartmentTypeTable();
         internal readonly static DateTimeSearchParamTable DateTimeSearchParam = new DateTimeSearchParamTable();
+        internal readonly static ExportJobTable ExportJob = new ExportJobTable();
         internal readonly static NumberSearchParamTable NumberSearchParam = new NumberSearchParamTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static QuantitySearchParamTable QuantitySearchParam = new QuantitySearchParamTable();
@@ -34,9 +35,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static TokenTextTable TokenText = new TokenTextTable();
         internal readonly static TokenTokenCompositeSearchParamTable TokenTokenCompositeSearchParam = new TokenTokenCompositeSearchParamTable();
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
+        internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
+        internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
+        internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
+        internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
+        internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
         internal class ClaimTypeTable : Table
@@ -85,6 +91,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly DateTime2Column EndDateTime = new DateTime2Column("EndDateTime", 7);
             internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
+        }
+
+        internal class ExportJobTable : Table
+        {
+            internal ExportJobTable(): base("dbo.ExportJob")
+            {
+            }
+
+            internal readonly VarCharColumn Id = new VarCharColumn("Id", 64, "Latin1_General_100_CS_AS");
+            internal readonly VarCharColumn Hash = new VarCharColumn("Hash", 64, "Latin1_General_100_CS_AS");
+            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
+            internal readonly NullableDateTime2Column HeartbeatDateTime = new NullableDateTime2Column("HeartbeatDateTime", 7);
+            internal readonly VarCharColumn RawJobRecord = new VarCharColumn("RawJobRecord", -1);
+            internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
         }
 
         internal class NumberSearchParamTable : Table
@@ -373,6 +393,74 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BitColumn IsHistory = new BitColumn("IsHistory");
         }
 
+        internal class AcquireExportJobsProcedure : StoredProcedure
+        {
+            internal AcquireExportJobsProcedure(): base("dbo.AcquireExportJobs")
+            {
+            }
+
+            private readonly ParameterDefinition<System.Int64> _jobHeartbeatTimeoutThresholdInSeconds = new ParameterDefinition<System.Int64>("@jobHeartbeatTimeoutThresholdInSeconds", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<System.Int32> _maximumNumberOfConcurrentJobsAllowed = new ParameterDefinition<System.Int32>("@maximumNumberOfConcurrentJobsAllowed", global::System.Data.SqlDbType.Int, false);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int64 jobHeartbeatTimeoutThresholdInSeconds, System.Int32 maximumNumberOfConcurrentJobsAllowed)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.AcquireExportJobs";
+                _jobHeartbeatTimeoutThresholdInSeconds.AddParameter(command.Parameters, jobHeartbeatTimeoutThresholdInSeconds);
+                _maximumNumberOfConcurrentJobsAllowed.AddParameter(command.Parameters, maximumNumberOfConcurrentJobsAllowed);
+            }
+        }
+
+        internal class CreateExportJobProcedure : StoredProcedure
+        {
+            internal CreateExportJobProcedure(): base("dbo.CreateExportJob")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.String> _hash = new ParameterDefinition<System.String>("@hash", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
+            private readonly ParameterDefinition<System.String> _rawJobRecord = new ParameterDefinition<System.String>("@rawJobRecord", global::System.Data.SqlDbType.VarChar, false, -1);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String hash, System.String status, System.String rawJobRecord)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.CreateExportJob";
+                _id.AddParameter(command.Parameters, id);
+                _hash.AddParameter(command.Parameters, hash);
+                _status.AddParameter(command.Parameters, status);
+                _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
+            }
+        }
+
+        internal class GetExportJobByHashProcedure : StoredProcedure
+        {
+            internal GetExportJobByHashProcedure(): base("dbo.GetExportJobByHash")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _hash = new ParameterDefinition<System.String>("@hash", global::System.Data.SqlDbType.VarChar, false, 64);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String hash)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetExportJobByHash";
+                _hash.AddParameter(command.Parameters, hash);
+            }
+        }
+
+        internal class GetExportJobByIdProcedure : StoredProcedure
+        {
+            internal GetExportJobByIdProcedure(): base("dbo.GetExportJobById")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetExportJobById";
+                _id.AddParameter(command.Parameters, id);
+            }
+        }
+
         internal class HardDeleteResourceProcedure : StoredProcedure
         {
             internal HardDeleteResourceProcedure(): base("dbo.HardDeleteResource")
@@ -419,6 +507,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.SelectCurrentSchemaVersion";
+            }
+        }
+
+        internal class UpdateExportJobProcedure : StoredProcedure
+        {
+            internal UpdateExportJobProcedure(): base("dbo.UpdateExportJob")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
+            private readonly ParameterDefinition<System.String> _rawJobRecord = new ParameterDefinition<System.String>("@rawJobRecord", global::System.Data.SqlDbType.VarChar, false, -1);
+            private readonly ParameterDefinition<System.Byte[]> _jobVersion = new ParameterDefinition<System.Byte[]>("@jobVersion", global::System.Data.SqlDbType.Binary, false, 8);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String status, System.String rawJobRecord, System.Byte[] jobVersion)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpdateExportJob";
+                _id.AddParameter(command.Parameters, id);
+                _status.AddParameter(command.Parameters, status);
+                _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
+                _jobVersion.AddParameter(command.Parameters, jobVersion);
             }
         }
 

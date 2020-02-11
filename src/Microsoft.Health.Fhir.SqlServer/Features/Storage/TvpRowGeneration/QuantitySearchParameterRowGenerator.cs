@@ -8,24 +8,24 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class QuantitySearchParameterRowGenerator : SearchParameterRowGenerator<QuantitySearchValue, V1.QuantitySearchParamTableTypeRow>
+    internal class QuantitySearchParameterRowGenerator : SearchParameterRowGenerator<QuantitySearchValue, VLatest.QuantitySearchParamTableTypeRow>
     {
         public QuantitySearchParameterRowGenerator(SqlServerFhirModel model)
             : base(model)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, QuantitySearchValue searchValue, out V1.QuantitySearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, QuantitySearchValue searchValue, out VLatest.QuantitySearchParamTableTypeRow row)
         {
             bool isSingleValue = searchValue.Low == searchValue.High;
 
-            row = new V1.QuantitySearchParamTableTypeRow(
+            row = new VLatest.QuantitySearchParamTableTypeRow(
                 searchParamId,
                 string.IsNullOrWhiteSpace(searchValue.System) ? default(int?) : Model.GetSystemId(searchValue.System),
                 string.IsNullOrWhiteSpace(searchValue.Code) ? default(int?) : Model.GetQuantityCodeId(searchValue.Code),
                 isSingleValue ? searchValue.Low : null,
-                isSingleValue ? null : searchValue.Low ?? (decimal?)V1.QuantitySearchParam.LowValue.MinValue,
-                isSingleValue ? null : searchValue.High ?? (decimal?)V1.QuantitySearchParam.HighValue.MaxValue);
+                isSingleValue ? null : searchValue.Low ?? (decimal?)VLatest.QuantitySearchParam.LowValue.MinValue,
+                isSingleValue ? null : searchValue.High ?? (decimal?)VLatest.QuantitySearchParam.HighValue.MaxValue);
 
             return true;
         }
