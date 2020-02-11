@@ -37,8 +37,7 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 _logger.LogWarning("Failed to retrieve access token");
 
-                // TODO: better message for exception.
-                throw new AccessTokenProviderException("cannot get access token");
+                throw new AccessTokenProviderException(Resources.CannotGetAccessToken);
             }
             else
             {

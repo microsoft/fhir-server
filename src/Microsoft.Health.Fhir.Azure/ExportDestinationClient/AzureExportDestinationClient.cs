@@ -53,9 +53,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public async Task ConnectAsync(string connectionSettings, CancellationToken cancellationToken, string containerId = null)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(connectionSettings, nameof(connectionSettings));
+            if (string.IsNullOrWhiteSpace(connectionSettings))
+            {
+                throw new DestinationConnectionException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
+            }
 
-            // We have already validated that the connection string is base64 encoded.
+            // Check whether it is base-64 encoded.
             string decodedConnectionString = null;
             try
             {
@@ -63,7 +66,8 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
             catch (Exception)
             {
-                await ConnectHelperAsync(connectionSettings, cancellationToken, containerId);
+                // it is not base-64 encoded. Should be a resource uri.
+                await GetAccessTokenAndConnectHelperAsync(connectionSettings, cancellationToken, containerId);
                 return;
             }
 
@@ -76,12 +80,21 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             await CreateContainerAsync(_blobClient, containerId);
         }
 
-        public async Task ConnectHelperAsync(string connectionString, CancellationToken cancellationToken, string containerId = null)
+        private async Task GetAccessTokenAndConnectHelperAsync(string connectionString, CancellationToken cancellationToken, string containerId = null)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(connectionString, nameof(connectionString));
-
             // Assuming validation happens upstream.
-            var storageAccountUri = new Uri(connectionString);
+            if (!Uri.TryCreate(connectionString, UriKind.Absolute, out Uri storageAccountUri))
+            {
+                throw new DestinationConnectionException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
+            }
+
+            // Check whether the access token provider is supported.
+            if (string.IsNullOrWhiteSpace(_exportJobConfiguration.AccessTokenProviderType) ||
+                !_accessTokenProviderFactory.IsSupportedAccessTokenProviderType(_exportJobConfiguration.AccessTokenProviderType))
+            {
+                throw new DestinationConnectionException(Resources.UnsupportedAccessTokenProviderType, HttpStatusCode.BadRequest);
+            }
+
             IAccessTokenProvider accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.AccessTokenProviderType);
 
             string accessToken = null;
@@ -93,25 +106,13 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 _logger.LogError(atp, "Unable to get access token");
 
-                // TODO: Get better exception message and http status code.
-                throw new DestinationConnectionException("Cannot get access token", HttpStatusCode.Unauthorized);
+                // TODO: Get better http status code.
+                throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
             }
 
             var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
 
             _blobClient = new CloudBlobClient(storageAccountUri, storageCredentials);
-            await CreateContainerAsync(_blobClient, containerId);
-        }
-
-        public async Task ConnectWithAccessTokenAsync(string accessToken, string storageAccountUri, CancellationToken cancellationToken, string containerId = null)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(accessToken, nameof(accessToken));
-            EnsureArg.IsNotNullOrWhiteSpace(storageAccountUri, nameof(storageAccountUri));
-
-            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
-            var baseUri = new Uri(storageAccountUri);
-
-            _blobClient = new CloudBlobClient(baseUri, storageCredentials);
             await CreateContainerAsync(_blobClient, containerId);
         }
 

@@ -51,14 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsService<IAccessTokenProviderFactory>();
 
-            services.Add<InMemoryAccessTokenProvider>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<Func<IAccessTokenProvider>>(sp => () => sp.GetRequiredService<InMemoryAccessTokenProvider>())
-                .Transient()
-                .AsSelf();
-
             services.Add<ExportJobWorker>()
                 .Singleton()
                 .AsSelf();

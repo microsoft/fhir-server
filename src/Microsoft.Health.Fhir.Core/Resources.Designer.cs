@@ -88,15 +88,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unable to get access token for storage account for export..
-        /// </summary>
-        internal static string CannotGetAccessToken {
-            get {
-                return ResourceManager.GetString("CannotGetAccessToken", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The chained parameter must be a reference search parameter type..
         /// </summary>
         internal static string ChainedParameterMustBeReferenceSearchParamType {
