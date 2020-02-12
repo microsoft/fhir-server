@@ -106,7 +106,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 _logger.LogError(atp, "Unable to get access token");
 
-                // TODO: Get better http status code.
                 throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
             }
 

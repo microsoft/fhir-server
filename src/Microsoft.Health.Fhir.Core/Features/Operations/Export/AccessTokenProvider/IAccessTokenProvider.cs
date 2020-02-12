@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvi
     public interface IAccessTokenProvider
     {
         /// <summary>
-        /// Gets the supported access token provider type.
+        /// Determines the access token provider type.
         /// </summary>
         string AccessTokenProviderType { get; }
 
@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvi
         /// <param name="resourceUri">Uri pointing to the resource for which we need an access token.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Access token.</returns>
+        /// <exception cref="AccessTokenProviderException">Thrown when unable to get access token.</exception>
         Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken);
     }
 }
