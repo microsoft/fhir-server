@@ -9,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Registration;
 
@@ -37,10 +36,6 @@ namespace Microsoft.Health.Fhir.Azure
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
 
             fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
-                .Transient()
-                .AsSelf();
-
-            fhirServerBuilder.Services.Add<Func<IAccessTokenProvider>>(sp => () => sp.GetRequiredService<AzureAccessTokenProvider>())
                 .Transient()
                 .AsSelf();
 

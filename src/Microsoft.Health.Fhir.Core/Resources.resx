@@ -388,10 +388,6 @@
   <data name="UnknownError" xml:space="preserve">
     <value>Unknown Error.</value>
   </data>
-  <data name="UnsupportedAccessTokenProvider" xml:space="preserve">
-    <value>The access token provider type '{0}' is not supported.</value>
-    <comment>{0} is the access token provider type (E.g., azure).</comment>
-  </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>
   </data>

@@ -161,8 +161,7 @@
             "DataStore": "SqlServer",
             "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
             "FhirServer:Operations:Export:StorageAccountType": "[if(parameters('enableExport'), 'azure-block-blob', 'null')]",
-            "FhirServer:Operations:Export:StorageAccountConnection": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), '.blob.core.windows.net'), 'null')]",
-            "FhirServer:Operations:Export:AccessTokenProviderType": "[if(parameters('enableExport'), 'azure', 'null')]"
+            "FhirServer:Operations:Export:StorageAccountConnection": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), '.blob.core.windows.net'), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",

@@ -835,15 +835,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The access token provider type &apos;{0}&apos; is not supported..
-        /// </summary>
-        internal static string UnsupportedAccessTokenProvider {
-            get {
-                return ResourceManager.GetString("UnsupportedAccessTokenProvider", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {

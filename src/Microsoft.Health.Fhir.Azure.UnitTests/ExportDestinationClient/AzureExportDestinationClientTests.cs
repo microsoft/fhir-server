@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
     public class AzureExportDestinationClientTests
     {
         private ExportJobConfiguration _exportJobConfiguration;
-        private IAccessTokenProviderFactory _accessTokenProviderFactory;
+        private IAccessTokenProvider _accessTokenProvider;
         private ILogger<AzureExportDestinationClient> _logger;
 
         private AzureExportDestinationClient _exportDestinationClient;
@@ -33,10 +33,10 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
-            _accessTokenProviderFactory = Substitute.For<IAccessTokenProviderFactory>();
+            _accessTokenProvider = Substitute.For<IAccessTokenProvider>();
             _logger = Substitute.For<ILogger<AzureExportDestinationClient>>();
 
-            _exportDestinationClient = new AzureExportDestinationClient(optionsExportConfig, _accessTokenProviderFactory, _logger);
+            _exportDestinationClient = new AzureExportDestinationClient(optionsExportConfig, _accessTokenProvider, _logger);
         }
 
         [InlineData("")]
@@ -70,47 +70,14 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
-        [InlineData("")]
-        [InlineData(null)]
-        [InlineData("  ")]
-        [Theory]
-        public async Task GivenValidStorageUriInvalidAccessTokenProviderType_WhenConnectAsync_ThenDestinationConnectionExceptionIsThrown(string accessTokenProviderType)
-        {
-            string validUri = "https://localhost/storage";
-            _exportJobConfiguration.AccessTokenProviderType = accessTokenProviderType;
-
-            var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() => _exportDestinationClient.ConnectAsync(validUri, CancellationToken.None));
-
-            Assert.Contains(Resources.UnsupportedAccessTokenProviderType, exception.Message);
-            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-        }
-
-        [Fact]
-        public async Task GivenValidStorageUriUnsupportedAccessTokenProviderType_WhenConnectAsync_ThenDestinationConnectionExceptionIsThrown()
-        {
-            string validUri = "https://localhost/storage";
-            _exportJobConfiguration.AccessTokenProviderType = "unsupportedAccessTokenProviderType";
-
-            _accessTokenProviderFactory.IsSupportedAccessTokenProviderType(Arg.Is(_exportJobConfiguration.AccessTokenProviderType)).Returns(false);
-
-            var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() => _exportDestinationClient.ConnectAsync(validUri, CancellationToken.None));
-
-            Assert.Contains(Resources.UnsupportedAccessTokenProviderType, exception.Message);
-            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-        }
-
         [Fact]
         public async Task GivenUnableToGetAccessToken_WhenConnectAsync_ThenDestinationConnectionExceptionIsThrown()
         {
             string validUri = "https://localhost/storage";
-            _exportJobConfiguration.AccessTokenProviderType = "supportedAccessTokenProviderType";
 
             // Set up access token provider to throw exception when invoked
             IAccessTokenProvider mockAccessTokenProvider = Substitute.For<IAccessTokenProvider>();
             mockAccessTokenProvider.GetAccessTokenForResourceAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns<string>(x => throw new AccessTokenProviderException("cant get access token"));
-            _accessTokenProviderFactory.IsSupportedAccessTokenProviderType(Arg.Is(_exportJobConfiguration.AccessTokenProviderType)).Returns(true);
-
-            _accessTokenProviderFactory.Create(Arg.Is(_exportJobConfiguration.AccessTokenProviderType)).Returns(mockAccessTokenProvider);
 
             var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() => _exportDestinationClient.ConnectAsync(validUri, CancellationToken.None));
 

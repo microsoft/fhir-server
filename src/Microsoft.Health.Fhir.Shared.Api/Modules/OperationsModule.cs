@@ -8,7 +8,6 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -21,10 +20,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
-
-            services.Add<ExportJobConfigurationValidator>()
-                .Singleton()
-                .AsService<IExportJobConfigurationValidator>();
 
             services.Add<ExportDestinationClientFactory>()
                 .Singleton()
@@ -46,10 +41,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Transient()
                 .AsSelf()
                 .AsFactory();
-
-            services.Add<AccessTokenProviderFactory>()
-                .Singleton()
-                .AsService<IAccessTokenProviderFactory>();
 
             services.Add<ExportJobWorker>()
                 .Singleton()

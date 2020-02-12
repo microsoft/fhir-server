@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
-        private readonly IExportJobConfigurationValidator _exportJobConfigurationValidator = Substitute.For<IExportJobConfigurationValidator>();
 
         private readonly ExportJobTask _exportJobTask;
 
@@ -78,7 +77,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -314,7 +312,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -322,20 +319,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenConfigValidationFails_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
-        {
-            string message = "failedValidation";
-            _exportJobConfigurationValidator.ValidateExportJobConfig().Returns(x => throw new ExportJobConfigValidationException(message, HttpStatusCode.BadRequest));
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Contains(message, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
@@ -400,7 +383,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _exportDestinationClientFactory,
-                _exportJobConfigurationValidator,
                 NullLogger<ExportJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;

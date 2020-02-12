@@ -32,20 +32,20 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
 
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly IAccessTokenProviderFactory _accessTokenProviderFactory;
+        private readonly IAccessTokenProvider _accessTokenProvider;
         private readonly ILogger _logger;
 
         public AzureExportDestinationClient(
             IOptions<ExportJobConfiguration> exportJobConfiguration,
-            IAccessTokenProviderFactory accessTokenProviderFactory,
+            IAccessTokenProvider accessTokenProvider,
             ILogger<AzureExportDestinationClient> logger)
         {
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
-            EnsureArg.IsNotNull(accessTokenProviderFactory, nameof(accessTokenProviderFactory));
+            EnsureArg.IsNotNull(accessTokenProvider, nameof(accessTokenProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _exportJobConfiguration = exportJobConfiguration.Value;
-            _accessTokenProviderFactory = accessTokenProviderFactory;
+            _accessTokenProvider = accessTokenProvider;
             _logger = logger;
         }
 
@@ -88,19 +88,10 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 throw new DestinationConnectionException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
 
-            // Check whether the access token provider is supported.
-            if (string.IsNullOrWhiteSpace(_exportJobConfiguration.AccessTokenProviderType) ||
-                !_accessTokenProviderFactory.IsSupportedAccessTokenProviderType(_exportJobConfiguration.AccessTokenProviderType))
-            {
-                throw new DestinationConnectionException(Resources.UnsupportedAccessTokenProviderType, HttpStatusCode.BadRequest);
-            }
-
-            IAccessTokenProvider accessTokenProvider = _accessTokenProviderFactory.Create(_exportJobConfiguration.AccessTokenProviderType);
-
             string accessToken = null;
             try
             {
-                accessToken = await accessTokenProvider.GetAccessTokenForResourceAsync(storageAccountUri, cancellationToken);
+                accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(storageAccountUri, cancellationToken);
             }
             catch (AccessTokenProviderException atp)
             {

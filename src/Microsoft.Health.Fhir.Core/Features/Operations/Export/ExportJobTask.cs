@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
-        private readonly IExportJobConfigurationValidator _exportJobConfigurationValidator;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -46,7 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClientFactory exportDestinationClientFactory,
-            IExportJobConfigurationValidator exportJobConfigurationValidator,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -54,7 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
-            EnsureArg.IsNotNull(exportJobConfigurationValidator, nameof(exportJobConfigurationValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -62,7 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClientFactory = exportDestinationClientFactory;
-            _exportJobConfigurationValidator = exportJobConfigurationValidator;
             _logger = logger;
         }
 
@@ -76,9 +72,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
-                // Validate whether the export job configuration is valid.
-                _exportJobConfigurationValidator.ValidateExportJobConfig();
-
                 // Connect to export destination using appropriate client.
                 await GetDestinationInfoAndConnectAsync(cancellationToken);
 
@@ -151,13 +144,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
-            }
-            catch (ExportJobConfigValidationException ex)
-            {
-                _logger.LogError(ex, "Invalid export job configuration.");
-
-                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(ex.Message, ex.StatusCode);
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (JobConflictException)
             {

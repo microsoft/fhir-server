@@ -26,12 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public string StorageAccountConnection { get; set; }
 
-        /// <summary>
-        /// Determines the access token provider type that will be used (if required) to get an access token to
-        /// the above <see cref="StorageAccountType"/>.
-        /// </summary>
-        public string AccessTokenProviderType { get; set; }
-
         public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
 
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);

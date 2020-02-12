@@ -163,8 +163,7 @@
       "DataStore": "CosmosDb",
       "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
       "FhirServer:Operations:Export:StorageAccountType": "[if(parameters('enableExport'), 'azure-block-blob', 'null')]",
-      "FhirServer:Operations:Export:StorageAccountConnection": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), '.blob.core.windows.net'), 'null')]",
-      "FhirServer:Operations:Export:AccessTokenProviderType": "[if(parameters('enableExport'), 'azure', 'null')]"
+      "FhirServer:Operations:Export:StorageAccountConnection": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), '.blob.core.windows.net'), 'null')]"
     },
     "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
     "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(variables('serviceName')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
