@@ -81,15 +81,5 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             base.OnActionExecuting(context);
         }
-
-        public override void OnActionExecuted(ActionExecutedContext context)
-        {
-            // The result can either be a FhirResult or an OperationOutcomeResult which both extend BaseActionResult.
-            var result = context.Result as IResourceActionResult;
-
-            _fhirRequestContextAccessor.FhirRequestContext.ResourceType = result?.GetResultTypeName();
-
-            base.OnActionExecuted(context);
-        }
     }
 }
