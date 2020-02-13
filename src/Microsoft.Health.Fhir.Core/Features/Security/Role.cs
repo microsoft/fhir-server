@@ -46,10 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                     return _combinedActions.Value;
                 }
 
-                _combinedActions = Actions.Aggregate(default(ResourceActions), (acc, a) => acc | a) &
-                                   ~NotActions.Aggregate(default(ResourceActions), (acc, a) => acc | a);
+                ResourceActions combinedActions = Actions.Aggregate(default(ResourceActions), (acc, a) => acc | a) &
+                                                  ~NotActions.Aggregate(default(ResourceActions), (acc, a) => acc | a);
 
-                return _combinedActions.Value;
+                _combinedActions = combinedActions;
+                return combinedActions;
             }
         }
 

@@ -49,8 +49,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-            string resourceType = _fhirRequestContextAccessor.FhirRequestContext.ResourceType;
-
             Log(AuditAction.Executed, (HttpStatusCode)httpContext.Response.StatusCode, httpContext, claimsExtractor);
         }
 
