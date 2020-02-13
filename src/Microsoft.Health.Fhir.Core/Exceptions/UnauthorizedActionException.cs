@@ -3,20 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Get
+namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public class GetCapabilitiesResponse
+    public class UnauthorizedActionException : FhirException
     {
-        public GetCapabilitiesResponse(ResourceElement capabilityStatement)
+        public UnauthorizedActionException()
         {
-            EnsureArg.IsNotNull(capabilityStatement, nameof(capabilityStatement));
-
-            CapabilityStatement = capabilityStatement;
+            Issues.Add(new OperationOutcomeIssue(
+                OperationOutcomeConstants.IssueSeverity.Error,
+                OperationOutcomeConstants.IssueType.Forbidden,
+                Resources.Forbidden));
         }
-
-        public ResourceElement CapabilityStatement { get; }
     }
 }

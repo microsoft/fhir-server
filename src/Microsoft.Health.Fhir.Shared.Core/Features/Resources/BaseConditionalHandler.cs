@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
@@ -31,8 +32,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             ISearchService searchService,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
 

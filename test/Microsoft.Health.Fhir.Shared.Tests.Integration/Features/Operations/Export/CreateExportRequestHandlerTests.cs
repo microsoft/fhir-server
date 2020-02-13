@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             _fhirOperationDataStore = fixture.OperationDataStore;
             _fhirStorageTestHelper = fixture.TestHelper;
 
-            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, _secretStore);
+            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, _secretStore, DisabledFhirAuthorizationService.Instance);
         }
 
         public Task InitializeAsync()
@@ -182,7 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             mockSecretStore.SetSecretAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.SetSecretError, innerException: null, statusCode: errorStatusCode));
 
-            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, mockSecretStore);
+            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, mockSecretStore, DisabledFhirAuthorizationService.Instance);
 
             var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
 

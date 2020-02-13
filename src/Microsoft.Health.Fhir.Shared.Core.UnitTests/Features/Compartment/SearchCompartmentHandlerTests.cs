@@ -9,6 +9,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using NSubstitute;
 using Xunit;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
 
         public SearchCompartmentHandlerTests()
         {
-            _searchCompartmentHandler = new SearchCompartmentHandler(_searchService, _bundleFactory);
+            _searchCompartmentHandler = new SearchCompartmentHandler(_searchService, _bundleFactory, DisabledFhirAuthorizationService.Instance);
         }
 
         [Fact]

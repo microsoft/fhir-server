@@ -4,18 +4,56 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class Role : IValidatableObject
     {
-        public virtual string Name { get; set; }
+        private ResourceActions? _combinedActions;
 
-        public virtual string Version { get; set; }
+        public Role(string name, ResourceActions combinedActions)
+        {
+            Name = name;
+            _combinedActions = combinedActions;
+        }
 
-        public virtual IList<ResourcePermission> ResourcePermissions { get; internal set; } = new List<ResourcePermission>();
+        public Role()
+        {
+            Actions = new ObservableCollection<ResourceActions>();
+            NotActions = new ObservableCollection<ResourceActions>();
+
+            Actions.CollectionChanged += (sender, e) => _combinedActions = null;
+            NotActions.CollectionChanged += (sender, e) => _combinedActions = null;
+        }
+
+        // Config binding adds to collection
+        private ObservableCollection<ResourceActions> Actions { get; }
+
+        private ObservableCollection<ResourceActions> NotActions { get; }
+
+        public string Name { get; private set; }
+
+        public ResourceActions CombinedActions
+        {
+            get
+            {
+                if (_combinedActions != null)
+                {
+                    return _combinedActions.Value;
+                }
+
+                _combinedActions = Actions.Aggregate(default(ResourceActions), (acc, a) => acc | a) &
+                                   ~NotActions.Aggregate(default(ResourceActions), (acc, a) => acc | a);
+
+                return _combinedActions.Value;
+            }
+        }
+
+        public virtual IList<string> Scopes { get; internal set; } = new List<string>();
 
         public virtual IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
@@ -24,19 +62,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                 yield return new ValidationResult(Core.Resources.RoleNameEmpty);
             }
 
-            if (ResourcePermissions.Count == 0)
+            if (Scopes.Count == 0 || Scopes.Any(s => s != "/"))
             {
-                yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourcePermissionEmpty, Name));
-            }
-            else
-            {
-                foreach (ResourcePermission permission in ResourcePermissions)
-                {
-                    if (permission.Actions.Count == 0)
-                    {
-                        yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
-                    }
-                }
+                yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleScopeMustBeRoot, Name));
             }
         }
     }

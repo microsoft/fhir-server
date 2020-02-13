@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public CancelExportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(sp => new CancelExportRequestHandler(_fhirOperationDataStore, _retryCount, _sleepDurationProvider)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(sp => new CancelExportRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance, _retryCount, _sleepDurationProvider)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));

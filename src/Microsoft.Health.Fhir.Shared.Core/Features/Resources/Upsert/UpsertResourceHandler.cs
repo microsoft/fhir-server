@@ -14,6 +14,8 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
@@ -27,14 +29,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest message, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(message, nameof(message));
+
+            ResourceActions permittedActions = AuthorizationService.CheckAccess(ResourceActions.Write);
+
+            if (!permittedActions.HasFlag(ResourceActions.Update))
+            {
+                throw new UnauthorizedActionException();
+            }
 
             Resource resource = message.Resource.Instance.ToPoco<Resource>();
 
@@ -43,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.TypeName));
             }
 
-            bool allowCreate = await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
+            bool allowCreate = permittedActions.HasFlag(ResourceActions.Create) && await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);

@@ -184,6 +184,9 @@
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
   </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>Authorization failed.</value>
+  </data>
   <data name="HistoryParameterBeforeCannotBeFuture" xml:space="preserve">
     <value>Parameter {0} cannot a be a value in the future.</value>
   </data>
@@ -300,9 +303,6 @@
   <data name="ResourceNotSupported" xml:space="preserve">
     <value>Resource type '{0}' is not supported.</value>
   </data>
-  <data name="ResourcePermissionEmpty" xml:space="preserve">
-    <value>Role must have one or more resource permissions.</value>
-  </data>
   <data name="ResourceTooLarge" xml:space="preserve">
     <value>The requested resource exceeded the backing database's size limit.</value>
   </data>
@@ -319,8 +319,8 @@
   <data name="RoleNameEmpty" xml:space="preserve">
     <value>Role name cannot be null or empty.</value>
   </data>
-  <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
-    <value>Role contains a resource permissions with no actions.</value>
+  <data name="RoleScopeMustBeRoot" xml:space="preserve">
+    <value>The "Scopes" property on role '{0}' must currently be an array with a single entry, "/".</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>

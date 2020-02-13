@@ -2,67 +2,62 @@
     "roles": [
         {
             "name": "clinician",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Read",
-                        "Write"
-                    ]
-                }
-            ]
+            "actions": [
+                "Read",
+                "Write"
+            ],
+            "notActions": [],
+            "scopes": [ "/" ]
         },
         {
             "name": "officeassistant",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Write"
-                    ]
-                }
-            ]
+            "actions": [
+                "Write"
+            ],
+            "notActions": [],
+            "scopes": [ "/" ]
         },
         {
             "name": "researcher",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Read"
-                    ]
-                }
-            ]
+            "actions": [
+                "Read"
+            ],
+            "notActions": [],
+            "scopes": [ "/" ]
         },
         {
             "name": "mlresearcher",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Export"
-                    ]
-                }
-            ]
+            "actions": [
+                "Export"
+            ],
+            "notActions": [],
+            "scopes": [ "/" ]
         },
         {
             "name": "director",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "HardDelete"
-                    ]
-                }
-            ]
+            "actions": [
+                "HardDelete"
+            ],
+            "notActions": [],
+            "scopes": [ "/" ]
+        },
+        {
+            "name": "contributor",
+            "actions": [
+                "*"
+            ],
+            "notActions": [
+                "hardDelete"
+            ],
+            "scopes": [ "/" ]
         },
         {
             "name": "admin",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Read",
-                        "Write",
-                        "HardDelete",
-                        "Export"
-                    ]
-                }
-            ]
+            "actions": [
+                "*"
+            ],
+            "notActions": [],
+            "scopes": [ "/" ]
         }
     ],
     "users": [

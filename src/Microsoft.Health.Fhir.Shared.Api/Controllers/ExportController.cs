@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,7 +17,6 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -33,8 +31,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    [Authorize(PolicyNames.FhirPolicy)]
-    [Authorize(PolicyNames.ExportPolicy)]
     public class ExportController : Controller
     {
         /*

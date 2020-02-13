@@ -250,6 +250,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Authorization failed..
+        /// </summary>
+        internal static string Forbidden {
+            get {
+                return ResourceManager.GetString("Forbidden", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Parameter {0} cannot a be a value in the future..
         /// </summary>
         internal static string HistoryParameterBeforeCannotBeFuture {
@@ -574,15 +583,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Role must have one or more resource permissions..
-        /// </summary>
-        internal static string ResourcePermissionEmpty {
-            get {
-                return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The requested resource exceeded the backing database&apos;s size limit..
         /// </summary>
         internal static string ResourceTooLarge {
@@ -628,11 +628,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Role contains a resource permissions with no actions..
+        ///   Looks up a localized string similar to The &quot;Scopes&quot; property on role &apos;{0}&apos; must currently be an array with a single entry, &quot;/&quot;..
         /// </summary>
-        internal static string RoleResourcePermissionWithNoAction {
+        internal static string RoleScopeMustBeRoot {
             get {
-                return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
+                return ResourceManager.GetString("RoleScopeMustBeRoot", resourceCulture);
             }
         }
         

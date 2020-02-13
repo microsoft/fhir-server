@@ -3,17 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.AspNetCore.Authorization;
-
-namespace Microsoft.Health.Fhir.Api.Features.Security.Authorization
+namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
-    internal class ResourceActionRequirement : IAuthorizationRequirement
+    internal class DisabledFhirAuthorizationService : IFhirAuthorizationService
     {
-        public ResourceActionRequirement(string policyName)
-        {
-            PolicyName = policyName;
-        }
+        public static readonly DisabledFhirAuthorizationService Instance = new DisabledFhirAuthorizationService();
 
-        public string PolicyName { get; }
+        public ResourceActions CheckAccess(ResourceActions actions)
+        {
+            return actions;
+        }
     }
 }

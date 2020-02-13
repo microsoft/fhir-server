@@ -8,6 +8,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources
 {
@@ -18,8 +19,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources
             ISearchService searchService,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
         }
     }

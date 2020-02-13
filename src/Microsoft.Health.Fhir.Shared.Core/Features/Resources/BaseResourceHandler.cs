@@ -9,6 +9,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources
 {
@@ -21,14 +22,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceIdProvider resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
 
             ConformanceProvider = conformanceProvider;
+            AuthorizationService = authorizationService;
             FhirDataStore = fhirDataStore;
             _resourceWrapperFactory = resourceWrapperFactory;
             _resourceIdProvider = resourceIdProvider;
@@ -37,6 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         protected Lazy<IConformanceProvider> ConformanceProvider { get; }
 
         protected IFhirDataStore FhirDataStore { get; }
+
+        protected IFhirAuthorizationService AuthorizationService { get; }
 
         protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted)
         {
