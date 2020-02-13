@@ -51,8 +51,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
-        [InlineData("/storage")]
-        [InlineData("random")]
+        [InlineData("randomUri")]
         [InlineData("https://")]
         [Theory]
         public async Task GivenInvalidStorageUri_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string storageUriString)
