@@ -13,12 +13,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
@@ -31,78 +27,35 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private Dictionary<Uri, CloudBlockBlobWrapper> _uriToBlobMapping = new Dictionary<Uri, CloudBlockBlobWrapper>();
         private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
 
-        private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly IAccessTokenProvider _accessTokenProvider;
+        private readonly IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
         private readonly ILogger _logger;
 
         public AzureExportDestinationClient(
-            IOptions<ExportJobConfiguration> exportJobConfiguration,
-            IAccessTokenProvider accessTokenProvider,
+            IExportClientInitializer<CloudBlobClient> exportClientInitializer,
             ILogger<AzureExportDestinationClient> logger)
         {
-            EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
-            EnsureArg.IsNotNull(accessTokenProvider, nameof(accessTokenProvider));
+            EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _exportJobConfiguration = exportJobConfiguration.Value;
-            _accessTokenProvider = accessTokenProvider;
+            _exportClientInitializer = exportClientInitializer;
             _logger = logger;
         }
 
         public string DestinationType => "azure-block-blob";
 
-        public async Task ConnectAsync(string connectionSettings, CancellationToken cancellationToken, string containerId = null)
+        public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
         {
-            if (string.IsNullOrWhiteSpace(connectionSettings))
-            {
-                throw new DestinationConnectionException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
-            }
-
-            // Check whether it is base-64 encoded.
-            string decodedConnectionString = null;
             try
             {
-                decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
+                _blobClient = await _exportClientInitializer.GetAuthorizedClientAsync(cancellationToken);
             }
-            catch (Exception)
+            catch (ExportClientInitializerException ece)
             {
-                // it is not base-64 encoded. Should be a resource uri.
-                await GetAccessTokenAndConnectHelperAsync(connectionSettings, cancellationToken, containerId);
-                return;
+                _logger.LogError(ece, "Unable to initialize export client");
+
+                throw new DestinationConnectionException(ece.Message, ece.StatusCode);
             }
 
-            if (!CloudStorageAccount.TryParse(decodedConnectionString, out CloudStorageAccount cloudAccount))
-            {
-                throw new DestinationConnectionException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
-            }
-
-            _blobClient = cloudAccount.CreateCloudBlobClient();
-            await CreateContainerAsync(_blobClient, containerId);
-        }
-
-        private async Task GetAccessTokenAndConnectHelperAsync(string connectionString, CancellationToken cancellationToken, string containerId = null)
-        {
-            // Assuming validation happens upstream.
-            if (!Uri.TryCreate(connectionString, UriKind.Absolute, out Uri storageAccountUri))
-            {
-                throw new DestinationConnectionException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
-            }
-
-            string accessToken = null;
-            try
-            {
-                accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(storageAccountUri, cancellationToken);
-            }
-            catch (AccessTokenProviderException atp)
-            {
-                _logger.LogError(atp, "Unable to get access token");
-
-                throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
-            }
-
-            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
-
-            _blobClient = new CloudBlobClient(storageAccountUri, storageCredentials);
             await CreateContainerAsync(_blobClient, containerId);
         }
 

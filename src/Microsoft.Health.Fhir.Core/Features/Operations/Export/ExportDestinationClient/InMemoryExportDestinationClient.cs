@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
 
         public string DestinationType => "in-memory";
 
-        public async Task ConnectAsync(string destinationConnectionString, CancellationToken cancellationToken, string containerId = null)
+        public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
         {
             await Task.CompletedTask;
         }

@@ -149,6 +149,7 @@
     "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
     "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
     "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+    "blobStorageUri" : "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
     "staticFhirServerConfigProperties": {
       "APPINSIGHTS_PORTALINFO": "ASP.NETCORE",
       "APPINSIGHTS_PROFILERFEATURE_VERSION": "1.0.0",
@@ -163,7 +164,7 @@
       "DataStore": "CosmosDb",
       "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
       "FhirServer:Operations:Export:StorageAccountType": "[if(parameters('enableExport'), 'azure-block-blob', 'null')]",
-      "FhirServer:Operations:Export:StorageAccountConnection": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), '.blob.core.windows.net'), 'null')]"
+      "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
     },
     "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
     "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(variables('serviceName')))), uniquestring(resourceGroup().id, variables('serviceName')))]"

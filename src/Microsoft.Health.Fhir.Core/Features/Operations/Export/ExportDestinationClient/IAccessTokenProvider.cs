@@ -7,15 +7,10 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
 {
     public interface IAccessTokenProvider
     {
-        /// <summary>
-        /// Determines the access token provider type.
-        /// </summary>
-        string AccessTokenProviderType { get; }
-
         /// <summary>
         /// Gets the access token for the resource.
         /// </summary>

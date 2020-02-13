@@ -63,13 +63,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 return _lastExportJobOutcome;
             });
 
+            _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Is("in-memory")).Returns(true);
             _exportDestinationClientFactory.Create("in-memory").Returns(_inMemoryDestinationClient);
 
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
 
             // Setup export job configuration correctly
             _exportJobConfiguration.StorageAccountType = "in-memory";
-            _exportJobConfiguration.StorageAccountConnection = Convert.ToBase64String(Encoding.ASCII.GetBytes("connectionString"));
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
@@ -301,7 +301,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Setup export destination client.
             string connectionFailure = "failedToConnectToDestination";
             IExportDestinationClient mockExportDestinationClient = Substitute.For<IExportDestinationClient>();
-            mockExportDestinationClient.ConnectAsync(Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
+            mockExportDestinationClient.ConnectAsync(Arg.Any<CancellationToken>(), Arg.Any<string>())
                 .Returns<Task>(x => throw new DestinationConnectionException(connectionFailure, HttpStatusCode.BadRequest));
 
             _exportDestinationClientFactory.Create("in-memory").Returns(mockExportDestinationClient);
@@ -319,6 +319,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        [InlineData("")]
+        [InlineData("  ")]
+        [InlineData(null)]
+        [Theory]
+        public async Task GivenNullOrEmptyDestinationType_WhenExecuteAsync_ThenJobStatusShouldBeUpdatedToFailed(string destinationType)
+        {
+            _exportJobConfiguration.StorageAccountType = destinationType;
+            string expectedFailureMessage = $"The destination type '{destinationType}' is not supported.";
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Contains(expectedFailureMessage, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        [Fact]
+        public async Task GivenUnsupportedDestinationType_WhenExecuteAsync_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            string unsupportedDestinationType = "unsupported";
+            _exportJobConfiguration.StorageAccountType = unsupportedDestinationType;
+            string expectedFailureMessage = $"The destination type '{unsupportedDestinationType}' is not supported.";
+
+            _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Is(unsupportedDestinationType)).Returns(false);
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Contains(expectedFailureMessage, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 

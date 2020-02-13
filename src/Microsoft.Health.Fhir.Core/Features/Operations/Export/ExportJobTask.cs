@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             try
             {
                 // Connect to export destination using appropriate client.
-                await GetDestinationInfoAndConnectAsync(cancellationToken);
+                await GetDestinationClientAndConnectAsync(cancellationToken);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -188,13 +188,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
-        // Get destination information, create appropriate export client and connect to destination.
-        private async Task GetDestinationInfoAndConnectAsync(CancellationToken cancellationToken)
+        // Create appropriate export client and connect to destination.
+        private async Task GetDestinationClientAndConnectAsync(CancellationToken cancellationToken)
         {
-            // We are assuming that the export configuration details have already been validated.
+            if (string.IsNullOrWhiteSpace(_exportJobConfiguration.StorageAccountType) ||
+                !_exportDestinationClientFactory.IsSupportedDestinationType(_exportJobConfiguration.StorageAccountType))
+            {
+                throw new DestinationConnectionException(string.Format(Resources.UnsupportedDestinationType, _exportJobConfiguration.StorageAccountType), HttpStatusCode.BadRequest);
+            }
+
             _exportDestinationClient = _exportDestinationClientFactory.Create(_exportJobConfiguration.StorageAccountType);
 
-            await _exportDestinationClient.ConnectAsync(_exportJobConfiguration.StorageAccountConnection, cancellationToken, _exportJobRecord.Id);
+            await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
         }
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)

@@ -4,16 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.AccessTokenProvider
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
 {
-    public class AccessTokenProviderException : Exception
+    public class ExportClientInitializerException : Exception
     {
-        public AccessTokenProviderException(string message)
+        public ExportClientInitializerException(string message, HttpStatusCode statusCode)
             : base(message)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+
+            StatusCode = statusCode;
         }
+
+        public HttpStatusCode StatusCode { get; }
     }
 }

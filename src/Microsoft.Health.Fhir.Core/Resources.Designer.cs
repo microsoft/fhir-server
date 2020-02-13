@@ -376,15 +376,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The provided connection string is invalid.
-        /// </summary>
-        internal static string InvalidConnectionString {
-            get {
-                return ResourceManager.GetString("InvalidConnectionString", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The continuation token is invalid..
         /// </summary>
         internal static string InvalidContinuationToken {

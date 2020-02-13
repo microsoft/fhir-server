@@ -95,14 +95,5 @@ namespace Microsoft.Health.Fhir.Azure {
                 return ResourceManager.GetString("InvalidStorageUri", resourceCulture);
             }
         }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The access token provider type is not supported.
-        /// </summary>
-        internal static string UnsupportedAccessTokenProviderType {
-            get {
-                return ResourceManager.GetString("UnsupportedAccessTokenProviderType", resourceCulture);
-            }
-        }
     }
 }
