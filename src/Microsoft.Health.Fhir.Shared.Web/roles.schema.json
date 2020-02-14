@@ -1,0 +1,68 @@
+﻿{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://microsoft.com/fhir/roles.schema.json",
+    "definitions": {
+        "actions": {
+            "enum": [
+                "*",
+                "read",
+                "create",
+                "update",
+                "write",
+                "delete",
+                "hardDelete",
+                "export",
+                "resourceValidate"
+            ]
+        }
+    },
+    "type": "object",
+    "required": [
+        "roles"
+    ],
+    "properties": {
+        "roles": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "actions",
+                    "notActions",
+                    "scopes"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "examples": [
+                            "globalReader"
+                        ],
+                        "pattern": "^([a-zA-Z-_]+)$"
+                    },
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/actions"
+                        }
+                    },
+                    "notActions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/actions"
+                        }
+                    },
+                    "scopes": {
+                        "type": "array",
+                        "items": {
+                            "$id": "#/items/properties/scopes/items",
+                            "const": "/"
+                        },
+                        "minItems": 1,
+                        "maxItems": 1
+                    }
+                },
+                "additionalProperties": false
+            }
+        }
+    }
+}

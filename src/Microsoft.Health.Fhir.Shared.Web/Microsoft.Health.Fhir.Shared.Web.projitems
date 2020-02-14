@@ -15,10 +15,14 @@
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderUserConfiguration.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)KnownDataStores.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FileProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Startup.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="$(MSBuildThisFileDirectory)AuthorizationSettings.json">
+    <Content Include="$(MSBuildThisFileDirectory)roles.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(MSBuildThisFileDirectory)roles.schema.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

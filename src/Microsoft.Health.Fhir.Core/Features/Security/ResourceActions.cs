@@ -4,11 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.ComponentModel;
+using System.Runtime.Serialization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    [TypeConverter(typeof(ResourceActionsConverter))]
     [Flags]
 #pragma warning disable CA1028 // Enum Storage should be Int32
     public enum ResourceActions : ulong
@@ -25,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         Export = 1 << 5,
         ResourceValidate = 1 << 6,
 
+        [EnumMember(Value = "*")]
         All = (ResourceValidate << 1) - 1,
     }
 }

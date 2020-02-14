@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             {
                 if (_roles.TryGetValue(claim.Value, out Role role))
                 {
-                    permittedActions |= role.CombinedActions;
+                    permittedActions |= role.AllowedActions;
                     if (permittedActions == actions)
                     {
                         break;

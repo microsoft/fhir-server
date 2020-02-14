@@ -52,7 +52,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
-            configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration, options => options.BindNonPublicProperties = true);
+            configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));

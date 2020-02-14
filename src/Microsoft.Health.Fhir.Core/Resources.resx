@@ -120,9 +120,6 @@
   <data name="AtCannotBeSpecifiedWithBeforeOrSince" xml:space="preserve">
     <value>{0} and {1} cannot both be specified.</value>
   </data>
-  <data name="AuthorizationPermissionDefinitionInvalid" xml:space="preserve">
-    <value>The authorization permission definition contains one or more invalid entries.</value>
-  </data>
   <data name="BundleRequiredForBatchOrTransaction" xml:space="preserve">
     <value>Only a bundle can be submitted for batch or transaction processing.</value>
     <comment>Bundle is a FHIR resource type.</comment>
@@ -183,6 +180,10 @@
   </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
+  </data>
+  <data name="ErrorValidatingRoles" xml:space="preserve">
+    <value>Error validating roles:
+{0}</value>
   </data>
   <data name="Forbidden" xml:space="preserve">
     <value>Authorization failed.</value>
@@ -315,12 +316,6 @@
   </data>
   <data name="ReverseChainMissingType" xml:space="preserve">
     <value>The reverse chain search is missing the type to search.</value>
-  </data>
-  <data name="RoleNameEmpty" xml:space="preserve">
-    <value>Role name cannot be null or empty.</value>
-  </data>
-  <data name="RoleScopeMustBeRoot" xml:space="preserve">
-    <value>The "Scopes" property on role '{0}' must currently be an array with a single entry, "/".</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>

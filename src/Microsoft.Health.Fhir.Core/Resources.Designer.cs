@@ -70,15 +70,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The authorization permission definition contains one or more invalid entries..
-        /// </summary>
-        internal static string AuthorizationPermissionDefinitionInvalid {
-            get {
-                return ResourceManager.GetString("AuthorizationPermissionDefinitionInvalid", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Only a bundle can be submitted for batch or transaction processing..
         /// </summary>
         internal static string BundleRequiredForBatchOrTransaction {
@@ -246,6 +237,16 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string DeleteVersionNotAllowed {
             get {
                 return ResourceManager.GetString("DeleteVersionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error validating roles:
+        ///{0}.
+        /// </summary>
+        internal static string ErrorValidatingRoles {
+            get {
+                return ResourceManager.GetString("ErrorValidatingRoles", resourceCulture);
             }
         }
         
@@ -615,24 +616,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReverseChainMissingType {
             get {
                 return ResourceManager.GetString("ReverseChainMissingType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Role name cannot be null or empty..
-        /// </summary>
-        internal static string RoleNameEmpty {
-            get {
-                return ResourceManager.GetString("RoleNameEmpty", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The &quot;Scopes&quot; property on role &apos;{0}&apos; must currently be an array with a single entry, &quot;/&quot;..
-        /// </summary>
-        internal static string RoleScopeMustBeRoot {
-            get {
-                return ResourceManager.GetString("RoleScopeMustBeRoot", resourceCulture);
             }
         }
         
