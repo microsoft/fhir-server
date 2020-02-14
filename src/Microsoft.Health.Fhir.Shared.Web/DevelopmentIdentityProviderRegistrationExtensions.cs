@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Web
 {
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
-        private const string WrongAudienceClient = "wrongaudienceclient";
+        private const string WrongAudienceClient = "wrongAudienceClient";
 
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.

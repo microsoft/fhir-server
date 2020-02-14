@@ -33,11 +33,11 @@
             ]
         },
         {
-            "id": "nativeclient",
+            "id": "nativeClient",
             "roles": []
         },
         {
-            "id": "wrongaudienceclient",
+            "id": "wrongAudienceClient",
             "roles": []
         }
     ]
