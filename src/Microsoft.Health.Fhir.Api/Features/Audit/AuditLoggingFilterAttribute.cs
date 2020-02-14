@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security;

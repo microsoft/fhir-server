@@ -22,7 +22,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditMiddlewareTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Bundle\BundleAwareJwtBearerHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\DefaultFhirRequestContext.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextAfterAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextBeforeAuthenticationMiddlewareTests.cs" />
@@ -59,5 +58,8 @@
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Controllers\openid-configuration.json">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Features\Bundle\" />
   </ItemGroup>
 </Project>

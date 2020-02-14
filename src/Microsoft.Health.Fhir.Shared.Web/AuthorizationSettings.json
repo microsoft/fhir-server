@@ -1,0 +1,54 @@
+﻿{
+    "fhirServer": {
+        "security": {
+            "authorization": {
+                "roles": [
+                    {
+                        "name": "globalReader",
+                        "actions": [
+                            "read",
+                            "resourceValidate"
+                        ],
+                        "notActions": [],
+                        "scopes": [
+                            "/"
+                        ]
+                    },
+                    {
+                        "name": "globalExporter",
+                        "actions": [
+                            "read",
+                            "export"
+                        ],
+                        "notActions": [],
+                        "scopes": [
+                            "/"
+                        ]
+                    },
+                    {
+                        "name": "globalWriter",
+                        "actions": [
+                            "*"
+                        ],
+                        "notActions": [
+                            "hardDelete"
+                        ],
+                        "scopes": [
+                            "/"
+                        ]
+                    },
+                    {
+                        "name": "globalAdmin",
+                        "actions": [
+                            "*"
+                        ],
+                        "notActions": [],
+                        "scopes": [
+                            "/"
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+}

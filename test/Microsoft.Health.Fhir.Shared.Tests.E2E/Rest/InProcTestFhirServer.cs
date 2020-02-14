@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var contentRoot = GetProjectPath("src", startupType);
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
             var exportPath = Path.GetFullPath("exporttestconfiguration.json");
+            var authorizationSettingsPath = Path.Combine(Path.GetDirectoryName(startupType.Assembly.Location), "AuthorizationSettings.json");
 
             var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(contentRoot, "Properties", "launchSettings.json")));
 
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UseContentRoot(contentRoot)
                 .ConfigureAppConfiguration(configurationBuilder =>
                 {
+                    configurationBuilder.AddJsonFile(authorizationSettingsPath);
                     configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json");
                     configurationBuilder.AddJsonFile(corsPath);
                     configurationBuilder.AddJsonFile(exportPath);

@@ -17,4 +17,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Startup.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)AuthorizationSettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

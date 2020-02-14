@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                         options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
                     })
-                    .AddBundleAwareCustomJwtBearer(options =>
+                    .AddJwtBearer(options =>
                     {
                         options.Authority = _securityConfiguration.Authentication.Authority;
                         options.Audience = _securityConfiguration.Authentication.Audience;

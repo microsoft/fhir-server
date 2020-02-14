@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

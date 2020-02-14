@@ -1,108 +1,35 @@
 {
-    "roles": [
-        {
-            "name": "clinician",
-            "actions": [
-                "Read",
-                "Write"
-            ],
-            "notActions": [],
-            "scopes": [ "/" ]
-        },
-        {
-            "name": "officeassistant",
-            "actions": [
-                "Write"
-            ],
-            "notActions": [],
-            "scopes": [ "/" ]
-        },
-        {
-            "name": "researcher",
-            "actions": [
-                "Read"
-            ],
-            "notActions": [],
-            "scopes": [ "/" ]
-        },
-        {
-            "name": "mlresearcher",
-            "actions": [
-                "Export"
-            ],
-            "notActions": [],
-            "scopes": [ "/" ]
-        },
-        {
-            "name": "director",
-            "actions": [
-                "HardDelete"
-            ],
-            "notActions": [],
-            "scopes": [ "/" ]
-        },
-        {
-            "name": "contributor",
-            "actions": [
-                "*"
-            ],
-            "notActions": [
-                "hardDelete"
-            ],
-            "scopes": [ "/" ]
-        },
-        {
-            "name": "admin",
-            "actions": [
-                "*"
-            ],
-            "notActions": [],
-            "scopes": [ "/" ]
-        }
-    ],
     "users": [
         {
-            "id": "john",
+            "id": "globalReaderUser",
             "roles": [
-                "researcher"
+                "globalReader"
             ]
         },
         {
-            "id": "sam",
+            "id": "globalWriterUser",
             "roles": [
-                "officeassistant"
+                "globalWriter"
             ]
         },
         {
-            "id": "frank",
+            "id": "globalExporterUser",
             "roles": [
-                "clinician"
+                "globalExporter"
             ]
         },
         {
-            "id": "steve",
+            "id": "globalAdminUser",
             "roles": [
-                "mlresearcher"
-            ]
-        },
-        {
-            "id": "doug",
-            "roles": [
-                "director"
-            ]
-        },
-        {
-            "id": "itguy",
-            "roles": [
-                "admin"
+                "globalAdmin"
             ]
         }
     ],
     "clientApplications": [
         {
-            "id": "serviceclient",
+            "id": "globalAdminServicePrincipal",
             "roles": [
-                "admin"
+                "globalAdmin"
             ]
         },
         {

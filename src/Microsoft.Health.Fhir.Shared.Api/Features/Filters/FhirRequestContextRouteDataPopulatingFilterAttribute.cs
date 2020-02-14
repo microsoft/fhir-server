@@ -8,7 +8,6 @@ using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
