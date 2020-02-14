@@ -18,7 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         private Uri _uri;
         private Uri _baseUri;
-        private string _resourceType;
 
         public FhirRequestContext(
             string method,
@@ -60,10 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public IDictionary<string, StringValues> ResponseHeaders { get; }
 
-        public string ResourceType
-        {
-            get => _resourceType;
-            set => _resourceType = value;
-        }
+        public string ResourceType { get; set; }
     }
 }

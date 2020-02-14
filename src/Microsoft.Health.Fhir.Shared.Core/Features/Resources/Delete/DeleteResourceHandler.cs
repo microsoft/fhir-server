@@ -34,10 +34,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            ResourceActions requiredAction = message.HardDelete ? ResourceActions.HardDelete : ResourceActions.Delete;
+            FhirActions requiredAction = message.HardDelete ? FhirActions.HardDelete : FhirActions.Delete;
             if (AuthorizationService.CheckAccess(requiredAction) != requiredAction)
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             var key = message.ResourceKey;

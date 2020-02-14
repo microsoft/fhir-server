@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
     public interface IFhirAuthorizationService
     {
-        ResourceActions CheckAccess(ResourceActions actions);
+        FhirActions CheckAccess(FhirActions actions);
     }
 }

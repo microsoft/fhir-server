@@ -148,10 +148,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             EnsureArg.IsNotNull(bundleRequest, nameof(bundleRequest));
 
-            ResourceActions permittedActions = _authorizationService.CheckAccess(ResourceActions.All);
-            if (permittedActions == ResourceActions.None)
+            FhirActions permittedActions = _authorizationService.CheckAccess(FhirActions.All);
+            if (permittedActions == FhirActions.None)
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             // TODO: optimize access checks!

@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                 switch (fhirException)
                 {
-                    case UnauthorizedActionException _:
+                    case UnauthorizedFhirActionException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
 

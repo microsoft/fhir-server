@@ -43,9 +43,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (AuthorizationService.CheckAccess(ResourceActions.Create) != ResourceActions.Create)
+            if (AuthorizationService.CheckAccess(FhirActions.Create) != FhirActions.Create)
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             var resource = message.Resource.Instance.ToPoco<Resource>();

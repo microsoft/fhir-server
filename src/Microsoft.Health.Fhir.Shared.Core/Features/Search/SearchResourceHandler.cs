@@ -46,9 +46,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (_authorizationService.CheckAccess(ResourceActions.Read) != ResourceActions.Read)
+            if (_authorizationService.CheckAccess(FhirActions.Read) != FhirActions.Read)
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             SearchResult searchResult = await _searchService.SearchAsync(message.ResourceType, message.Queries, cancellationToken);

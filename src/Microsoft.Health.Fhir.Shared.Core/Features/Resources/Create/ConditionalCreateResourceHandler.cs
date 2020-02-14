@@ -42,9 +42,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (AuthorizationService.CheckAccess(ResourceActions.Read | ResourceActions.Create) != (ResourceActions.Read | ResourceActions.Create))
+            if (AuthorizationService.CheckAccess(FhirActions.Read | FhirActions.Create) != (FhirActions.Read | FhirActions.Create))
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             SearchResultEntry[] matchedResults = await Search(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);

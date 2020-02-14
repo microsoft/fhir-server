@@ -33,9 +33,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// <param name="cancellationToken">The CancellationToken</param>
         public Task<ValidateOperationResponse> Handle(ValidateOperationRequest request, CancellationToken cancellationToken)
         {
-            if (_authorizationService.CheckAccess(ResourceActions.ResourceValidate) != ResourceActions.ResourceValidate)
+            if (_authorizationService.CheckAccess(FhirActions.ResourceValidate) != FhirActions.ResourceValidate)
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             return Task.FromResult(new ValidateOperationResponse(

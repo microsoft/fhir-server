@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
 
         [Theory]
         [MemberData(nameof(GetHandlerTypes))]
-        public async Task RequestHandlers_WhenNoActionsArePermitted_ThrowUnauthorizedActionException(Type handlerType)
+        public async Task RequestHandlers_WhenNoActionsArePermitted_ThrowUnauthorizedFhirActionException(Type handlerType)
         {
             var handler = CreateObject(handlerType);
 
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
                 // Invoke IRequestHandler.Handle without reflection so exceptions are not wrapped in a TargetInvocationException.
                 MethodInfo genericMethod = new Func<object, object>(CallHandle<IRequest<object>, object>).Method.GetGenericMethodDefinition().MakeGenericMethod(typeArguments);
                 var callHandle = (Func<object, Task>)Delegate.CreateDelegate(typeof(Func<object, Task>), genericMethod);
-                await Assert.ThrowsAsync<UnauthorizedActionException>(() => callHandle(handler));
+                await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => callHandle(handler));
             }
 
             static async Task CallHandle<TRequest, TResponse>(object handler)

@@ -49,9 +49,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (AuthorizationService.CheckAccess(ResourceActions.Read | ResourceActions.Write) != (ResourceActions.Read | ResourceActions.Write))
+            if (AuthorizationService.CheckAccess(FhirActions.Read | FhirActions.Write) != (FhirActions.Read | FhirActions.Write))
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             SearchResultEntry[] matchedResults = await Search(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);

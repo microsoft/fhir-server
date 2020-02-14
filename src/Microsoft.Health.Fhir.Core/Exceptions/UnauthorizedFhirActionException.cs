@@ -7,9 +7,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public class UnauthorizedActionException : FhirException
+    public class UnauthorizedFhirActionException : FhirException
     {
-        public UnauthorizedActionException()
+        public UnauthorizedFhirActionException()
         {
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,

@@ -53,8 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
         private Role RoleContractToRole(RoleContract r)
         {
-            ResourceActions actions = r.Actions.Aggregate(default(ResourceActions), (acc, a) => acc | a);
-            ResourceActions notActions = r.NotActions.Aggregate(default(ResourceActions), (acc, a) => acc | a);
+            FhirActions actions = r.Actions.Aggregate(default(FhirActions), (acc, a) => acc | a);
+            FhirActions notActions = r.NotActions.Aggregate(default(FhirActions), (acc, a) => acc | a);
 
             return new Role(r.Name, actions & ~notActions);
         }
@@ -68,9 +68,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         {
             public string Name { get; set; }
 
-            public ResourceActions[] Actions { get; set; }
+            public FhirActions[] Actions { get; set; }
 
-            public ResourceActions[] NotActions { get; set; }
+            public FhirActions[] NotActions { get; set; }
 
             public string[] Scopes { get; set; }
         }

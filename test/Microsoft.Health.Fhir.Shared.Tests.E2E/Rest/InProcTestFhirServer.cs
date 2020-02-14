@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly HttpMessageHandler _messageHandler;
 
         public InProcTestFhirServer(DataStore dataStore, Type startupType)
-
             : base(new Uri("http://localhost/"))
         {
             var contentRoot = GetProjectPath("src", startupType);

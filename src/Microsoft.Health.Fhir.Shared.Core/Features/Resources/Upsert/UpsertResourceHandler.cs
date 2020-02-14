@@ -39,11 +39,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            ResourceActions permittedActions = AuthorizationService.CheckAccess(ResourceActions.Write);
+            FhirActions permittedActions = AuthorizationService.CheckAccess(FhirActions.Write);
 
-            if (!permittedActions.HasFlag(ResourceActions.Update))
+            if (!permittedActions.HasFlag(FhirActions.Update))
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             Resource resource = message.Resource.Instance.ToPoco<Resource>();
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.TypeName));
             }
 
-            bool allowCreate = permittedActions.HasFlag(ResourceActions.Create) && await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
+            bool allowCreate = permittedActions.HasFlag(FhirActions.Create) && await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);

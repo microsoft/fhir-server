@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class Role
     {
-        public Role(string name, ResourceActions allowedActions)
+        public Role(string name, FhirActions allowedActions)
         {
             EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
 
@@ -19,6 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
         public string Name { get; }
 
-        public ResourceActions AllowedActions { get; }
+        public FhirActions AllowedActions { get; }
     }
 }

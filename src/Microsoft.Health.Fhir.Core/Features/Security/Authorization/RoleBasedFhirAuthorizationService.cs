@@ -29,11 +29,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             _roles = authorizationConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
         }
 
-        public ResourceActions CheckAccess(ResourceActions actions)
+        public FhirActions CheckAccess(FhirActions actions)
         {
             ClaimsPrincipal principal = _requestContextAccessor.FhirRequestContext.Principal;
 
-            ResourceActions permittedActions = 0;
+            FhirActions permittedActions = 0;
             foreach (Claim claim in principal.FindAll(_rolesClaimName))
             {
                 if (_roles.TryGetValue(claim.Value, out Role role))

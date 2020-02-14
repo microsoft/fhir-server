@@ -39,9 +39,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (AuthorizationService.CheckAccess(ResourceActions.Read) != ResourceActions.Read)
+            if (AuthorizationService.CheckAccess(FhirActions.Read) != FhirActions.Read)
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             var key = message.ResourceKey;

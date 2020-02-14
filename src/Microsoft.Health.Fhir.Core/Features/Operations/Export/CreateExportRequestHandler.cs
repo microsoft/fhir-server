@@ -47,9 +47,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (_authorizationService.CheckAccess(ResourceActions.Export) != ResourceActions.Export)
+            if (_authorizationService.CheckAccess(FhirActions.Export) != FhirActions.Export)
             {
-                throw new UnauthorizedActionException();
+                throw new UnauthorizedFhirActionException();
             }
 
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = _claimsExtractor.Extract()?
