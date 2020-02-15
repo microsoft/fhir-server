@@ -53,15 +53,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.TypeName));
             }
 
-            bool allowCreate = permittedActions.HasFlag(FhirActions.Create) && await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
+            bool principalAllowedToCreate = permittedActions.HasFlag(FhirActions.Create);
+            bool allowCreate = principalAllowedToCreate && await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
-            UpsertOutcome result = await UpsertAsync(message, resourceWrapper, allowCreate, keepHistory, cancellationToken);
+            try
+            {
+                UpsertOutcome result = await UpsertAsync(message, resourceWrapper, allowCreate, keepHistory, cancellationToken);
 
-            resource.VersionId = result.Wrapper.Version;
+                resource.VersionId = result.Wrapper.Version;
 
-            return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), result.OutcomeType));
+                return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), result.OutcomeType));
+            }
+            catch (MethodNotAllowedException) when (!principalAllowedToCreate)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
         }
     }
 }

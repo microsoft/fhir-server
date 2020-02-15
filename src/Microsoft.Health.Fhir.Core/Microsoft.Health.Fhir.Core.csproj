@@ -13,11 +13,13 @@
   <ItemGroup>
     <None Remove="Features\Conformance\R4\BaseCapabilities.json" />
     <None Remove="Features\Conformance\Stu3\BaseCapabilities.json" />
+    <None Remove="Features\Security\roles.schema.json" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Features\Conformance\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Features\Conformance\Stu3\BaseCapabilities.json" />
+    <EmbeddedResource Include="Features\Security\roles.schema.json" />
   </ItemGroup>
   
   <ItemGroup>

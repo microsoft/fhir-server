@@ -241,6 +241,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There are {0} roles with the name &apos;{1}&apos;.
+        /// </summary>
+        internal static string DuplicateRoleNames {
+            get {
+                return ResourceManager.GetString("DuplicateRoleNames", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error validating roles:
         ///{0}.
         /// </summary>

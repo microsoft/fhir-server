@@ -7,6 +7,9 @@ using System.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Settings
 {
+    /// <summary>
+    /// Provides access to the contents of files that are located in the process' bin directory.
+    /// </summary>
     public interface IFileProvider
     {
         Stream ReadFile(string name);

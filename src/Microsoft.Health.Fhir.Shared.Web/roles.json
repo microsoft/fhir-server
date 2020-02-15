@@ -1,5 +1,5 @@
 ﻿{
-    "$schema": "./roles.schema.json",
+    "$schema": "../Microsoft.Health.Fhir.Core/Features/Security/roles.schema.json",
     "roles": [
         {
             "name": "globalReader",

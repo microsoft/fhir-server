@@ -22,11 +22,13 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -45,6 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly IMediator _mediator;
         private readonly ISearchService _searchService;
         private readonly ResourceIdProvider _resourceIdProvider;
+        private IFhirAuthorizationService _authorizationService;
 
         public ResourceHandlerTests()
         {
@@ -82,14 +85,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var collection = new ServiceCollection();
 
+            // an auth service that allows all.
+            _authorizationService = Substitute.For<IFhirAuthorizationService>();
+            _authorizationService.CheckAccess(Arg.Any<FhirActions>()).Returns(ci => ci.Arg<FhirActions>());
+
             _resourceIdProvider = new ResourceIdProvider();
             collection.Add(x => _mediator).Singleton().AsSelf();
-            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, _resourceIdProvider, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer, _resourceIdProvider, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -180,6 +187,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var outcome = await _mediator.UpsertResourceAsync(resource);
 
             Assert.Equal("version1", outcome.Resource.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenSavingAResourceWithoutCreatePermissions_ThenUpdatingSuceeds()
+        {
+            var resource = Samples.GetDefaultObservation();
+
+            ResourceWrapper CreateWrapper(ResourceWrapper wrapper)
+            {
+                var newResource = Samples.GetDefaultObservation().ToPoco();
+                newResource.Id = wrapper.ResourceId;
+                newResource.VersionId = "version1";
+                return CreateResourceWrapper(newResource.ToResourceElement(), false);
+            }
+
+            _authorizationService.CheckAccess(FhirActions.Write).Returns(FhirActions.Update);
+
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), allowCreate: false, true, Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
+
+            var outcome = await _mediator.UpsertResourceAsync(resource);
+
+            Assert.Equal("version1", outcome.Resource.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenSavingAResourceWithoutCreatePermissions_ThenCreatingThrowsUnauthorized()
+        {
+            var resource = Samples.GetDefaultObservation();
+
+            _authorizationService.CheckAccess(FhirActions.Write).Returns(FhirActions.Update);
+
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), allowCreate: false, true, Arg.Any<CancellationToken>())
+                .Throws(new MethodNotAllowedException("abc"));
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.UpsertResourceAsync(resource));
         }
 
         [Fact]

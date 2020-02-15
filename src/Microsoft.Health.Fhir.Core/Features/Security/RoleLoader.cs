@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using EnsureThat;
@@ -17,6 +18,14 @@ using Newtonsoft.Json.Serialization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
+    /// <summary>
+    /// Reads in roles from roles.json and validates against roles.json.schema and then
+    /// sets <see cref="AuthorizationConfiguration.Roles"/>.
+    /// We do not use asp.net configuration for reading in these settings
+    /// because the binder provides no error handling (and its merging
+    /// behavior when multiple config providers set array elements can
+    /// lead to unexpected results)
+    /// </summary>
     public class RoleLoader : IStartable
     {
         private readonly AuthorizationConfiguration _authorizationConfiguration;
@@ -33,30 +42,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
         public void Start()
         {
-            using Stream schemaContent = _fileProvider.ReadFile("roles.schema.json");
+            using Stream schemaContents = GetType().Assembly.GetManifestResourceStream(GetType(), "roles.schema.json");
 
             using Stream rolesContents = _fileProvider.ReadFile("roles.json");
 
             var jsonSerializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = { new StringEnumConverter(new CamelCaseNamingStrategy()) } });
 
-            var validatingReader = new JSchemaValidatingReader(new JsonTextReader(new StreamReader(rolesContents)))
+            using var schemaReader = new JsonTextReader(new StreamReader(schemaContents));
+            using var validatingReader = new JSchemaValidatingReader(new JsonTextReader(new StreamReader(rolesContents)))
             {
-                Schema = JSchema.Load(new JsonTextReader(new StreamReader(schemaContent))),
+                Schema = JSchema.Load(schemaReader),
             };
 
-            validatingReader.ValidationEventHandler += (sender, args) => throw new InvalidDefinitionException(string.Format(Resources.ErrorValidatingRoles, args.Message));
+            validatingReader.ValidationEventHandler += (sender, args) =>
+                throw new InvalidDefinitionException(string.Format(Resources.ErrorValidatingRoles, args.Message));
 
             RolesContract roleContract = jsonSerializer.Deserialize<RolesContract>(validatingReader);
 
             _authorizationConfiguration.Roles = roleContract.Roles.Select(RoleContractToRole).ToArray();
+
+            // validate that names are all unique
+            foreach (IGrouping<string, Role> grouping in _authorizationConfiguration.Roles.GroupBy(r => r.Name))
+            {
+                if (grouping.Count() > 1)
+                {
+                    throw new InvalidDefinitionException(string.Format(CultureInfo.CurrentCulture, Resources.DuplicateRoleNames, grouping.Count(), grouping.Key));
+                }
+            }
         }
 
-        private Role RoleContractToRole(RoleContract r)
+        private Role RoleContractToRole(RoleContract roleContract)
         {
-            FhirActions actions = r.Actions.Aggregate(default(FhirActions), (acc, a) => acc | a);
-            FhirActions notActions = r.NotActions.Aggregate(default(FhirActions), (acc, a) => acc | a);
+            FhirActions actions = roleContract.Actions.Aggregate(default(FhirActions), (acc, a) => acc | a);
+            FhirActions notActions = roleContract.NotActions.Aggregate(default(FhirActions), (acc, a) => acc | a);
 
-            return new Role(r.Name, actions & ~notActions);
+            return new Role(roleContract.Name, actions & ~notActions);
         }
 
         private class RolesContract

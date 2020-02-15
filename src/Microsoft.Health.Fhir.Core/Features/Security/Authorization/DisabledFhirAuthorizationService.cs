@@ -5,6 +5,9 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
+    /// <summary>
+    /// A <see cref="IFhirAuthorizationService"/> where all actions are always permitted.
+    /// </summary>
     internal class DisabledFhirAuthorizationService : IFhirAuthorizationService
     {
         public static readonly DisabledFhirAuthorizationService Instance = new DisabledFhirAuthorizationService();

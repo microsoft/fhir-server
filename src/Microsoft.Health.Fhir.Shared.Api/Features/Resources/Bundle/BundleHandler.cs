@@ -131,9 +131,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     Status = ((int)HttpStatusCode.BadRequest).ToString(),
                     Outcome = CreateOperationOutcome(
-                            OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.Invalid,
-                            "Request is empty"),
+                        OperationOutcome.IssueSeverity.Error,
+                        OperationOutcome.IssueType.Invalid,
+                        "Request is empty"),
                 };
                 responseBundle.Entry[emptyRequestOrder] = entryComponent;
             }
@@ -148,13 +148,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             EnsureArg.IsNotNull(bundleRequest, nameof(bundleRequest));
 
-            FhirActions permittedActions = _authorizationService.CheckAccess(FhirActions.All);
-            if (permittedActions == FhirActions.None)
+            // In scenarios where access checks involve a remote service call, it is advantageous
+            // to perform one single access check for all necessary permissions rather than one per operation.
+            // Two potential TODOs:
+            // (1) it would also be better to know what the operations are in the bundle as opposed to checking
+            //      for all possible actions. Trouble is, the exact mapping from method + URI is embedded in MVC logic
+            //      and attributes.
+            // (2) One we have the full set of permitted actions, it would be more efficient for the individual
+            //     operations to use an IFhirAuthorizationService that implements CheckAccess based on these known permitted
+            //     actions.
+
+            if (_authorizationService.CheckAccess(FhirActions.All) == FhirActions.None)
             {
                 throw new UnauthorizedFhirActionException();
             }
-
-            // TODO: optimize access checks!
 
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             _bundleType = bundleResource.Type;
@@ -270,7 +277,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownFhirHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
                 if (entry.Request.Method == HTTPVerb.POST ||
-                   entry.Request.Method == HTTPVerb.PUT)
+                    entry.Request.Method == HTTPVerb.PUT)
                 {
                     httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
 

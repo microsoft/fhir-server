@@ -181,6 +181,9 @@
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
   </data>
+  <data name="DuplicateRoleNames" xml:space="preserve">
+    <value>There are {0} roles with the name '{1}'</value>
+  </data>
   <data name="ErrorValidatingRoles" xml:space="preserve">
     <value>Error validating roles:
 {0}</value>

@@ -13,6 +13,9 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
+    /// <summary>
+    /// A <see cref="IFhirAuthorizationService"/> that determines access based on the current principal's role memberships.
+    /// </summary>
     internal class RoleBasedFhirAuthorizationService : IFhirAuthorizationService
     {
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
