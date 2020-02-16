@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        private static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
+        internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
         {
             switch (searchParamType)
             {

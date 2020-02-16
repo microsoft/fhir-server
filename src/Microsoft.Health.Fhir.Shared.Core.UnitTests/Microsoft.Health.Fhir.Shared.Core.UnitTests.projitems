@@ -13,6 +13,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\CompartmentIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\SearchCompartmentHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceBuilderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchConverterForAllSearchTypes.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterFixtureData.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterTypeResult.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Conformance\ProfileReferenceConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultOptionHashSetJsonConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\EnumLiteralJsonConverterTests.cs" />
