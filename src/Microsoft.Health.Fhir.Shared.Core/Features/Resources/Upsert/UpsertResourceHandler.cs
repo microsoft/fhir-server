@@ -39,9 +39,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            FhirActions permittedActions = AuthorizationService.CheckAccess(FhirActions.Write);
+            DataActions permittedDataActions = AuthorizationService.CheckAccess(DataActions.Write);
 
-            if (!permittedActions.HasFlag(FhirActions.Update))
+            if (!permittedDataActions.HasFlag(DataActions.Update))
             {
                 throw new UnauthorizedFhirActionException();
             }
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.TypeName));
             }
 
-            bool principalAllowedToCreate = permittedActions.HasFlag(FhirActions.Create);
+            bool principalAllowedToCreate = permittedDataActions.HasFlag(DataActions.Create);
             bool allowCreate = principalAllowedToCreate && await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 

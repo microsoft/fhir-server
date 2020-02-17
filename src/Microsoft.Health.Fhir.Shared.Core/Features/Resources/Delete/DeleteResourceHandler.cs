@@ -34,8 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            FhirActions requiredAction = message.HardDelete ? FhirActions.HardDelete : FhirActions.Delete;
-            if (AuthorizationService.CheckAccess(requiredAction) != requiredAction)
+            DataActions requiredDataAction = message.HardDelete ? DataActions.HardDelete : DataActions.Delete;
+            if (AuthorizationService.CheckAccess(requiredDataAction) != requiredDataAction)
             {
                 throw new UnauthorizedFhirActionException();
             }

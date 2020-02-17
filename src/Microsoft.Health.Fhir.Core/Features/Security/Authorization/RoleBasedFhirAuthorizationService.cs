@@ -32,24 +32,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             _roles = authorizationConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
         }
 
-        public FhirActions CheckAccess(FhirActions actions)
+        public DataActions CheckAccess(DataActions dataActions)
         {
             ClaimsPrincipal principal = _requestContextAccessor.FhirRequestContext.Principal;
 
-            FhirActions permittedActions = 0;
+            DataActions permittedDataActions = 0;
             foreach (Claim claim in principal.FindAll(_rolesClaimName))
             {
                 if (_roles.TryGetValue(claim.Value, out Role role))
                 {
-                    permittedActions |= role.AllowedActions;
-                    if (permittedActions == actions)
+                    permittedDataActions |= role.AllowedDataActions;
+                    if (permittedDataActions == dataActions)
                     {
                         break;
                     }
                 }
             }
 
-            return actions & permittedActions;
+            return dataActions & permittedDataActions;
         }
     }
 }

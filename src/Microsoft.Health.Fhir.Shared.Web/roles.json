@@ -3,32 +3,32 @@
     "roles": [
         {
             "name": "globalReader",
-            "actions": [
+            "dataActions": [
                 "read",
                 "resourceValidate"
             ],
-            "notActions": [],
+            "notDataActions": [],
             "scopes": [
                 "/"
             ]
         },
         {
             "name": "globalExporter",
-            "actions": [
+            "dataActions": [
                 "read",
                 "export"
             ],
-            "notActions": [],
+            "notDataActions": [],
             "scopes": [
                 "/"
             ]
         },
         {
             "name": "globalWriter",
-            "actions": [
+            "dataActions": [
                 "*"
             ],
-            "notActions": [
+            "notDataActions": [
                 "hardDelete"
             ],
             "scopes": [
@@ -37,10 +37,10 @@
         },
         {
             "name": "globalAdmin",
-            "actions": [
+            "dataActions": [
                 "*"
             ],
-            "notActions": [],
+            "notDataActions": [],
             "scopes": [
                 "/"
             ]

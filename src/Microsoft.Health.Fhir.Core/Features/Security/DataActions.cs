@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     [Flags]
 #pragma warning disable CA1028 // Enum Storage should be Int32
-    public enum FhirActions : ulong
+    public enum DataActions : ulong
 #pragma warning restore CA1028 // Enum Storage should be Int32
     {
         None = 0,

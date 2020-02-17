@@ -2,14 +2,14 @@
 
 The FHIR server uses a role-based access control system. The access control model is based on the following concepts:
 
-- **Actions** refer to specific allowed or disallowed operations that can be performed on a FHIR server's data. Examples include `read`, `write`, and `delete`.
+- **Data Actions** refer to specific allowed or disallowed operations that can be performed on a FHIR server's data. Examples include `read`, `write`, and `delete`.
 - **Role definitions** or simply **roles**, are named collections of actions that are allowed be performed. They apply to a set of **scopes**.
 - **Scopes** define the subset of data to which a role definition applies. Currently, only the root scope (`/`) is supported, which means that role definitions apply to all the data in the FHIR server.
 - **Role assignments** grants a role definition to an identity (user, group, or service principal).
 
-The set of actions that can be part of a role definition are:
+The set of data actions that can be part of a role definition are:
 
-- `*` represents all actions
+- `*` allows all data actions
 - `read` allows reading and searching resources, including reading previous versions of a resource.
 - `create` allows creating resources.
 - `update` allows updating existing resources.
@@ -24,10 +24,10 @@ Roles are defined in the [roles.json](../src/Microsoft.Health.Fhir.Shared.Web/ro
 ``` json
 {
     "name": "globalWriter",
-    "actions": [
+    "dataActions": [
         "*"
     ],
-    "notActions": [
+    "notDataActions": [
         "hardDelete"
     ],
     "scopes": [
@@ -36,6 +36,6 @@ Roles are defined in the [roles.json](../src/Microsoft.Health.Fhir.Shared.Web/ro
 }
 ```
 
-This role allows all actions except `hardDelete`. Note that if a user is part of this role and another role that allows `hardDelete`, they will be allowed to perform the action.
+This role allows all data actions except `hardDelete`. Note that if a user is part of this role and another role that allows `hardDelete`, they will be allowed to perform the action.
 
 Role assignments are done in the identity provider. In Azure Active Directory, you define app roles on the FHIR server's app registration. The app role names must correspond to the names of the roles defined in `roles.json`. Then you assign identities (users, groups, or service principals) to the app roles.

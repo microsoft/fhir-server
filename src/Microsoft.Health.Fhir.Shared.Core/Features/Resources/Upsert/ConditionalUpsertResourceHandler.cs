@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (AuthorizationService.CheckAccess(FhirActions.Read | FhirActions.Write) != (FhirActions.Read | FhirActions.Write))
+            if (AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write) != (DataActions.Read | DataActions.Write))
             {
                 throw new UnauthorizedFhirActionException();
             }

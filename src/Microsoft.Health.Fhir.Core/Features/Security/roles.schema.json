@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "$id": "http://microsoft.com/fhir/roles.schema.json",
     "definitions": {
-        "actions": {
+        "dataActions": {
             "enum": [
                 "*",
                 "read",
@@ -27,8 +27,8 @@
                 "type": "object",
                 "required": [
                     "name",
-                    "actions",
-                    "notActions",
+                    "dataActions",
+                    "notDataActions",
                     "scopes"
                 ],
                 "properties": {
@@ -39,16 +39,16 @@
                         ],
                         "pattern": "^([a-zA-Z-_]+)$"
                     },
-                    "actions": {
+                    "dataActions": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/definitions/actions"
+                            "$ref": "#/definitions/dataActions"
                         }
                     },
-                    "notActions": {
+                    "notDataActions": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/definitions/actions"
+                            "$ref": "#/definitions/dataActions"
                         }
                     },
                     "scopes": {

@@ -12,9 +12,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     {
         public static readonly DisabledFhirAuthorizationService Instance = new DisabledFhirAuthorizationService();
 
-        public FhirActions CheckAccess(FhirActions actions)
+        public DataActions CheckAccess(DataActions dataActions)
         {
-            return actions;
+            return dataActions;
         }
     }
 }

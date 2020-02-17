@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             // an auth service that allows all.
             _authorizationService = Substitute.For<IFhirAuthorizationService>();
-            _authorizationService.CheckAccess(Arg.Any<FhirActions>()).Returns(ci => ci.Arg<FhirActions>());
+            _authorizationService.CheckAccess(Arg.Any<DataActions>()).Returns(ci => ci.Arg<DataActions>());
 
             _resourceIdProvider = new ResourceIdProvider();
             collection.Add(x => _mediator).Singleton().AsSelf();
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 return CreateResourceWrapper(newResource.ToResourceElement(), false);
             }
 
-            _authorizationService.CheckAccess(FhirActions.Write).Returns(FhirActions.Update);
+            _authorizationService.CheckAccess(DataActions.Write).Returns(DataActions.Update);
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), allowCreate: false, true, Arg.Any<CancellationToken>())
                 .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             var resource = Samples.GetDefaultObservation();
 
-            _authorizationService.CheckAccess(FhirActions.Write).Returns(FhirActions.Update);
+            _authorizationService.CheckAccess(DataActions.Write).Returns(DataActions.Update);
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), allowCreate: false, true, Arg.Any<CancellationToken>())
                 .Throws(new MethodNotAllowedException("abc"));

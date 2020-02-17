@@ -66,17 +66,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             {
                 if (grouping.Count() > 1)
                 {
-                    throw new InvalidDefinitionException(string.Format(CultureInfo.CurrentCulture, Resources.DuplicateRoleNames, grouping.Count(), grouping.Key));
+                    throw new InvalidDefinitionException(
+                        string.Format(CultureInfo.CurrentCulture, Resources.DuplicateRoleNames, grouping.Count(), grouping.Key));
                 }
             }
         }
 
         private Role RoleContractToRole(RoleContract roleContract)
         {
-            FhirActions actions = roleContract.Actions.Aggregate(default(FhirActions), (acc, a) => acc | a);
-            FhirActions notActions = roleContract.NotActions.Aggregate(default(FhirActions), (acc, a) => acc | a);
+            DataActions dataActions = roleContract.DataActions.Aggregate(default(DataActions), (acc, a) => acc | a);
+            DataActions notDataActions = roleContract.NotDataActions.Aggregate(default(DataActions), (acc, a) => acc | a);
 
-            return new Role(roleContract.Name, actions & ~notActions);
+            return new Role(roleContract.Name, dataActions & ~notDataActions);
         }
 
         private class RolesContract
@@ -88,9 +89,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         {
             public string Name { get; set; }
 
-            public FhirActions[] Actions { get; set; }
+            public DataActions[] DataActions { get; set; }
 
-            public FhirActions[] NotActions { get; set; }
+            public DataActions[] NotDataActions { get; set; }
 
             public string[] Scopes { get; set; }
         }

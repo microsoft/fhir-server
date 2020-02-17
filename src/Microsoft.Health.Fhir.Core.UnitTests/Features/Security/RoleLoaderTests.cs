@@ -32,8 +32,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                         new
                         {
                             name = string.Empty,
-                            actions = new[] { "*" },
-                            notActions = new[] { "hardDelete" },
+                            dataActions = new[] { "*" },
+                            notDataActions = new[] { "hardDelete" },
                             scopes = new[] { "/" },
                         },
                     },
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                         new
                         {
                             name = "abc",
-                            notActions = new[] { "hardDelete" },
+                            notDataActions = new[] { "hardDelete" },
                             scopes = new[] { "/" },
                         },
                     },
@@ -67,8 +67,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                         new
                         {
                             name = "abc",
-                            actions = new[] { "*" },
-                            notActions = new[] { "abc" },
+                            dataActions = new[] { "*" },
+                            notDataActions = new[] { "abc" },
                             scopes = new[] { "/" },
                         },
                     },
@@ -85,8 +85,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                         new
                         {
                             name = "abc",
-                            actions = new[] { "*" },
-                            notActions = new[] { "hardDelete" },
+                            dataActions = new[] { "*" },
+                            notDataActions = new[] { "hardDelete" },
                         },
                     },
                 },
@@ -102,8 +102,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                         new
                         {
                             name = "abc",
-                            actions = new[] { "*" },
-                            notActions = new[] { "hardDelete" },
+                            dataActions = new[] { "*" },
+                            notDataActions = new[] { "hardDelete" },
                             scopes = new[] { "/a" },
                         },
                     },
@@ -120,8 +120,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                         new
                         {
                             name = "abc",
-                            actions = new[] { "*" },
-                            notActions = new[] { "hardDelete" },
+                            dataActions = new[] { "*" },
+                            notDataActions = new[] { "hardDelete" },
                             scopes = new[] { "/a" },
                         },
                     },
@@ -138,15 +138,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                         new
                         {
                             name = "abc",
-                            actions = new[] { "*" },
-                            notActions = new[] { "hardDelete" },
+                            dataActions = new[] { "*" },
+                            notDataActions = new[] { "hardDelete" },
                             scopes = new[] { "/" },
                         },
                         new
                         {
                             name = "abc",
-                            actions = new[] { "*" },
-                            notActions = new string[] { },
+                            dataActions = new[] { "*" },
+                            notDataActions = new string[] { },
                             scopes = new[] { "/" },
                         },
                     },
@@ -164,8 +164,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                     new
                     {
                         name = "x",
-                        actions = new[] { "*" },
-                        notActions = new[] { "hardDelete" },
+                        dataActions = new[] { "*" },
+                        notDataActions = new[] { "hardDelete" },
                         scopes = new[] { "/" },
                     },
                 },
@@ -175,14 +175,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             Role actualRole = Assert.Single(authConfig.Roles);
             Assert.Equal(roles.roles.First().name, actualRole.Name);
-            Assert.Equal(FhirActions.All & ~FhirActions.HardDelete, actualRole.AllowedActions);
+            Assert.Equal(DataActions.All & ~DataActions.HardDelete, actualRole.AllowedDataActions);
         }
 
         [Fact]
-        public void GivenValidFhirActions_WhenSpecifiedAsRoleActions_AreRecognized()
+        public void GivenValidDataActions_WhenSpecifiedAsRoleActions_AreRecognized()
         {
-            var actionNames = Enum.GetValues(typeof(FhirActions)).Cast<FhirActions>()
-                .Where(a => a != FhirActions.All && a != FhirActions.None);
+            var actionNames = Enum.GetValues(typeof(DataActions)).Cast<DataActions>()
+                .Where(a => a != DataActions.All && a != DataActions.None);
 
             var roles = new
             {
@@ -190,8 +190,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                     new
                     {
                         name = $"role{a}",
-                        actions = new[] { char.ToLower(a.ToString()[0]) + a.ToString().Substring(1) },
-                        notActions = new string[] { },
+                        dataActions = new[] { char.ToLower(a.ToString()[0]) + a.ToString().Substring(1) },
+                        notDataActions = new string[] { },
                         scopes = new[] { "/" },
                     }).ToArray(),
             };
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             AuthorizationConfiguration authConfig = Load(roles);
 
             Assert.All(
-                actionNames.Zip(authConfig.Roles.Select(r => r.AllowedActions)),
+                actionNames.Zip(authConfig.Roles.Select(r => r.AllowedDataActions)),
                 t => Assert.Equal(t.First, t.Second));
         }
 
