@@ -39,9 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            DataActions permittedDataActions = AuthorizationService.CheckAccess(DataActions.Write);
-
-            if (!permittedDataActions.HasFlag(DataActions.Update))
+            if (AuthorizationService.CheckAccess(DataActions.Write) != DataActions.Write)
             {
                 throw new UnauthorizedFhirActionException();
             }
@@ -53,23 +51,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.TypeName));
             }
 
-            bool principalAllowedToCreate = permittedDataActions.HasFlag(DataActions.Create);
-            bool allowCreate = principalAllowedToCreate && await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
+            bool allowCreate = await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
-            try
-            {
-                UpsertOutcome result = await UpsertAsync(message, resourceWrapper, allowCreate, keepHistory, cancellationToken);
 
-                resource.VersionId = result.Wrapper.Version;
+            UpsertOutcome result = await UpsertAsync(message, resourceWrapper, allowCreate, keepHistory, cancellationToken);
 
-                return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), result.OutcomeType));
-            }
-            catch (MethodNotAllowedException) when (!principalAllowedToCreate)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            resource.VersionId = result.Wrapper.Version;
+
+            return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), result.OutcomeType));
         }
     }
 }

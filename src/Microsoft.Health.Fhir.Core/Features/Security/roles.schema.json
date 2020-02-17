@@ -6,8 +6,6 @@
             "enum": [
                 "*",
                 "read",
-                "create",
-                "update",
                 "write",
                 "delete",
                 "hardDelete",

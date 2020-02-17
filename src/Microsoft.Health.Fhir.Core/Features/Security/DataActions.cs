@@ -16,13 +16,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         None = 0,
 
         Read = 1,
-        Create = 1 << 1,
-        Update = 1 << 2,
-        Write = Create | Update,
-        Delete = 1 << 3,
-        HardDelete = 1 << 4,
-        Export = 1 << 5,
-        ResourceValidate = 1 << 6,
+        Write = 1 << 1,
+        Delete = 1 << 2,
+        HardDelete = 1 << 3,
+        Export = 1 << 4,
+        ResourceValidate = 1 << 5,
 
         [EnumMember(Value = "*")]
         All = (ResourceValidate << 1) - 1,

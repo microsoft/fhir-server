@@ -28,7 +28,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -190,42 +189,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenSavingAResourceWithoutCreatePermissions_ThenUpdatingSuceeds()
-        {
-            var resource = Samples.GetDefaultObservation();
-
-            ResourceWrapper CreateWrapper(ResourceWrapper wrapper)
-            {
-                var newResource = Samples.GetDefaultObservation().ToPoco();
-                newResource.Id = wrapper.ResourceId;
-                newResource.VersionId = "version1";
-                return CreateResourceWrapper(newResource.ToResourceElement(), false);
-            }
-
-            _authorizationService.CheckAccess(DataActions.Write).Returns(DataActions.Update);
-
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), allowCreate: false, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
-
-            var outcome = await _mediator.UpsertResourceAsync(resource);
-
-            Assert.Equal("version1", outcome.Resource.VersionId);
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenSavingAResourceWithoutCreatePermissions_ThenCreatingThrowsUnauthorized()
-        {
-            var resource = Samples.GetDefaultObservation();
-
-            _authorizationService.CheckAccess(DataActions.Write).Returns(DataActions.Update);
-
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), allowCreate: false, true, Arg.Any<CancellationToken>())
-                .Throws(new MethodNotAllowedException("abc"));
-
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.UpsertResourceAsync(resource));
-        }
-
-        [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResourceWithoutETagAndETagIsRequired_ThenPreconditionFailExceptionIsThrown()
         {
             _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient).UpdateCreate = false;
@@ -310,8 +273,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenHardDeleting_ThenItWillBeHardDeleted()
+        public async Task GivenAFhirMediator_WhenHardDeletingWithSufficientPermissions_ThenItWillBeHardDeleted()
         {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>()).Returns(DataActions.Delete | DataActions.HardDelete);
+
             ResourceKey resourceKey = new ResourceKey<Observation>("id1");
 
             ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, true)).ResourceKey;
@@ -321,6 +286,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(resultKey);
             Assert.Equal(resourceKey.Id, resultKey.Id);
             Assert.Null(resultKey.VersionId);
+        }
+
+        [Theory]
+        [InlineData(DataActions.Delete)]
+        [InlineData(DataActions.HardDelete)]
+        public async Task GivenAFhirMediator_WhenHardDeletingWithInsufficientPermissions_ThenFails(DataActions permittedActions)
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>()).Returns(permittedActions);
+
+            ResourceKey resourceKey = new ResourceKey<Observation>("id1");
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.DeleteResourceAsync(resourceKey, true));
         }
 
         [Fact]

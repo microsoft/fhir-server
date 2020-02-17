@@ -10,14 +10,12 @@ The FHIR server uses a role-based access control system. The access control mode
 The set of data actions that can be part of a role definition are:
 
 - `*` allows all data actions
-- `read` allows reading and searching resources, including reading previous versions of a resource.
-- `create` allows creating resources.
-- `update` allows updating existing resources.
-- `write` allows both creating and updating resources. It is the same as `create` and `update` together.
-- `delete` allows deleting data but not hard-deleting.
-- `hardDelete` allows hard-deleting data.
-- `export` allows exporting data
-- `resourceValidate` allows calling the [validate resource operation](https://www.hl7.org/fhir/operation-resource-validate.html).
+- `read` is required for reading and searching resources.
+- `write`is required for creating or updating resources.
+- `delete` is required for deleting resources. Hard-deleting requires this in addition to `hardDelete`
+- `hardDelete` is required, in addition to `delete`, for hard-deleting data.
+- `export` is required for exporting data, in addition to `read`
+- `resourceValidate` is required for invoking the [validate resource operation](https://www.hl7.org/fhir/operation-resource-validate.html).
 
 Roles are defined in the [roles.json](../src/Microsoft.Health.Fhir.Shared.Web/roles.json) file. Administrators can customize them if desired. A role definition looks like this:
 

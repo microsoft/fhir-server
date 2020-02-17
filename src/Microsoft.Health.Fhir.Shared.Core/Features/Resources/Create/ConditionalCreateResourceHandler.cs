@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (AuthorizationService.CheckAccess(DataActions.Read | DataActions.Create) != (DataActions.Read | DataActions.Create))
+            if (AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write) != (DataActions.Read | DataActions.Write))
             {
                 throw new UnauthorizedFhirActionException();
             }
