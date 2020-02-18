@@ -163,7 +163,6 @@
       "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
       "DataStore": "CosmosDb",
       "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
-      "FhirServer:Operations:Export:StorageAccountType": "[if(parameters('enableExport'), 'azure-block-blob', 'null')]",
       "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
     },
     "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
