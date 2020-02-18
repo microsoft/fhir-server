@@ -16,11 +16,11 @@
                     "div": "<div>!-- Snipped for Brevity --></div>"
                 },
                 "url": "http://hl7.org/fhir/CompartmentDefinition/patient",
-                "version": "4.0.0",
+                "version": "4.2.0",
                 "name": "Base FHIR compartment definition for Patient",
                 "status": "draft",
                 "experimental": true,
-                "date": "2018-12-27T22:37:54+11:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "FHIR Project Team",
                 "contact": [
                     {
@@ -42,6 +42,9 @@
                     },
                     {
                         "code": "ActivityDefinition"
+                    },
+                    {
+                        "code": "AdministrableProductDefinition"
                     },
                     {
                         "code": "AdverseEvent",
@@ -91,6 +94,9 @@
                         "code": "CapabilityStatement"
                     },
                     {
+                        "code": "CapabilityStatement2"
+                    },
+                    {
                         "code": "CarePlan",
                         "param": [
                             "patient",
@@ -130,6 +136,9 @@
                         "param": [ "subject" ]
                     },
                     {
+                        "code": "ClinicalUseIssue"
+                    },
+                    {
                         "code": "CodeSystem"
                     },
                     {
@@ -144,7 +153,7 @@
                         "code": "CommunicationRequest",
                         "param": [
                             "subject",
-                            "sender",
+                            "information-provider",
                             "recipient",
                             "requester"
                         ]
@@ -169,6 +178,9 @@
                             "patient",
                             "asserter"
                         ]
+                    },
+                    {
+                        "code": "ConditionDefinition"
                     },
                     {
                         "code": "Consent",
@@ -236,9 +248,6 @@
                             "subject",
                             "author"
                         ]
-                    },
-                    {
-                        "code": "EffectEvidenceSynthesis"
                     },
                     {
                         "code": "Encounter",
@@ -322,6 +331,9 @@
                         "code": "ImplementationGuide"
                     },
                     {
+                        "code": "Ingredient"
+                    },
+                    {
                         "code": "InsurancePlan"
                     },
                     {
@@ -349,15 +361,14 @@
                         "code": "Location"
                     },
                     {
+                        "code": "ManufacturedItemDefinition"
+                    },
+                    {
                         "code": "Measure"
                     },
                     {
                         "code": "MeasureReport",
                         "param": [ "patient" ]
-                    },
-                    {
-                        "code": "Media",
-                        "param": [ "subject" ]
                     },
                     {
                         "code": "Medication"
@@ -386,38 +397,11 @@
                         "param": [ "subject" ]
                     },
                     {
-                        "code": "MedicationStatement",
+                        "code": "MedicationUsage",
                         "param": [ "subject" ]
                     },
                     {
-                        "code": "MedicinalProduct"
-                    },
-                    {
-                        "code": "MedicinalProductAuthorization"
-                    },
-                    {
-                        "code": "MedicinalProductContraindication"
-                    },
-                    {
-                        "code": "MedicinalProductIndication"
-                    },
-                    {
-                        "code": "MedicinalProductIngredient"
-                    },
-                    {
-                        "code": "MedicinalProductInteraction"
-                    },
-                    {
-                        "code": "MedicinalProductManufactured"
-                    },
-                    {
-                        "code": "MedicinalProductPackaged"
-                    },
-                    {
-                        "code": "MedicinalProductPharmaceutical"
-                    },
-                    {
-                        "code": "MedicinalProductUndesirableEffect"
+                        "code": "MedicinalProductDefinition"
                     },
                     {
                         "code": "MessageDefinition"
@@ -431,6 +415,13 @@
                     },
                     {
                         "code": "NamingSystem"
+                    },
+                    {
+                        "code": "NutritionIntake",
+                        "param": [
+                            "subject",
+                            "source"
+                        ]
                     },
                     {
                         "code": "NutritionOrder",
@@ -457,6 +448,9 @@
                     },
                     {
                         "code": "OrganizationAffiliation"
+                    },
+                    {
+                        "code": "PackagedProductDefinition"
                     },
                     {
                         "code": "Patient",
@@ -503,6 +497,9 @@
                         ]
                     },
                     {
+                        "code": "RegulatedAuthorization"
+                    },
+                    {
                         "code": "RelatedPerson",
                         "param": [ "patient" ]
                     },
@@ -514,12 +511,6 @@
                         ]
                     },
                     {
-                        "code": "ResearchDefinition"
-                    },
-                    {
-                        "code": "ResearchElementDefinition"
-                    },
-                    {
                         "code": "ResearchStudy"
                     },
                     {
@@ -529,9 +520,6 @@
                     {
                         "code": "RiskAssessment",
                         "param": [ "subject" ]
-                    },
-                    {
-                        "code": "RiskEvidenceSynthesis"
                     },
                     {
                         "code": "Schedule",
@@ -570,6 +558,9 @@
                         "code": "Substance"
                     },
                     {
+                        "code": "SubstanceDefinition"
+                    },
+                    {
                         "code": "SubstanceNucleicAcid"
                     },
                     {
@@ -583,9 +574,6 @@
                     },
                     {
                         "code": "SubstanceSourceMaterial"
-                    },
-                    {
-                        "code": "SubstanceSpecification"
                     },
                     {
                         "code": "SupplyDelivery",
@@ -606,6 +594,9 @@
                     },
                     {
                         "code": "TestScript"
+                    },
+                    {
+                        "code": "Topic"
                     },
                     {
                         "code": "ValueSet"
@@ -630,11 +621,11 @@
                     "div": "<div>!-- Snipped for Brevity --></div>"
                 },
                 "url": "http://hl7.org/fhir/CompartmentDefinition/encounter",
-                "version": "4.0.0",
+                "version": "4.2.0",
                 "name": "Base FHIR compartment definition for Encounter",
                 "status": "draft",
                 "experimental": true,
-                "date": "2018-12-27T22:37:54+11:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "FHIR Project Team",
                 "contact": [
                     {
@@ -655,6 +646,9 @@
                     },
                     {
                         "code": "ActivityDefinition"
+                    },
+                    {
+                        "code": "AdministrableProductDefinition"
                     },
                     {
                         "code": "AdverseEvent"
@@ -690,12 +684,14 @@
                         "code": "CapabilityStatement"
                     },
                     {
+                        "code": "CapabilityStatement2"
+                    },
+                    {
                         "code": "CarePlan",
                         "param": [ "encounter" ]
                     },
                     {
-                        "code": "CareTeam",
-                        "param": [ "encounter" ]
+                        "code": "CareTeam"
                     },
                     {
                         "code": "CatalogEntry"
@@ -717,6 +713,9 @@
                     {
                         "code": "ClinicalImpression",
                         "param": [ "encounter" ]
+                    },
+                    {
+                        "code": "ClinicalUseIssue"
                     },
                     {
                         "code": "CodeSystem"
@@ -742,6 +741,9 @@
                     {
                         "code": "Condition",
                         "param": [ "encounter" ]
+                    },
+                    {
+                        "code": "ConditionDefinition"
                     },
                     {
                         "code": "Consent"
@@ -788,9 +790,6 @@
                     {
                         "code": "DocumentReference",
                         "param": [ "encounter" ]
-                    },
-                    {
-                        "code": "EffectEvidenceSynthesis"
                     },
                     {
                         "code": "Encounter",
@@ -861,6 +860,9 @@
                         "code": "ImplementationGuide"
                     },
                     {
+                        "code": "Ingredient"
+                    },
+                    {
                         "code": "InsurancePlan"
                     },
                     {
@@ -879,24 +881,24 @@
                         "code": "Location"
                     },
                     {
+                        "code": "ManufacturedItemDefinition"
+                    },
+                    {
                         "code": "Measure"
                     },
                     {
                         "code": "MeasureReport"
                     },
                     {
-                        "code": "Media",
-                        "param": [ "encounter" ]
-                    },
-                    {
                         "code": "Medication"
                     },
                     {
                         "code": "MedicationAdministration",
-                        "param": [ "context" ]
+                        "param": [ "encounter" ]
                     },
                     {
-                        "code": "MedicationDispense"
+                        "code": "MedicationDispense",
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "MedicationKnowledge"
@@ -906,37 +908,11 @@
                         "param": [ "encounter" ]
                     },
                     {
-                        "code": "MedicationStatement"
+                        "code": "MedicationUsage",
+                        "param": [ "encounter" ]
                     },
                     {
-                        "code": "MedicinalProduct"
-                    },
-                    {
-                        "code": "MedicinalProductAuthorization"
-                    },
-                    {
-                        "code": "MedicinalProductContraindication"
-                    },
-                    {
-                        "code": "MedicinalProductIndication"
-                    },
-                    {
-                        "code": "MedicinalProductIngredient"
-                    },
-                    {
-                        "code": "MedicinalProductInteraction"
-                    },
-                    {
-                        "code": "MedicinalProductManufactured"
-                    },
-                    {
-                        "code": "MedicinalProductPackaged"
-                    },
-                    {
-                        "code": "MedicinalProductPharmaceutical"
-                    },
-                    {
-                        "code": "MedicinalProductUndesirableEffect"
+                        "code": "MedicinalProductDefinition"
                     },
                     {
                         "code": "MessageDefinition"
@@ -949,6 +925,10 @@
                     },
                     {
                         "code": "NamingSystem"
+                    },
+                    {
+                        "code": "NutritionIntake",
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "NutritionOrder",
@@ -972,6 +952,9 @@
                     },
                     {
                         "code": "OrganizationAffiliation"
+                    },
+                    {
+                        "code": "PackagedProductDefinition"
                     },
                     {
                         "code": "Patient"
@@ -1009,17 +992,14 @@
                         "param": [ "encounter" ]
                     },
                     {
+                        "code": "RegulatedAuthorization"
+                    },
+                    {
                         "code": "RelatedPerson"
                     },
                     {
                         "code": "RequestGroup",
                         "param": [ "encounter" ]
-                    },
-                    {
-                        "code": "ResearchDefinition"
-                    },
-                    {
-                        "code": "ResearchElementDefinition"
                     },
                     {
                         "code": "ResearchStudy"
@@ -1029,9 +1009,6 @@
                     },
                     {
                         "code": "RiskAssessment"
-                    },
-                    {
-                        "code": "RiskEvidenceSynthesis"
                     },
                     {
                         "code": "Schedule"
@@ -1065,6 +1042,9 @@
                         "code": "Substance"
                     },
                     {
+                        "code": "SubstanceDefinition"
+                    },
+                    {
                         "code": "SubstanceNucleicAcid"
                     },
                     {
@@ -1078,9 +1058,6 @@
                     },
                     {
                         "code": "SubstanceSourceMaterial"
-                    },
-                    {
-                        "code": "SubstanceSpecification"
                     },
                     {
                         "code": "SupplyDelivery"
@@ -1099,6 +1076,9 @@
                     },
                     {
                         "code": "TestScript"
+                    },
+                    {
+                        "code": "Topic"
                     },
                     {
                         "code": "ValueSet"
@@ -1123,11 +1103,11 @@
                     "div": "<div>!-- Snipped for Brevity --></div>"
                 },
                 "url": "http://hl7.org/fhir/CompartmentDefinition/relatedPerson",
-                "version": "4.0.0",
+                "version": "4.2.0",
                 "name": "Base FHIR compartment definition for RelatedPerson",
                 "status": "draft",
                 "experimental": true,
-                "date": "2018-12-27T22:37:54+11:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "FHIR Project Team",
                 "contact": [
                     {
@@ -1148,6 +1128,9 @@
                     },
                     {
                         "code": "ActivityDefinition"
+                    },
+                    {
+                        "code": "AdministrableProductDefinition"
                     },
                     {
                         "code": "AdverseEvent",
@@ -1188,6 +1171,9 @@
                         "code": "CapabilityStatement"
                     },
                     {
+                        "code": "CapabilityStatement2"
+                    },
+                    {
                         "code": "CarePlan",
                         "param": [ "performer" ]
                     },
@@ -1219,6 +1205,9 @@
                         "code": "ClinicalImpression"
                     },
                     {
+                        "code": "ClinicalUseIssue"
+                    },
+                    {
                         "code": "CodeSystem"
                     },
                     {
@@ -1231,7 +1220,7 @@
                     {
                         "code": "CommunicationRequest",
                         "param": [
-                            "sender",
+                            "information-provider",
                             "recipient",
                             "requester"
                         ]
@@ -1249,6 +1238,9 @@
                     {
                         "code": "Condition",
                         "param": [ "asserter" ]
+                    },
+                    {
+                        "code": "ConditionDefinition"
                     },
                     {
                         "code": "Consent"
@@ -1303,9 +1295,6 @@
                         "param": [ "author" ]
                     },
                     {
-                        "code": "EffectEvidenceSynthesis"
-                    },
-                    {
                         "code": "Encounter",
                         "param": [ "participant" ]
                     },
@@ -1374,6 +1363,9 @@
                         "code": "ImplementationGuide"
                     },
                     {
+                        "code": "Ingredient"
+                    },
+                    {
                         "code": "InsurancePlan"
                     },
                     {
@@ -1393,13 +1385,13 @@
                         "code": "Location"
                     },
                     {
+                        "code": "ManufacturedItemDefinition"
+                    },
+                    {
                         "code": "Measure"
                     },
                     {
                         "code": "MeasureReport"
-                    },
-                    {
-                        "code": "Media"
                     },
                     {
                         "code": "Medication"
@@ -1418,38 +1410,11 @@
                         "code": "MedicationRequest"
                     },
                     {
-                        "code": "MedicationStatement",
+                        "code": "MedicationUsage",
                         "param": [ "source" ]
                     },
                     {
-                        "code": "MedicinalProduct"
-                    },
-                    {
-                        "code": "MedicinalProductAuthorization"
-                    },
-                    {
-                        "code": "MedicinalProductContraindication"
-                    },
-                    {
-                        "code": "MedicinalProductIndication"
-                    },
-                    {
-                        "code": "MedicinalProductIngredient"
-                    },
-                    {
-                        "code": "MedicinalProductInteraction"
-                    },
-                    {
-                        "code": "MedicinalProductManufactured"
-                    },
-                    {
-                        "code": "MedicinalProductPackaged"
-                    },
-                    {
-                        "code": "MedicinalProductPharmaceutical"
-                    },
-                    {
-                        "code": "MedicinalProductUndesirableEffect"
+                        "code": "MedicinalProductDefinition"
                     },
                     {
                         "code": "MessageDefinition"
@@ -1462,6 +1427,10 @@
                     },
                     {
                         "code": "NamingSystem"
+                    },
+                    {
+                        "code": "NutritionIntake",
+                        "param": [ "source" ]
                     },
                     {
                         "code": "NutritionOrder"
@@ -1484,6 +1453,9 @@
                     },
                     {
                         "code": "OrganizationAffiliation"
+                    },
+                    {
+                        "code": "PackagedProductDefinition"
                     },
                     {
                         "code": "Patient",
@@ -1527,18 +1499,15 @@
                         ]
                     },
                     {
+                        "code": "RegulatedAuthorization"
+                    },
+                    {
                         "code": "RelatedPerson",
                         "param": [ "{def}" ]
                     },
                     {
                         "code": "RequestGroup",
                         "param": [ "participant" ]
-                    },
-                    {
-                        "code": "ResearchDefinition"
-                    },
-                    {
-                        "code": "ResearchElementDefinition"
                     },
                     {
                         "code": "ResearchStudy"
@@ -1548,9 +1517,6 @@
                     },
                     {
                         "code": "RiskAssessment"
-                    },
-                    {
-                        "code": "RiskEvidenceSynthesis"
                     },
                     {
                         "code": "Schedule",
@@ -1585,6 +1551,9 @@
                         "code": "Substance"
                     },
                     {
+                        "code": "SubstanceDefinition"
+                    },
+                    {
                         "code": "SubstanceNucleicAcid"
                     },
                     {
@@ -1598,9 +1567,6 @@
                     },
                     {
                         "code": "SubstanceSourceMaterial"
-                    },
-                    {
-                        "code": "SubstanceSpecification"
                     },
                     {
                         "code": "SupplyDelivery"
@@ -1620,6 +1586,9 @@
                     },
                     {
                         "code": "TestScript"
+                    },
+                    {
+                        "code": "Topic"
                     },
                     {
                         "code": "ValueSet"
@@ -1643,11 +1612,11 @@
                     "div": "<div>!-- Snipped for Brevity --></div>"
                 },
                 "url": "http://hl7.org/fhir/CompartmentDefinition/practitioner",
-                "version": "4.0.0",
+                "version": "4.2.0",
                 "name": "Base FHIR compartment definition for Practitioner",
                 "status": "draft",
                 "experimental": true,
-                "date": "2018-12-27T22:37:54+11:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "FHIR Project Team",
                 "contact": [
                     {
@@ -1669,6 +1638,9 @@
                     },
                     {
                         "code": "ActivityDefinition"
+                    },
+                    {
+                        "code": "AdministrableProductDefinition"
                     },
                     {
                         "code": "AdverseEvent",
@@ -1713,6 +1685,9 @@
                         "code": "CapabilityStatement"
                     },
                     {
+                        "code": "CapabilityStatement2"
+                    },
+                    {
                         "code": "CarePlan",
                         "param": [ "performer" ]
                     },
@@ -1748,7 +1723,10 @@
                     },
                     {
                         "code": "ClinicalImpression",
-                        "param": [ "assessor" ]
+                        "param": [ "performer" ]
+                    },
+                    {
+                        "code": "ClinicalUseIssue"
                     },
                     {
                         "code": "CodeSystem"
@@ -1763,7 +1741,7 @@
                     {
                         "code": "CommunicationRequest",
                         "param": [
-                            "sender",
+                            "information-provider",
                             "recipient",
                             "requester"
                         ]
@@ -1785,6 +1763,9 @@
                     {
                         "code": "Condition",
                         "param": [ "asserter" ]
+                    },
+                    {
+                        "code": "ConditionDefinition"
                     },
                     {
                         "code": "Consent"
@@ -1848,9 +1829,6 @@
                             "author",
                             "authenticator"
                         ]
-                    },
-                    {
-                        "code": "EffectEvidenceSynthesis"
                     },
                     {
                         "code": "Encounter",
@@ -1933,6 +1911,9 @@
                         "code": "ImplementationGuide"
                     },
                     {
+                        "code": "Ingredient"
+                    },
+                    {
                         "code": "InsurancePlan"
                     },
                     {
@@ -1954,17 +1935,13 @@
                         "code": "Location"
                     },
                     {
+                        "code": "ManufacturedItemDefinition"
+                    },
+                    {
                         "code": "Measure"
                     },
                     {
                         "code": "MeasureReport"
-                    },
-                    {
-                        "code": "Media",
-                        "param": [
-                            "subject",
-                            "operator"
-                        ]
                     },
                     {
                         "code": "Medication"
@@ -1988,38 +1965,11 @@
                         "param": [ "requester" ]
                     },
                     {
-                        "code": "MedicationStatement",
+                        "code": "MedicationUsage",
                         "param": [ "source" ]
                     },
                     {
-                        "code": "MedicinalProduct"
-                    },
-                    {
-                        "code": "MedicinalProductAuthorization"
-                    },
-                    {
-                        "code": "MedicinalProductContraindication"
-                    },
-                    {
-                        "code": "MedicinalProductIndication"
-                    },
-                    {
-                        "code": "MedicinalProductIngredient"
-                    },
-                    {
-                        "code": "MedicinalProductInteraction"
-                    },
-                    {
-                        "code": "MedicinalProductManufactured"
-                    },
-                    {
-                        "code": "MedicinalProductPackaged"
-                    },
-                    {
-                        "code": "MedicinalProductPharmaceutical"
-                    },
-                    {
-                        "code": "MedicinalProductUndesirableEffect"
+                        "code": "MedicinalProductDefinition"
                     },
                     {
                         "code": "MessageDefinition"
@@ -2038,6 +1988,10 @@
                     },
                     {
                         "code": "NamingSystem"
+                    },
+                    {
+                        "code": "NutritionIntake",
+                        "param": [ "source" ]
                     },
                     {
                         "code": "NutritionOrder",
@@ -2061,6 +2015,9 @@
                     },
                     {
                         "code": "OrganizationAffiliation"
+                    },
+                    {
+                        "code": "PackagedProductDefinition"
                     },
                     {
                         "code": "Patient",
@@ -2108,6 +2065,9 @@
                         ]
                     },
                     {
+                        "code": "RegulatedAuthorization"
+                    },
+                    {
                         "code": "RelatedPerson"
                     },
                     {
@@ -2116,12 +2076,6 @@
                             "participant",
                             "author"
                         ]
-                    },
-                    {
-                        "code": "ResearchDefinition"
-                    },
-                    {
-                        "code": "ResearchElementDefinition"
                     },
                     {
                         "code": "ResearchStudy",
@@ -2133,9 +2087,6 @@
                     {
                         "code": "RiskAssessment",
                         "param": [ "performer" ]
-                    },
-                    {
-                        "code": "RiskEvidenceSynthesis"
                     },
                     {
                         "code": "Schedule",
@@ -2174,6 +2125,9 @@
                         "code": "Substance"
                     },
                     {
+                        "code": "SubstanceDefinition"
+                    },
+                    {
                         "code": "SubstanceNucleicAcid"
                     },
                     {
@@ -2187,9 +2141,6 @@
                     },
                     {
                         "code": "SubstanceSourceMaterial"
-                    },
-                    {
-                        "code": "SubstanceSpecification"
                     },
                     {
                         "code": "SupplyDelivery",
@@ -2215,6 +2166,9 @@
                         "code": "TestScript"
                     },
                     {
+                        "code": "Topic"
+                    },
+                    {
                         "code": "ValueSet"
                     },
                     {
@@ -2237,11 +2191,11 @@
                     "div": "<div>!-- Snipped for Brevity --></div>"
                 },
                 "url": "http://hl7.org/fhir/CompartmentDefinition/device",
-                "version": "4.0.0",
+                "version": "4.2.0",
                 "name": "Base FHIR compartment definition for Device",
                 "status": "draft",
                 "experimental": true,
-                "date": "2018-12-27T22:37:54+11:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "FHIR Project Team",
                 "contact": [
                     {
@@ -2263,6 +2217,9 @@
                     },
                     {
                         "code": "ActivityDefinition"
+                    },
+                    {
+                        "code": "AdministrableProductDefinition"
                     },
                     {
                         "code": "AdverseEvent"
@@ -2301,6 +2258,9 @@
                         "code": "CapabilityStatement"
                     },
                     {
+                        "code": "CapabilityStatement2"
+                    },
+                    {
                         "code": "CarePlan"
                     },
                     {
@@ -2335,6 +2295,9 @@
                         "code": "ClinicalImpression"
                     },
                     {
+                        "code": "ClinicalUseIssue"
+                    },
+                    {
                         "code": "CodeSystem"
                     },
                     {
@@ -2347,7 +2310,7 @@
                     {
                         "code": "CommunicationRequest",
                         "param": [
-                            "sender",
+                            "information-provider",
                             "recipient"
                         ]
                     },
@@ -2363,6 +2326,9 @@
                     },
                     {
                         "code": "Condition"
+                    },
+                    {
+                        "code": "ConditionDefinition"
                     },
                     {
                         "code": "Consent"
@@ -2422,9 +2388,6 @@
                             "subject",
                             "author"
                         ]
-                    },
-                    {
-                        "code": "EffectEvidenceSynthesis"
                     },
                     {
                         "code": "Encounter"
@@ -2501,6 +2464,9 @@
                         "code": "ImplementationGuide"
                     },
                     {
+                        "code": "Ingredient"
+                    },
+                    {
                         "code": "InsurancePlan"
                     },
                     {
@@ -2524,14 +2490,13 @@
                         "code": "Location"
                     },
                     {
+                        "code": "ManufacturedItemDefinition"
+                    },
+                    {
                         "code": "Measure"
                     },
                     {
                         "code": "MeasureReport"
-                    },
-                    {
-                        "code": "Media",
-                        "param": [ "subject" ]
                     },
                     {
                         "code": "Medication"
@@ -2550,37 +2515,10 @@
                         "code": "MedicationRequest"
                     },
                     {
-                        "code": "MedicationStatement"
+                        "code": "MedicationUsage"
                     },
                     {
-                        "code": "MedicinalProduct"
-                    },
-                    {
-                        "code": "MedicinalProductAuthorization"
-                    },
-                    {
-                        "code": "MedicinalProductContraindication"
-                    },
-                    {
-                        "code": "MedicinalProductIndication"
-                    },
-                    {
-                        "code": "MedicinalProductIngredient"
-                    },
-                    {
-                        "code": "MedicinalProductInteraction"
-                    },
-                    {
-                        "code": "MedicinalProductManufactured"
-                    },
-                    {
-                        "code": "MedicinalProductPackaged"
-                    },
-                    {
-                        "code": "MedicinalProductPharmaceutical"
-                    },
-                    {
-                        "code": "MedicinalProductUndesirableEffect"
+                        "code": "MedicinalProductDefinition"
                     },
                     {
                         "code": "MessageDefinition"
@@ -2594,6 +2532,9 @@
                     },
                     {
                         "code": "NamingSystem"
+                    },
+                    {
+                        "code": "NutritionIntake"
                     },
                     {
                         "code": "NutritionOrder"
@@ -2619,6 +2560,9 @@
                     },
                     {
                         "code": "OrganizationAffiliation"
+                    },
+                    {
+                        "code": "PackagedProductDefinition"
                     },
                     {
                         "code": "Patient"
@@ -2656,17 +2600,14 @@
                         "param": [ "author" ]
                     },
                     {
+                        "code": "RegulatedAuthorization"
+                    },
+                    {
                         "code": "RelatedPerson"
                     },
                     {
                         "code": "RequestGroup",
                         "param": [ "author" ]
-                    },
-                    {
-                        "code": "ResearchDefinition"
-                    },
-                    {
-                        "code": "ResearchElementDefinition"
                     },
                     {
                         "code": "ResearchStudy"
@@ -2677,9 +2618,6 @@
                     {
                         "code": "RiskAssessment",
                         "param": [ "performer" ]
-                    },
-                    {
-                        "code": "RiskEvidenceSynthesis"
                     },
                     {
                         "code": "Schedule",
@@ -2718,6 +2656,9 @@
                         "code": "Substance"
                     },
                     {
+                        "code": "SubstanceDefinition"
+                    },
+                    {
                         "code": "SubstanceNucleicAcid"
                     },
                     {
@@ -2731,9 +2672,6 @@
                     },
                     {
                         "code": "SubstanceSourceMaterial"
-                    },
-                    {
-                        "code": "SubstanceSpecification"
                     },
                     {
                         "code": "SupplyDelivery"
@@ -2753,6 +2691,9 @@
                     },
                     {
                         "code": "TestScript"
+                    },
+                    {
+                        "code": "Topic"
                     },
                     {
                         "code": "ValueSet"
