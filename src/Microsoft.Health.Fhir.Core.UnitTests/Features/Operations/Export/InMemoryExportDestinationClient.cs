@@ -10,16 +10,15 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class InMemoryExportDestinationClient : IExportDestinationClient
     {
         private Dictionary<Uri, StringBuilder> _exportedData = new Dictionary<Uri, StringBuilder>();
         private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
-
-        public string DestinationType => "in-memory";
 
         public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
         {

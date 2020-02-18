@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,7 +43,18 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 throw new ExportClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
+            CloudBlobClient blobClient = null;
+            try
+            {
+                blobClient = cloudAccount.CreateCloudBlobClient();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create a Cloud Blob Client");
+
+                throw new ExportClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
+            }
+
             return Task.FromResult(blobClient);
         }
     }

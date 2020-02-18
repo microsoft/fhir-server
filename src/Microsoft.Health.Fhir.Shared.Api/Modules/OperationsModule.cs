@@ -3,12 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -20,18 +18,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
-
-            services.Add<ExportDestinationClientFactory>()
-                .Singleton()
-                .AsService<IExportDestinationClientFactory>();
-
-            services.Add<InMemoryExportDestinationClient>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<InMemoryExportDestinationClient>())
-                .Transient()
-                .AsSelf();
 
             services.Add<ExportJobTask>()
                 .Transient()

@@ -33,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private ExportJobRecord _exportJobRecord;
-        private IExportDestinationClientFactory _exportDestinationClientFactory = Substitute.For<IExportDestinationClientFactory>();
         private InMemoryExportDestinationClient _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
@@ -63,20 +62,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 return _lastExportJobOutcome;
             });
 
-            _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Is("in-memory")).Returns(true);
-            _exportDestinationClientFactory.Create("in-memory").Returns(_inMemoryDestinationClient);
-
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
-
-            // Setup export job configuration correctly
-            _exportJobConfiguration.StorageAccountType = "in-memory";
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
-                _exportDestinationClientFactory,
+                _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -304,14 +297,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             mockExportDestinationClient.ConnectAsync(Arg.Any<CancellationToken>(), Arg.Any<string>())
                 .Returns<Task>(x => throw new DestinationConnectionException(connectionFailure, HttpStatusCode.BadRequest));
 
-            _exportDestinationClientFactory.Create("in-memory").Returns(mockExportDestinationClient);
-
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
-                _exportDestinationClientFactory,
+                mockExportDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -319,40 +310,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [InlineData("")]
-        [InlineData("  ")]
-        [InlineData(null)]
-        [Theory]
-        public async Task GivenNullOrEmptyDestinationType_WhenExecuteAsync_ThenJobStatusShouldBeUpdatedToFailed(string destinationType)
-        {
-            _exportJobConfiguration.StorageAccountType = destinationType;
-            string expectedFailureMessage = $"The destination type '{destinationType}' is not supported.";
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Contains(expectedFailureMessage, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenUnsupportedDestinationType_WhenExecuteAsync_ThenJobStatusShouldBeUpdatedToFailed()
-        {
-            string unsupportedDestinationType = "unsupported";
-            _exportJobConfiguration.StorageAccountType = unsupportedDestinationType;
-            string expectedFailureMessage = $"The destination type '{unsupportedDestinationType}' is not supported.";
-
-            _exportDestinationClientFactory.IsSupportedDestinationType(Arg.Is(unsupportedDestinationType)).Returns(false);
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Contains(expectedFailureMessage, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
@@ -410,13 +367,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // and resuming the export process. The export destination client contains data that has
             // been committed up until the "crash".
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
-            _exportDestinationClientFactory.Create("in-memory").Returns(_inMemoryDestinationClient);
+
             var secondExportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
-                _exportDestinationClientFactory,
+                _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;

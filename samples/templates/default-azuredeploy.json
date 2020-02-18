@@ -148,7 +148,7 @@
     "msdeployPackageUrlToUse": "[if(empty(parameters('msdeployPackageUrl')),variables('defaultMsdeployPackageUrl'),parameters('msdeployPackageUrl'))]",
     "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
     "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
-    "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+    "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
     "blobStorageUri" : "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
     "staticFhirServerConfigProperties": {
       "APPINSIGHTS_PORTALINFO": "ASP.NETCORE",
@@ -367,7 +367,7 @@
                 "[variables('serviceName')]"
             ],
             "properties": {
-                "roleDefinitionId": "[variables('roleDefinitionId')]",
+                "roleDefinitionId": "[variables('storageBlobDataContributerRoleId')]",
                 "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]"
             }
         }

@@ -3,11 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -26,11 +24,7 @@ namespace Microsoft.Health.Fhir.Azure
 
             fhirServerBuilder.Services.Add<AzureExportDestinationClient>()
                 .Transient()
-                .AsSelf();
-
-            fhirServerBuilder.Services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<AzureExportDestinationClient>())
-                .Transient()
-                .AsSelf();
+                .AsService<IExportDestinationClient>();
 
             return fhirServerBuilder;
         }

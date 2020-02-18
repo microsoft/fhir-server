@@ -835,15 +835,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The destination type &apos;{0}&apos; is not supported..
-        /// </summary>
-        internal static string UnsupportedDestinationType {
-            get {
-                return ResourceManager.GetString("UnsupportedDestinationType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The requested &quot;_total&quot; parameter is not supported..
         /// </summary>
         internal static string UnsupportedTotalParameter {

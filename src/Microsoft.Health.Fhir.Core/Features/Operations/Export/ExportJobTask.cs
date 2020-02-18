@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
-        private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
+        private readonly IExportDestinationClient _exportDestinationClient;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -37,28 +37,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
-        private IExportDestinationClient _exportDestinationClient;
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
-            IExportDestinationClientFactory exportDestinationClientFactory,
+            IExportDestinationClient exportDestinationClient,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
-            EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
+            EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
-            _exportDestinationClientFactory = exportDestinationClientFactory;
+            _exportDestinationClient = exportDestinationClient;
             _logger = logger;
         }
 
@@ -73,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             try
             {
                 // Connect to export destination using appropriate client.
-                await GetDestinationClientAndConnectAsync(cancellationToken);
+                await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -186,20 +185,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
             }
-        }
-
-        // Create appropriate export client and connect to destination.
-        private async Task GetDestinationClientAndConnectAsync(CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrWhiteSpace(_exportJobConfiguration.StorageAccountType) ||
-                !_exportDestinationClientFactory.IsSupportedDestinationType(_exportJobConfiguration.StorageAccountType))
-            {
-                throw new DestinationConnectionException(string.Format(Resources.UnsupportedDestinationType, _exportJobConfiguration.StorageAccountType), HttpStatusCode.BadRequest);
-            }
-
-            _exportDestinationClient = _exportDestinationClientFactory.Create(_exportJobConfiguration.StorageAccountType);
-
-            await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
         }
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)

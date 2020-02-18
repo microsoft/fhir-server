@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -14,11 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Determines whether export is enabled or not.
         /// </summary>
         public bool Enabled { get; set; }
-
-        /// <summary>
-        /// Determines the type of the storage account that will be used to export data to.
-        /// </summary>
-        public string StorageAccountType { get; set; }
 
         /// <summary>
         /// Determines the storage account connection that will be used to export data to.
@@ -39,11 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);
 
         public TimeSpan JobPollingFrequency { get; set; } = TimeSpan.FromSeconds(10);
-
-        /// <summary>
-        /// List of destinations that are supported for export operation.
-        /// </summary>
-        public HashSet<string> SupportedDestinations { get; } = new HashSet<string>(StringComparer.Ordinal);
 
         /// <summary>
         /// Controls how many resources will be returned for each search query while exporting the data.

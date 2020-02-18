@@ -41,8 +41,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _logger = logger;
         }
 
-        public string DestinationType => "azure-block-blob";
-
         public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
         {
             try

@@ -16,11 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
     public interface IExportDestinationClient
     {
         /// <summary>
-        /// Gets the supported destination type.
-        /// </summary>
-        string DestinationType { get; }
-
-        /// <summary>
         /// Connects to the destination.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
