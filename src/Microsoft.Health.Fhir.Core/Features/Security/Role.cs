@@ -9,16 +9,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class Role
     {
-        public Role(string name, DataActions allowedDataActions)
+        public Role(string name, DataActions allowedDataActions, string scope)
         {
             EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+            EnsureArg.Is(scope, "/", nameof(scope)); // until we support data slices
 
             Name = name;
             AllowedDataActions = allowedDataActions;
+            Scope = scope;
         }
 
         public string Name { get; }
 
         public DataActions AllowedDataActions { get; }
+
+        public string Scope { get; }
     }
 }

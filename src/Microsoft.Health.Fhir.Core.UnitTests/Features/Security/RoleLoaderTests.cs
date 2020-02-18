@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             yield return new object[]
             {
-                "scope not /",
+                "scope not single /",
                 new
                 {
                     roles = new[]
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                             name = "abc",
                             dataActions = new[] { "*" },
                             notDataActions = new[] { "hardDelete" },
-                            scopes = new[] { "/a" },
+                            scopes = new[] { "/", "/" },
                         },
                     },
                 },
