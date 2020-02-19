@@ -21,10 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string Count = "_count";
 
-        public const string DestinationConnectionSettings = "_destinationConnectionSettings";
-
-        public const string DestinationType = "_destinationType";
-
         /// <summary>
         /// The format query parameter.
         /// </summary>

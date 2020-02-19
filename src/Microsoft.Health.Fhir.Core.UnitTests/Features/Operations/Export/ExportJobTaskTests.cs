@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -34,11 +33,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private ExportJobRecord _exportJobRecord;
-        private IExportDestinationClientFactory _exportDestinationClientFactory = Substitute.For<IExportDestinationClientFactory>();
         private InMemoryExportDestinationClient _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-        private readonly ISecretStore _secretStore = Substitute.For<ISecretStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
@@ -65,19 +62,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 return _lastExportJobOutcome;
             });
 
-            _secretStore.GetSecretAsync(Arg.Any<string>(), _cancellationToken).Returns(x => new SecretWrapper(x.ArgAt<string>(0), "{\"destinationType\": \"in-memory\"}"));
-
-            _exportDestinationClientFactory.Create("in-memory").Returns(_inMemoryDestinationClient);
-
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
-                _secretStore,
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
-                _exportDestinationClientFactory,
+                _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -297,62 +289,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenDeleteSecretFailed_WhenExecuted_ThenJobStatusShouldBeUpdatedToCompleted()
-        {
-            _searchService.SearchAsync(
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
-                .Returns(CreateSearchResult());
-
-            _secretStore.DeleteSecretAsync(Arg.Any<string>(), _cancellationToken)
-                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.DeleteSecretError, innerException: null, statusCode: HttpStatusCode.InternalServerError));
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Null(_lastExportJobOutcome.JobRecord.FailureDetails);
-        }
-
-        [Fact]
-        public async Task GivenGetSecretFailed_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
-        {
-            _searchService.SearchAsync(
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
-                .Returns(CreateSearchResult());
-
-            _secretStore.GetSecretAsync(Arg.Any<string>(), _cancellationToken)
-                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.GetSecretError, innerException: null, statusCode: HttpStatusCode.InternalServerError));
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(SecretStoreErrors.GetSecretError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
         public async Task GivenConnectingToDestinationFails_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
             // Setup export destination client.
             string connectionFailure = "failedToConnectToDestination";
             IExportDestinationClient mockExportDestinationClient = Substitute.For<IExportDestinationClient>();
-            mockExportDestinationClient.ConnectAsync(Arg.Any<string>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
+            mockExportDestinationClient.ConnectAsync(Arg.Any<CancellationToken>(), Arg.Any<string>())
                 .Returns<Task>(x => throw new DestinationConnectionException(connectionFailure, HttpStatusCode.BadRequest));
-
-            _exportDestinationClientFactory.Create("in-memory").Returns(mockExportDestinationClient);
 
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
-                _secretStore,
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
-                _exportDestinationClientFactory,
+                mockExportDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -417,14 +367,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // and resuming the export process. The export destination client contains data that has
             // been committed up until the "crash".
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
-            _exportDestinationClientFactory.Create("in-memory").Returns(_inMemoryDestinationClient);
+
             var secondExportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
-                _secretStore,
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
-                _exportDestinationClientFactory,
+                _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;

@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -74,16 +73,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Export)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> Export(
-            [FromQuery(Name = KnownQueryParameterNames.DestinationType)] string destinationType,
-            [FromQuery(Name = KnownQueryParameterNames.DestinationConnectionSettings)] string destinationConnectionString)
+        public async Task<IActionResult> Export()
         {
             if (!_exportConfig.Enabled)
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
             }
 
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, destinationType, destinationConnectionString, HttpContext.RequestAborted);
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
