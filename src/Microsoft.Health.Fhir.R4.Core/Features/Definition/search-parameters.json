@@ -181,48 +181,6 @@
     }
   },
   {
-    "fullUrl" : "http://hl7.org/fhir/SearchParameter/Resource-profile",
-    "resource" : {
-      "resourceType" : "SearchParameter",
-      "id" : "Resource-profile",
-      "extension" : [{
-        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-        "valueCode" : "trial-use"
-      }],
-      "url" : "http://hl7.org/fhir/SearchParameter/Resource-profile",
-      "version" : "4.0.0",
-      "name" : "_profile",
-      "status" : "draft",
-      "experimental" : false,
-      "date" : "2018-12-27T22:37:54+11:00",
-      "publisher" : "Health Level Seven International (FHIR Infrastructure)",
-      "contact" : [{
-        "telecom" : [{
-          "system" : "url",
-          "value" : "http://hl7.org/fhir"
-        }]
-      },
-      {
-        "telecom" : [{
-          "system" : "url",
-          "value" : "http://www.hl7.org/Special/committees/fiwg/index.cfm"
-        }]
-      }],
-      "description" : "Profiles this resource claims to conform to",
-      "code" : "_profile",
-      "base" : ["Resource"],
-      "type" : "reference",
-      "expression" : "Resource.meta.profile",
-      "xpath" : "f:Resource/f:meta/f:profile",
-      "xpathUsage" : "normal",
-      "multipleOr" : true,
-      "multipleAnd" : true,
-      "modifier" : ["missing",
-      "type",
-      "identifier"]
-    }
-  },
-  {
     "fullUrl" : "http://hl7.org/fhir/SearchParameter/Resource-query",
     "resource" : {
       "resourceType" : "SearchParameter",
