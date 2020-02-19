@@ -388,10 +388,6 @@
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>
   </data>
-  <data name="UnsupportedDestinationTypeMessage" xml:space="preserve">
-    <value>The destination type '{0}' is not supported.</value>
-    <comment>{0} is the destination type (E.g., azure-blob).</comment>
-  </data>
   <data name="UnsupportedTotalParameter" xml:space="preserve">
     <value>The requested "_total" parameter is not supported.</value>
   </data>

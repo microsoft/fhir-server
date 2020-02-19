@@ -3,25 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
-using Microsoft.Azure.KeyVault;
-using Microsoft.Azure.Services.AppAuthentication;
+using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
-using Microsoft.Health.Fhir.Azure.KeyVault;
-using Microsoft.Health.Fhir.Azure.KeyVault.Configs;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
-using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Health.Fhir.Azure
 {
     public static class FhirServerBuilderAzureRegistrationExtensions
     {
-        private const string KeyVaultConfigurationName = "KeyVault";
+        private const string ExportConfigurationName = "FhirServer:Operations:Export";
 
         public static IFhirServerBuilder AddAzureExportDestinationClient(this IFhirServerBuilder fhirServerBuilder)
         {
@@ -29,44 +24,34 @@ namespace Microsoft.Health.Fhir.Azure
 
             fhirServerBuilder.Services.Add<AzureExportDestinationClient>()
                 .Transient()
-                .AsSelf();
-
-            fhirServerBuilder.Services.Add<Func<IExportDestinationClient>>(sp => () => sp.GetRequiredService<AzureExportDestinationClient>())
-                .Transient()
-                .AsSelf();
+                .AsService<IExportDestinationClient>();
 
             return fhirServerBuilder;
         }
 
-        public static IFhirServerBuilder AddKeyVaultSecretStore(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
+        public static IFhirServerBuilder AddAzureExportClientInitializer(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            // Get the KeyVault endpoint mentioned in the config. It is not necessary the KeyVault config
-            // section is present (depending on how we choose to implement ISecretStore). But even if it is
-            // not present, GetSection will return an empty IConfigurationSection. And we will end up creating
-            // an InMemoryKeyVaultSecretStore in that scenario also.
-            var keyVaultConfig = new KeyVaultConfiguration();
-            configuration.GetSection(KeyVaultConfigurationName).Bind(keyVaultConfig);
+            var exportJobConfiguration = new ExportJobConfiguration();
+            configuration.GetSection(ExportConfigurationName).Bind(exportJobConfiguration);
 
-            if (string.IsNullOrWhiteSpace(keyVaultConfig.Endpoint))
+            if (!string.IsNullOrWhiteSpace(exportJobConfiguration.StorageAccountUri))
             {
-                fhirServerBuilder.Services.Add<InMemorySecretStore>()
-                    .Singleton()
-                    .AsService<ISecretStore>();
+                fhirServerBuilder.Services.Add<AzureAccessTokenClientInitializer>()
+                    .Transient()
+                    .AsService<IExportClientInitializer<CloudBlobClient>>();
+
+                fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
+                    .Transient()
+                    .AsService<IAccessTokenProvider>();
             }
             else
             {
-                fhirServerBuilder.Services.Add<KeyVaultSecretStore>((sp) =>
-                {
-                    var tokenProvider = new AzureServiceTokenProvider();
-                    var kvClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(tokenProvider.KeyVaultTokenCallback));
-
-                    return new KeyVaultSecretStore(kvClient, new Uri(keyVaultConfig.Endpoint));
-                })
-                    .Singleton()
-                    .AsService<ISecretStore>();
+                fhirServerBuilder.Services.Add<AzureConnectionStringClientInitializer>()
+                    .Transient()
+                    .AsService<IExportClientInitializer<CloudBlobClient>>();
             }
 
             return fhirServerBuilder;

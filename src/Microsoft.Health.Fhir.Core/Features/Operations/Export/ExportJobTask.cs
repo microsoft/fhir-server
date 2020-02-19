@@ -17,8 +17,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.SecretStore;
-using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -26,11 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportJobTask : IExportJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly ISecretStore _secretStore;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
-        private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
+        private readonly IExportDestinationClient _exportDestinationClient;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -40,31 +37,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
-        private IExportDestinationClient _exportDestinationClient;
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
-            ISecretStore secretStore,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
-            IExportDestinationClientFactory exportDestinationClientFactory,
+            IExportDestinationClient exportDestinationClient,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
-            EnsureArg.IsNotNull(secretStore, nameof(secretStore));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
-            EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
+            EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
-            _secretStore = secretStore;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
-            _exportDestinationClientFactory = exportDestinationClientFactory;
+            _exportDestinationClient = exportDestinationClient;
             _logger = logger;
         }
 
@@ -78,8 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
-                // Get destination type from secret store and connect to the destination using appropriate client.
-                await GetDestinationInfoAndConnectAsync(cancellationToken);
+                // Connect to export destination using appropriate client.
+                await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -150,29 +143,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
-
-                try
-                {
-                    // Best effort to delete the secret. If it fails to delete, then move on.
-                    await _secretStore.DeleteSecretAsync(_exportJobRecord.SecretName, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete the secret.");
-                }
             }
             catch (JobConflictException)
             {
                 // The export job was updated externally. There might be some additional resources that were exported
                 // but we will not be updating the job record.
                 _logger.LogTrace("The job was updated by another process.");
-            }
-            catch (SecretStoreException sse)
-            {
-                _logger.LogError(sse, "Secret store error. The job will be marked as failed.");
-
-                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(sse.Message, sse.ResponseStatusCode);
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (DestinationConnectionException dce)
             {
@@ -209,18 +185,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
             }
-        }
-
-        // Get destination info from secret store, create appropriate export client and connect to destination.
-        private async Task GetDestinationInfoAndConnectAsync(CancellationToken cancellationToken)
-        {
-            SecretWrapper secret = await _secretStore.GetSecretAsync(_exportJobRecord.SecretName, cancellationToken);
-
-            DestinationInfo destinationInfo = JsonConvert.DeserializeObject<DestinationInfo>(secret.SecretValue);
-
-            _exportDestinationClient = _exportDestinationClientFactory.Create(destinationInfo.DestinationType);
-
-            await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
         }
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)

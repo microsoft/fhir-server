@@ -3,10 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Azure.KeyVault.Configs
+using System;
+using EnsureThat;
+
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
 {
-    public class KeyVaultConfiguration
+    public class AccessTokenProviderException : Exception
     {
-        public string Endpoint { get; set; }
+        public AccessTokenProviderException(string message)
+            : base(message)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+        }
     }
 }
