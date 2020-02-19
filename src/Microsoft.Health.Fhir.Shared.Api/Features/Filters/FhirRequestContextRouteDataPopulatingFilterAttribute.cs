@@ -8,7 +8,6 @@ using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -80,16 +79,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
 
             base.OnActionExecuting(context);
-        }
-
-        public override void OnActionExecuted(ActionExecutedContext context)
-        {
-            // The result can either be a FhirResult or an OperationOutcomeResult which both extend BaseActionResult.
-            var result = context.Result as IResourceActionResult;
-
-            _fhirRequestContextAccessor.FhirRequestContext.ResourceType = result?.GetResultTypeName();
-
-            base.OnActionExecuted(context);
         }
     }
 }

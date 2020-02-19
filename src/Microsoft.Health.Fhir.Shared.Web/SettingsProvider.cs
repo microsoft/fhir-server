@@ -3,20 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.IO;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Features.Settings;
+using File = System.IO.File;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Get
+namespace Microsoft.Health.Fhir.Web
 {
-    public class GetCapabilitiesResponse
+    public class FileProvider : IFileProvider
     {
-        public GetCapabilitiesResponse(ResourceElement capabilityStatement)
+        public Stream GetSettingsFile(string name)
         {
-            EnsureArg.IsNotNull(capabilityStatement, nameof(capabilityStatement));
+            EnsureArg.IsNotEmptyOrWhitespace(name, nameof(name));
 
-            CapabilityStatement = capabilityStatement;
+            return File.OpenRead(Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location), name));
         }
-
-        public ResourceElement CapabilityStatement { get; }
     }
 }

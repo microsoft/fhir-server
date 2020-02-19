@@ -11,6 +11,8 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
@@ -24,8 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceDeserializer deserializer,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
 
@@ -35,6 +38,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         public async Task<GetResourceResponse> Handle(GetResourceRequest message, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(message, nameof(message));
+
+            if (AuthorizationService.CheckAccess(DataActions.Read) != DataActions.Read)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             var key = message.ResourceKey;
 

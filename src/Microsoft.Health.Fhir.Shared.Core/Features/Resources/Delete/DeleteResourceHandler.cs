@@ -12,6 +12,8 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
@@ -22,14 +24,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
         }
 
         public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest message, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(message, nameof(message));
+
+            DataActions requiredDataAction = message.HardDelete ? DataActions.Delete | DataActions.HardDelete : DataActions.Delete;
+            if (AuthorizationService.CheckAccess(requiredDataAction) != requiredDataAction)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             var key = message.ResourceKey;
 

@@ -44,7 +44,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
         [Theory]
         [InlineData(HttpStatusCode.Unauthorized)]
-        [InlineData(HttpStatusCode.Forbidden)]
         public async Task GivenAuthXFailed_WhenInvoked_ThenAuditLogShouldBeLogged(HttpStatusCode statusCode)
         {
             _httpContext.Response.StatusCode = (int)statusCode;

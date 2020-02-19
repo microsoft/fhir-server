@@ -44,19 +44,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAUserWithNoReadPermissions_TheServerShouldReturnForbidden()
-        {
-            FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.ServiceClient);
-            Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
-
-            tempClient = tempClient.CreateClientForUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id));
-            Assert.Equal(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
         public async Task WhenCreatingAResource_GivenAUserWithNoCreatePermissions_TheServerShouldReturnForbidden()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
@@ -69,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenUpdatingAResource_GivenAUserWithNoWritePermissions_TheServerShouldReturnForbidden()
         {
-            FhirClient tempClient = Client.CreateClientForUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
+            FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
@@ -82,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenHardDeletingAResource_GivenAUserWithNoHardDeletePermissions_TheServerShouldReturnForbidden()
         {
-            FhirClient tempClient = Client.CreateClientForUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
+            FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.HardDeleteAsync(createdResource));
@@ -94,10 +81,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenHardDeletingAResource_GivenAUserWithHardDeletePermissions_TheServerShouldReturnSuccess()
         {
-            FhirClient tempClient = Client.CreateClientForUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
+            FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            tempClient = Client.CreateClientForUser(TestUsers.HardDeleteUser, TestApplications.NativeClient);
+            tempClient = Client.CreateClientForUser(TestUsers.AdminUser, TestApplications.NativeClient);
 
             // Hard-delete the resource.
             await tempClient.HardDeleteAsync(createdResource);
@@ -189,7 +176,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenGettingAResource_GivenAUserWithReadPermissions_TheServerShouldReturnSuccess()
         {
-            FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.ServiceClient);
+            FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.GlobalAdminServicePrincipal);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);

@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
             var resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             var resourceIdProvider = Substitute.For<ResourceIdProvider>();
-            var transactionBundleValidator = new TransactionBundleValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
+            var transactionBundleValidator = new TransactionBundleValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider, DisabledFhirAuthorizationService.Instance);
 
             _bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
@@ -111,6 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 transactionBundleValidator,
                 _auditEventTypeMapping,
                 bundleOptions,
+                DisabledFhirAuthorizationService.Instance,
                 NullLogger<BundleHandler>.Instance);
         }
 

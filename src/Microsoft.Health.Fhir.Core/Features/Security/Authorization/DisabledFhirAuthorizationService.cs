@@ -3,12 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Security.Claims;
-
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
-    public interface IAuthorizationPolicy
+    /// <summary>
+    /// A <see cref="IFhirAuthorizationService"/> where all actions are always permitted.
+    /// </summary>
+    internal class DisabledFhirAuthorizationService : IFhirAuthorizationService
     {
-        bool HasPermission(ClaimsPrincipal user, ResourceAction action);
+        public static readonly DisabledFhirAuthorizationService Instance = new DisabledFhirAuthorizationService();
+
+        public DataActions CheckAccess(DataActions dataActions)
+        {
+            return dataActions;
+        }
     }
 }

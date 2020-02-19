@@ -9,7 +9,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Polly;
 using Polly.Retry;
@@ -22,20 +25,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private static readonly Func<int, TimeSpan> DefaultSleepDurationProvider = new Func<int, TimeSpan>(retryCount => TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly IFhirAuthorizationService _authorizationService;
         private readonly AsyncRetryPolicy _retryPolicy;
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore)
-            : this(fhirOperationDataStore, DefaultRetryCount, DefaultSleepDurationProvider)
+        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService)
+            : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider)
         {
         }
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
+        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
             EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
 
             _fhirOperationDataStore = fhirOperationDataStore;
+            _authorizationService = authorizationService;
             _retryPolicy = Policy.Handle<JobConflictException>()
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
@@ -43,6 +49,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public async Task<CancelExportResponse> Handle(CancelExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
+
+            if (_authorizationService.CheckAccess(DataActions.Export) != DataActions.Export)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             return await _retryPolicy.ExecuteAsync(async () =>
             {

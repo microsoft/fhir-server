@@ -12,6 +12,8 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -27,8 +29,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
             IMediator mediator,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
@@ -38,6 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest message, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(message, nameof(message));
+
+            if (AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write) != (DataActions.Read | DataActions.Write))
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             SearchResultEntry[] matchedResults = await Search(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
 

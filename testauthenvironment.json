@@ -1,121 +1,43 @@
 {
-    "roles": [
-        {
-            "name": "clinician",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Read",
-                        "Write"
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "officeassistant",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Write"
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "researcher",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Read"
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "mlresearcher",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Export"
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "director",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "HardDelete"
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "admin",
-            "resourcePermissions": [
-                {
-                    "actions": [
-                        "Read",
-                        "Write",
-                        "HardDelete",
-                        "Export"
-                    ]
-                }
-            ]
-        }
-    ],
     "users": [
         {
-            "id": "john",
+            "id": "globalReaderUser",
             "roles": [
-                "researcher"
+                "globalReader"
             ]
         },
         {
-            "id": "sam",
+            "id": "globalWriterUser",
             "roles": [
-                "officeassistant"
+                "globalWriter"
             ]
         },
         {
-            "id": "frank",
+            "id": "globalExporterUser",
             "roles": [
-                "clinician"
+                "globalExporter"
             ]
         },
         {
-            "id": "steve",
+            "id": "globalAdminUser",
             "roles": [
-                "mlresearcher"
-            ]
-        },
-        {
-            "id": "doug",
-            "roles": [
-                "director"
-            ]
-        },
-        {
-            "id": "itguy",
-            "roles": [
-                "admin"
+                "globalAdmin"
             ]
         }
     ],
     "clientApplications": [
         {
-            "id": "serviceclient",
+            "id": "globalAdminServicePrincipal",
             "roles": [
-                "admin"
+                "globalAdmin"
             ]
         },
         {
-            "id": "nativeclient",
+            "id": "nativeClient",
             "roles": []
         },
         {
-            "id": "wrongaudienceclient",
+            "id": "wrongAudienceClient",
             "roles": []
         }
     ]

@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
             IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
-            _testBaseConditionalHandler = new TestBaseConditionalHandler(fhirDataStore, _searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider);
+            _testBaseConditionalHandler = new TestBaseConditionalHandler(fhirDataStore, _searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance);
         }
 
         [Fact]

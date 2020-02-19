@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -63,24 +62,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _filter.OnResultExecuted(resultExecutedContext);
 
             _auditHelper.Received(1).LogExecuted(_httpContext, _claimsExtractor);
-        }
-
-        [Fact]
-        public void GivenAController_WhenExecutedActionAndStatusOf403_ThenAuditLogShouldNotLogged()
-        {
-            var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } }.ToResourceElement());
-
-            var resultExecutedContext = new ResultExecutedContext(
-                new ActionContext(_httpContext, new RouteData(), new ControllerActionDescriptor() { DisplayName = "Executed Context Test Descriptor" }),
-                new List<IFilterMetadata>(),
-                fhirResult,
-                FilterTestsHelper.CreateMockFhirController());
-
-            _httpContext.Response.StatusCode = (int)HttpStatusCode.Forbidden;
-
-            _filter.OnResultExecuted(resultExecutedContext);
-
-            _auditHelper.DidNotReceiveWithAnyArgs().LogExecuted(Arg.Any<HttpContext>(), Arg.Any<IClaimsExtractor>());
         }
     }
 }

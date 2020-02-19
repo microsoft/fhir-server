@@ -10,9 +10,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Newtonsoft.Json;
 
@@ -22,19 +24,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly IFhirAuthorizationService _authorizationService;
 
-        public CreateExportRequestHandler(IClaimsExtractor claimsExtractor, IFhirOperationDataStore fhirOperationDataStore)
+        public CreateExportRequestHandler(IClaimsExtractor claimsExtractor, IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
 
             _claimsExtractor = claimsExtractor;
             _fhirOperationDataStore = fhirOperationDataStore;
+            _authorizationService = authorizationService;
         }
 
         public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
+
+            if (_authorizationService.CheckAccess(DataActions.Export) != DataActions.Export)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = _claimsExtractor.Extract()?
                 .OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();

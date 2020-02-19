@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -16,7 +15,6 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -30,7 +28,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]
     [ValidateResourceTypeFilter]
     [ValidateModelState]
-    [Authorize(PolicyNames.FhirPolicy)]
     public class ValidateController : Controller
     {
         private readonly IMediator _mediator;
@@ -49,7 +46,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ValidateResourceType)]
         [AuditEventType(AuditEventSubType.Read)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode)
         {
             if (!_features.SupportsValidate)
@@ -83,7 +79,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ValidateResourceTypeById)]
         [AuditEventType(AuditEventSubType.Read)]
-        [Authorize(PolicyNames.ReadPolicy)]
         [ValidateResourceIdFilter]
         public async Task<IActionResult> ValidateById([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode)
         {

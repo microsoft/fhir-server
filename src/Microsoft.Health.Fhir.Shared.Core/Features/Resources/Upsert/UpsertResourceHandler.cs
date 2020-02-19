@@ -14,6 +14,8 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
@@ -27,14 +29,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest message, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(message, nameof(message));
+
+            if (AuthorizationService.CheckAccess(DataActions.Write) != DataActions.Write)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             Resource resource = message.Resource.Instance.ToPoco<Resource>();
 
@@ -47,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
+
             UpsertOutcome result = await UpsertAsync(message, resourceWrapper, allowCreate, keepHistory, cancellationToken);
 
             resource.VersionId = result.Wrapper.Version;

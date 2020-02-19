@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             app.UseFhirServer();
 
-            app.UseDevelopmentIdentityProvider();
+            app.UseDevelopmentIdentityProviderIfConfigured();
         }
 
         /// <summary>
