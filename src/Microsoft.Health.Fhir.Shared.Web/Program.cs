@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.IO;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Azure.KeyVault;
@@ -17,6 +18,7 @@ namespace Microsoft.Health.Fhir.Web
         public static void Main(string[] args)
         {
             var host = WebHost.CreateDefaultBuilder(args)
+                .UseContentRoot(Path.GetDirectoryName(typeof(Program).Assembly.Location))
                 .ConfigureAppConfiguration((hostContext, builder) =>
                 {
                     var builtConfig = builder.Build();
@@ -29,7 +31,7 @@ namespace Microsoft.Health.Fhir.Web
                         builder.AddAzureKeyVault(keyVaultEndpoint, keyVaultClient, new DefaultKeyVaultSecretManager());
                     }
 
-                    builder.AddDevelopmentAuthEnvironment(builtConfig["TestAuthEnvironment:FilePath"]);
+                    builder.AddDevelopmentAuthEnvironmentIfConfigured(builtConfig);
                 })
                 .UseStartup<Startup>()
                 .Build();

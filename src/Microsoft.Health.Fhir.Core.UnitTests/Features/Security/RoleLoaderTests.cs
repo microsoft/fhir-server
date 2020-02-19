@@ -8,10 +8,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Settings;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
@@ -214,9 +215,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         private static AuthorizationConfiguration Load(object roles)
         {
             IFileProvider fileProvider = Substitute.For<IFileProvider>();
-            fileProvider.ReadFile(Arg.Any<string>()).Returns(new MemoryStream(Encoding.UTF8.GetBytes(JObject.FromObject(roles).ToString())));
+            var hostEnvironment = Substitute.For<IHostEnvironment>();
+            hostEnvironment.ContentRootFileProvider
+                .GetFileInfo("roles.json")
+                .CreateReadStream()
+                .Returns(new MemoryStream(Encoding.UTF8.GetBytes(JObject.FromObject(roles).ToString())));
+
             var authConfig = new AuthorizationConfiguration();
-            var roleLoader = new RoleLoader(authConfig, fileProvider);
+            var roleLoader = new RoleLoader(authConfig, hostEnvironment);
             roleLoader.Start();
             return authConfig;
         }

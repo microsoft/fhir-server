@@ -7,10 +7,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Settings;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Schema;
@@ -29,22 +29,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
     public class RoleLoader : IStartable
     {
         private readonly AuthorizationConfiguration _authorizationConfiguration;
-        private readonly IFileProvider _fileProvider;
+        private readonly IHostEnvironment _hostEnvironment;
+        private readonly Microsoft.Extensions.FileProviders.IFileProvider _fileProvider;
 
-        public RoleLoader(AuthorizationConfiguration authorizationConfiguration, IFileProvider fileProvider)
+        public RoleLoader(AuthorizationConfiguration authorizationConfiguration, IHostEnvironment hostEnvironment)
         {
             EnsureArg.IsNotNull(authorizationConfiguration, nameof(authorizationConfiguration));
-            EnsureArg.IsNotNull(fileProvider, nameof(fileProvider));
+            EnsureArg.IsNotNull(hostEnvironment, nameof(hostEnvironment));
+            EnsureArg.IsNotNull(hostEnvironment.ContentRootFileProvider, nameof(hostEnvironment.ContentRootFileProvider));
 
             _authorizationConfiguration = authorizationConfiguration;
-            _fileProvider = fileProvider;
+            _hostEnvironment = hostEnvironment;
+            _fileProvider = hostEnvironment.ContentRootFileProvider;
         }
 
         public void Start()
         {
             using Stream schemaContents = GetType().Assembly.GetManifestResourceStream(GetType(), "roles.schema.json");
 
-            using Stream rolesContents = _fileProvider.ReadFile("roles.json");
+            using Stream rolesContents = _fileProvider.GetFileInfo("roles.json").CreateReadStream();
 
             var jsonSerializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = { new StringEnumConverter(new CamelCaseNamingStrategy()) } });
 
