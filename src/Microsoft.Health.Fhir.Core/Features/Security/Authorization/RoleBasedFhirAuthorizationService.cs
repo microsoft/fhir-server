@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             _roles = authorizationConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
         }
 
-        public DataActions CheckAccess(DataActions dataActions)
+        public ValueTask<DataActions> CheckAccess(DataActions dataActions)
         {
             ClaimsPrincipal principal = _requestContextAccessor.FhirRequestContext.Principal;
 
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
                 }
             }
 
-            return dataActions & permittedDataActions;
+            return new ValueTask<DataActions>(dataActions & permittedDataActions);
         }
     }
 }

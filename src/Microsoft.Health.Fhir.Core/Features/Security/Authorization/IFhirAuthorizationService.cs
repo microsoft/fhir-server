@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading.Tasks;
+
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
     /// <summary>
@@ -23,6 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// (c) None, (0), meaning none of the requested actions are permitted.
         /// In all cases, no bits will set on the return value that were not set on input.
         /// </returns>
-        DataActions CheckAccess(DataActions dataActions);
+        ValueTask<DataActions> CheckAccess(DataActions dataActions);
     }
 }

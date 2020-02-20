@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             //     operations to use an IFhirAuthorizationService that implements CheckAccess based on these known permitted
             //     actions.
 
-            if (_authorizationService.CheckAccess(DataActions.All) == DataActions.None)
+            if (await _authorizationService.CheckAccess(DataActions.All) == DataActions.None)
             {
                 throw new UnauthorizedFhirActionException();
             }

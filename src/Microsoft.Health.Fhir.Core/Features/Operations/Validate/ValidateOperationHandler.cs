@@ -31,18 +31,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// </summary>
         /// <param name="request">The request</param>
         /// <param name="cancellationToken">The CancellationToken</param>
-        public Task<ValidateOperationResponse> Handle(ValidateOperationRequest request, CancellationToken cancellationToken)
+        public async Task<ValidateOperationResponse> Handle(ValidateOperationRequest request, CancellationToken cancellationToken)
         {
-            if (_authorizationService.CheckAccess(DataActions.ResourceValidate) != DataActions.ResourceValidate)
+            if (await _authorizationService.CheckAccess(DataActions.ResourceValidate) != DataActions.ResourceValidate)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            return Task.FromResult(new ValidateOperationResponse(
+            return new ValidateOperationResponse(
                 new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
-                    Resources.ValidationPassed)));
+                    Resources.ValidationPassed));
         }
     }
 }

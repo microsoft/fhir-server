@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (_authorizationService.CheckAccess(DataActions.Export) != DataActions.Export)
+            if (await _authorizationService.CheckAccess(DataActions.Export) != DataActions.Export)
             {
                 throw new UnauthorizedFhirActionException();
             }

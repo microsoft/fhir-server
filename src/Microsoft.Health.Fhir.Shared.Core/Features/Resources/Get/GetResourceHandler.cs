@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (AuthorizationService.CheckAccess(DataActions.Read) != DataActions.Read)
+            if (await AuthorizationService.CheckAccess(DataActions.Read) != DataActions.Read)
             {
                 throw new UnauthorizedFhirActionException();
             }
