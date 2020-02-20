@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <None Remove="Features\Conformance\R4\BaseCapabilities.json" />
+    <None Remove="Features\Conformance\R5\BaseCapabilities.json" />
     <None Remove="Features\Conformance\Stu3\BaseCapabilities.json" />
   </ItemGroup>
 
@@ -39,6 +40,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Features\Conformance\R5\BaseCapabilities.json" />
   </ItemGroup>
 
   <ItemGroup>
