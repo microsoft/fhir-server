@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading.Tasks;
+
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
     /// <summary>
@@ -12,9 +14,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     {
         public static readonly DisabledFhirAuthorizationService Instance = new DisabledFhirAuthorizationService();
 
-        public DataActions CheckAccess(DataActions dataActions)
+        public ValueTask<DataActions> CheckAccess(DataActions dataActions)
         {
-            return dataActions;
+            return new ValueTask<DataActions>(dataActions);
         }
     }
 }
