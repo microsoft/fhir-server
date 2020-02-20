@@ -1,10 +1,10 @@
 {
-  "resourceType": "Bundle",
-  "id": "searchParams",
-  "meta": {
-    "lastUpdated": "2017-04-19T07:44:43.294+10:00"
-  },
-  "type": "collection",
+    "resourceType": "Bundle",
+    "id": "searchParams",
+    "meta": {
+        "lastUpdated": "2017-04-19T07:44:43.294+10:00"
+    },
+    "type": "collection",
     "entry": [
         {
             "fullUrl": "http://hl7.org/fhir/SearchParameter/DomainResource-text",
@@ -12,10 +12,11 @@
                 "resourceType": "SearchParameter",
                 "id": "DomainResource-text",
                 "url": "http://hl7.org/fhir/SearchParameter/DomainResource-text",
+                "version": "4.2.0",
                 "name": "_text",
                 "status": "draft",
                 "experimental": false,
-                "date": "2017-04-19T07:44:43+10:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "Health Level Seven International (FHIR Infrastructure)",
                 "contact": [
                     {
@@ -35,12 +36,12 @@
                         ]
                     }
                 ],
+                "description": "Search on the narrative of the resource",
                 "code": "_text",
                 "base": [
                     "DomainResource"
                 ],
                 "type": "string",
-                "description": "Search on the narrative of the resource",
                 "xpathUsage": "normal"
             }
         },
@@ -50,10 +51,11 @@
                 "resourceType": "SearchParameter",
                 "id": "Resource-content",
                 "url": "http://hl7.org/fhir/SearchParameter/Resource-content",
+                "version": "4.2.0",
                 "name": "_content",
                 "status": "draft",
                 "experimental": false,
-                "date": "2017-04-19T07:44:43+10:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "Health Level Seven International (FHIR Infrastructure)",
                 "contact": [
                     {
@@ -73,12 +75,12 @@
                         ]
                     }
                 ],
+                "description": "Search on the entire content of the resource",
                 "code": "_content",
                 "base": [
                     "Resource"
                 ],
                 "type": "string",
-                "description": "Search on the entire content of the resource",
                 "xpathUsage": "normal"
             }
         },
@@ -88,10 +90,11 @@
                 "resourceType": "SearchParameter",
                 "id": "Resource-id",
                 "url": "http://hl7.org/fhir/SearchParameter/Resource-id",
+                "version": "4.2.0",
                 "name": "_id",
-                "status": "draft",
+                "status": "active",
                 "experimental": false,
-                "date": "2017-04-19T07:44:43+10:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "Health Level Seven International (FHIR Infrastructure)",
                 "contact": [
                     {
@@ -111,27 +114,28 @@
                         ]
                     }
                 ],
+                "description": "Logical id of this artifact",
                 "code": "_id",
                 "base": [
                     "Resource"
                 ],
                 "type": "token",
-                "description": "Logical id of this artifact",
                 "expression": "Resource.id",
                 "xpath": "f:Resource/f:id",
                 "xpathUsage": "normal"
             }
         },
         {
-            "fullUrl": "http://hl7.org/fhir/SearchParameter/Account-balance",
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Account-name",
             "resource": {
                 "resourceType": "SearchParameter",
-                "id": "Account-balance",
-                "url": "http://hl7.org/fhir/SearchParameter/Account-balance",
-                "name": "balance",
-                "status": "draft",
+                "id": "Account-name",
+                "url": "http://hl7.org/fhir/SearchParameter/Account-name",
+                "version": "4.2.0",
+                "name": "name",
+                "status": "active",
                 "experimental": false,
-                "date": "2017-04-19T07:44:43+10:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "Health Level Seven International (Patient Administration)",
                 "contact": [
                     {
@@ -151,14 +155,14 @@
                         ]
                     }
                 ],
-                "code": "balance",
+                "description": "Human-readable label",
+                "code": "name",
                 "base": [
                     "Account"
                 ],
-                "type": "quantity",
-                "description": "How much is in account?",
-                "expression": "Account.balance",
-                "xpath": "f:Account/f:balance",
+                "type": "string",
+                "expression": "Account.name",
+                "xpath": "f:Account/f:name",
                 "xpathUsage": "normal"
             }
         },
@@ -168,10 +172,11 @@
                 "resourceType": "SearchParameter",
                 "id": "Account-identifier",
                 "url": "http://hl7.org/fhir/SearchParameter/Account-identifier",
+                "version": "4.2.0",
                 "name": "identifier",
                 "status": "draft",
                 "experimental": false,
-                "date": "2017-04-19T07:44:43+10:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "Health Level Seven International (Patient Administration)",
                 "contact": [
                     {
@@ -191,27 +196,28 @@
                         ]
                     }
                 ],
+                "description": "Account number",
                 "code": "identifier",
                 "base": [
                     "Account"
                 ],
                 "type": "token",
-                "description": "Account number",
                 "expression": "Account.identifier",
                 "xpath": "f:Account/f:identifier",
                 "xpathUsage": "normal"
             }
         },
         {
-            "fullUrl": "http://hl7.org/fhir/SearchParameter/medications-identifier",
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Medication-identifier",
             "resource": {
                 "resourceType": "SearchParameter",
-                "id": "medications-identifier",
-                "url": "http://hl7.org/fhir/SearchParameter/medications-identifier",
+                "id": "Medication-identifier",
+                "url": "http://hl7.org/fhir/SearchParameter/Medication-identifier",
+                "version": "4.2.0",
                 "name": "identifier",
                 "status": "draft",
                 "experimental": false,
-                "date": "2017-04-19T07:44:43+10:00",
+                "date": "2019-12-31T21:03:40+11:00",
                 "publisher": "Health Level Seven International (Pharmacy)",
                 "contact": [
                     {
@@ -231,17 +237,14 @@
                         ]
                     }
                 ],
+                "description": "Returns medications with this external identifier",
                 "code": "identifier",
                 "base": [
-                    "MedicationRequest",
-                    "MedicationAdministration",
-                    "MedicationStatement",
-                    "MedicationDispense"
+                    "Medication"
                 ],
                 "type": "token",
-                "description": "Multiple Resources: \r\n\r\n* [MedicationRequest](medicationrequest.html): Return prescriptions with this external identifier\r\n* [MedicationAdministration](medicationadministration.html): Return administrations with this external identifier\r\n* [MedicationStatement](medicationstatement.html): Return statements with this external identifier\r\n* [MedicationDispense](medicationdispense.html): Return dispenses with this external identifier\r\n",
-                "expression": "MedicationRequest.identifier | MedicationAdministration.identifier | MedicationStatement.identifier | MedicationDispense.identifier",
-                "xpath": "f:MedicationRequest/f:identifier | f:MedicationAdministration/f:identifier | f:MedicationStatement/f:identifier | f:MedicationDispense/f:identifier",
+                "expression": "Medication.identifier",
+                "xpath": "f:Medication/f:identifier",
                 "xpathUsage": "normal"
             }
         }
