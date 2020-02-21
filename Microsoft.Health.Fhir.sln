@@ -136,6 +136,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R5.Ap
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R5.Api.UnitTests", "src\Microsoft.Health.Fhir.R5.Api.UnitTests\Microsoft.Health.Fhir.R5.Api.UnitTests.csproj", "{8C3A5E1A-3BA8-4F50-A0BA-99A149EDBEE6}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R5.Web", "src\Microsoft.Health.Fhir.R5.Web\Microsoft.Health.Fhir.R5.Web.csproj", "{E8AEC3F3-EFBB-4439-95FF-E45613CC7DA2}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -314,6 +316,10 @@ Global
 		{8C3A5E1A-3BA8-4F50-A0BA-99A149EDBEE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8C3A5E1A-3BA8-4F50-A0BA-99A149EDBEE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8C3A5E1A-3BA8-4F50-A0BA-99A149EDBEE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E8AEC3F3-EFBB-4439-95FF-E45613CC7DA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E8AEC3F3-EFBB-4439-95FF-E45613CC7DA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E8AEC3F3-EFBB-4439-95FF-E45613CC7DA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E8AEC3F3-EFBB-4439-95FF-E45613CC7DA2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -378,6 +384,7 @@ Global
 		{1B944B8A-54F2-4AF3-A38A-CA7F1AB5C618} = {38B3BA4A-3510-4615-BCC4-4C9B96A486C4}
 		{D5ECB95C-A199-4690-9BA9-4EF7E8126D81} = {1295CCC3-73FB-4376-AE95-F6F31A37B152}
 		{8C3A5E1A-3BA8-4F50-A0BA-99A149EDBEE6} = {1295CCC3-73FB-4376-AE95-F6F31A37B152}
+		{E8AEC3F3-EFBB-4439-95FF-E45613CC7DA2} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True
