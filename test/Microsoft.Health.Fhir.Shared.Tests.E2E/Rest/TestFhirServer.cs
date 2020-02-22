@@ -18,6 +18,9 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Polly;
 using Polly.Retry;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
+#if !R5
+using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;
+#endif
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -76,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<CapabilityStatement> readResponse = fhirClientWithoutSecurity.ReadAsync<CapabilityStatement>("metadata").GetAwaiter().GetResult();
             CapabilityStatement metadata = readResponse.Resource;
 
-            foreach (var rest in metadata.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server))
+            foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))
             {
                 var oauth = rest.Security?.GetExtension(Core.Features.Security.Constants.SmartOAuthUriExtension);
                 if (oauth != null)

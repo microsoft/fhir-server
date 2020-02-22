@@ -234,7 +234,6 @@
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq.json" />
-    <EmbeddedResource Include="TestFiles\R5\MedicinalProduct.json" />
     <EmbeddedResource Include="TestFiles\R5\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R5\ObservationWith1MinuteApgarScore.json" />

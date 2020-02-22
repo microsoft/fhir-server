@@ -95,12 +95,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     continue;
                 }
 
-                if (resourceType == "CanonicalResource" || resourceType == "MetadataResource")
-                {
-                    // Skip - in the R5 alpha SDK for some reason.
-                    continue;
-                }
-
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
