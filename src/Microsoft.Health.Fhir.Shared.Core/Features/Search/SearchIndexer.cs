@@ -257,6 +257,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     return typeof(QuantitySearchValue);
                 case SearchParamType.Uri:
                     return typeof(UriSearchValue);
+                case SearchParamType.Special:
+                    return typeof(StringSearchValue);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(searchParamType), searchParamType, null);
             }

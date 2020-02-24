@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                     catch (SearchParameterNotSupportedException)
                     {
-                        (unsupportedSortings ?? (unsupportedSortings = new List<(string parameterName, string reason)>())).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
+                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
                     }
                 }
 

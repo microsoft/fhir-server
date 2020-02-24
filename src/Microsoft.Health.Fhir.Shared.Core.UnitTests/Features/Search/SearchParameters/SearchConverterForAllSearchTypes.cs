@@ -5,12 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
+using Hl7.FhirPath.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
 using Xunit;
 using Xunit.Abstractions;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void CheckSearchParameter(
             string resourceType,
             string parameterName,
-            Microsoft.Health.Fhir.ValueSets.SearchParamType searchParamType,
+            SearchParamType searchParamType,
             string fhirPath,
             SearchParameterInfo parameterInfo)
         {
@@ -41,101 +42,113 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _outputHelper.WriteLine("** Evaluating: " + fhirPath);
 
-            var parsed = _fixtureData.Compiler.Parse(fhirPath);
+            var converters =
+                GetConvertsForSearchParameters(resourceType, parameterInfo);
 
-            var componentExpressions = parameterInfo.Component
-                .Select(x => (_fixtureData.SearchDefinitionManager.UrlLookup[x.DefinitionUrl].Type, _fixtureData.Compiler.Parse(x.Expression)))
-                .ToArray();
+            Assert.True(
+                converters.Any(x => x.hasConverter),
+                $"{parameterName} ({resourceType}) was not able to be mapped.");
 
-            var results = SearchParameterToTypeResolver.Resolve(
-                resourceType,
-                (searchParamType, parsed),
-                componentExpressions).ToArray();
+            string listedTypes = string.Join(",", converters.Select(x => x.result.ClassMapping.NativeType.Name));
+            _outputHelper.WriteLine($"Info: {parameterName} ({searchParamType}) found {listedTypes} types ({converters.Count}).");
 
-            Assert.True(results.Any(), $"{parameterName} ({resourceType}) was not able to be mapped.");
-
-            string listedTypes = string.Join(",", results.Select(x => x.ClassMapping.NativeType.Name));
-            _outputHelper.WriteLine($"Info: {parameterName} ({searchParamType}) found {results.Length} types ({listedTypes}).");
-
-            foreach (var result in results)
+            foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
             {
-                var found = _fixtureData.Manager.TryGetConverter(result.ClassMapping.NativeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType), out var converter);
+                var found = _fixtureData.Manager.TryGetConverter(result.result.ClassMapping.NativeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
 
                 var converterText = found ? converter.GetType().Name : "None";
-                string searchTermMapping = $"Search term '{parameterName}' ({result.SearchParamType}) mapped to '{result.ClassMapping.NativeType.Name}', converter: {converterText}";
+                string searchTermMapping = $"Search term '{parameterName}' ({result.result.SearchParamType}) mapped to '{result.result.ClassMapping.NativeType.Name}', converter: {converterText}";
                 _outputHelper.WriteLine(searchTermMapping);
 
-                Assert.True(
-                    found,
-                    searchTermMapping);
+                Assert.True(found, searchTermMapping);
             }
         }
 
         [Fact]
         public void ListAllUnsupportedTypes()
         {
-            var unsupportedList = new List<UnsupportedSearchParameters>();
+            var unsupported = new UnsupportedSearchParameters();
 
-            var manager = SearchParameterFixtureData.CreateSearchParameterDefinitionManager();
+            SearchParameterDefinitionManager manager = SearchParameterFixtureData.CreateSearchParameterDefinitionManager();
 
-            var values = ModelInfoProvider.Instance
+            var resourceAndSearchParameters = ModelInfoProvider.Instance
                 .GetResourceTypeNames()
-                .Select(resourceType => (resourceType, manager.GetSearchParameters(resourceType)));
+                .Select(resourceType => (resourceType, parameters: manager.GetSearchParameters(resourceType)));
 
-            foreach (var searchParameterRow in values)
+            foreach (var searchParameterRow in resourceAndSearchParameters)
             {
-                var unsupported = new UnsupportedSearchParameters();
-                unsupported.Resource = searchParameterRow.resourceType;
-
-                foreach (var parameterInfo in searchParameterRow.Item2)
+                foreach (SearchParameterInfo parameterInfo in searchParameterRow.parameters)
                 {
                     if (parameterInfo.Name != "_type")
                     {
-                        var parsed = _fixtureData.Compiler.Parse(parameterInfo.Expression);
-
-                        var componentExpressions = parameterInfo.Component
-                            .Select(x => (_fixtureData.SearchDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
-                                _fixtureData.Compiler.Parse(x.Expression)))
-                            .ToArray();
-
-                        var results = SearchParameterToTypeResolver.Resolve(
-                            searchParameterRow.resourceType,
-                            (parameterInfo.Type, parsed),
-                            componentExpressions).ToArray();
-
-                        var converters = results
-                            .Select(result => new
-                            {
-                                result,
-                                hasConverter = _fixtureData.Manager.TryGetConverter(
-                                    result.ClassMapping.NativeType,
-                                    SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                                    out IFhirElementToSearchValueTypeConverter converter),
-                                converter,
-                            })
-                            .ToArray();
+                        var converters = GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
 
                         if (converters.All(x => x.hasConverter == false))
                         {
-                            unsupported.Unsupported.Add(parameterInfo.Name);
+                            unsupported.Unsupported.Add(parameterInfo.Url);
                         }
                         else if (converters.Any(x => x.hasConverter == false))
                         {
-                            unsupported.PartialSupport.Add(parameterInfo.Name);
+                            unsupported.PartialSupport.Add(parameterInfo.Url);
                         }
                     }
                 }
+            }
 
-                if (unsupported.Unsupported.Any() || unsupported.PartialSupport.Any())
+            // Print the current state to the console
+            _outputHelper.WriteLine(JsonConvert.SerializeObject(unsupported, new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore,
+                Formatting = Formatting.Indented,
+            }));
+
+            // Check this against the list already in the system:
+            var systemUnsupported = new UnsupportedSearchParameters();
+            foreach (var searchParameter in resourceAndSearchParameters.SelectMany(x => x.parameters))
+            {
+                if (!searchParameter.IsSupported)
                 {
-                    unsupportedList.Add(unsupported);
+                    systemUnsupported.Unsupported.Add(searchParameter.Url);
+                }
+                else if (searchParameter.IsPartiallySupported)
+                {
+                    systemUnsupported.PartialSupport.Add(searchParameter.Url);
                 }
             }
 
-            File.WriteAllText("/Users/bkowitz/src/unsupported-search-parameters-stu3.json", JsonConvert.SerializeObject(unsupportedList, new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-            }));
+            // Expect that the static file "unsupported-search-parameters.json" equals the generated list
+            Assert.Equal(systemUnsupported.Unsupported, unsupported.Unsupported);
+            Assert.Equal(systemUnsupported.PartialSupport, unsupported.PartialSupport);
+        }
+
+        private IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, IFhirElementToSearchValueTypeConverter converter)> GetConvertsForSearchParameters(
+            string resourceType,
+            SearchParameterInfo parameterInfo)
+        {
+            Expression parsed = _fixtureData.Compiler.Parse(parameterInfo.Expression);
+
+            (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
+                .Select(x => (_fixtureData.SearchDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
+                    _fixtureData.Compiler.Parse(x.Expression),
+                    x.DefinitionUrl))
+                .ToArray();
+
+            SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
+                resourceType,
+                (parameterInfo.Type, parsed, parameterInfo.Url),
+                componentExpressions).ToArray();
+
+            var converters = results
+                .Select(result => (
+                    result,
+                    hasConverter: _fixtureData.Manager.TryGetConverter(
+                        result.ClassMapping.NativeType,
+                        SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
+                        out IFhirElementToSearchValueTypeConverter converter),
+                    converter))
+                .ToArray();
+
+            return converters;
         }
 
         public static IEnumerable<object[]> GetAllSearchParameters()
@@ -144,27 +157,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var values = ModelInfoProvider.Instance
                 .GetResourceTypeNames()
-                .Select(resourceType => (resourceType, manager.GetSearchParameters(resourceType)));
+                .Select(resourceType => (resourceType, parameters: manager.GetSearchParameters(resourceType)));
 
             foreach (var row in values)
             {
-                foreach (var p in row.Item2)
+                foreach (var p in row.parameters)
                 {
-                    if (p.Name != "_type")
+                    if (p.Name != "_type" && p.IsSupported)
                     {
                         yield return new object[] { row.resourceType, p.Name, p.Type, p.Expression, p };
                     }
                 }
             }
-        }
-
-        private class UnsupportedSearchParameters
-        {
-            public string Resource { get; set; }
-
-            public SortedSet<string> Unsupported { get; set; } = new SortedSet<string>();
-
-            public SortedSet<string> PartialSupport { get; set; } = new SortedSet<string>();
         }
     }
 }

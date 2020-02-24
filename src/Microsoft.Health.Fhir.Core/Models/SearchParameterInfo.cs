@@ -70,6 +70,22 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public SearchParamType Type { get; }
 
+        /// <summary>
+        /// Returns true if this parameter is enabled for searches
+        /// </summary>
+        public bool IsSearchable { get; set; } = true;
+
+        /// <summary>
+        /// Returns true if the system has the capability for indexing and searching for this parameter
+        /// </summary>
+        public bool IsSupported { get; set; } = true;
+
+        /// <summary>
+        /// Returns true if the search parameter resolves to more than one type (FhirString, FhirUri, etc...)
+        /// but not all types are able to be indexed / searched
+        /// </summary>
+        public bool IsPartiallySupported { get; set; }
+
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
     }
 }

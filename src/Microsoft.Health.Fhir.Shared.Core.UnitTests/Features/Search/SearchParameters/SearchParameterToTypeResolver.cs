@@ -16,6 +16,7 @@ using EnumerableReturnType=System.Collections.Generic.IEnumerable<Microsoft.Heal
 using Expression = Hl7.FhirPath.Expressions.Expression;
 using Range = Hl7.Fhir.Model.Range;
 using ReturnType=Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameterTypeResult;
+using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
@@ -27,8 +28,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static EnumerableReturnType Resolve(
             string resourceType,
-            (Microsoft.Health.Fhir.ValueSets.SearchParamType type, Expression expression) typeAndExpression,
-            (Microsoft.Health.Fhir.ValueSets.SearchParamType type, Expression expression)[] componentExpressions)
+            (SearchParamType type, Expression expression, Uri definition) typeAndExpression,
+            (SearchParamType type, Expression expression, Uri definition)[] componentExpressions)
         {
             Type typeForFhirType = ModelInfoProvider.GetTypeForFhirType(resourceType);
 
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 foreach (var component in componentExpressions)
                 {
-                    var context = Context.WithParentType(typeForFhirType, component.type, typeAndExpression.expression);
+                    var context = Context.WithParentType(typeForFhirType, component.type, component.definition, typeAndExpression.expression);
 
                     foreach (SearchParameterTypeResult classMapping in ClassMappings(context, component.expression))
                     {
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
             else
             {
-                var context = Context.WithParentType(typeForFhirType, typeAndExpression.type);
+                var context = Context.WithParentType(typeForFhirType, typeAndExpression.type, typeAndExpression.definition);
 
                 foreach (SearchParameterTypeResult classMapping in ClassMappings(context, typeAndExpression.expression))
                 {
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 }
                 else if (expression.FunctionName == "exists" || expression.FunctionName == "is")
                 {
-                    yield return new SearchParameterTypeResult(GetMapping(typeof(FhirBoolean)), ctx.SearchParamType, null);
+                    yield return new SearchParameterTypeResult(GetMapping(typeof(FhirBoolean)), ctx.SearchParamType, null, ctx.Definition);
                     yield break;
                 }
                 else if (expression.FunctionName == "as")
@@ -216,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                             string path = pathBuilder.ToString();
                             foreach (var fhirType in prop.FhirType)
                             {
-                                yield return new SearchParameterTypeResult(GetMapping(fhirType), ctx.SearchParamType, path);
+                                yield return new SearchParameterTypeResult(GetMapping(fhirType), ctx.SearchParamType, path, ctx.Definition);
                             }
 
                             pathBuilder.AppendFormat("({0})", string.Join(",", prop.FhirType.Select(x => x.Name)));
@@ -233,7 +234,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 }
 
                 Log($"Resolved path '{pathBuilder}'");
-                yield return new SearchParameterTypeResult(mapping, ctx.SearchParamType, pathBuilder.ToString());
+                yield return new SearchParameterTypeResult(mapping, ctx.SearchParamType, pathBuilder.ToString(), ctx.Definition);
             }
         }
 
@@ -310,44 +311,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             public ClassMapping AsTypeMapping { get; set; }
 
+            public Uri Definition { get; set; }
+
             public Microsoft.Health.Fhir.ValueSets.SearchParamType SearchParamType { get; set; }
 
             public Context WithAsType(ClassMapping asTypeMapping)
             {
-                var ctx = new Context
-                {
-                    Path = Path,
-                    AsTypeMapping = asTypeMapping,
-                    ParentExpression = ParentExpression,
-                    ParentTypeMapping = ParentTypeMapping,
-                    SearchParamType = SearchParamType,
-                };
-
+                Context ctx = Clone();
+                ctx.AsTypeMapping = asTypeMapping;
                 return ctx;
             }
 
             public Context WithPath(string propertyName, ClassMapping knownMapping = null)
             {
-                var ctx = new Context
-                {
-                    Path = Path,
-                    ParentExpression = ParentExpression,
-                    ParentTypeMapping = ParentTypeMapping,
-                    SearchParamType = SearchParamType,
-                };
-
+                Context ctx = Clone();
                 ctx.Path.Push((propertyName, knownMapping ?? AsTypeMapping));
-
                 return ctx;
             }
 
-            public static Context WithParentType(Type type, Microsoft.Health.Fhir.ValueSets.SearchParamType paramType, Expression parentExpression = null)
+            public static Context WithParentType(
+                Type type,
+                SearchParamType paramType,
+                Uri definition,
+                Expression parentExpression = null)
             {
                 var ctx = new Context
                 {
                     ParentExpression = parentExpression,
                     ParentTypeMapping = ClassMapping.Create(type),
                     SearchParamType = paramType,
+                    Definition = definition,
                 };
 
                 return ctx;
@@ -368,6 +361,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     ParentExpression = ParentExpression,
                     SearchParamType = SearchParamType,
                     ParentTypeMapping = ParentTypeMapping,
+                    Definition = Definition,
                 };
 
                 return ctx;

@@ -46,7 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 _fhirJsonParser,
                 _modelInfoProvider,
                 type.Assembly,
-                $"{type.Namespace}.search-parameters.json");
+                $"{type.Namespace}.search-parameters.json",
+                $"{type.Namespace}.unsupported-search-parameters.json");
 
             builder.Build();
 
@@ -66,14 +67,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new ResourceNotSupportedException(resourceType);
         }
 
-        public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
-        {
-            searchParameter = null;
-
-            return _typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> searchParameters) &&
-                searchParameters.TryGetValue(name, out searchParameter);
-        }
-
         public SearchParameterInfo GetSearchParameter(string resourceType, string name)
         {
             if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> lookup) &&
@@ -83,6 +76,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             throw new SearchParameterNotSupportedException(resourceType, name);
+        }
+
+        public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
+        {
+            searchParameter = null;
+
+            return _typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> searchParameters) &&
+                searchParameters.TryGetValue(name, out searchParameter);
         }
 
         public SearchParameterInfo GetSearchParameter(Uri definitionUri)
