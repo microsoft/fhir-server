@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, () => searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
-            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(searchParameterDefinitionManager);
+            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(() => searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler);

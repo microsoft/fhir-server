@@ -10,6 +10,10 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
+    public delegate ISearchParameterDefinitionManager SearchableSearchParameterDefinitionManagerFactory();
+
+    public delegate ISearchParameterDefinitionManager SupportedSearchParameterDefinitionManagerFactory();
+
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>

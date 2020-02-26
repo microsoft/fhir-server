@@ -26,10 +26,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ConcurrentDictionary<SearchParameterInfo, Type> _map = new ConcurrentDictionary<SearchParameterInfo, Type>();
 
-        public SearchParameterToSearchValueTypeMap(ISearchParameterDefinitionManager searchParameterDefinitionManager)
+        public SearchParameterToSearchValueTypeMap(SupportedSearchParameterDefinitionManagerFactory searchParameterDefinitionManagerFactory)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerFactory, nameof(searchParameterDefinitionManagerFactory));
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerFactory();
         }
 
         public Type GetSearchValueType(SearchParameterInfo searchParameter)

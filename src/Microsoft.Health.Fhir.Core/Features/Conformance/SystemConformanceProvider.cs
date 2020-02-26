@@ -29,15 +29,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public SystemConformanceProvider(
             IModelInfoProvider modelInfoProvider,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            SearchableSearchParameterDefinitionManagerFactory searchParameterDefinitionManagerFactory,
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerFactory, nameof(searchParameterDefinitionManagerFactory));
             EnsureArg.IsNotNull(capabilityProviders, nameof(capabilityProviders));
 
             _modelInfoProvider = modelInfoProvider;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerFactory();
             _capabilityProviders = capabilityProviders;
         }
 

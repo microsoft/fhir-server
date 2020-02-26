@@ -5,11 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using EnsureThat;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
+    [DebuggerDisplay("{Name}, Type: {Type}")]
     public class SearchParameterInfo
     {
         public SearchParameterInfo(

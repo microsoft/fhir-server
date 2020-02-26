@@ -35,19 +35,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexer"/> class.
         /// </summary>
-        /// <param name="searchParameterDefinitionManager">The search parameter definition manager.</param>
+        /// <param name="searchParameterDefinitionManagerFactory">The search parameter definition manager.</param>
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
         /// <param name="logger">The logger.</param>
         public SearchIndexer(
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            SupportedSearchParameterDefinitionManagerFactory searchParameterDefinitionManagerFactory,
             IFhirElementToSearchValueTypeConverterManager fhirElementTypeConverterManager,
             ILogger<SearchIndexer> logger)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerFactory, nameof(searchParameterDefinitionManagerFactory));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerFactory();
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
             _logger = logger;
         }

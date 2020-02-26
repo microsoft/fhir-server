@@ -14,7 +14,6 @@
         "http://hl7.org/fhir/SearchParameter/ConceptMap-target-uri",
         "http://hl7.org/fhir/SearchParameter/ConceptMap-version",
         "http://hl7.org/fhir/SearchParameter/DataElement-version",
-        "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship",
         "http://hl7.org/fhir/SearchParameter/Encounter-length",
         "http://hl7.org/fhir/SearchParameter/ExpansionProfile-version",
         "http://hl7.org/fhir/SearchParameter/GraphDefinition-version",
