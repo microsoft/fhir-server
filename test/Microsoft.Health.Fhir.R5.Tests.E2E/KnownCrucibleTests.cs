@@ -3,6 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
     public class KnownCrucibleTests
@@ -447,6 +450,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "history001/HI06",
             "history001/HI08",
         };
+
+        public static readonly IDictionary<DataStore, string[]> KnowFailuresForDataStore =
+            new Dictionary<DataStore, string[]>
+            {
+                {
+                    DataStore.CosmosDb,
+                    new[]
+                    {
+                        "transactionandbatchtest/XFER0",
+                        "search001/SE05.5P",
+                        "search001/SE05.5G",
+                    }
+                },
+                {
+                    DataStore.SqlServer,
+                    new[]
+                    {
+                        "history001/HI01",
+                        "history001/HI02",
+                        "history001/HI06",
+                        "history001/HI08",
+                    }
+                },
+            };
 
         public static readonly string[] KnownBroken =
         {
