@@ -84,6 +84,7 @@
     <None Remove="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\R5\Location-example-hq.json" />
     <None Remove="TestFiles\R5\MedicinalProduct.json" />
+    <None Remove="TestFiles\R5\MedicinalProductDefinition.json" />
     <None Remove="TestFiles\R5\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\R5\ObservationDefinition-example.json" />
     <None Remove="TestFiles\R5\ObservationWith1MinuteApgarScore.json" />
@@ -234,6 +235,7 @@
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq.json" />
+    <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R5\ObservationWith1MinuteApgarScore.json" />

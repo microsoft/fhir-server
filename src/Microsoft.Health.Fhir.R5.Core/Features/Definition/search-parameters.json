@@ -485,7 +485,7 @@
       "code" : "patient",
       "base" : ["Account"],
       "type" : "reference",
-      "expression" : "Account.subject.where(resolve() is Patient)",
+      "expression" : "Account.subject",
       "xpath" : "f:Account/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -3428,7 +3428,7 @@
       "SupplyDelivery",
       "VisionPrescription"],
       "type" : "reference",
-      "expression" : "AllergyIntolerance.patient | CarePlan.subject.where(resolve() is Patient) | CareTeam.subject.where(resolve() is Patient) | ClinicalImpression.subject.where(resolve() is Patient) | Composition.subject.where(resolve() is Patient) | Condition.subject.where(resolve() is Patient) | Consent.patient | DetectedIssue.patient | DeviceRequest.subject.where(resolve() is Patient) | DeviceUseStatement.subject | DiagnosticReport.subject.where(resolve() is Patient) | DocumentManifest.subject.where(resolve() is Patient) | DocumentReference.subject.where(resolve() is Patient) | Encounter.subject.where(resolve() is Patient) | EpisodeOfCare.patient | FamilyMemberHistory.patient | Flag.subject.where(resolve() is Patient) | Goal.subject.where(resolve() is Patient) | ImagingStudy.subject.where(resolve() is Patient) | Immunization.patient | List.subject.where(resolve() is Patient) | MedicationAdministration.subject.where(resolve() is Patient) | MedicationDispense.subject.where(resolve() is Patient) | MedicationRequest.subject.where(resolve() is Patient) | MedicationUsage.subject.where(resolve() is Patient) | NutritionOrder.patient | Observation.subject.where(resolve() is Patient) | Procedure.subject.where(resolve() is Patient) | RiskAssessment.subject.where(resolve() is Patient) | ServiceRequest.subject.where(resolve() is Patient) | SupplyDelivery.patient | VisionPrescription.patient",
+      "expression" : "AllergyIntolerance.patient | CarePlan.subject | CareTeam.subject | ClinicalImpression.subject | Composition.subject | Condition.subject | Consent.patient | DetectedIssue.patient | DeviceRequest.subject | DeviceUseStatement.subject | DiagnosticReport.subject | DocumentManifest.subject | DocumentReference.subject | Encounter.subject | EpisodeOfCare.patient | FamilyMemberHistory.patient | Flag.subject | Goal.subject | ImagingStudy.subject | Immunization.patient | List.subject | MedicationAdministration.subject | MedicationDispense.subject | MedicationRequest.subject | MedicationUsage.subject | NutritionOrder.patient | Observation.subject | Procedure.subject | RiskAssessment.subject | ServiceRequest.subject | SupplyDelivery.patient | VisionPrescription.patient",
       "xpath" : "f:AllergyIntolerance/f:patient | f:CarePlan/f:subject | f:CareTeam/f:subject | f:ClinicalImpression/f:subject | f:Composition/f:subject | f:Condition/f:subject | f:Consent/f:patient | f:DetectedIssue/f:patient | f:DeviceRequest/f:subject | f:DeviceUseStatement/f:subject | f:DiagnosticReport/f:subject | f:DocumentManifest/f:subject | f:DocumentReference/f:subject | f:Encounter/f:subject | f:EpisodeOfCare/f:patient | f:FamilyMemberHistory/f:patient | f:Flag/f:subject | f:Goal/f:subject | f:ImagingStudy/f:subject | f:Immunization/f:patient | f:List/f:subject | f:MedicationAdministration/f:subject | f:MedicationDispense/f:subject | f:MedicationRequest/f:subject | f:MedicationUsage/f:subject | f:NutritionOrder/f:patient | f:Observation/f:subject | f:Procedure/f:subject | f:RiskAssessment/f:subject | f:ServiceRequest/f:subject | f:SupplyDelivery/f:patient | f:VisionPrescription/f:patient",
       "xpathUsage" : "normal",
       "target" : ["Patient",
@@ -3938,7 +3938,7 @@
       "code" : "patient",
       "base" : ["Appointment"],
       "type" : "reference",
-      "expression" : "Appointment.participant.actor.where(resolve() is Patient)",
+      "expression" : "Appointment.participant.actor",
       "xpath" : "f:Appointment/f:participant/f:actor",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -4646,7 +4646,7 @@
       "code" : "patient",
       "base" : ["AppointmentResponse"],
       "type" : "reference",
-      "expression" : "AppointmentResponse.actor.where(resolve() is Patient)",
+      "expression" : "AppointmentResponse.actor",
       "xpath" : "f:AppointmentResponse/f:actor",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -5322,7 +5322,7 @@
       "code" : "patient",
       "base" : ["AuditEvent"],
       "type" : "reference",
-      "expression" : "AuditEvent.agent.who.where(resolve() is Patient) | AuditEvent.entity.what.where(resolve() is Patient)",
+      "expression" : "AuditEvent.agent.who | AuditEvent.entity.what",
       "xpath" : "f:AuditEvent/f:agent/f:who | f:AuditEvent/f:entity/f:what",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -5750,7 +5750,7 @@
       "code" : "patient",
       "base" : ["Basic"],
       "type" : "reference",
-      "expression" : "Basic.subject.where(resolve() is Patient)",
+      "expression" : "Basic.subject",
       "xpath" : "f:Basic/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -9699,7 +9699,7 @@
       "code" : "patient",
       "base" : ["ChargeItem"],
       "type" : "reference",
-      "expression" : "ChargeItem.subject.where(resolve() is Patient)",
+      "expression" : "ChargeItem.subject",
       "xpath" : "f:ChargeItem/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -13393,7 +13393,7 @@
       "code" : "patient",
       "base" : ["Communication"],
       "type" : "reference",
-      "expression" : "Communication.subject.where(resolve() is Patient)",
+      "expression" : "Communication.subject",
       "xpath" : "f:Communication/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -14230,7 +14230,7 @@
       "code" : "patient",
       "base" : ["CommunicationRequest"],
       "type" : "reference",
-      "expression" : "CommunicationRequest.subject.where(resolve() is Patient)",
+      "expression" : "CommunicationRequest.subject",
       "xpath" : "f:CommunicationRequest/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -18207,7 +18207,7 @@
       "code" : "patient",
       "base" : ["Contract"],
       "type" : "reference",
-      "expression" : "Contract.subject.where(resolve() is Patient)",
+      "expression" : "Contract.subject",
       "xpath" : "f:Contract/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -31061,7 +31061,7 @@
       "code" : "patient",
       "base" : ["GuidanceResponse"],
       "type" : "reference",
-      "expression" : "GuidanceResponse.subject.where(resolve() is Patient)",
+      "expression" : "GuidanceResponse.subject",
       "xpath" : "f:GuidanceResponse/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -34584,7 +34584,7 @@
       "code" : "patient",
       "base" : ["Invoice"],
       "type" : "reference",
-      "expression" : "Invoice.subject.where(resolve() is Patient)",
+      "expression" : "Invoice.subject",
       "xpath" : "f:Invoice/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -39765,7 +39765,7 @@
       "code" : "patient",
       "base" : ["MeasureReport"],
       "type" : "reference",
-      "expression" : "MeasureReport.subject.where(resolve() is Patient)",
+      "expression" : "MeasureReport.subject",
       "xpath" : "f:MeasureReport/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -44432,7 +44432,7 @@
       "code" : "patient",
       "base" : ["NutritionIntake"],
       "type" : "reference",
-      "expression" : "NutritionIntake.subject.where(resolve() is Patient)",
+      "expression" : "NutritionIntake.subject",
       "xpath" : "f:NutritionIntake/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -50083,7 +50083,7 @@
       "code" : "patient",
       "base" : ["Person"],
       "type" : "reference",
-      "expression" : "Person.link.target.where(resolve() is Patient)",
+      "expression" : "Person.link.target",
       "xpath" : "f:Person/f:link/f:target",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -53166,7 +53166,7 @@
       "code" : "patient",
       "base" : ["Provenance"],
       "type" : "reference",
-      "expression" : "Provenance.target.where(resolve() is Patient)",
+      "expression" : "Provenance.target",
       "xpath" : "f:Provenance/f:target",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -54499,7 +54499,7 @@
       "code" : "patient",
       "base" : ["QuestionnaireResponse"],
       "type" : "reference",
-      "expression" : "QuestionnaireResponse.subject.where(resolve() is Patient)",
+      "expression" : "QuestionnaireResponse.subject",
       "xpath" : "f:QuestionnaireResponse/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -55672,7 +55672,7 @@
       "code" : "patient",
       "base" : ["RequestGroup"],
       "type" : "reference",
-      "expression" : "RequestGroup.subject.where(resolve() is Patient)",
+      "expression" : "RequestGroup.subject",
       "xpath" : "f:RequestGroup/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -58612,7 +58612,7 @@
       "code" : "patient",
       "base" : ["Specimen"],
       "type" : "reference",
-      "expression" : "Specimen.subject.where(resolve() is Patient)",
+      "expression" : "Specimen.subject",
       "xpath" : "f:Specimen/f:subject",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
@@ -61113,7 +61113,7 @@
       "code" : "patient",
       "base" : ["Task"],
       "type" : "reference",
-      "expression" : "Task.for.where(resolve() is Patient)",
+      "expression" : "Task.for",
       "xpath" : "f:Task/f:for",
       "xpathUsage" : "normal",
       "target" : ["Patient"]
