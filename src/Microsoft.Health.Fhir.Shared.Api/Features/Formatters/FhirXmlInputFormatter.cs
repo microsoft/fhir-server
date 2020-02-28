@@ -73,7 +73,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
             catch (Exception ex)
             {
-                context.ModelState.TryAddModelError(string.Empty, ex.Message);
+                var errorMessage = string.IsNullOrEmpty(ex.Message) ? Api.Resources.ParsingError : ex.Message;
+
+                context.ModelState.TryAddModelError(string.Empty, errorMessage);
             }
 
             return InputFormatterResult.Failure();

@@ -286,6 +286,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Error occurred when parsing model..
+        /// </summary>
+        public static string ParsingError {
+            get {
+                return ResourceManager.GetString("ParsingError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to PATCH is not currently supported..
         /// </summary>
         public static string PatchNotSupported {
