@@ -20,11 +20,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
-        public StringOverflowRewriter(SupportedSearchParameterDefinitionManagerFactory searchParameterDefinitionManagerFactory)
-            : base(new Scout(searchParameterDefinitionManagerFactory()))
+        public StringOverflowRewriter(SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver)
+            : base(new Scout(searchParameterDefinitionManagerResolver()))
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManagerFactory, nameof(searchParameterDefinitionManagerFactory));
-            _searchParameterDefinitionManager = searchParameterDefinitionManagerFactory();
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)

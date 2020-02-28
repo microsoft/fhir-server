@@ -51,20 +51,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
             SchemaInformation schemaInformation,
-            SupportedSearchParameterDefinitionManagerFactory searchParameterDefinitionManagerFactory,
+            SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(searchParameterDefinitionManagerFactory, nameof(searchParameterDefinitionManagerFactory));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _configuration = configuration;
             _schemaInformation = schemaInformation;
             _logger = logger;
-            _searchParameterDefinitionManager = searchParameterDefinitionManagerFactory();
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _securityConfiguration = securityConfiguration.Value;
 
             _initializationOperation = new RetryableInitializationOperation(Initialize);

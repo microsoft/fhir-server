@@ -38,16 +38,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         /// <summary>
         /// Initializes a new instance of the <see cref="ExpressionParser"/> class.
         /// </summary>
-        /// <param name="searchParameterDefinitionManagerFactory">The search parameter definition manager.</param>
+        /// <param name="searchParameterDefinitionManagerResolver">The search parameter definition manager.</param>
         /// <param name="searchParameterExpressionParser">The parser used to parse the search value into a search expression.</param>
         public ExpressionParser(
-            SearchableSearchParameterDefinitionManagerFactory searchParameterDefinitionManagerFactory,
+            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ISearchParameterExpressionParser searchParameterExpressionParser)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManagerFactory, nameof(searchParameterDefinitionManagerFactory));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(searchParameterExpressionParser, nameof(searchParameterExpressionParser));
 
-            _searchParameterDefinitionManager = searchParameterDefinitionManagerFactory();
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _searchParameterExpressionParser = searchParameterExpressionParser;
         }
 

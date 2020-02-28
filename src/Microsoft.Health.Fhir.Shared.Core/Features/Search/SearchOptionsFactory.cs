@@ -31,15 +31,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
-            SearchableSearchParameterDefinitionManagerFactory searchParameterDefinitionManagerFactory,
+            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
-            EnsureArg.IsNotNull(searchParameterDefinitionManagerFactory, nameof(searchParameterDefinitionManagerFactory));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
-            _searchParameterDefinitionManager = searchParameterDefinitionManagerFactory();
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
 
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
