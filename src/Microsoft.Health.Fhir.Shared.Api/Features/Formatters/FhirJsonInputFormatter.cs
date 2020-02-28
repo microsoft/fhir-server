@@ -95,8 +95,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 if (delayedException != null)
                 {
+                    var errorMessage = string.IsNullOrEmpty(delayedException.Message) ? Api.Resources.ParsingError : delayedException.Message;
+
                     // Add model state information to return to the client
-                    context.ModelState.TryAddModelError(string.Empty, delayedException.Message);
+                    context.ModelState.TryAddModelError(string.Empty, errorMessage);
                 }
 
                 return Task.FromResult(InputFormatterResult.Failure());
