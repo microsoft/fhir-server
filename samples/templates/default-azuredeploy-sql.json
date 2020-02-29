@@ -166,34 +166,18 @@
     "resources": [
         {
             "condition": "[empty(parameters('appServicePlanResourceGroup'))]",
-            "apiVersion": "2017-05-10",
-            "name": "nestedTemplate",
-            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-08-01",
+            "name": "[variables('appServicePlanName')]",
+            "type": "Microsoft.Web/serverfarms",
+            "tags": {
+                "FhirServerSolution": "[parameters('solutionType')]"
+            },
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "[parameters('appServicePlanSku')]"
+            },
             "properties": {
-                "mode": "Incremental",
-                "template": {
-                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-                    "contentVersion": "1.0.0.0",
-                    "parameters": {},
-                    "variables": {},
-                    "resources": [
-                        {
-                            "apiVersion": "2015-08-01",
-                            "name": "[variables('appServicePlanName')]",
-                            "type": "Microsoft.Web/serverfarms",
-                            "tags": {
-                                "FhirServerSolution": "[parameters('solutionType')]"
-                            },
-                            "location": "[resourceGroup().location]",
-                            "sku": {
-                                "name": "[parameters('appServicePlanSku')]"
-                            },
-                            "properties": {
-                                "name": "[variables('appServicePlanName')]"
-                            }
-                        }
-                    ]
-                }
+                "name": "[variables('appServicePlanName')]"
             }
         },
         {
@@ -212,7 +196,7 @@
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]"
             },
             "dependsOn": [
-                "nestedTemplate"
+                "[if(empty(parameters('appServicePlanResourceGroup')), resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), resourceId('Microsoft.Sql/servers', variables('serviceName')))]"
             ],
             "resources": [
                 {
