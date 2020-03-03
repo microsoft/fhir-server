@@ -178,6 +178,14 @@
   <data name="CustomHeaderPrefixCannotBeEmpty" xml:space="preserve">
     <value>The prefix used to identify custom audit headers cannot be empty.</value>
   </data>
+  <data name="DateTimeStringIsIncorrectlyFormatted" xml:space="preserve">
+    <value>The date time string '{0}' is not in a correct format.</value>
+    <comment>{0} is the incorrect date time string.</comment>
+  </data>
+  <data name="DateTimeStringIsOutOfRange" xml:space="preserve">
+    <value>At least one portion of the date time string '{0}' is out of range.</value>
+    <comment>{0} is the date time string that is out of range.</comment>
+  </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
   </data>
