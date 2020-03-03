@@ -232,6 +232,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The date time string &apos;{0}&apos; is not in a correct format..
+        /// </summary>
+        internal static string DateTimeStringIsIncorrectlyFormatted {
+            get {
+                return ResourceManager.GetString("DateTimeStringIsIncorrectlyFormatted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to At least one portion of the date time string &apos;{0}&apos; is out of range..
+        /// </summary>
+        internal static string DateTimeStringIsOutOfRange {
+            get {
+                return ResourceManager.GetString("DateTimeStringIsOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {

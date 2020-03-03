@@ -59,78 +59,13 @@ namespace Microsoft.Health.Fhir.Core.Models
             decimal? fraction = null,
             TimeSpan? utcOffset = null)
         {
-            // Validate the parameters. Partial date is supported but the value must be specified from left to right.
-            // E.g., If month is not specified, then day, hour, minute and etc. cannot be specified.
-            (string Name, bool HasValue)[] parameters = new[]
-            {
-                (nameof(month), month.HasValue),
-                (nameof(day), day.HasValue),
-                (nameof(hour), hour.HasValue),
-                (nameof(minute), minute.HasValue),
-                (nameof(second), second.HasValue),
-                (nameof(fraction), fraction.HasValue),
-            };
-
-            bool previousParamHasValue = true;
-            string firstParamWithNullValue = null;
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                var currentParameter = parameters[i];
-
-                if (currentParameter.HasValue)
-                {
-                    if (!previousParamHasValue)
-                    {
-                        // The current parameter has value but previous one doesn't. This is an invalid state.
-                        throw new ArgumentException(
-                            $"The {currentParameter.Name} portion of a date cannot be specified if the {firstParamWithNullValue} portion is not specified.",
-                            currentParameter.Name);
-                    }
-                }
-
-                if (!currentParameter.HasValue && firstParamWithNullValue == null)
-                {
-                    firstParamWithNullValue = currentParameter.Name;
-                }
-
-                previousParamHasValue = currentParameter.HasValue;
-            }
-
-            if (hour != null)
-            {
-                if (minute == null)
-                {
-                    // If hour is specified, then minutes must be specified.
-                    throw new ArgumentException(
-                        $"The '{nameof(minute)}' portion of a date must be specified if '{nameof(hour)}' is specified.",
-                        nameof(minute));
-                }
-
-                if (utcOffset == null)
-                {
-                    // If hour and minute are specified, then the timezone offset must be specified
-                    // per spec (http://hl7.org/fhir/datatypes.html#dateTime).
-                    // However, in search queries, the time zone information is optional (http://hl7.org/fhir/search.html#date).
-                    // The parsing logic will default to UTC time zone if the time zone information is not specified in the search query.
-                    throw new ArgumentException(
-                        $"The '{nameof(utcOffset)}' portion of a date must be specified if '{nameof(hour)}' and '{nameof(minute)}' are specified.",
-                        nameof(utcOffset));
-                }
-            }
-
-            // Validate the range of each parameter.
-            ValidateRange(year, 1, 9999, nameof(year));
-            ValidateRange(month, 1, 12, nameof(month));
-
             if (month.HasValue)
             {
-                ValidateRange(day, 1, DateTime.DaysInMonth(year, month.Value), nameof(day));
+                if (day != null)
+                {
+                    EnsureArg.IsInRange(day.Value, 1, DateTime.DaysInMonth(year, month.Value), nameof(day));
+                }
             }
-
-            ValidateRange(hour, 0, 23, nameof(hour));
-            ValidateRange(minute, 0, 59, nameof(minute));
-            ValidateRange(second, 0, 59, nameof(second));
 
             if (fraction != null)
             {
@@ -145,14 +80,6 @@ namespace Microsoft.Health.Fhir.Core.Models
             Second = second;
             Fraction = fraction;
             UtcOffset = utcOffset;
-
-            void ValidateRange(int? value, int min, int max, string paramName)
-            {
-                if (value != null)
-                {
-                    EnsureArg.IsInRange(value.Value, min, max, paramName);
-                }
-            }
         }
 
         /// <summary>
@@ -244,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             if (!match.Success)
             {
                 // The input value cannot be parsed correctly.
-                throw new FormatException("Input string was not in a correct format.");
+                throw new FormatException(string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, s));
             }
 
             int year = int.Parse(match.Groups[YearCapture].Value);
@@ -291,8 +218,8 @@ namespace Microsoft.Health.Fhir.Core.Models
             }
             catch (Exception ex) when (ex is ArgumentException)
             {
-                // The input value was parsed correctly but one of the value provided were out of range.
-                throw new FormatException("Input string was not in a correct format. At least one portion of a date was invalid or out of range.", ex);
+                // The input value was parsed correctly, but one of the values provided was out of range.
+                throw new FormatException(string.Format(Resources.DateTimeStringIsOutOfRange, s), ex);
             }
 
             int? ParseDateTimePart(string name)
