@@ -74,8 +74,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ISearchParameterExpressionParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchParameterExpressionParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchValueExpressionBuilderHelper.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\IReferenceToElementResolver.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\LightweightReferenceToElementResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchIndexer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandler.cs" />
