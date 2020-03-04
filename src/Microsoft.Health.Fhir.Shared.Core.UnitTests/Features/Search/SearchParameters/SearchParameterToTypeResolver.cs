@@ -12,10 +12,9 @@ using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
-using EnumerableReturnType=System.Collections.Generic.IEnumerable<Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameterTypeResult>;
+using EnumerableReturnType = System.Collections.Generic.IEnumerable<Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameterTypeResult>;
 using Expression = Hl7.FhirPath.Expressions.Expression;
 using Range = Hl7.Fhir.Model.Range;
-using ReturnType=Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameterTypeResult;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
@@ -35,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             if (componentExpressions?.Any() == true)
             {
-                foreach (var component in componentExpressions)
+                foreach ((SearchParamType type, Expression expression, Uri definition) component in componentExpressions)
                 {
                     var context = Context.WithParentType(typeForFhirType, component.type, component.definition, typeAndExpression.expression);
 
@@ -57,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             EnumerableReturnType ClassMappings(Context context, Expression expr)
             {
-                foreach (var result in Accept(expr, context)
+                foreach (SearchParameterTypeResult result in Accept(expr, context)
                     .GroupBy(x => x.ClassMapping.Name)
                     .Select(x => x.FirstOrDefault())
                     .ToArray())
@@ -71,13 +70,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             if (expression.FunctionName == "builtin.children")
             {
-                var newCtx = ctx;
+                Context newCtx = ctx;
                 if (expression.ChildName != null)
                 {
                     newCtx = ctx.WithPath(expression.ChildName);
                 }
 
-                foreach (var type in Accept(expression.Focus, newCtx))
+                foreach (SearchParameterTypeResult type in Accept(expression.Focus, newCtx))
                 {
                     yield return type;
                 }
@@ -93,11 +92,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             if (expression.Op == "as")
             {
                 var constantExp = expression.Arguments.OfType<ConstantExpression>().Single().Value as string;
-                var mapping = GetMapping(constantExp);
+                ClassMapping mapping = GetMapping(constantExp);
 
-                ctx = ctx.WithAsType(mapping);
+                ctx = ctx.WithAsTypeMapping(mapping);
 
-                foreach (var result in Accept(expression.Right, ctx.Clone()))
+                foreach (SearchParameterTypeResult result in Accept(expression.Right, ctx.Clone()))
                 {
                     yield return result;
                 }
@@ -107,9 +106,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                      expression.Op == "==" ||
                      expression.Op == "and")
             {
-                foreach (var innerExpression in expression.Arguments)
+                foreach (Expression innerExpression in expression.Arguments)
                 {
-                    foreach (var result in Accept(innerExpression, ctx.Clone()))
+                    foreach (SearchParameterTypeResult result in Accept(innerExpression, ctx.Clone()))
                     {
                         yield return result;
                     }
@@ -130,31 +129,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     // Ignore
                     yield break;
                 }
-                else if (expression.FunctionName == "exists" || expression.FunctionName == "is")
+
+                if (expression.FunctionName == "exists" || expression.FunctionName == "is")
                 {
                     yield return new SearchParameterTypeResult(GetMapping(typeof(FhirBoolean)), ctx.SearchParamType, null, ctx.Definition);
+
                     yield break;
                 }
-                else if (expression.FunctionName == "as")
+
+                if (expression.FunctionName == "as")
                 {
                     // Matches Condition.abatement.as(Age)
                     var constantExp = expression.Arguments.OfType<ConstantExpression>().Single().Value as string;
 
-                    var mapping = GetMapping(constantExp);
-                    ctx = ctx.WithAsType(mapping).Clone();
+                    ClassMapping mapping = GetMapping(constantExp);
+                    ctx = ctx.WithAsTypeMapping(mapping);
 
-                    foreach (var type in ClassMappings(ctx))
+                    foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
                     {
                         yield return type;
                     }
 
                     yield break;
                 }
-                else if (expression.FunctionName == "where" ||
-                         expression.FunctionName == "builtin.children" ||
-                         expression.FunctionName == "builtin.item")
+
+                if (expression.FunctionName == "where" ||
+                    expression.FunctionName == "builtin.children" ||
+                    expression.FunctionName == "builtin.item")
                 {
-                    foreach (var type in ClassMappings(ctx))
+                    foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
                     {
                         yield return type;
                     }
@@ -164,18 +167,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
 
             throw new NotImplementedException();
-
-            EnumerableReturnType ClassMappings(Context c)
-            {
-                return Accept(expression.Focus, c);
-            }
         }
 
         private static EnumerableReturnType Visit(AxisExpression expression, Context ctx)
         {
             if (ctx.ParentExpression != null)
             {
-                foreach (var result in Accept(ctx.ParentExpression, ctx.CloneAsChildExpression()))
+                foreach (SearchParameterTypeResult result in Accept(ctx.ParentExpression, ctx.CloneAsChildExpression()))
                 {
                     yield return result;
                 }
@@ -185,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 var pathBuilder = new StringBuilder(ctx.Path.First().Item1);
 
                 var skipResourceElement = true;
-                var mapping = ctx.Path.First().Item2;
+                ClassMapping mapping = ctx.Path.First().Item2;
 
                 if (mapping == null && ModelInfoProvider.Instance.GetTypeForFhirType(ctx.Path.First().Item1) != null)
                 {
@@ -199,29 +197,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     skipResourceElement = false;
                 }
 
-                foreach (var item in ctx.Path.Skip(skipResourceElement ? 1 : 0))
+                foreach ((string, ClassMapping) item in ctx.Path.Skip(skipResourceElement ? 1 : 0))
                 {
                     pathBuilder.AppendFormat(".{0}", item.Item1);
                     if (item.Item2 != null)
                     {
                         pathBuilder.AppendFormat("({0})", item.Item2.Name);
                         mapping = item.Item2;
+
                         continue;
                     }
 
-                    var prop = mapping.PropertyMappings.FirstOrDefault(x => x.Name == item.Item1);
+                    PropertyMapping prop = mapping.PropertyMappings.FirstOrDefault(x => x.Name == item.Item1);
                     if (prop != null)
                     {
                         if (prop.GetElementType() == typeof(Element))
                         {
                             string path = pathBuilder.ToString();
-                            foreach (var fhirType in prop.FhirType)
+                            foreach (Type fhirType in prop.FhirType)
                             {
                                 yield return new SearchParameterTypeResult(GetMapping(fhirType), ctx.SearchParamType, path, ctx.Definition);
                             }
 
                             pathBuilder.AppendFormat("({0})", string.Join(",", prop.FhirType.Select(x => x.Name)));
                             Log($"Resolved path '{pathBuilder}'");
+
                             yield break;
                         }
 
@@ -234,6 +234,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 }
 
                 Log($"Resolved path '{pathBuilder}'");
+
                 yield return new SearchParameterTypeResult(mapping, ctx.SearchParamType, pathBuilder.ToString(), ctx.Definition);
             }
         }
@@ -248,7 +249,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             // matches %resource.referenceSeq.chromosome
             if (string.Equals(expression.Name, "resource", StringComparison.OrdinalIgnoreCase))
             {
-                var newContext = ctx.WithPath("Resource", ctx.ParentTypeMapping);
+                Context newContext = ctx.WithPath("Resource", ctx.ParentTypeMapping);
+
                 return Accept(new AxisExpression("that"), newContext);
             }
 
@@ -313,12 +315,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             public Uri Definition { get; set; }
 
-            public Microsoft.Health.Fhir.ValueSets.SearchParamType SearchParamType { get; set; }
+            public SearchParamType SearchParamType { get; set; }
 
-            public Context WithAsType(ClassMapping asTypeMapping)
+            public Context WithAsTypeMapping(ClassMapping asTypeMapping)
             {
                 Context ctx = Clone();
                 ctx.AsTypeMapping = asTypeMapping;
+
                 return ctx;
             }
 
@@ -326,6 +329,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 Context ctx = Clone();
                 ctx.Path.Push((propertyName, knownMapping ?? AsTypeMapping));
+
                 return ctx;
             }
 
@@ -349,7 +353,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             public Context Clone()
             {
                 var clone = new Stack<(string, ClassMapping)>();
-                foreach (var item in Path.Reverse())
+                foreach ((string, ClassMapping) item in Path.Reverse())
                 {
                     clone.Push(item);
                 }
@@ -369,8 +373,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             public Context CloneAsChildExpression()
             {
-                var ctx = Clone();
+                Context ctx = Clone();
                 ctx.ParentExpression = null;
+
                 return ctx;
             }
         }

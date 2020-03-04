@@ -33,34 +33,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(GetAllSearchParameters))]
         public void CheckSearchParameter(
             string resourceType,
-            string parameterName,
-            SearchParamType searchParamType,
-            string fhirPath,
-            SearchParameterInfo parameterInfo)
+            IEnumerable<SearchParameterInfo> parameters)
         {
             SearchParameterToTypeResolver.Log = s => _outputHelper.WriteLine(s);
 
-            _outputHelper.WriteLine("** Evaluating: " + fhirPath);
-
-            var converters =
-                GetConvertsForSearchParameters(resourceType, parameterInfo);
-
-            Assert.True(
-                converters.Any(x => x.hasConverter),
-                $"{parameterName} ({resourceType}) was not able to be mapped.");
-
-            string listedTypes = string.Join(",", converters.Select(x => x.result.ClassMapping.NativeType.Name));
-            _outputHelper.WriteLine($"Info: {parameterName} ({searchParamType}) found {listedTypes} types ({converters.Count}).");
-
-            foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
+            foreach (var parameterInfo in parameters)
             {
-                var found = _fixtureData.Manager.TryGetConverter(result.result.ClassMapping.NativeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
+                var fhirPath = parameterInfo.Expression;
+                var parameterName = parameterInfo.Name;
+                var searchParamType = parameterInfo.Type;
 
-                var converterText = found ? converter.GetType().Name : "None";
-                string searchTermMapping = $"Search term '{parameterName}' ({result.result.SearchParamType}) mapped to '{result.result.ClassMapping.NativeType.Name}', converter: {converterText}";
-                _outputHelper.WriteLine(searchTermMapping);
+                _outputHelper.WriteLine("** Evaluating: " + fhirPath);
 
-                Assert.True(found, searchTermMapping);
+                var converters =
+                    GetConvertsForSearchParameters(resourceType, parameterInfo);
+
+                Assert.True(
+                    converters.Any(x => x.hasConverter),
+                    $"{parameterName} ({resourceType}) was not able to be mapped.");
+
+                string listedTypes = string.Join(",", converters.Select(x => x.result.ClassMapping.NativeType.Name));
+                _outputHelper.WriteLine($"Info: {parameterName} ({searchParamType}) found {listedTypes} types ({converters.Count}).");
+
+                foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
+                {
+                    var found = _fixtureData.Manager.TryGetConverter(result.result.ClassMapping.NativeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
+
+                    var converterText = found ? converter.GetType().Name : "None";
+                    string searchTermMapping = $"Search term '{parameterName}' ({result.result.SearchParamType}) mapped to '{result.result.ClassMapping.NativeType.Name}', converter: {converterText}";
+                    _outputHelper.WriteLine(searchTermMapping);
+
+                    Assert.True(found, searchTermMapping);
+                }
             }
         }
 
@@ -125,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string resourceType,
             SearchParameterInfo parameterInfo)
         {
-            Expression parsed = _fixtureData.Compiler.Parse(parameterInfo.Expression);
+            var parsed = _fixtureData.Compiler.Parse(parameterInfo.Expression);
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
                 .Select(x => (_fixtureData.SearchDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
@@ -159,15 +163,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .GetResourceTypeNames()
                 .Select(resourceType => (resourceType, parameters: manager.GetSearchParameters(resourceType)));
 
-            foreach (var row in values)
+            foreach ((string resourceType, IEnumerable<SearchParameterInfo> parameters) row in values)
             {
-                foreach (var p in row.parameters)
-                {
-                    if (p.Name != "_type" && p.IsSupported)
-                    {
-                        yield return new object[] { row.resourceType, p.Name, p.Type, p.Expression, p };
-                    }
-                }
+                yield return new object[] { row.resourceType, row.parameters.Where(x => x.Name != "_type" && x.IsSupported) };
             }
         }
     }

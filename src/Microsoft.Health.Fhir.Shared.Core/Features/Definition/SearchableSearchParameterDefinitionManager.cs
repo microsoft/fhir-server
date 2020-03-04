@@ -15,7 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     /// <summary>
     /// A SearchParameterDefinitionManager that only returns actively searchable parameters.
-    /// If a non-searchable parameter is requested a <see cref="SearchParameterNotSupportedException"/> will be raised.
     /// </summary>
     public class SearchableSearchParameterDefinitionManager : ISearchParameterDefinitionManager
     {
@@ -39,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
         {
             searchParameter = null;
+
             if (_inner.TryGetSearchParameter(resourceType, name, out var parameter) && parameter.IsSearchable)
             {
                 searchParameter = parameter;
@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public SearchParameterInfo GetSearchParameter(string resourceType, string name)
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(resourceType, name);
+
             if (parameter.IsSearchable)
             {
                 return parameter;
@@ -63,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public SearchParameterInfo GetSearchParameter(Uri definitionUri)
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(definitionUri);
+
             if (parameter.IsSearchable)
             {
                 return parameter;

@@ -15,7 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     /// <summary>
     /// A SearchParameterDefinitionManager that only returns actively searchable parameters.
-    /// If a non-searchable parameter is requested a <see cref="SearchParameterNotSupportedException"/> will be raised.
     /// </summary>
     public class SupportedSearchParameterDefinitionManager : ISearchParameterDefinitionManager
     {
