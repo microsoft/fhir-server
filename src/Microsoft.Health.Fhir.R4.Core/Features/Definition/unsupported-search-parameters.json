@@ -1,5 +1,6 @@
 {
     "Unsupported": [
+        "http://hl7.org/fhir/SearchParameter/Resource-profile",
         "http://hl7.org/fhir/SearchParameter/ActivityDefinition-composed-of",
         "http://hl7.org/fhir/SearchParameter/ActivityDefinition-depends-on",
         "http://hl7.org/fhir/SearchParameter/ActivityDefinition-derived-from",
@@ -59,6 +60,7 @@
         "http://hl7.org/fhir/SearchParameter/Library-predecessor",
         "http://hl7.org/fhir/SearchParameter/Library-successor",
         "http://hl7.org/fhir/SearchParameter/Library-version",
+        "http://hl7.org/fhir/SearchParameter/Location-near",
         "http://hl7.org/fhir/SearchParameter/Measure-composed-of",
         "http://hl7.org/fhir/SearchParameter/Measure-depends-on",
         "http://hl7.org/fhir/SearchParameter/Measure-derived-from",
@@ -105,11 +107,9 @@
         "http://hl7.org/fhir/SearchParameter/ServiceRequest-instantiates-canonical",
         "http://hl7.org/fhir/SearchParameter/StructureDefinition-base",
         "http://hl7.org/fhir/SearchParameter/StructureDefinition-base-path",
-        "http://hl7.org/fhir/SearchParameter/StructureDefinition-ext-context",
         "http://hl7.org/fhir/SearchParameter/StructureDefinition-path",
         "http://hl7.org/fhir/SearchParameter/StructureDefinition-valueset",
         "http://hl7.org/fhir/SearchParameter/Subscription-url",
-        "http://hl7.org/fhir/SearchParameter/SubstanceSpecification-code",
         "http://hl7.org/fhir/SearchParameter/TestScript-version"
     ],
     "PartialSupport": [
