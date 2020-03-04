@@ -10,26 +10,24 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 {
     /// <summary>
-    /// Represents metadata required for each file that is generated as part of the
-    /// export operation.
+    /// Class that represents the information regarding each file that is being exported.
+    /// This is the output response that we send back to the client once export is complete.
+    /// Subset of <see cref="ExportFileInfo"/>.
     /// </summary>
-    public class ExportFileInfo
+    public class ExportOutputResponse
     {
-        public ExportFileInfo(
-            string type,
-            Uri fileUri,
-            int sequence)
+        public ExportOutputResponse(string type, Uri fileUri, int count)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(type);
-            EnsureArg.IsNotNull(fileUri);
+            EnsureArg.IsNotNullOrWhiteSpace(type, nameof(type));
+            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
 
             Type = type;
             FileUri = fileUri;
-            Sequence = sequence;
+            Count = count;
         }
 
         [JsonConstructor]
-        protected ExportFileInfo()
+        protected ExportOutputResponse()
         {
         }
 
@@ -39,24 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Url)]
         public Uri FileUri { get; private set; }
 
-        [JsonProperty(JobRecordProperties.Sequence)]
-        public int Sequence { get; private set; }
-
         [JsonProperty(JobRecordProperties.Count)]
         public int Count { get; private set; }
-
-        [JsonProperty(JobRecordProperties.CommitedBytes)]
-        public long CommittedBytes { get; private set; }
-
-        public void IncrementCount(int numberOfBytes)
-        {
-            Count++;
-            CommittedBytes += numberOfBytes;
-        }
-
-        public ExportOutputResponse ToExportOutputResponse()
-        {
-            return new ExportOutputResponse(Type, FileUri, Count);
-        }
     }
 }

@@ -52,8 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     outcome.JobRecord.QueuedTime,
                     outcome.JobRecord.RequestUri,
                     requiresAccessToken: false,
-                    outcome.JobRecord.Output.Values.OrderBy(x => x.Type, StringComparer.Ordinal).ToList(),
-                    outcome.JobRecord.Error);
+                    outcome.JobRecord.Output.Values.Select(x => x.ToExportOutputResponse()).OrderBy(x => x.Type, StringComparer.Ordinal).ToList(),
+                    outcome.JobRecord.Error.Select(x => x.ToExportOutputResponse()).ToList());
 
                 exportResponse = new GetExportResponse(HttpStatusCode.OK, jobResult);
             }

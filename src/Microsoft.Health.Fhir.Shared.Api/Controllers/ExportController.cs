@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (!_exportConfig.Enabled)
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
             }
 
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, HttpContext.RequestAborted);
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (!_exportConfig.Enabled)
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedOperation, OperationsConstants.Export));
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
             }
 
             throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, OperationsConstants.Export));

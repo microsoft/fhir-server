@@ -230,8 +230,8 @@
     <value>Value supplied for the "{0}" header is not supported.</value>
     <comment>{0} is the header name.</comment>
   </data>
-  <data name="UnsupportedOperation" xml:space="preserve">
-    <value>The requested "{0}" operation is not supported.</value>
+  <data name="OperationNotEnabled" xml:space="preserve">
+    <value>The requested "{0}" operation is not enabled</value>
     <comment>{0} is the operation name</comment>
   </data>
   <data name="UnsupportedParameter" xml:space="preserve">
