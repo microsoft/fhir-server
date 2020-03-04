@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// <param name="second">The optional second component.</param>
         /// <param name="fraction">The optional fraction component representing the fraction of second up to 7 digits.</param>
         /// <param name="utcOffset">The optional UTC offset component.</param>
-        public PartialDateTime(
+        private PartialDateTime(
             int year,
             int? month = null,
             int? day = null,
