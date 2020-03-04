@@ -12,6 +12,13 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
+    /// <summary>
+    /// This class implements Resolve functionality that can be used in FHIR Path expressions such as
+    /// Encounter.participant.individual.where(resolve() is Practitioner)
+    /// In this case the "ResourceReference" is parsed into a type (the resolve)
+    /// which can then be type checked against a FHIR Resource.
+    /// Lightweight infers the types are created with minimal effort and with partial data.
+    /// </summary>
     public class LightweightReferenceToElementResolver : IReferenceToElementResolver
     {
         private readonly IReferenceSearchValueParser _referenceParser;
@@ -30,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public ITypedElement Resolve(string reference)
         {
-            if (string.IsNullOrEmpty(reference))
+            if (string.IsNullOrWhiteSpace(reference))
             {
                 return null;
             }
