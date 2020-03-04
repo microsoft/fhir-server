@@ -35,19 +35,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexer"/> class.
         /// </summary>
-        /// <param name="searchParameterDefinitionManager">The search parameter definition manager.</param>
+        /// <param name="searchParameterDefinitionManagerResolver">The search parameter definition manager.</param>
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
         /// <param name="logger">The logger.</param>
         public SearchIndexer(
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IFhirElementToSearchValueTypeConverterManager fhirElementTypeConverterManager,
             ILogger<SearchIndexer> logger)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
             _logger = logger;
         }
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        private static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
+        internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
         {
             switch (searchParamType)
             {
@@ -257,6 +257,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     return typeof(QuantitySearchValue);
                 case SearchParamType.Uri:
                     return typeof(UriSearchValue);
+                case SearchParamType.Special:
+                    return typeof(StringSearchValue);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(searchParamType), searchParamType, null);
             }

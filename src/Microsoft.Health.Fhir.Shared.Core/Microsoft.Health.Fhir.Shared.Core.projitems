@@ -13,10 +13,13 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SupportedSearchParameterDefinitionManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchableSearchParameterDefinitionManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentDefinitionManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentIndexer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\UnsupportedSearchParameters.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseConditionalHandler.cs" />

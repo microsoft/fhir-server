@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
@@ -40,8 +41,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 
             if (findTest != null)
             {
-                bool isCosmosDb = string.Equals(CrucibleDataSource.GetDataStore().ToString(), DataStore.CosmosDb.ToString(), StringComparison.OrdinalIgnoreCase);
-                var knownFailures = KnownCrucibleTests.KnownCommonFailures.Concat(isCosmosDb ? KnownCrucibleTests.KnownCosmosDbFailures : KnownCrucibleTests.KnownSqlServerFailures).ToArray();
+                var knownFailures = KnownCrucibleTests.KnownCommonFailures
+                    .Concat(KnownCrucibleTests.KnowFailuresForDataStore[CrucibleDataSource.GetDataStore()])
+                    .ToArray();
                 var failures = findTest.Result
                     .Where(x =>
                     {

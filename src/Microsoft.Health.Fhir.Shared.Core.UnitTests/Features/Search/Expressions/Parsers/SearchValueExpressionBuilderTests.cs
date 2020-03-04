@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
         public SearchValueExpressionBuilderTests()
         {
-            _parser = new SearchParameterExpressionParser(_searchParameterDefinitionManager, _referenceSearchValueParser);
+            _parser = new SearchParameterExpressionParser(() => _searchParameterDefinitionManager, _referenceSearchValueParser);
         }
 
         public static IEnumerable<object[]> GetNonEqualSearchComparatorAsMemberData()
