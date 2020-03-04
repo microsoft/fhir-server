@@ -742,7 +742,7 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   > [ http://www.opensource.org/licenses/bsd-license.php ]> 
 
-## Polly 7.1.1
+## Polly 7.2.0
 * Component Source:   https://github.com/App-vNext/Polly
 * Component Copyright and License:
   > New BSD License
