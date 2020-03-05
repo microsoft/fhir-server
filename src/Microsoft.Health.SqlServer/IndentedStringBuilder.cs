@@ -8,9 +8,9 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text;
 using EnsureThat;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 
-namespace Microsoft.Health.Fhir.SqlServer
+namespace Microsoft.Health.SqlServer
 {
     /// <summary>
     /// A wrapper around <see cref="StringBuilder"/> that provides methods that insert a indent string and track the current indentation level.

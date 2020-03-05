@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.SqlServer {
+namespace Microsoft.Health.SqlServer {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Microsoft.Health.Fhir.SqlServer.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Microsoft.Health.SqlServer.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -61,20 +61,11 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The provided continuation token is not valid..
+        ///   Looks up a localized string similar to The provided version is unknown..
         /// </summary>
-        internal static string InvalidContinuationToken {
+        internal static string ScriptNotFound {
             get {
-                return ResourceManager.GetString("InvalidContinuationToken", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to There was an internal server error while processing the transaction..
-        /// </summary>
-        internal static string TransactionProcessingException {
-            get {
-                return ResourceManager.GetString("TransactionProcessingException", resourceCulture);
+                return ResourceManager.GetString("ScriptNotFound", resourceCulture);
             }
         }
     }

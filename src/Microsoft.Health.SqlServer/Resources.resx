@@ -117,10 +117,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="InvalidContinuationToken" xml:space="preserve">
-    <value>The provided continuation token is not valid.</value>
-  </data>
-  <data name="TransactionProcessingException" xml:space="preserve">
-    <value>There was an internal server error while processing the transaction.</value>
+  <data name="ScriptNotFound" xml:space="preserve">
+    <value>The provided version is unknown.</value>
   </data>
 </root>

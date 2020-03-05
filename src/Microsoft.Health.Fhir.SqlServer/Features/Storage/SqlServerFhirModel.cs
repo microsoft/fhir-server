@@ -18,9 +18,11 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
@@ -35,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     public sealed class SqlServerFhirModel : IDisposable
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
-        private readonly SchemaInformation _schemaInformation;
+        private readonly ISchemaInformation _schemaInformation;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SecurityConfiguration _securityConfiguration;
@@ -50,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
-            SchemaInformation schemaInformation,
+            ISchemaInformation schemaInformation,
             SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)

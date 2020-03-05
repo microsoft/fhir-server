@@ -10,9 +10,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Configs;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Health
+namespace Microsoft.Health.SqlServer.Features.Health
 {
     /// <summary>
     /// An <see cref="IHealthCheck"/> implementation that verifies connectivity to the SQL database

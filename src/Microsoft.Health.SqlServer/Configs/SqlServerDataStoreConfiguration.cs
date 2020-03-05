@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.SqlServer.Configs
+namespace Microsoft.Health.SqlServer.Configs
 {
     public class SqlServerDataStoreConfiguration
     {

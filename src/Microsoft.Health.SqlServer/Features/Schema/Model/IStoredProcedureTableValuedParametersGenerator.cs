@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
+namespace Microsoft.Health.SqlServer.Features.Schema.Model
 {
     /// <summary>
     /// Generates the full set of table-valued parameters for a stored procedure.

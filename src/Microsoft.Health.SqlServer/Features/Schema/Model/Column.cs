@@ -8,10 +8,10 @@ using System.Buffers;
 using System.Data;
 using System.Data.SqlClient;
 using System.IO;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.SqlServer.Server;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
+namespace Microsoft.Health.SqlServer.Features.Schema.Model
 {
 #pragma warning disable SA1402 // File may only contain a single type. Adding all Column-derived types in this files.
 

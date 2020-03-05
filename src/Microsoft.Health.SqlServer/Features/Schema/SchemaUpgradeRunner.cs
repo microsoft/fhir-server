@@ -7,11 +7,11 @@ using System.Data;
 using System.Data.SqlClient;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.SqlServer.Management.Common;
 using Microsoft.SqlServer.Management.Smo;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
+namespace Microsoft.Health.SqlServer.Features.Schema
 {
     public class SchemaUpgradeRunner
     {

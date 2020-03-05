@@ -7,7 +7,7 @@ using System.Data;
 using System.Data.SqlClient;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
+namespace Microsoft.Health.SqlServer.Features.Schema.Model
 {
     /// <summary>
     /// Represents a parameter definition (not the value) for a SQL stored procedure.

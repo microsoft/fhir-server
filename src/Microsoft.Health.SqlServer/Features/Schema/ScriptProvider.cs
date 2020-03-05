@@ -6,7 +6,7 @@
 using System.IO;
 using System.Reflection;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
+namespace Microsoft.Health.SqlServer.Features.Schema
 {
     public static class ScriptProvider
     {

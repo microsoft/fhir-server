@@ -7,7 +7,7 @@ using System.Data;
 using EnsureThat;
 using Microsoft.SqlServer.Server;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
+namespace Microsoft.Health.SqlServer.Features.Schema.Model
 {
     internal static class SqlMetadataUtilities
     {

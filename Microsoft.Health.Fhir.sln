@@ -128,6 +128,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Integration", "Integration"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DataStore", "DataStore", "{DC5A2CB1-8995-4D39-97FE-3CE80E892C69}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.SqlServer", "src\Microsoft.Health.SqlServer\Microsoft.Health.SqlServer.csproj", "{DC85EEB0-099E-4F15-A557-1A73E9611EAD}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -290,6 +292,10 @@ Global
 		{514B56AD-4E95-46AF-9976-2C68791E157E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{514B56AD-4E95-46AF-9976-2C68791E157E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{514B56AD-4E95-46AF-9976-2C68791E157E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DC85EEB0-099E-4F15-A557-1A73E9611EAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DC85EEB0-099E-4F15-A557-1A73E9611EAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DC85EEB0-099E-4F15-A557-1A73E9611EAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DC85EEB0-099E-4F15-A557-1A73E9611EAD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -350,9 +356,10 @@ Global
 		{85F39C13-BC62-49A0-9C06-3BBA724D35ED} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 		{FCD51BAF-BFE5-476F-B562-C9AB36AA9839} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 		{DC5A2CB1-8995-4D39-97FE-3CE80E892C69} = {7457B218-2651-49B5-BED8-22233889516A}
+		{DC85EEB0-099E-4F15-A557-1A73E9611EAD} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 EndGlobal

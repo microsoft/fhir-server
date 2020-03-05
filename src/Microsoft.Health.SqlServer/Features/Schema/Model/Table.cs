@@ -5,7 +5,7 @@
 
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
+namespace Microsoft.Health.SqlServer.Features.Schema.Model
 {
     /// <summary>
     /// Represents a SQL table.

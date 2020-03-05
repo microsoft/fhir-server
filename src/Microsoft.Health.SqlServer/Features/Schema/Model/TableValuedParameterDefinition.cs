@@ -10,7 +10,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.SqlServer.Server;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
+namespace Microsoft.Health.SqlServer.Features.Schema.Model
 {
     /// <summary>
     /// Represents a table-valued parameter.

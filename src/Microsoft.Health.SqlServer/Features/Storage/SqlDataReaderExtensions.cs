@@ -8,7 +8,7 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
+namespace Microsoft.Health.SqlServer.Features.Storage
 {
     /// <summary>
     /// Provides wrappers around Get* methods on <see cref="SqlDataReader"/> that perform debug checks

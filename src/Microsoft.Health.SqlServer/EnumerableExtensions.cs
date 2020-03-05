@@ -6,7 +6,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Microsoft.Health.Fhir.SqlServer
+namespace Microsoft.Health.SqlServer
 {
     internal static class EnumerableExtensions
     {

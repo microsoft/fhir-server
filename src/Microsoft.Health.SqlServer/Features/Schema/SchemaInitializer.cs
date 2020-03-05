@@ -9,22 +9,23 @@ using System.Data.SqlClient;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.SqlServer.Management.SqlParser.SqlCodeDom;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
+namespace Microsoft.Health.SqlServer.Features.Schema
 {
     /// <summary>
     /// EXPERIMENTAL - Initializes the sql schema and brings the schema up to the min supported version.
     /// The purpose of this it to enable easy scenarios during development and will likely be removed later.
     /// </summary>
-    public class SchemaInitializer : IStartable
+    public class SchemaInitializer<T> : IStartable
     {
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
-        private readonly SchemaInformation _schemaInformation;
-        private readonly ILogger<SchemaInitializer> _logger;
+        private readonly ISchemaInformation _schemaInformation;
+        private readonly ILogger<SchemaInitializer<T>> _logger;
 
-        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner schemaUpgradeRunner, SchemaInformation schemaInformation, ILogger<SchemaInitializer> logger)
+        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner schemaUpgradeRunner, ISchemaInformation schemaInformation, ILogger<SchemaInitializer<T>> logger)
         {
             EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
             EnsureArg.IsNotNull(schemaUpgradeRunner, nameof(schemaUpgradeRunner));
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 else
                 {
                     // Apply the maximum supported version. This won't consider the .diff.sql files.
-                    _schemaUpgradeRunner.ApplySchema((int)_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
+                    _schemaUpgradeRunner.ApplySchema(_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
                 }
 
                 GetCurrentSchemaVersion();
@@ -69,8 +70,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             if (_schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
             {
                 // Apply each .diff.sql file one by one.
-                int current = (int?)_schemaInformation.Current ?? 0;
-                for (int i = current + 1; i <= (int)_schemaInformation.MaximumSupportedVersion; i++)
+                int current = _schemaInformation.Current ?? 0;
+                for (int i = current + 1; i <= _schemaInformation.MaximumSupportedVersion; i++)
                 {
                     _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
                 }
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                         command.CommandText = $"{procedureSchema}.{procedureName}";
                         command.CommandType = CommandType.StoredProcedure;
 
-                        _schemaInformation.Current = (SchemaVersion?)(int?)command.ExecuteScalar();
+                        _schemaInformation.Current = (int?)command.ExecuteScalar();
                     }
                 }
             }
