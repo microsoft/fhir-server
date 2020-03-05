@@ -5,6 +5,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants>R5</DefineConstants>
+    <NoWarn>$(NoWarn);NU1603</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
