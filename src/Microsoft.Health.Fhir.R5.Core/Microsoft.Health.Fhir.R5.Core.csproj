@@ -26,7 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.0" />
-    <PackageReference Include="Hl7.Fhir.R5" Version="1.6.0-alpha-20200211-1" />
+    <PackageReference Include="Hl7.Fhir.R5" Version="1.7.0-alpha-20200304-22" />
     <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
