@@ -27,33 +27,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("05-18T23:57")]
         [InlineData("05-18T23:57:09")]
         [InlineData("05-18T23:57:09.931094")]
-        [InlineData("05-18T23:57%2B01:00")]
-        [InlineData("05-18T23:57:09%2B01:00")]
-        [InlineData("05-18T23:57:09.931094%2B01:00")]
+        [InlineData("05-18T23:57+01:00")]
+        [InlineData("05-18T23:57:09+01:00")]
+        [InlineData("05-18T23:57:09.931094+01:00")]
         [InlineData("2013-05T23:57")] // Month/date needs to be specified.
         [InlineData("2013-05T23:57:09")]
         [InlineData("2013-05T23:57:09.931094")]
-        [InlineData("2013-05T23:57%2B01:00")]
-        [InlineData("2013-05T23:57:09%2B01:00")]
-        [InlineData("2013-05T23:57:09.931094%2B01:00")]
+        [InlineData("2013-05T23:57+01:00")]
+        [InlineData("2013-05T23:57:09+01:00")]
+        [InlineData("2013-05T23:57:09.931094+01:00")]
         [InlineData("2013T23:57")] // Month and date need to be specified.
         [InlineData("2013T23:57:09")]
         [InlineData("2013T23:57:09.931094")]
-        [InlineData("2013T23:57%2B01:00")]
-        [InlineData("2013T23:57:09%2B01:00")]
-        [InlineData("2013T23:57:09.931094%2B01:00")]
+        [InlineData("2013T23:57+01:00")]
+        [InlineData("2013T23:57:09+01:00")]
+        [InlineData("2013T23:57:09.931094+01:00")]
         [InlineData("T23:57")] // Year, month and date need to be specified.
         [InlineData("T23:57:09")]
         [InlineData("T23:57:09.931094")]
-        [InlineData("T23:57%2B01:00")]
-        [InlineData("T23:57:09%2B01:00")]
-        [InlineData("T23:57:09.931094%2B01:00")]
+        [InlineData("T23:57+01:00")]
+        [InlineData("T23:57:09+01:00")]
+        [InlineData("T23:57:09.931094+01:00")]
         [InlineData("2013-05-18T23:09.931094")] // Hour/minute/second needs to be specified.
-        [InlineData("2013-05-18T23:09.931094%2B01:00")]
+        [InlineData("2013-05-18T23:09.931094+01:00")]
         [InlineData("2013-05-18T09.931094")] // Hour and minute need to be specified.
-        [InlineData("2013-05-18T09.931094%2B01:00")]
+        [InlineData("2013-05-18T09.931094+01:00")]
         [InlineData("2013-05-18T.931094")] // Hour, minute and second need to be specified.
-        [InlineData("2013-05-18T.931094%2B01:00")]
+        [InlineData("2013-05-18T.931094+01:00")]
         public void GivenPreviousParamIsNotSpecified_WhenParsingPartialDateTime_ThenExceptionShouldBeThrown(string inputString)
         {
             Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
@@ -63,9 +63,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         }
 
         [Theory]
-        [InlineData("2013%2B01:00")] // Time needs to be specified if UTC offset is specified.
-        [InlineData("2013-05%2B01:00")]
-        [InlineData("2013-05-18%2B01:00")]
+        [InlineData("2013+01:00")] // Time needs to be specified if UTC offset is specified.
+        [InlineData("2013-05+01:00")]
+        [InlineData("2013-05-18+01:00")]
         public void GivenUtcOffsetButNoTime_WhenParsingPartialDateTime_ThenExceptionShouldBeThrown(string inputString)
         {
             Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
 
         [Theory]
         [InlineData("2013-05-18T23")] // Minutes need to be specified if hour is specified.
-        [InlineData("2013-05-18T23%2B01:00")]
+        [InlineData("2013-05-18T23+01:00")]
         public void GivenHourIsSpecifiedWithoutMinutes_WhenParsingPartialDateTime_ThenExceptionShouldBeThrown(string inputString)
         {
             Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
@@ -86,21 +86,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         }
 
         [Theory]
-        [InlineData("0000-05-18T23:57:09.931094%2B01:00")] // Year cannot be less than 1.
-        [InlineData("10000-05-18T23:57:09.931094%2B01:00")] // Year cannot be greater than 9999.
-        [InlineData("2013-00-18T23:57:09.931094%2B01:00")] // Month cannot be less than 1.
-        [InlineData("2013-13-18T23:57:09.931094%2B01:00")] // Month cannot be greater than 12.
-        [InlineData("2013-05-00T23:57:09.931094%2B01:00")] // Day cannot be less than 1.
-        [InlineData("2013-05-32T23:57:09.931094%2B01:00")] // Day cannot be greater than 31 in May.
-        [InlineData("2013-02-29T23:57:09.931094%2B01:00")] // Day cannot be greater than 28 in non-leap year.
-        [InlineData("2020-02-30T23:57:09.931094%2B01:00")] // Day cannot be greater than 29 in leap year.
-        [InlineData("2013-05-18T-01:57:09.931094%2B01:00")] // Hour cannot be less than 0.
+        [InlineData("0000-05-18T23:57:09.931094+01:00")] // Year cannot be less than 1.
+        [InlineData("10000-05-18T23:57:09.931094+01:00")] // Year cannot be greater than 9999.
+        [InlineData("2013-00-18T23:57:09.931094+01:00")] // Month cannot be less than 1.
+        [InlineData("2013-13-18T23:57:09.931094+01:00")] // Month cannot be greater than 12.
+        [InlineData("2013-05-00T23:57:09.931094+01:00")] // Day cannot be less than 1.
+        [InlineData("2013-05-32T23:57:09.931094+01:00")] // Day cannot be greater than 31 in May.
+        [InlineData("2013-02-29T23:57:09.931094+01:00")] // Day cannot be greater than 28 in non-leap year.
+        [InlineData("2020-02-30T23:57:09.931094+01:00")] // Day cannot be greater than 29 in leap year.
+        [InlineData("2013-05-18T-01:57:09.931094+01:00")] // Hour cannot be less than 0.
         [InlineData("2013-05-18T24:00:00Z")] // Hour cannot be greater than 23.
-        [InlineData("2013-05-18T23:-01:09.931094%2B01:00")] // Minute cannot be less than 0.
+        [InlineData("2013-05-18T23:-01:09.931094+01:00")] // Minute cannot be less than 0.
         [InlineData("2013-05-18T23:60:00Z")] // Minute cannot be greater than 59.
-        [InlineData("2013-05-18T23:57:-01.931094%2B01:00")] // Second cannot be less than 0.
+        [InlineData("2013-05-18T23:57:-01.931094+01:00")] // Second cannot be less than 0.
         [InlineData("2013-05-18T23:57:60Z")] // Second cannot be greater than 59.
-        [InlineData("2013-05-18T23:57:09.999999999999999999999999%2B01:00")] // Fraction cannot be rounded up to 1 minute.
+        [InlineData("2013-05-18T23:57:09.999999999999999999999999+01:00")] // Fraction cannot be rounded up to 1 minute.
         public void GivenAOutOfRangeParameter_WhenInitializing_ThenExceptionShouldBeThrown(string inputString)
         {
             Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             yield return new object[] { "1999", 1999, null, null, null, null, null, null, null };
             yield return new object[] { "1999-10", 1999, 10, null, null, null, null, null, null };
             yield return new object[] { "1999-10-01", 1999, 10, 1, null, null, null, null, null };
-            yield return new object[] { "1999-10-18T12:35%2B01:00", 1999, 10, 18, 12, 35, null, null, 60 };
+            yield return new object[] { "1999-10-18T12:35+01:00", 1999, 10, 18, 12, 35, null, null, 60 };
             yield return new object[] { "1999-10-18T12:35:55-02:30", 1999, 10, 18, 12, 35, 55, null, -150 };
             yield return new object[] { "1999-10-18T12:35:55Z", 1999, 10, 18, 12, 35, 55, null, 0 };
             yield return new object[] { "1999-10-18T12:35:55.9991532-02:30", 1999, 10, 18, 12, 35, 55, 0.9991532m, -150 };
@@ -175,7 +175,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("")]
         [InlineData("    ")]
         [InlineData("        ")]
-        [InlineData(null)]
         public void GivenAnEmptyStringOrWhiteSpaces_WhenParsing_ThenArgumentExceptionShouldBeThrown(string inputString)
         {
             Assert.Throws<ArgumentException>(() => PartialDateTime.Parse(inputString));
@@ -236,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [Fact]
         public void GivenAPartialDateTimeWithNoMissingComponent_WhenToDateTimeOffsetIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
-            var dateTime = PartialDateTime.Parse("2013-10-12T23:01:35.9995555%2B02:00");
+            var dateTime = PartialDateTime.Parse("2013-10-12T23:01:35.9995555+02:00");
 
             var actualOffset = dateTime.ToDateTimeOffset(
                 2,
